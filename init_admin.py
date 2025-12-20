@@ -28,9 +28,11 @@ def create_admin():
         
         admin_user = User(
             username="admin",
-            password=hashed_password,
-            email="admin@aviation-mro.com",
-            role="admin"
+            password_hash=hashed_password,
+            first_name="Admin",
+            last_name="User",
+            role="admin",
+            is_active=True
         )
         
         db.add(admin_user)

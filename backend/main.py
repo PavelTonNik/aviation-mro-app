@@ -61,9 +61,11 @@ def startup_event():
             hashed_password = hashlib.sha256("admin123".encode()).hexdigest()
             admin_user = models.User(
                 username="admin",
-                password=hashed_password,
-                email="admin@aviation-mro.com",
-                role="admin"
+                password_hash=hashed_password,
+                first_name="Admin",
+                last_name="User",
+                role="admin",
+                is_active=True
             )
             db.add(admin_user)
             db.commit()
