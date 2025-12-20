@@ -54,6 +54,21 @@ def startup_event():
     # Открываем сессию базы данных
     db = database.SessionLocal()
     try:
+        # 0. Создаем админа если его нет
+        admin_user = db.query(models.User).filter(models.User.username == "admin").first()
+        if not admin_user:
+            print("🚀 Creating default admin user...")
+            hashed_password = hashlib.sha256("admin123".encode()).hexdigest()
+            admin_user = models.User(
+                username="admin",
+                password=hashed_password,
+                email="admin@aviation-mro.com",
+                role="admin"
+            )
+            db.add(admin_user)
+            db.commit()
+            print("✅ Admin user created: admin / admin123")
+        
         # 1. Если нет Локаций -> Создаем базовые (SHJ, FRU, DXB, MIAMI, ROME)
         if not db.query(models.Location).first():
             print("База пуста. Создаем пустые окна Локаций...")
