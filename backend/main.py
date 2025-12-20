@@ -160,7 +160,7 @@ def get_db():
         db.close()
 
 # Current user resolver: requires ?user_id= in query params (admin-only endpoints)
-def get_current_user(user_id: int = Query(..., alias="user_id"), db: Session = Depends(get_db)):
+def get_current_user(user_id: int = Query(...), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
