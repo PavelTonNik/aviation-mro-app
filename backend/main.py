@@ -159,6 +159,15 @@ def get_db():
     finally:
         db.close()
 
+# Current user resolver: requires ?user_id= in query params (admin-only endpoints)
+def get_current_user(user_id: int = Query(..., alias="user_id"), db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="User account is disabled")
+    return user
+
 def parse_input_date(date_value: Optional[str]):
     """Convert user-supplied date strings to datetime objects when possible."""
     if not date_value:
@@ -2883,15 +2892,6 @@ def delete_utilization_parameter(param_id: int, db: Session = Depends(get_db)):
 
 
 # --- AUTHENTICATION & USER MANAGEMENT ENDPOINTS ---
-
-def get_current_user(user_id: int = Query(..., alias="user_id"), db: Session = Depends(get_db)):
-    """Get current user from request"""
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    if not user.is_active:
-        raise HTTPException(status_code=403, detail="User account is disabled")
-    return user
 
 @app.post("/api/auth/login")
 def login(credentials: LoginSchema, db: Session = Depends(get_db)):
