@@ -8187,7 +8187,7 @@ function restoreView(viewName) {
 
         try {
             // 3. Отправляем на сервер
-            const res = await fetch('/api/engines', {
+            const res = await fetch(`/api/engines?user_id=${currentUser.id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)

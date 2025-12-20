@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi import FastAPI, Depends, HTTPException, Query, status, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -713,7 +713,7 @@ class AircraftUpdateSchema(BaseModel):
     msn: Optional[str] = None
 
 @app.post("/api/aircrafts")
-def create_aircraft(data: AircraftCreateSchema, current_user_id: int = Query(...), db: Session = Depends(get_db)):
+def create_aircraft(data: AircraftCreateSchema, current_user_id: int = Query(..., alias="user_id"), db: Session = Depends(get_db)):
     """Create new aircraft"""
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user or user.role != "admin":
@@ -1115,7 +1115,7 @@ class EngineCreateSchema(BaseModel):
     removed_from: Optional[str] = None
 
 @app.post("/api/engines")
-def create_engine(data: EngineCreateSchema, current_user_id: int = Query(...), db: Session = Depends(get_db)):
+def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., alias="user_id"), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user or user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can create engines")
@@ -2955,7 +2955,7 @@ def get_all_users(db: Session = Depends(get_db)):
 
 
 @app.post("/api/users")
-def create_user(data: UserCreateSchema, current_user_id: int = Query(...), db: Session = Depends(get_db)):
+def create_user(data: UserCreateSchema, current_user_id: int = Query(..., alias="user_id"), db: Session = Depends(get_db)):
     """Create new user (admin only)"""
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user or user.role != "admin":
@@ -2992,8 +2992,18 @@ def create_user(data: UserCreateSchema, current_user_id: int = Query(...), db: S
 
 
 @app.put("/api/users/{user_id}")
-def update_user(user_id: int, data: UserUpdateSchema, current_user_id: int = Query(...), db: Session = Depends(get_db)):
+def update_user(user_id: int, data: UserUpdateSchema, request: Request, current_user_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
     """Update user (admin only)"""
+    # Allow frontend to pass acting admin via ?user_id= without name conflicts
+    if current_user_id is None:
+        actor_q = request.query_params.get("user_id")
+        if actor_q is None:
+            raise HTTPException(status_code=422, detail="Missing user_id")
+        try:
+            current_user_id = int(actor_q)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid user_id")
+
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user or user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can update users")
@@ -3024,8 +3034,17 @@ def update_user(user_id: int, data: UserUpdateSchema, current_user_id: int = Que
 
 
 @app.delete("/api/users/{user_id}")
-def delete_user(user_id: int, current_user_id: int = Query(...), db: Session = Depends(get_db)):
+def delete_user(user_id: int, request: Request, current_user_id: Optional[int] = Query(None), db: Session = Depends(get_db)):
     """Delete user (admin only)"""
+    if current_user_id is None:
+        actor_q = request.query_params.get("user_id")
+        if actor_q is None:
+            raise HTTPException(status_code=422, detail="Missing user_id")
+        try:
+            current_user_id = int(actor_q)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid user_id")
+
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user or user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can delete users")
