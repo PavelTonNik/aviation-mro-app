@@ -159,14 +159,7 @@ def get_db():
     finally:
         db.close()
 
-# Current user resolver: requires ?user_id= in query params (admin-only endpoints)
-def get_current_user(user_id: int = Query(...), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    if not user.is_active:
-        raise HTTPException(status_code=403, detail="User account is disabled")
-    return user
+
 
 def parse_input_date(date_value: Optional[str]):
     """Convert user-supplied date strings to datetime objects when possible."""
@@ -703,9 +696,10 @@ class AircraftUpdateSchema(BaseModel):
     msn: Optional[str] = None
 
 @app.post("/api/aircrafts")
-def create_aircraft(data: AircraftCreateSchema, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_aircraft(data: AircraftCreateSchema, current_user_id: int = Query(...), db: Session = Depends(get_db)):
     """Create new aircraft"""
-    if current_user.role != "admin":
+    user = db.query(models.User).filter(models.User.id == current_user_id).first()
+    if not user or user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can create aircraft")
     
     existing = db.query(models.Aircraft).filter(
@@ -1104,8 +1098,9 @@ class EngineCreateSchema(BaseModel):
     removed_from: Optional[str] = None
 
 @app.post("/api/engines")
-def create_engine(data: EngineCreateSchema, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.role != "admin":
+def create_engine(data: EngineCreateSchema, current_user_id: int = Query(...), db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.id == current_user_id).first()
+    if not user or user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can create engines")
     
     # Проверяем, существует ли уже двигатель с таким original_sn
@@ -2943,9 +2938,10 @@ def get_all_users(db: Session = Depends(get_db)):
 
 
 @app.post("/api/users")
-def create_user(data: UserCreateSchema, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def create_user(data: UserCreateSchema, current_user_id: int = Query(...), db: Session = Depends(get_db)):
     """Create new user (admin only)"""
-    if current_user.role != "admin":
+    user = db.query(models.User).filter(models.User.id == current_user_id).first()
+    if not user or user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can create users")
     
     # Check if username exists
@@ -2979,9 +2975,10 @@ def create_user(data: UserCreateSchema, current_user: models.User = Depends(get_
 
 
 @app.put("/api/users/{user_id}")
-def update_user(user_id: int, data: UserUpdateSchema, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_user(user_id: int, data: UserUpdateSchema, current_user_id: int = Query(...), db: Session = Depends(get_db)):
     """Update user (admin only)"""
-    if current_user.role != "admin":
+    user = db.query(models.User).filter(models.User.id == current_user_id).first()
+    if not user or user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can update users")
     
     user = db.query(models.User).filter(models.User.id == user_id).first()
@@ -3010,9 +3007,10 @@ def update_user(user_id: int, data: UserUpdateSchema, current_user: models.User 
 
 
 @app.delete("/api/users/{user_id}")
-def delete_user(user_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_user(user_id: int, current_user_id: int = Query(...), db: Session = Depends(get_db)):
     """Delete user (admin only)"""
-    if current_user.role != "admin":
+    user = db.query(models.User).filter(models.User.id == current_user_id).first()
+    if not user or user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can delete users")
     
     user = db.query(models.User).filter(models.User.id == user_id).first()
