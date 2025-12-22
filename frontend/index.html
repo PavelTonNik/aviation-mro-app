@@ -84,17 +84,6 @@
             text-transform: uppercase;
             opacity: 0.85;
         }
-    } catch (error) {
-        console.error('Dashboard load error:', error);
-        const locContainer = document.getElementById('locations-container');
-        if (locContainer) {
-            locContainer.innerHTML = `<div class="col-12 text-muted">Locations not available</div>`;
-        }
-        const fleetContainer = document.getElementById('fleet-container');
-        if (fleetContainer) {
-            fleetContainer.innerHTML = `<div class="col-12 text-muted">Fleet data not available</div>`;
-        }
-
         .btn-dashboard .count {
             font-size: 1.9rem;
             font-weight: 700;
@@ -3835,38 +3824,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-
-<!-- Global App Alert Modal (replaces browser alert) -->
-<div class="modal fade" id="app-alert-modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow-lg border-0">
-            <div class="modal-header border-0">
-                <h5 class="modal-title fw-bold text-primary">Notification</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body fs-6" id="app-alert-message"></div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    // Override native alert to use a centered Bootstrap modal that matches site style
-    (function() {
-        const modalEl = document.getElementById('app-alert-modal');
-        const msgEl = document.getElementById('app-alert-message');
-        const modal = new bootstrap.Modal(modalEl, {backdrop: 'static', keyboard: true});
-        window.alert = function(message) {
-            if (!msgEl) return window.originalAlert ? window.originalAlert(message) : console.warn(message);
-            msgEl.textContent = message;
-            modal.show();
-        };
-    })();
-</script>
     // --- 1. Sidebar Toggle ---
-    
+
     const wrapper = document.getElementById("wrapper");
     
     // Логика Сэндвича
