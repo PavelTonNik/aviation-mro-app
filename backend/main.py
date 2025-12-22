@@ -1135,6 +1135,7 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
 
 # СОЗДАНИЕ НОВОГО ДВИГАТЕЛЯ
 class EngineCreateSchema(BaseModel):
+    date: Optional[str] = None
     original_sn: str
     gss_sn: Optional[str] = None
     current_sn: str
@@ -1163,6 +1164,15 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
     if not data.location_id:
         raise HTTPException(400, "location_id is required for creating new engine")
     
+    # Парсим дату если передана
+    install_date = None
+    if data.date:
+        try:
+            from datetime import datetime
+            install_date = datetime.fromisoformat(data.date.replace('Z', '+00:00'))
+        except:
+            install_date = None
+    
     # Создаем новый двигатель
     new_engine = models.Engine(
         original_sn=data.original_sn,
@@ -1175,7 +1185,8 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
         total_cycles=data.total_cycles,
         photo_url=data.photo_url,
         remarks=data.remarks,
-        removed_from=data.removed_from
+        removed_from=data.removed_from,
+        install_date=install_date
     )
     
     db.add(new_engine)

@@ -3473,6 +3473,7 @@
                             <div class="d-flex justify-content-end mb-2 gap-2">
                                 <button class="btn btn-sm btn-primary" onclick="loadMainTable()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                                 <button class="btn btn-sm btn-warning" id="btn-main-edit" onclick="toggleEditMode()"><i class="bi bi-pencil-square"></i> Edit Table</button>
+                                <button class="btn btn-sm btn-info" id="btn-main-filter" onclick="toggleEngineFilter()" title="Filter"><i class="bi bi-funnel"></i> Filter</button>
                                 <button class="btn btn-sm btn-success d-none" id="btn-main-save" onclick="saveEditMode()"><i class="bi bi-check-lg"></i> Save Changes</button>
                                 <button class="btn btn-sm btn-secondary d-none" id="btn-main-cancel" onclick="cancelEditMode()"><i class="bi bi-x-lg"></i> Cancel</button>
                             </div>
@@ -3497,6 +3498,37 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Выдвижная панель фильтра -->
+                <div id="engine-filter-panel" class="position-fixed" style="right: -350px; top: 0; width: 350px; height: 100vh; background: white; border-left: 1px solid #ddd; box-shadow: -2px 0 8px rgba(0,0,0,0.1); z-index: 1000; transition: right 0.3s ease; padding: 20px; overflow-y: auto;">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="mb-0">Filter Engines</h5>
+                        <button class="btn btn-close" onclick="toggleEngineFilter()"></button>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">Date</label>
+                        <input type="date" class="form-control" id="engine-date-filter" onchange="filterEnginesByDate()">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">Status</label>
+                        <select class="form-select" id="engine-status-filter" onchange="filterEnginesByStatus()">
+                            <option value="">All Status</option>
+                            <option value="SV">SV (Serviceable)</option>
+                            <option value="US">US (Unserviceable)</option>
+                            <option value="INSTALLED">INSTALLED</option>
+                            <option value="REMOVED">REMOVED</option>
+                            <option value="AS">AS (As Removed)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-primary w-100" onclick="applyEngineFilters()">Apply Filters</button>
+                        <button class="btn btn-sm btn-outline-secondary w-100" onclick="clearEngineFilters()">Clear All</button>
+                    </div>
+                </div>
+                <div id="engine-filter-overlay" class="position-fixed" style="display: none; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); z-index: 999;" onclick="toggleEngineFilter()"></div>
 
                 <!-- TAB 2: ADD NEW -->
                 <div id="tab-main-add" style="display: none;">
@@ -6695,71 +6727,138 @@ function restoreView(viewName) {
         if(t === 'add') loadLocationsForForm();
     }
 
+    // Сохраняем полный список двигателей для фильтрации
+    let allEnginesData = [];
+    let engineFilterState = { date: '', status: '' };
+    
+    function toggleEngineFilter() {
+        const panel = document.getElementById('engine-filter-panel');
+        const overlay = document.getElementById('engine-filter-overlay');
+        const isOpen = panel.style.right === '0px';
+        
+        if(isOpen) {
+            panel.style.right = '-350px';
+            overlay.style.display = 'none';
+        } else {
+            panel.style.right = '0px';
+            overlay.style.display = 'block';
+        }
+    }
+    
+    function applyEngineFilters() {
+        const dateVal = document.getElementById('engine-date-filter').value;
+        const statusVal = document.getElementById('engine-status-filter').value;
+        
+        engineFilterState.date = dateVal;
+        engineFilterState.status = statusVal;
+        
+        let filtered = allEnginesData;
+        
+        if(dateVal) {
+            filtered = filtered.filter(eng => {
+                const engDate = eng.install_date ? eng.install_date.split('T')[0] : '';
+                return engDate === dateVal;
+            });
+        }
+        
+        if(statusVal) {
+            filtered = filtered.filter(eng => eng.status === statusVal);
+        }
+        
+        renderEngineTable(filtered);
+    }
+    
+    function filterEnginesByDate() {
+        // Этот метод вызывается при изменении даты, но применяет фильтры автоматически
+        const dateVal = document.getElementById('engine-date-filter').value;
+        engineFilterState.date = dateVal;
+        applyEngineFilters();
+    }
+    
+    function filterEnginesByStatus() {
+        // Этот метод вызывается при изменении статуса, но применяет фильтры автоматически
+        const statusVal = document.getElementById('engine-status-filter').value;
+        engineFilterState.status = statusVal;
+        applyEngineFilters();
+    }
+    
+    function clearEngineFilters() {
+        document.getElementById('engine-date-filter').value = '';
+        document.getElementById('engine-status-filter').value = '';
+        engineFilterState = { date: '', status: '' };
+        renderEngineTable(allEnginesData);
+    }
+    
     async function loadMainTable() {
         const tb = document.getElementById('main-engine-body');
         tb.innerHTML = '<tr><td colspan="11" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
         
         try {
-            // Загружаем все двигатели с сервера
             const res = await fetch('/api/engines' + noCache());
             const engines = await res.json();
-            
-            tb.innerHTML = '';
-            
-            if(engines.length === 0) {
-                tb.innerHTML = '<tr><td colspan="11" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
-                return;
-            }
-            
-            engines.forEach((eng) => {
-                let badge = 'bg-secondary';
-                if(eng.status === 'SV') badge = 'bg-success'; // Зеленый
-                if(eng.status === 'US') badge = 'bg-danger'; // Красный
-                if(eng.status === 'INSTALLED') badge = 'bg-primary'; // Синий
-                if(eng.status === 'REMOVED') badge = 'bg-warning'; // Желтый
-
-                const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank"><i class="bi bi-image"></i></a>` : '-';
-                const model = eng.model || '-';
-                const location = eng.location || '-';
-                const remarks = eng.remarks || '-';
-                const removedFrom = eng.removed_from || '-';
-                const installDate = eng.install_date || '-';
-
-                tb.innerHTML += `
-                    <tr data-engine-id="${eng.id}" 
-                        data-original-sn="${eng.original_sn}" 
-                        data-gss-sn="${eng.gss_sn}" 
-                        data-model="${model}" 
-                        data-status="${eng.status}"
-                        data-tt="${eng.tt}"
-                        data-tc="${eng.tc}"
-                        data-location="${location}"
-                        data-remarks="${remarks}"
-                        data-removed-from="${removedFrom}"
-                        data-photo="${eng.photo_url || ''}">>
-                        <td class="delete-col" style="display: none;">
-                            <button class="btn btn-sm btn-danger" onclick="deleteEngine(${eng.id}, '${eng.original_sn}')" title="Delete">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </td>
-                        <td data-key="date">${installDate}</td>
-                        <td data-key="model">${model}</td>
-                        <td data-key="esn" class="fw-bold">${eng.original_sn}</td>
-                        <td data-key="gss">${eng.gss_sn}</td>
-                        <td data-key="status"><span class="badge ${badge}">${eng.status}</span></td>
-                        <td data-key="tt">${eng.tt}</td>
-                        <td data-key="tc">${eng.tc}</td>
-                        <td data-key="moved">${location}</td>
-                        <td data-key="removed">${removedFrom}</td>
-                        <td data-key="rem">${remarks}</td>
-                        <td data-key="photo">${photo}</td>
-                    </tr>
-                `;
-            });
+            allEnginesData = engines;
+            renderEngineTable(engines);
         } catch(e) {
             console.error('Ошибка загрузки двигателей:', e);
             tb.innerHTML = '<tr><td colspan="11" class="text-center text-danger">Error loading engines. Check console.</td></tr>';
         }
+    }
+    
+    function renderEngineTable(engines) {
+        const tb = document.getElementById('main-engine-body');
+        tb.innerHTML = '';
+        
+        if(engines.length === 0) {
+            tb.innerHTML = '<tr><td colspan="11" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
+            return;
+        }
+        
+        engines.forEach((eng) => {
+            let badge = 'bg-secondary';
+            if(eng.status === 'SV') badge = 'bg-success';
+            if(eng.status === 'US') badge = 'bg-danger';
+            if(eng.status === 'INSTALLED') badge = 'bg-primary';
+            if(eng.status === 'REMOVED') badge = 'bg-warning';
+
+            const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank"><i class="bi bi-image"></i></a>` : '-';
+            const model = eng.model || '-';
+            const location = eng.location || '-';
+            const remarks = eng.remarks || '-';
+            const removedFrom = eng.removed_from || '-';
+            const installDate = eng.install_date || '-';
+
+            tb.innerHTML += `
+                <tr data-engine-id="${eng.id}" 
+                    data-original-sn="${eng.original_sn}" 
+                    data-gss-sn="${eng.gss_sn}" 
+                    data-model="${model}" 
+                    data-status="${eng.status}"
+                    data-tt="${eng.tt}"
+                    data-tc="${eng.tc}"
+                    data-location="${location}"
+                    data-remarks="${remarks}"
+                    data-removed-from="${removedFrom}"
+                    data-photo="${eng.photo_url || ''}"
+                    data-install-date="${installDate}">
+                    <td class="delete-col" style="display: none;">
+                        <button class="btn btn-sm btn-danger" onclick="deleteEngine(${eng.id}, '${eng.original_sn}')" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                    <td data-key="date">${installDate}</td>
+                    <td data-key="model">${model}</td>
+                    <td data-key="esn" class="fw-bold">${eng.original_sn}</td>
+                    <td data-key="gss">${eng.gss_sn}</td>
+                    <td data-key="status"><span class="badge ${badge}">${eng.status}</span></td>
+                    <td data-key="tt">${eng.tt}</td>
+                    <td data-key="tc">${eng.tc}</td>
+                    <td data-key="moved">${location}</td>
+                    <td data-key="removed">${removedFrom}</td>
+                    <td data-key="rem">${remarks}</td>
+                    <td data-key="photo">${photo}</td>
+                </tr>
+            `;
+        });
     }
 
     // --- EDIT MODE LOGIC ---
@@ -8154,6 +8253,7 @@ function restoreView(viewName) {
     async function submitMainEngine() {
         // 1. Собираем значения из полей
         const esn = document.getElementById('m-esn').value;
+        const date = document.getElementById('m-date').value;
         const locationId = document.getElementById('m-location').value;
         
         // Простая валидация
@@ -8172,6 +8272,7 @@ function restoreView(viewName) {
 
         // 2. Создаем объект для отправки на сервер
         const payload = {
+            date: date,
             original_sn: esn,
             gss_sn: document.getElementById('m-gssid').value || esn,
             current_sn: esn,
