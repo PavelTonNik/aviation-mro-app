@@ -70,6 +70,27 @@ def startup_event():
             db.add(admin_user)
             db.commit()
             print("✅ Admin user created: admin / admin123")
+        else:
+            # Ensure admin account is valid (role, active, password hash)
+            changed = False
+            if not admin_user.is_active:
+                admin_user.is_active = True
+                changed = True
+            if admin_user.role != "admin":
+                admin_user.role = "admin"
+                changed = True
+            if not getattr(admin_user, "password_hash", None) or len(admin_user.password_hash) != 64:
+                admin_user.password_hash = hashlib.sha256("admin123".encode()).hexdigest()
+                changed = True
+            if not admin_user.first_name:
+                admin_user.first_name = "Admin"
+                changed = True
+            if not admin_user.last_name:
+                admin_user.last_name = "User"
+                changed = True
+            if changed:
+                db.commit()
+                print("🔧 Admin user normalized (role/active/password).")
         
         # 1. Если нет Локаций -> Создаем базовые (SHJ, FRU, DXB, MIAMI, ROME)
         if not db.query(models.Location).first():
