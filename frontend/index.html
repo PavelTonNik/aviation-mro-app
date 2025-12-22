@@ -10341,11 +10341,13 @@ function applyRolePermissions() {
     if (!isAdmin() && usersBtn) usersBtn.style.display = 'none';
 
     if (isViewer()) {
-        // Read-only: disable all interactive inputs/buttons except navigation/header
+        // Read-only: disable most inputs/buttons, but allow dashboard/status & engine ring interactions
         const scope = document.getElementById('page-content-wrapper') || document.body;
         scope.querySelectorAll('input, select, textarea, button').forEach(el => {
-            const allowIds = ['menu-toggle','notifications-btn','user-profile-btn','settings-btn'];
-            if (allowIds.includes(el.id)) return;
+            const allowIds = ['menu-toggle','notifications-btn','user-profile-btn','settings-btn','engine-toggle-btn'];
+            const allowClasses = ['btn-dashboard','engine-menu-item'];
+            const isAllowed = allowIds.includes(el.id) || allowClasses.some(cls => el.classList.contains(cls));
+            if (isAllowed) return; // allow viewer to open status tables and engine quick menu
             if (el.closest('#login-modal')) return;
             el.disabled = true;
             el.style.pointerEvents = 'none';
