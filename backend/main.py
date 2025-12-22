@@ -596,23 +596,35 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return hash_password(plain_password) == hashed_password
 
 
+def resolve_actor_name(db: Session, user_id: Optional[int], fallback: str = "User") -> str:
+    """Resolve actor username by id with graceful fallback."""
+    if not user_id:
+        return fallback
+    user_obj = db.query(models.User).filter(models.User.id == user_id).first()
+    return user_obj.username if user_obj and user_obj.username else fallback
+
+
 def create_notification(db: Session, action_type: str, entity_type: str, 
                        entity_id: int, message: str, performed_by: str,
-                       user_id: Optional[int] = None):
-    """Create notification for admins"""
+                       user_id: Optional[int] = None,
+                       performed_by_user_id: Optional[int] = None):
+    """Create notification for admins (performed_by_user_id overrides performed_by)."""
     # Support dict messages by encoding to JSON for rich details
     if isinstance(message, (dict, list)):
         try:
             message = json.dumps(message, ensure_ascii=False)
         except Exception:
             message = str(message)
+    actor_name = performed_by
+    if performed_by_user_id is not None:
+        actor_name = resolve_actor_name(db, performed_by_user_id, performed_by)
     notification = models.Notification(
         user_id=user_id,
         action_type=action_type,
         entity_type=entity_type,
         entity_id=entity_id,
         message=message,
-        performed_by=performed_by,
+        performed_by=actor_name,
         is_read=False
     )
     db.add(notification)
@@ -1140,6 +1152,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
     user = db.query(models.User).filter(models.User.id == current_user_id).first()
     if not user or user.role != "admin":
         raise HTTPException(status_code=403, detail="Only admins can create engines")
+    actor_name = resolve_actor_name(db, current_user_id, "Admin")
     
     # Проверяем, существует ли уже двигатель с таким original_sn
     existing = db.query(models.Engine).filter(models.Engine.original_sn == data.original_sn).first()
@@ -1180,7 +1193,8 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
         to_location=loc_name,
         snapshot_tt=data.total_time,
         snapshot_tc=data.total_cycles,
-        comments=f"Engine created: {data.remarks or 'No remarks'}"
+        comments=f"Engine created: {data.remarks or 'No remarks'}",
+        performed_by=actor_name
     )
     db.add(new_log)
     db.commit()
@@ -1190,8 +1204,9 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
                        action_type="created",
                        entity_type="engine",
                        entity_id=new_engine.id,
-                       message=f"Был добавлен новый двигатель {new_engine.current_sn} (ESN: {new_engine.original_sn}) в локацию {loc_name} пользователем System",
-                       performed_by="System")
+                       message=f"Был добавлен новый двигатель {new_engine.current_sn} (ESN: {new_engine.original_sn}) в локацию {loc_name} пользователем {actor_name}",
+                       performed_by=actor_name,
+                       performed_by_user_id=current_user_id)
     
     return {"message": "Engine created successfully", "id": new_engine.id}
 
