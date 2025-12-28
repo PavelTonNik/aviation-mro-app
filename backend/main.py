@@ -19,7 +19,10 @@ except ImportError:  # fallback when running as a standalone script
     import database
 
 # Создаем таблицы в БД (если их нет)
-models.Base.metadata.create_all(bind=database.engine)
+try:
+    models.Base.metadata.create_all(bind=database.engine)
+except Exception as e:
+    print(f"⚠️ Warning: Could not create tables: {e}")
 
 app = FastAPI(title="Aviation MRO System")
 # --- ВСТАВИТЬ ЭТО В backend/main.py ПОСЛЕ app = FastAPI(...) ---
@@ -94,6 +97,31 @@ def startup_event():
             if changed:
                 db.commit()
                 print("🔧 Admin user normalized (role/active/password).")
+        
+        # 1. Если нет Локаций -> Создаем базовые (SHJ, FRU, DXB, MIAMI, ROME)
+        if not db.query(models.Location).first():
+            print("База пуста. Создаем пустые окна Локаций...")
+            locations = [
+                models.Location(name="SHJ", city="Sharjah"),
+                models.Location(name="FRU", city="Bishkek"),
+                models.Location(name="DXB", city="Dubai"),
+                models.Location(name="MIAMI", city="Miami"),
+                models.Location(name="Rome (Italy)", city="Rome (Italy)")
+            ]
+            db.add_all(locations)
+            db.commit()
+        else:
+            # Обновляем устаревшую запись KBL -> MIAMI и добавляем новые базовые локации
+            legacy_kbl = db.query(models.Location).filter(models.Location.name == "KBL").first()
+            if legacy_kbl:
+                existing_miami = db.query(models.Location).filter(models.Location.name == "MIAMI").first()
+                if existing_miami:
+                    legacy_kbl.name = "Rome (Italy)"
+                    legacy_kbl.city = "Rome (Italy)"
+                else:
+                    legacy_kbl.name = "MIAMI"
+                    legacy_kbl.city = "Miami"
+                db.commit()
 
         # 2. Если нет Самолетов -> Создаем базовый флот
         if not db.query(models.Aircraft).first():
@@ -366,8 +394,8 @@ class InstallSchema(BaseModel):
     position: int
     tt: float
     tc: int
-    ac_ttsn: float
-    ac_tcsn: int
+    ac_ttsn: Optional[float] = None
+    ac_tcsn: Optional[int] = None
     remarks: Optional[str] = ""
 
 
@@ -507,6 +535,15 @@ class PurchaseOrderSchema(BaseModel):
     link: Optional[str] = ""
 
 
+class CustomColumnSchema(BaseModel):
+    column_label: str
+    column_order: Optional[int] = 0
+
+
+class CustomColumnUpdateSchema(BaseModel):
+    column_label: str
+
+
 class UtilizationParameterSchema(BaseModel):
     """Schema for Utilization Parameters"""
     date: str
@@ -601,12 +638,21 @@ def create_notification(db: Session, action_type: str, entity_type: str,
 
 @app.get("/api/dashboard/stats")
 def get_dashboard_stats(db: Session = Depends(get_db)):
-    return {
-        "SV": db.query(models.Engine).filter(models.Engine.status == "SV").count(),
-        "US": db.query(models.Engine).filter(models.Engine.status == "US").count(),
-        "INSTALLED": db.query(models.Engine).filter(models.Engine.status == "INSTALLED").count(),
-        "REMOVED": db.query(models.Engine).filter(models.Engine.status == "REMOVED").count()
-    }
+    try:
+        return {
+            "SV": db.query(models.Engine).filter(models.Engine.status == "SV").count(),
+            "US": db.query(models.Engine).filter(models.Engine.status == "US").count(),
+            "INSTALLED": db.query(models.Engine).filter(models.Engine.status == "INSTALLED").count(),
+            "REMOVED": db.query(models.Engine).filter(models.Engine.status == "REMOVED").count()
+        }
+    except Exception as e:
+        print(f"❌ Error in get_dashboard_stats: {e}")
+        return {
+            "SV": 0,
+            "US": 0,
+            "INSTALLED": 0,
+            "REMOVED": 0
+        }
 
 @app.get("/api/locations")
 def get_locations_overview(db: Session = Depends(get_db)):
@@ -1076,7 +1122,24 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
         except Exception:
             loc_name = "Ошибка данных" # Если ссылка на удаленный объект
 
+        # 2.1 Дата установки: если пусто, берем первую дату из истории двигателя
+        display_date = eng.install_date
+        if not display_date and eng.logs:
+            try:
+                log_dates = [log.date for log in eng.logs if getattr(log, "date", None)]
+                if log_dates:
+                    display_date = sorted(log_dates)[0]
+            except Exception:
+                display_date = None
+
         # 3. Собираем данные, заменяя пустые (None) на текст или нули
+        # 3.1 Если двигатель установлен, добавляем данные о самолете
+        ac_ttsn = None
+        ac_tcsn = None
+        if eng.aircraft:
+            ac_ttsn = eng.aircraft.total_time if eng.aircraft.total_time is not None else None
+            ac_tcsn = eng.aircraft.total_cycles if eng.aircraft.total_cycles is not None else None
+        
         result.append({
             "id": eng.id,
             "original_sn": eng.original_sn or "Нет данных",
@@ -1087,13 +1150,16 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
             "location": loc_name,
             "tt": eng.total_time if eng.total_time is not None else 0,
             "tc": eng.total_cycles if eng.total_cycles is not None else 0,
+            "price": eng.price,
             "aircraft_id": eng.aircraft_id,
             "aircraft": eng.aircraft.tail_number if eng.aircraft else None,
             "position": eng.position,
             "photo_url": eng.photo_url,
             "remarks": eng.remarks or "",
             "removed_from": eng.removed_from or "",
-            "install_date": eng.install_date.strftime('%Y-%m-%d') if eng.install_date else None
+            "install_date": display_date.strftime('%Y-%m-%d') if display_date else None,
+            "ac_ttsn": ac_ttsn,
+            "ac_tcsn": ac_tcsn
         })
     return result
 
@@ -1110,6 +1176,7 @@ class EngineCreateSchema(BaseModel):
     location_id: Optional[int] = None
     total_time: float = 0.0
     total_cycles: int = 0
+    price: Optional[float] = None
     photo_url: Optional[str] = None
     remarks: Optional[str] = None
     removed_from: Optional[str] = None
@@ -1154,6 +1221,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
         location_id=data.location_id,
         total_time=data.total_time,
         total_cycles=data.total_cycles,
+        price=data.price,
         photo_url=data.photo_url,
         remarks=data.remarks,
         removed_from=data.removed_from,
@@ -1232,6 +1300,7 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
     engine.status = data.status
     engine.total_time = data.total_time
     engine.total_cycles = data.total_cycles
+    engine.price = data.price
     engine.photo_url = data.photo_url
     engine.remarks = data.remarks
     engine.removed_from = data.removed_from
@@ -1371,8 +1440,6 @@ class ActionLogUpdateSchema(BaseModel):
     position: Optional[int] = None
     snapshot_tt: Optional[float] = None
     snapshot_tc: Optional[int] = None
-    ac_ttsn: Optional[float] = None
-    ac_tcsn: Optional[int] = None
     comments: Optional[str] = None
     file_url: Optional[str] = None
 
@@ -1386,8 +1453,6 @@ class ActionLogCreateSchema(BaseModel):
     position: Optional[int] = None
     snapshot_tt: Optional[float] = None
     snapshot_tc: Optional[int] = None
-    ac_ttsn: Optional[float] = None
-    ac_tcsn: Optional[int] = None
     comments: Optional[str] = None
     file_url: Optional[str] = None
 
@@ -1678,6 +1743,18 @@ def delete_history_record(action_type: str, log_id: int, db: Session = Depends(g
 def get_install_history(db: Session = Depends(get_db)):
     # Берем логи только типа INSTALL
     logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "INSTALL").order_by(models.ActionLog.date.desc()).all()
+    def _safe_float(val):
+        try:
+            return float(val) if val not in (None, "") else None
+        except Exception:
+            return None
+
+    def _safe_int(val):
+        try:
+            return int(val) if val not in (None, "") else None
+        except Exception:
+            return None
+
     res = []
     for l in logs:
         # Если двигатель удален, пишем заглушку
@@ -1694,8 +1771,8 @@ def get_install_history(db: Session = Depends(get_db)):
             "location_from": l.from_location,
             "tt": l.snapshot_tt,
             "tc": l.snapshot_tc,
-            "ac_ttsn": l.ac_ttsn,
-            "ac_tcsn": l.ac_tcsn,
+            "ac_ttsn": _safe_float(getattr(l, "block_time_str", None)),
+            "ac_tcsn": _safe_int(getattr(l, "block_in_str", None)),
             "remarks": l.comments
         })
     return res
@@ -1722,6 +1799,12 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
     eng.position = data.position
     eng.total_time = data.tt
     eng.total_cycles = data.tc
+
+    # При необходимости фиксируем текущую наработку самолета
+    if data.ac_ttsn is not None:
+        ac.total_time = data.ac_ttsn
+    if data.ac_tcsn is not None:
+        ac.total_cycles = data.ac_tcsn
     
     # SNAPSHOT для отслеживания наработки на конкретном самолете
     eng.tsn_at_install = data.tt
@@ -1737,8 +1820,8 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
         position=data.position,
         snapshot_tt=data.tt,
         snapshot_tc=data.tc,
-        ac_ttsn=data.ac_ttsn,
-        ac_tcsn=data.ac_tcsn,
+        block_time_str=str(data.ac_ttsn) if data.ac_ttsn is not None else None,
+        block_in_str=str(data.ac_tcsn) if data.ac_tcsn is not None else None,
         comments=data.remarks,
         date=install_dt or datetime.now()
     )
@@ -1971,44 +2054,48 @@ def repair_engine(data: RepairSchema, db: Session = Depends(get_db)):
 # 13. История запчастей (PARTS LOGISTICS / STORE BALANCE)
 @app.get("/api/parts/history")
 def get_parts_history(db: Session = Depends(get_db)):
-    # Получаем логи, связанные с запчастями (где part_id не null или в комментах пометка PART)
-    # Для простоты пока будем фильтровать по типам действий запчастей
-    # Но так как мы пишем всё в ActionLog, будем искать по ключевым словам в типе или создадим новый тип
-    # В данной реализации мы просто вернем все записи, у которых есть данные о запчастях
-    # (Подразумевается, что мы расширим ActionLog или будем писать в comments JSON, но для старта сделаем просто)
-    
-    # ВАЖНО: В реальном проекте лучше отдельная таблица PartLog. 
-    # Сейчас мы будем использовать ActionLog с action_type="PART_ACTION"
-    
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "PART_ACTION").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        # Парсим данные из полей ActionLog (упрощенная схема)
-        import json
-        try:
-            details = json.loads(l.comments) if l.comments else {}
-        except:
-            details = {}
-        date_value = ""
-        if isinstance(l.date, datetime):
-            date_value = l.date.strftime("%Y-%m-%d")
-        elif isinstance(l.date, str) and l.date:
-            date_value = l.date
+    try:
+        # Получаем логи, связанные с запчастями (где part_id не null или в комментах пометка PART)
+        # Для простоты пока будем фильтровать по типам действий запчастей
+        # Но так как мы пишем всё в ActionLog, будем искать по ключевым словам в типе или создадим новый тип
+        # В данной реализации мы просто вернем все записи, у которых есть данные о запчастях
+        # (Подразумевается, что мы расширим ActionLog или будем писать в comments JSON, но для старта сделаем просто)
+        
+        # ВАЖНО: В реальном проекте лучше отдельная таблица PartLog. 
+        # Сейчас мы будем использовать ActionLog с action_type="PART_ACTION"
+        
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "PART_ACTION").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            # Парсим данные из полей ActionLog (упрощенная схема)
+            import json
+            try:
+                details = json.loads(l.comments) if l.comments else {}
+            except:
+                details = {}
+            date_value = ""
+            if isinstance(l.date, datetime):
+                date_value = l.date.strftime("%Y-%m-%d")
+            elif isinstance(l.date, str) and l.date:
+                date_value = l.date
 
-        res.append({
-            "id": l.id,
-            "date": date_value,
-            "action": l.from_location or "UNKNOWN",
-            "part_name": details.get("part_name", "-"),
-            "part_number": details.get("part_number", "-"),
-            "serial_number": details.get("serial_number", "-"),
-            "quantity": details.get("quantity", 0),
-            "from_esn": details.get("from_esn", "-"),
-            "to_esn": details.get("to_esn", "-"),
-            "location": details.get("location", "-"),
-            "reason": details.get("reason", "-")
-        })
-    return res
+            res.append({
+                "id": l.id,
+                "date": date_value,
+                "action": l.from_location or "UNKNOWN",
+                "part_name": details.get("part_name", "-"),
+                "part_number": details.get("part_number", "-"),
+                "serial_number": details.get("serial_number", "-"),
+                "quantity": details.get("quantity", 0),
+                "from_esn": details.get("from_esn", "-"),
+                "to_esn": details.get("to_esn", "-"),
+                "location": details.get("location", "-"),
+                "reason": details.get("reason", "-")
+            })
+        return res
+    except Exception as e:
+        print(f"Error in get_parts_history: {e}")
+        return []
 
 # 14. Сохранить действие с запчастью (PART ACTION)
 @app.post("/api/actions/part")
@@ -2782,9 +2869,15 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
 @app.get("/api/history/PURCHASE_ORDER")
 def get_purchase_orders_history(db: Session = Depends(get_db)):
     orders = db.query(models.PurchaseOrder).order_by(models.PurchaseOrder.date.desc()).all()
+    
+    # Получаем все пользовательские колонки для purchase_orders
+    custom_columns = db.query(models.CustomColumn).filter(
+        models.CustomColumn.table_name == "purchase_orders"
+    ).order_by(models.CustomColumn.column_order).all()
+    
     result = []
     for order in orders:
-        result.append({
+        order_data = {
             "id": order.id,
             "date": order.date,
             "name": order.name,
@@ -2795,7 +2888,18 @@ def get_purchase_orders_history(db: Session = Depends(get_db)):
             "aircraft": order.aircraft,
             "ro_number": order.ro_number,
             "link": order.link
-        })
+        }
+        
+        # Добавляем данные для пользовательских колонок
+        for col in custom_columns:
+            custom_data = db.query(models.PurchaseOrderCustomData).filter(
+                models.PurchaseOrderCustomData.purchase_order_id == order.id,
+                models.PurchaseOrderCustomData.column_key == col.column_key
+            ).first()
+            order_data[col.column_key] = custom_data.value if custom_data else None
+        
+        result.append(order_data)
+    
     return result
 
 @app.post("/api/history/PURCHASE_ORDER")
@@ -2831,6 +2935,148 @@ def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_d
         performed_by="User"
     )
     return {"status": "ok", "id": new_order.id}
+
+
+# --- CUSTOM COLUMNS API ---
+
+@app.get("/api/custom-columns/{table_name}")
+def get_custom_columns(table_name: str, db: Session = Depends(get_db)):
+    """Получить список пользовательских колонок для таблицы"""
+    try:
+        columns = db.query(models.CustomColumn).filter(
+            models.CustomColumn.table_name == table_name
+        ).order_by(models.CustomColumn.column_order).all()
+        
+        return [{
+            "id": col.id,
+            "column_key": col.column_key,
+            "column_label": col.column_label,
+            "column_order": col.column_order
+        } for col in columns]
+    except Exception as e:
+        print(f"Error in get_custom_columns: {e}")
+        return []
+
+
+@app.post("/api/custom-columns/{table_name}")
+def create_custom_column(table_name: str, data: CustomColumnSchema, db: Session = Depends(get_db)):
+    """Создать новую пользовательскую колонку"""
+    # Генерируем уникальный ключ для новой колонки
+    existing_cols = db.query(models.CustomColumn).filter(
+        models.CustomColumn.table_name == table_name
+    ).all()
+    
+    max_num = 0
+    for col in existing_cols:
+        if col.column_key.startswith("custom_"):
+            try:
+                num = int(col.column_key.replace("custom_", ""))
+                max_num = max(max_num, num)
+            except:
+                pass
+    
+    new_key = f"custom_{max_num + 1}"
+    
+    new_column = models.CustomColumn(
+        table_name=table_name,
+        column_key=new_key,
+        column_label=data.column_label,
+        column_order=data.column_order if data.column_order else len(existing_cols)
+    )
+    
+    db.add(new_column)
+    db.commit()
+    db.refresh(new_column)
+    
+    return {
+        "id": new_column.id,
+        "column_key": new_column.column_key,
+        "column_label": new_column.column_label,
+        "column_order": new_column.column_order
+    }
+
+
+@app.put("/api/custom-columns/{column_id}")
+def update_custom_column(column_id: int, data: CustomColumnUpdateSchema, db: Session = Depends(get_db)):
+    """Обновить название пользовательской колонки"""
+    column = db.query(models.CustomColumn).filter(models.CustomColumn.id == column_id).first()
+    if not column:
+        raise HTTPException(404, "Column not found")
+    
+    column.column_label = data.column_label
+    db.commit()
+    db.refresh(column)
+    
+    return {
+        "id": column.id,
+        "column_key": column.column_key,
+        "column_label": column.column_label,
+        "column_order": column.column_order
+    }
+
+
+@app.delete("/api/custom-columns/{column_id}")
+def delete_custom_column(column_id: int, db: Session = Depends(get_db)):
+    """Удалить пользовательскую колонку"""
+    column = db.query(models.CustomColumn).filter(models.CustomColumn.id == column_id).first()
+    if not column:
+        raise HTTPException(404, "Column not found")
+    
+    # Удаляем все данные для этой колонки
+    if column.table_name == "purchase_orders":
+        db.query(models.PurchaseOrderCustomData).filter(
+            models.PurchaseOrderCustomData.column_key == column.column_key
+        ).delete()
+    
+    db.delete(column)
+    db.commit()
+    
+    return {"message": "Column deleted successfully"}
+
+
+@app.get("/api/purchase-order-custom-data")
+def get_all_purchase_order_custom_data(db: Session = Depends(get_db)):
+    """Получить все данные пользовательских колонок для всех Purchase Orders"""
+    custom_data = db.query(models.PurchaseOrderCustomData).all()
+    return [
+        {
+            "purchase_order_id": item.purchase_order_id,
+            "column_key": item.column_key,
+            "value": item.value
+        }
+        for item in custom_data
+    ]
+
+
+@app.post("/api/purchase-order-custom-data")
+def save_purchase_order_custom_data(data: dict, db: Session = Depends(get_db)):
+    """Сохранить данные для пользовательских колонок"""
+    purchase_order_id = data.get("purchase_order_id")
+    custom_data = data.get("custom_data", {})
+    
+    if not purchase_order_id:
+        raise HTTPException(400, "purchase_order_id is required")
+    
+    # Для каждой пользовательской колонки сохраняем или обновляем значение
+    for column_key, value in custom_data.items():
+        existing = db.query(models.PurchaseOrderCustomData).filter(
+            models.PurchaseOrderCustomData.purchase_order_id == purchase_order_id,
+            models.PurchaseOrderCustomData.column_key == column_key
+        ).first()
+        
+        if existing:
+            existing.value = value
+        else:
+            new_data = models.PurchaseOrderCustomData(
+                purchase_order_id=purchase_order_id,
+                column_key=column_key,
+                value=value
+            )
+            db.add(new_data)
+    
+    db.commit()
+    return {"message": "Custom data saved successfully"}
+
 
 # --- GENERIC HISTORY CREATION (used by Installation edit mode) ---
 
@@ -3330,45 +3576,616 @@ def mark_all_read(user_id: Optional[int] = None, db: Session = Depends(get_db)):
     
     return {"message": "All notifications marked as read"}
 
-# ============================================
-# TABLE COLUMN CONFIGURATION API
-# ============================================
 
-class TableColumnConfigSchema(BaseModel):
-    columns: List[dict]  # [{name: str, type: str}, ...]
+# ============================================================================
+# === FAKE INSTALLED API ENDPOINTS (независимый модуль, не трогаем логику) ===
+# ============================================================================
 
-@app.get("/api/table-config/{table_name}")
-def get_table_config(table_name: str, db: Session = Depends(get_db)):
-    config = db.query(models.TableColumnConfig).filter(
-        models.TableColumnConfig.table_name == table_name
-    ).first()
-    
-    if config:
-        try:
-            columns = json.loads(config.columns_json)
-            return {"table_name": table_name, "columns": columns}
-        except:
-            return {"table_name": table_name, "columns": []}
-    
-    return {"table_name": table_name, "columns": []}
+@app.get("/api/fake-installed")
+def get_fake_installed(engine_sn: Optional[str] = None, db: Session = Depends(get_db)):
+    """Получить все записи Fake Installed, опционально отфильтровать по SN двигателя"""
+    try:
+        query = db.query(models.FakeInstalled)
+        
+        if engine_sn:
+            query = query.filter(
+                or_(
+                    models.FakeInstalled.engine_original_sn.ilike(f"%{engine_sn}%"),
+                    models.FakeInstalled.engine_current_sn.ilike(f"%{engine_sn}%")
+                )
+            )
+        
+        records = query.order_by(models.FakeInstalled.documented_date.desc()).all()
+        
+        return [
+        {
+            "id": r.id,
+            "engine_id": r.engine_id,
+            "engine_original_sn": r.engine_original_sn,
+            "engine_current_sn": r.engine_current_sn,
+            "aircraft_tail": r.aircraft_tail,
+            "position": r.position,
+            "documented_date": r.documented_date,
+            "documented_reason": r.documented_reason,
+            "old_engine_sn": r.old_engine_sn,
+            "new_engine_sn": r.new_engine_sn,
+            "is_fake": r.is_fake,
+            "actual_notes": r.actual_notes,
+            "created_by": r.created_by,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in records
+    ]
+    except Exception as e:
+        print(f"Error in get_fake_installed: {e}")
+        return []
 
-@app.post("/api/table-config/{table_name}")
-def save_table_config(table_name: str, data: TableColumnConfigSchema, db: Session = Depends(get_db)):
-    config = db.query(models.TableColumnConfig).filter(
-        models.TableColumnConfig.table_name == table_name
-    ).first()
-    
-    columns_json = json.dumps(data.columns)
-    
-    if config:
-        config.columns_json = columns_json
-        config.updated_at = datetime.utcnow()
-    else:
-        config = models.TableColumnConfig(
-            table_name=table_name,
-            columns_json=columns_json
+
+@app.post("/api/fake-installed")
+def create_fake_installed(data: dict, db: Session = Depends(get_db)):
+    """Добавить новую запись Fake Installed"""
+    try:
+        record = models.FakeInstalled(
+            engine_id=data.get("engine_id"),
+            engine_original_sn=data.get("engine_original_sn", ""),
+            engine_current_sn=data.get("engine_current_sn", ""),
+            aircraft_id=data.get("aircraft_id"),
+            aircraft_tail=data.get("aircraft_tail"),
+            position=data.get("position"),
+            documented_date=data.get("documented_date", ""),
+            documented_reason=data.get("documented_reason"),
+            old_engine_sn=data.get("old_engine_sn"),
+            new_engine_sn=data.get("new_engine_sn"),
+            is_fake=data.get("is_fake", True),
+            actual_notes=data.get("actual_notes"),
+            created_by=data.get("created_by"),
         )
-        db.add(config)
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        
+        return {
+            "id": record.id,
+            "message": "Record created successfully",
+            "engine_original_sn": record.engine_original_sn
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.put("/api/fake-installed/{fake_id}")
+def update_fake_installed(fake_id: int, data: dict, db: Session = Depends(get_db)):
+    """Обновить запись Fake Installed"""
+    try:
+        record = db.query(models.FakeInstalled).filter(models.FakeInstalled.id == fake_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="Record not found")
+        
+        for key, value in data.items():
+            if hasattr(record, key):
+                setattr(record, key, value)
+        
+        db.commit()
+        db.refresh(record)
+        return {"id": record.id, "message": "Record updated"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/fake-installed/{fake_id}")
+def delete_fake_installed(fake_id: int, db: Session = Depends(get_db)):
+    """Удалить запись Fake Installed"""
+    try:
+        record = db.query(models.FakeInstalled).filter(models.FakeInstalled.id == fake_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="Record not found")
+        
+        db.delete(record)
+        db.commit()
+        return {"message": "Record deleted"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ----------------------------------------------------------------------------
+# Fake Installed Headers Settings (independent of other logic)
+# ----------------------------------------------------------------------------
+
+DEFAULT_FAKE_HEADERS = {
+    "idx": "#",
+    "documented_date": "Date",
+    "engine_original_sn": "Engine (Original SN)",
+    "engine_current_sn": "Current SN",
+    "aircraft_tail": "Aircraft",
+    "position": "Pos",
+    "documented_reason": "Reason",
+    "documented_pair": "Documented",
+    "actual_notes": "Reality",
+    "actions": "Actions",
+}
+
+
+def _get_settings_row(db: Session):
+    row = db.query(models.FakeInstalledSettings).first()
+    if not row:
+        row = models.FakeInstalledSettings(headers_json=None)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+@app.get("/api/fake-installed/headers")
+def get_fake_installed_headers(db: Session = Depends(get_db)):
+    """Return header labels for Fake Installed table."""
+    try:
+        import json as _json
+        row = _get_settings_row(db)
+        if row.headers_json:
+            try:
+                data = _json.loads(row.headers_json)
+                # ensure defaults present
+                for k, v in DEFAULT_FAKE_HEADERS.items():
+                    data.setdefault(k, v)
+                return data
+            except Exception:
+                pass
+        return DEFAULT_FAKE_HEADERS
+    except Exception as e:
+        print(f"Error in get_fake_installed_headers: {e}")
+        return DEFAULT_FAKE_HEADERS
+
+
+@app.put("/api/fake-installed/headers")
+def update_fake_installed_headers(payload: dict, db: Session = Depends(get_db)):
+    """Update header labels mapping. Accepts partial dict of keys->labels."""
+    import json as _json
+    try:
+        current = get_fake_installed_headers(db)
+        current.update({k: str(v) for k, v in payload.items() if k in DEFAULT_FAKE_HEADERS})
+        row = _get_settings_row(db)
+        row.headers_json = _json.dumps(current, ensure_ascii=False)
+        db.commit()
+        return {"message": "Headers updated", "headers": current}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================================
+# === NAMEPLATE TRACKER API (независимый модуль) ===
+# ============================================================================
+
+@app.get("/api/engine-by-sn/{sn}")
+def get_engine_by_sn(sn: str, db: Session = Depends(get_db)):
+    """Lookup engine by serial number for autocomplete form fields."""
+    try:
+        sn = sn.strip()
+        eng = db.query(models.Engine).filter(
+            (models.Engine.original_sn.ilike(f"%{sn}%")) | (models.Engine.current_sn.ilike(f"%{sn}%"))
+        ).first()
+        
+        if not eng:
+            raise HTTPException(status_code=404, detail="Engine not found")
+        
+        return {
+            "id": eng.id,
+            "model": eng.model,
+            "gss_id": eng.gss_sn,
+            "original_sn": eng.original_sn,
+            "current_sn": eng.current_sn,
+            "aircraft_tail": eng.aircraft.tail if eng.aircraft else None,
+            "position": eng.position,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/nameplate-tracker")
+def get_nameplate_tracker(
+    nameplate_sn: Optional[str] = None,
+    gss_id: Optional[str] = None,
+    active_only: Optional[bool] = False,
+    db: Session = Depends(get_db)
+):
+    """Get all nameplate tracker records with optional filters."""
+    try:
+        query = db.query(models.NameplateTracker)
+        
+        if nameplate_sn:
+            query = query.filter(models.NameplateTracker.nameplate_sn.ilike(f"%{nameplate_sn}%"))
+        
+        if gss_id:
+            query = query.filter(models.NameplateTracker.gss_id.ilike(f"%{gss_id}%"))
+        
+        if active_only:
+            query = query.filter(models.NameplateTracker.removed_date.is_(None))
+        
+        records = query.order_by(models.NameplateTracker.installed_date.desc()).all()
+        
+        return [
+        {
+            "id": r.id,
+            "nameplate_sn": r.nameplate_sn,
+            "engine_model": r.engine_model,
+            "gss_id": r.gss_id,
+            "engine_orig_sn": r.engine_orig_sn,
+            "aircraft_tail": r.aircraft_tail,
+            "position": r.position,
+            "installed_date": r.installed_date,
+            "removed_date": r.removed_date,
+            "location_type": r.location_type,
+            "action_note": r.action_note,
+            "performed_by": r.performed_by,
+            "notes": r.notes,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in records
+    ]
+    except Exception as e:
+        print(f"Error in get_nameplate_tracker: {e}")
+        return []
+
+
+@app.post("/api/nameplate-tracker")
+def create_nameplate_tracker(data: dict, db: Session = Depends(get_db)):
+    """Create new nameplate tracker record."""
+    try:
+        record = models.NameplateTracker(
+            nameplate_sn=data.get("nameplate_sn", ""),
+            engine_model=data.get("engine_model"),
+            gss_id=data.get("gss_id"),
+            engine_orig_sn=data.get("engine_orig_sn"),
+            aircraft_tail=data.get("aircraft_tail"),
+            position=data.get("position"),
+            installed_date=data.get("installed_date", ""),
+            removed_date=data.get("removed_date"),
+            location_type=data.get("location_type"),
+            action_note=data.get("action_note"),
+            performed_by=data.get("performed_by"),
+            notes=data.get("notes"),
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        
+        return {
+            "id": record.id,
+            "message": "Nameplate record created",
+            "nameplate_sn": record.nameplate_sn
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.put("/api/nameplate-tracker/{record_id}")
+def update_nameplate_tracker(record_id: int, data: dict, db: Session = Depends(get_db)):
+    """Update nameplate tracker record."""
+    try:
+        record = db.query(models.NameplateTracker).filter(models.NameplateTracker.id == record_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="Record not found")
+        
+        for key, value in data.items():
+            if hasattr(record, key):
+                setattr(record, key, value)
+        
+        db.commit()
+        db.refresh(record)
+        return {"id": record.id, "message": "Record updated"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/nameplate-tracker/{record_id}")
+def delete_nameplate_tracker(record_id: int, db: Session = Depends(get_db)):
+    """Delete nameplate tracker record."""
+    try:
+        record = db.query(models.NameplateTracker).filter(models.NameplateTracker.id == record_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="Record not found")
+        
+        db.delete(record)
+        db.commit()
+        return {"message": "Record deleted"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/nameplate-tracker/actions")
+def apply_nameplate_action(data: dict, db: Session = Depends(get_db)):
+    """Apply a nameplate action (install/remove/swap/move) and update engines accordingly.
+
+    Uses existing NameplateTracker fields (action_note, gss_id, engine_orig_sn, aircraft_tail, position, location_type)
+    to avoid schema migrations. Updates Engine.current_sn to reflect visible serial changes.
+    """
+    try:
+        action_type = (data.get("action_type") or "").strip().lower()
+        nameplate_sn = (data.get("nameplate_sn") or "").strip()
+        primary_gss_id = (data.get("primary_gss_id") or "").strip()
+        primary_engine_sn = (data.get("primary_engine_sn") or "").strip()
+        secondary_gss_id = (data.get("secondary_gss_id") or "").strip()
+        secondary_engine_sn = (data.get("secondary_engine_sn") or "").strip()
+        installed_date = data.get("installed_date")
+        removed_date = data.get("removed_date")
+        location_type = data.get("location_type")
+        target_aircraft_tail = data.get("target_aircraft_tail")
+        target_position = data.get("target_position")
+        performed_by = data.get("performed_by")
+        note = data.get("note")
+
+        if action_type not in {"install", "remove", "swap", "move"}:
+            raise HTTPException(status_code=400, detail="Unsupported action_type")
+
+        def _find_engine(gss_id: str, engine_sn: str):
+            q = db.query(models.Engine)
+            if gss_id:
+                eng = q.filter(models.Engine.gss_sn == gss_id).first()
+                if eng:
+                    return eng
+            if engine_sn:
+                # Match either original_sn or current_sn
+                eng = q.filter((models.Engine.original_sn == engine_sn) | (models.Engine.current_sn == engine_sn)).first()
+                if eng:
+                    return eng
+            return None
+
+        if action_type == "install":
+            if not nameplate_sn:
+                raise HTTPException(status_code=400, detail="nameplate_sn required for install")
+            eng = _find_engine(primary_gss_id, primary_engine_sn)
+            if not eng:
+                raise HTTPException(status_code=404, detail="Target engine not found")
+
+            # Update engine current serial to nameplate SN
+            before_sn = eng.current_sn
+            eng.current_sn = nameplate_sn
+            db.add(eng)
+
+            # Record tracker
+            rec = models.NameplateTracker(
+                nameplate_sn=nameplate_sn,
+                engine_model=eng.model,
+                gss_id=eng.gss_sn,
+                engine_orig_sn=eng.original_sn,
+                aircraft_tail=target_aircraft_tail,
+                position=target_position,
+                installed_date=installed_date or datetime.utcnow().date().isoformat(),
+                removed_date=None,
+                location_type=location_type,
+                action_note="install",
+                performed_by=performed_by,
+                notes=note,
+            )
+            db.add(rec)
+
+
+            db.commit()
+            db.refresh(eng)
+            return {"message": "Installed", "engine_id": eng.id, "current_sn": eng.current_sn}
+
+        if action_type == "remove":
+            # Create a removal record; do not alter engine.current_sn by default
+            rec = models.NameplateTracker(
+                nameplate_sn=nameplate_sn,
+                gss_id=primary_gss_id or None,
+                engine_orig_sn=primary_engine_sn or None,
+                removed_date=removed_date or datetime.utcnow().date().isoformat(),
+                location_type=location_type,
+                action_note="remove",
+                performed_by=performed_by,
+                notes=note,
+            )
+            db.add(rec)
+            db.commit()
+            db.refresh(rec)
+            return {"message": "Removed", "record_id": rec.id}
+
+        if action_type == "move":
+            # Movement context update without serial change
+            rec = models.NameplateTracker(
+                nameplate_sn=nameplate_sn,
+                gss_id=primary_gss_id or None,
+                engine_orig_sn=primary_engine_sn or None,
+                installed_date=installed_date or datetime.utcnow().date().isoformat(),
+                location_type=location_type,
+                aircraft_tail=target_aircraft_tail,
+                position=target_position,
+                action_note="move",
+                performed_by=performed_by,
+                notes=note,
+            )
+            db.add(rec)
+            db.commit()
+            db.refresh(rec)
+            return {"message": "Moved", "record_id": rec.id}
+
+        if action_type == "swap":
+            # Swap current_sn between two engines
+            eng1 = _find_engine(primary_gss_id, primary_engine_sn)
+            eng2 = _find_engine(secondary_gss_id, secondary_engine_sn)
+            if not eng1 or not eng2:
+                raise HTTPException(status_code=404, detail="Both engines must exist for swap")
+            if eng1.id == eng2.id:
+                raise HTTPException(status_code=400, detail="Cannot swap within the same engine")
+
+            sn1, sn2 = eng1.current_sn, eng2.current_sn
+            eng1.current_sn, eng2.current_sn = sn2, sn1
+            db.add(eng1); db.add(eng2)
+
+            # Record a single swap tracker entry (concise) for audit
+            rec = models.NameplateTracker(
+                nameplate_sn=nameplate_sn or sn1,
+                engine_model=eng1.model,
+                gss_id=eng1.gss_sn,
+                engine_orig_sn=eng1.original_sn,
+                installed_date=installed_date or datetime.utcnow().date().isoformat(),
+                location_type=location_type,
+                action_note="swap",
+                performed_by=performed_by,
+                notes=(note or f"swap: {eng1.gss_sn or eng1.id}({sn1}) <-> {eng2.gss_sn or eng2.id}({sn2})"),
+            )
+            db.add(rec)
+
+            # Note: not writing ActionLog here to avoid enum/type mismatches; NameplateTracker notes capture swap details.
+
+            db.commit()
+            return {"message": "Swapped", "engine1_id": eng1.id, "engine2_id": eng2.id}
+
+        raise HTTPException(status_code=400, detail="Unhandled action type")
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/nameplate-tracker/execute-action")
+def execute_nameplate_action(data: dict, db: Session = Depends(get_db)):
+    """Execute swap/remove/install action with transaction safety.
+    Updates Engine.current_sn for swap/install and creates NameplateTracker records."""
+    try:
+        action = (data.get("action") or "").strip().lower()
+        
+        if action not in {"swap", "remove", "install"}:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        
+        # Helper to find engine by SN
+        def _find_eng_by_sn(sn):
+            return db.query(models.Engine).filter(
+                (models.Engine.original_sn == sn) | (models.Engine.current_sn == sn)
+            ).first()
+        
+        if action == "swap":
+            plate1_sn = (data.get("plate1_sn") or "").strip()
+            plate2_sn = (data.get("plate2_sn") or "").strip()
+            
+            if not plate1_sn or not plate2_sn or plate1_sn == plate2_sn:
+                raise HTTPException(status_code=400, detail="Both plate SNs required and must be different")
+            
+            eng1 = _find_eng_by_sn(plate1_sn)
+            eng2 = _find_eng_by_sn(plate2_sn)
+            
+            if not eng1 or not eng2:
+                raise HTTPException(status_code=404, detail="One or both engines not found")
+            
+            # Swap current_sn
+            old_sn1, old_sn2 = eng1.current_sn, eng2.current_sn
+            eng1.current_sn = old_sn2
+            eng2.current_sn = old_sn1
+            db.add(eng1)
+            db.add(eng2)
+            
+            # Record swap in tracker
+            rec = models.NameplateTracker(
+                nameplate_sn=plate1_sn,
+                engine_model=eng1.model,
+                gss_id=eng1.gss_sn,
+                engine_orig_sn=eng1.original_sn,
+                aircraft_tail=data.get("aircraft_from"),
+                position=data.get("position_from"),
+                installed_date=data.get("date") or datetime.utcnow().date().isoformat(),
+                action_note="swap",
+                performed_by=data.get("performed_by"),
+                notes=f"Swapped: {eng1.gss_sn}({old_sn1}↔{old_sn2}) with {eng2.gss_sn}({old_sn2}↔{old_sn1})",
+            )
+            db.add(rec)
+            db.commit()
+            
+            return {
+                "status": "ok",
+                "action": "swap",
+                "engine1": {"id": eng1.id, "gss_id": eng1.gss_sn, "new_sn": eng1.current_sn},
+                "engine2": {"id": eng2.id, "gss_id": eng2.gss_sn, "new_sn": eng2.current_sn},
+            }
+        
+        if action == "remove":
+            plate_sn = (data.get("plate1_sn") or "").strip()
+            if not plate_sn:
+                raise HTTPException(status_code=400, detail="Plate SN required")
+            
+            eng = _find_eng_by_sn(plate_sn)
+            if not eng:
+                raise HTTPException(status_code=404, detail="Engine not found")
+            
+            rec = models.NameplateTracker(
+                nameplate_sn=plate_sn,
+                engine_model=eng.model,
+                gss_id=eng.gss_sn,
+                engine_orig_sn=eng.original_sn,
+                aircraft_tail=data.get("aircraft_from"),
+                position=data.get("position_from"),
+                removed_date=data.get("date") or datetime.utcnow().date().isoformat(),
+                location_type=data.get("sent_to"),
+                action_note="remove",
+                performed_by=data.get("performed_by"),
+                notes=data.get("reason"),
+            )
+            db.add(rec)
+            db.commit()
+            
+            return {
+                "status": "ok",
+                "action": "remove",
+                "engine_id": eng.id,
+            }
+        
+        if action == "install":
+            plate_sn = (data.get("plate1_sn") or "").strip()
+            if not plate_sn:
+                raise HTTPException(status_code=400, detail="Plate SN required")
+            
+            eng = _find_eng_by_sn(plate_sn)
+            if not eng:
+                raise HTTPException(status_code=404, detail="Engine not found")
+            
+            ac_to = data.get("aircraft_to")
+            pos_to = data.get("position_to")
+            
+            # Update engine location
+            if ac_to:
+                ac_obj = db.query(models.Aircraft).filter(models.Aircraft.tail == ac_to).first()
+                if ac_obj:
+                    eng.aircraft_id = ac_obj.id
+                    eng.position = pos_to
+            
+            db.add(eng)
+            
+            rec = models.NameplateTracker(
+                nameplate_sn=plate_sn,
+                engine_model=eng.model,
+                gss_id=eng.gss_sn,
+                engine_orig_sn=eng.original_sn,
+                aircraft_tail=ac_to,
+                position=pos_to,
+                installed_date=data.get("date") or datetime.utcnow().date().isoformat(),
+                location_type="Aircraft",
+                action_note="install",
+                performed_by=data.get("performed_by"),
+                notes=data.get("reason"),
+            )
+            db.add(rec)
+            db.commit()
+            
+            return {
+                "status": "ok",
+                "action": "install",
+                "engine_id": eng.id,
+                "aircraft": ac_to,
+                "position": pos_to,
+            }
     
-    db.commit()
-    return {"message": "Configuration saved", "table_name": table_name, "columns": data.columns}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
