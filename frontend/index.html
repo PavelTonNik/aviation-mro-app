@@ -17,1125 +17,14 @@
         #sidebar-wrapper {
             min-width: 260px; 
             max-width: 260px;
-            min-height: 100vh;
-            background-color: #011325; 
-            color: #202020;
-            transition: margin 0.3s ease-out;
-            margin-top: 0;
-        }
-        #wrapper.toggled #sidebar-wrapper { margin-left: -260px; }
-        
-        .sidebar-brand { padding: 1.5rem 1rem; font-size: 1.3rem; font-weight: bold; border-bottom: 1px solid #4b545c; color: #423a3a; text-decoration: none; display: block; }
-        .list-group-item { background: transparent; color: #fbfbffa9; border: none; padding: 12px 20px; font-size: 0.95rem; }
-        .list-group-item:hover { background: #053f79; color: #fff; }
-        .list-group-item.active { background: #007bff; color: #fff; border-radius: 4px; }
-        .list-group-item i { margin-right: 10px; width: 20px; text-align: center; }
-        
-        /* Settings modal list items - dark text by default, white on hover */
-        #locations-edit-list .list-group-item,
-        #fleet-edit-list .list-group-item,
-        #status-edit-list .list-group-item {
-            color: #2c3e50;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            margin-bottom: 4px;
-            border-radius: 6px;
-        }
-        
-        #locations-edit-list .list-group-item:hover,
-        #fleet-edit-list .list-group-item:hover,
-        #status-edit-list .list-group-item:hover {
-            background: #0d6efd;
-            color: #fff;
-            border-color: #0d6efd;
-        }
-        
-        #locations-edit-list .list-group-item strong,
-        #fleet-edit-list .list-group-item strong,
-        #status-edit-list .list-group-item strong {
-            color: inherit;
+                min-height: 100vh;
+                background-color: #011325; 
+                color: #202020;
+                transition: margin 0.3s ease-out;
+                margin-top: 0;
         }
 
-        /* КНОПКИ НА ДАШБОРДЕ (Полный стиль) */
-        .btn-dashboard {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 0.35rem;
-            width: 100%;
-            padding: 18px 20px;
-            border: none;
-            border-radius: 15px;
-            background: linear-gradient(135deg, #1b2436 0%, #263449 100%);
-            color: #f8fafc;
-            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.38);
-            text-align: left;
-            text-transform: none;
-            cursor: pointer;
-            overflow: hidden;
-            transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
-        }
-
-        .btn-dashboard .label {
-            font-size: 0.8rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            opacity: 0.85;
-        }
-        .btn-dashboard .count {
-            font-size: 1.9rem;
-            font-weight: 700;
-            line-height: 1;
-        }
-
-        .btn-dashboard i {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            font-size: 1.5rem;
-            opacity: 0.25;
-            transition: transform 0.25s ease, opacity 0.25s ease;
-        }
-
-        .btn-dashboard:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 18px 36px rgba(37, 99, 235, 0.35);
-            filter: brightness(1.05);
-        }
-
-        .btn-dashboard:hover i {
-            opacity: 0.45;
-            transform: translateY(-3px);
-        }
-
-        .btn-status-sv {
-            background: linear-gradient(135deg, #1f7a4d 0%, #2bc66d 100%);
-            box-shadow: 0 16px 40px rgba(43, 198, 109, 0.35);
-        }
-
-        .btn-status-us {
-            background: linear-gradient(135deg, #6b1b1b 0%, #d64545 100%);
-            box-shadow: 0 16px 40px rgba(214, 69, 69, 0.35);
-        }
-
-        .btn-status-rem {
-            background: linear-gradient(135deg, #512a8e 0%, #8d5bff 100%);
-            box-shadow: 0 16px 40px rgba(141, 91, 255, 0.35);
-        }
-
-        .btn-status-inst {
-            background: linear-gradient(135deg, #0d4f9a 0%, #2c8dfb 100%);
-            box-shadow: 0 16px 40px rgba(44, 141, 251, 0.35);
-        }
-
-        #locations-container .btn-dashboard {
-            background: linear-gradient(135deg, #1f2738 0%, #202b3a 100%);
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.28);
-        }
-
-        #locations-container .btn-dashboard .label {
-            font-size: 0.75rem;
-            opacity: 0.7;
-        }
-
-        #locations-container .btn-dashboard .count {
-            font-size: 1.4rem;
-        }
-
-        #locations-container .btn-dashboard i {
-            font-size: 1.3rem;
-        }
-
-        .aircraft-card {
-            background: linear-gradient(135deg, #1a2332 0%, #2d3e50 100%);
-            border-radius: 16px;
-            padding: 20px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            margin-bottom: 20px;
-            isolation: isolate;
-        }
-        
-        .aircraft-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 48px rgba(0, 123, 255, 0.3);
-        }
-        
-        .aircraft-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 15px;
-            position: relative;
-            z-index: 10;
-        }
-        
-        .aircraft-name {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #ffffff;
-            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 0, 0, 0.8);
-        }
-        
-        .aircraft-stats {
-            text-align: right;
-        }
-        
-        .aircraft-icon {
-            font-size: 2.5rem;
-            color: rgba(255, 255, 255, 0.15);
-            margin-bottom: 8px;
-        }
-        
-        .aircraft-hours {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #ffd700;
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 20px rgba(0, 0, 0, 0.8);
-        }
-        
-        .aircraft-hours-label {
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.6);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .chevron-toggle {
-            text-align: center;
-            cursor: pointer;
-            padding: 10px;
-            margin: 0 -20px -20px;
-            background: rgba(0, 0, 0, 0.2);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-        }
-        
-        .chevron-toggle:hover {
-            background: rgba(0, 123, 255, 0.3);
-        }
-        
-        .chevron-icon {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 1.2rem;
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .chevron-icon.rotated {
-            transform: rotate(180deg);
-        }
-        
-        .engine-positions {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            z-index: 10;
-        }
-        
-        .engine-positions.expanded {
-            max-height: 2000px;
-        }
-        
-        .engine-position-card {
-            background: linear-gradient(135deg, #0f1419 0%, #1e2835 100%);
-            border-radius: 12px;
-            padding: 20px;
-            margin-top: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            animation: slideIn 0.5s ease-out;
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .engine-visual {
-            flex: 0 0 200px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        
-        .engine-visual svg {
-            width: 180px;
-            height: 180px;
-            opacity: 0.8;
-        }
-        
-        .engine-data {
-            flex: 1;
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-        
-        .engine-data-item {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 12px;
-            border-radius: 8px;
-            border-left: 3px solid #007bff;
-        }
-        
-        .engine-data-label {
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.5);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 4px;
-        }
-        
-        .engine-data-value {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #ffffff;
-        }
-        
-        .engine-data-value.highlight {
-            color: #ffd700;
-            font-size: 1.3rem;
-        }
-        
-        .engine-data-value.param-date-value {
-            color: #94a3b8;
-            font-size: 0.9rem;
-            font-style: italic;
-        }
-        
-        .position-header {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #007bff;
-            margin-bottom: 15px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            border-bottom: 2px solid rgba(0, 123, 255, 0.3);
-            padding-bottom: 8px;
-        }
-        
-        .empty-position {
-            text-align: center;
-            padding: 40px;
-            color: rgba(255, 255, 255, 0.3);
-            font-style: italic;
-        }
-        
-        /* Aircraft Main Visual - Full background video */
-        .aircraft-visual-main {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            z-index: 0;
-            border-radius: 16px;
-        }
-        
-        .aircraft-visual-main::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to bottom, rgba(26, 35, 50, 0.3) 0%, rgba(26, 35, 50, 0.5) 100%);
-            z-index: 1;
-            pointer-events: none;
-        }
-        
-        .engine-3d-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: block;
-            pointer-events: none;
-        }
-        
-        .engine-video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-            z-index: 0;
-        }
-        
-        /* Chevron Toggle on Top - меньше и менее заметная */
-        .chevron-toggle-top {
-            text-align: center;
-            position: relative;
-            z-index: 10;
-            position: relative;
-            z-index: 2;
-            padding: 6px;
-            cursor: pointer;
-            color: rgba(255, 215, 0, 0.4);
-            font-size: 1rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.3s ease;
-        }
-        
-        .chevron-toggle-top:hover {
-            background: rgba(255, 215, 0, 0.08);
-            color: rgba(255, 215, 0, 0.7);
-        }
-        
-        .chevron-toggle-top i {
-            transition: transform 0.3s ease;
-        }
-        
-        .chevron-toggle-top i.rotated {
-            transform: rotate(180deg);
-        }
-        
-        /* Engine Table Container */
-        .engine-table-container {
-            padding: 20px;
-            background: linear-gradient(135deg, #0f1419 0%, #1e2835 100%);
-            border-radius: 12px;
-            margin-top: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            overflow-x: auto;
-        }
-        
-        .engine-table {
-            width: 100%;
-            border-collapse: collapse;
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 0.9rem;
-        }
-        
-        .engine-table thead th {
-            background: rgba(0, 123, 255, 0.2);
-            padding: 12px 8px;
-            text-align: left;
-            font-weight: 600;
-            border-bottom: 2px solid rgba(0, 123, 255, 0.5);
-            font-size: 0.85rem;
-            white-space: nowrap;
-        }
-        
-        .engine-table tbody td {
-            padding: 10px 8px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        
-        .engine-table tbody tr:hover {
-            background: rgba(0, 123, 255, 0.05);
-        }
-        
-        .engine-table .position-num {
-            font-weight: bold;
-            color: #ffd700;
-        }
-        
-        .engine-table .engine-sn {
-            font-weight: bold;
-            color: #60a5fa;
-        }
-        
-        .engine-table .highlight {
-            background: rgba(255, 215, 0, 0.1);
-            font-weight: 600;
-            color: #ffd700;
-        }
-        
-        .engine-table .param-date {
-            color: #94a3b8;
-            font-size: 0.85rem;
-            font-style: italic;
-        }
-        
-        .engine-table .empty-position-cell {
-            text-align: center;
-            padding: 20px;
-            color: rgba(255, 255, 255, 0.3);
-            font-style: italic;
-        }
-
-        /* Table Styles in Modal */
-        .modal-xl { max-width: 95%; }
-        .table-custom th { background-color: #343a40; color: white; font-size: 0.85rem; vertical-align: middle; }
-        .table-custom td { font-size: 0.9rem; vertical-align: middle; }
-        .param-col { background-color: #f8f9fa; font-weight: bold; color: #0056b3; }
-        /* --- UNIVERSAL COLUMN RESIZER (ALL TABLES) --- */
-        table thead th { position: relative; }
-        .col-resizer { 
-            position: absolute; 
-            right: 0; 
-            top: 0; 
-            width: 10px; 
-            height: 100%; 
-            cursor: col-resize; 
-            user-select: none; 
-            background: linear-gradient(90deg, transparent 40%, rgba(0, 123, 255, 0.3) 50%, transparent 60%);
-            opacity: 0.5;
-            transition: opacity 0.2s;
-        }
-        .col-resizer:hover { 
-            opacity: 1;
-            background: linear-gradient(90deg, transparent 30%, rgba(0, 123, 255, 0.7) 50%, transparent 70%);
-        }
-        table thead th, 
-        table tbody td { white-space: nowrap; }
-        /* --- UNIVERSAL FILTER PANEL --- */
-        .filter-panel {
-            position: fixed;
-            top: 0;
-            right: -420px;
-            width: 400px;
-            height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: -4px 0 25px rgba(0, 0, 0, 0.3);
-            transition: right 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            z-index: 9999;
-            overflow-y: auto;
-            padding: 20px;
-            color: white;
-        }
-        .filter-panel.open { right: 0; }
-        .filter-panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
-        }
-        .filter-panel-header h4 {
-            margin: 0;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .filter-panel-close {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            color: white;
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 20px;
-            transition: all 0.3s;
-        }
-        .filter-panel-close:hover {
-            background: rgba(255, 255, 255, 0.4);
-            transform: rotate(90deg);
-        }
-        .filter-field {
-            margin-bottom: 18px;
-        }
-        .filter-field label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 600;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            opacity: 0.95;
-        }
-        .filter-field input {
-            width: 100%;
-            padding: 10px 12px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            font-size: 14px;
-            transition: all 0.3s;
-            backdrop-filter: blur(10px);
-        }
-        .filter-field input::placeholder {
-            color: rgba(255, 255, 255, 0.6);
-        }
-        .filter-field input:focus {
-            outline: none;
-            border-color: rgba(255, 255, 255, 0.8);
-            background: rgba(255, 255, 255, 0.25);
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
-        }
-        .filter-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 25px;
-            padding-top: 20px;
-            border-top: 2px solid rgba(255, 255, 255, 0.3);
-        }
-        .filter-actions button {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .filter-apply {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
-        }
-        .filter-apply:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(56, 239, 125, 0.4);
-        }
-        .filter-reset {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-        }
-        .filter-reset:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        .filter-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(3px);
-            z-index: 9998;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s;
-        }
-        .filter-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-        .btn-filter-toggle {
-            margin-left: 8px;
-        }
-        /* --- NEON BUTTON & EDIT STYLES --- */
-        .btn-neon {
-            background-color: #0d6efd;
-            color: white;
-            border: 1px solid #0d6efd;
-            box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
-            transition: all 0.3s ease;
-            font-weight: bold;
-            text-align: left;
-        }
-        .btn-neon:hover {
-            background-color: #0b5ed7;
-            box-shadow: 0 0 20px rgba(13, 110, 253, 0.8);
-            color: white;
-            transform: scale(1.02);
-        }
-
-        /* Цвета статусов для таблицы */
-        .badge-as { background-color: #8B4513; color: white; } /* Коричневый */
-
-        /* Store Balance Condition badges */
-        .cond-badge { font-weight: 600; padding: 0.35rem 0.5rem; border-radius: 0.25rem; }
-        .cond-sv { background-color: #28a745; color: #fff; }            /* SV - NGV (SENT) */
-        .cond-under { background-color: #0056b3; color: #fff; }         /* UNDER REPAIRING */
-        .cond-delivered { background-color: #90ee90; color: #000; }     /* Delivered in Roma Italy */
-        .cond-nocap { background-color: #dc3545; color: #fff; }         /* NO CAPABILITY */
-        .cond-us { background-color: #ffc107; color: #000; }            /* US - SHJ */
-        .cond-default { background-color: #e9ecef; color: #212529; }
-        
-        /* Режим редактирования */
-        .editing-row { background-color: #fff3cd !important; } /* Желтый фон */
-        /* --- СТИЛЬ ПОЛЕЙ ВВОДА ПРИ РЕДАКТИРОВАНИИ --- */
-        .editing-input { 
-            width: 100%; 
-            border: 2px solid #ffc107; /* Желтая рамка */
-            background-color: white;   /* Белый фон внутри */
-            font-size: 0.85rem; 
-            padding: 2px;
-            /* Эффект свечения вокруг */
-            box-shadow: 0 0 8px rgba(255, 193, 7, 0.6); 
-            outline: none; /* Убираем стандартную синюю обводку браузера */
-            transition: all 0.2s ease-in-out;
-        }
-        
-        /* При фокусе (когда кликаешь) свечение становится ярче */
-        .editing-input:focus {
-            box-shadow: 0 0 12px rgba(44, 211, 3, 0.9); 
-            border-color: #ffb300;
-        }
-        
-        /* Круглая кнопка для добавления строки */
-        .btn-circle {
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            padding: 0;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-        }
-        
-        .btn-circle:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-        
-        /* --- ENGINE START BUTTON --- */
-        .engine-btn-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px 0;
-            margin-bottom: 20px;
-        }
-
-        .btn-engine-start {
-            width: 126px;
-            height: 126px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #0f202d 0%, #061018 55%, #020508 100%);
-            border: 2px solid rgba(0, 210, 255, 0.35);
-            color: inherit;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 0 28px rgba(0, 210, 255, 0.25);
-            transition: all 0.35s ease;
-            cursor: pointer;
-            position: relative;
-            z-index: 10;
-            overflow: hidden;
-        }
-
-        .btn-engine-start:hover {
-            box-shadow: 0 0 42px rgba(0, 210, 255, 0.6);
-            transform: scale(1.05);
-            border-color: rgba(0, 210, 255, 0.65);
-        }
-
-        .btn-engine-start.active {
-            background: radial-gradient(circle, #27e3ff 0%, #0c9ed1 45%, #072130 100%);
-            box-shadow: 0 0 60px rgba(0, 210, 255, 0.85);
-            transform: scale(1.03) rotate(360deg);
-        }
-
-        .btn-engine-start.menu-open {
-            box-shadow: 0 0 50px rgba(0, 210, 255, 0.8);
-            border-color: #00d2ff;
-        }
-
-        .engine-btn-core {
-            position: relative;
-        }
-
-        .engine-btn-menu {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 340px;
-            height: 340px;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease;
-        }
-
-        .engine-btn-menu.show {
-            opacity: 1;
-            pointer-events: auto;
-            visibility: visible;
-        }
-
-        .engine-menu-item {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 96px;
-            height: 96px;
-            border-radius: 18px;
-            background: rgba(0, 210, 255, 0.06);
-            border: 1px solid rgba(0, 210, 255, 0.28);
-            color: #ecfaff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            font-size: 0.8rem;
-            box-shadow: 0 0 18px rgba(0, 210, 255, 0.18);
-            backdrop-filter: blur(6px);
-            opacity: 0;
-            pointer-events: none;
-            --angle: 0deg;
-            --radius: 140px;
-            --scale: 0.55;
-            transform: translate(-50%, -50%) rotate(var(--angle)) translate(var(--radius)) rotate(calc(var(--angle) * -1)) scale(var(--scale));
-            transition: opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
-            transform-origin: center;
-        }
-
-        .engine-btn-menu.show .engine-menu-item {
-            opacity: 1;
-            pointer-events: auto;
-            --scale: 1;
-        }
-
-        .engine-menu-item:hover {
-            box-shadow: 0 0 28px rgba(0, 210, 255, 0.4);
-            border-color: rgba(0, 210, 255, 0.65);
-        }
-
-        .engine-menu-item i {
-            font-size: 1.6rem;
-        }
-
-        .engine-btn-menu.show .engine-menu-item-manuals { transition-delay: 0.02s; }
-        .engine-btn-menu.show .engine-menu-item-reports { transition-delay: 0.08s; }
-        .engine-btn-menu.show .engine-menu-item-folders { transition-delay: 0.14s; }
-
-        .engine-fan {
-            position: relative;
-            width: 78px;
-            height: 78px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 40% 40%, #1c3a4c 0%, #0a1821 55%, #02070c 100%);
-            box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.65), 0 0 22px rgba(0, 210, 255, 0.35);
-            display: block;
-            transform-origin: 50% 50%;
-        }
-
-        .engine-fan::before {
-            content: '';
-            position: absolute;
-            inset: 6px;
-            border-radius: 50%;
-            border: 1px solid rgba(0, 210, 255, 0.25);
-            box-shadow: inset 0 0 12px rgba(0, 210, 255, 0.18);
-        }
-
-        .fan-blade {
-            position: absolute;
-            top: 12px;
-            left: 34px;
-            width: 10px;
-            height: 30px;
-            border-radius: 50% 50% 20% 20%;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, rgba(0, 178, 255, 0.25) 60%, rgba(0, 19, 34, 0.75) 100%);
-            transform-origin: 50% 100%;
-            filter: drop-shadow(0 0 6px rgba(0, 210, 255, 0.25));
-        }
-
-        .blade-1 { transform: rotate(0deg); }
-        .blade-2 { transform: rotate(60deg); }
-        .blade-3 { transform: rotate(120deg); }
-        .blade-4 { transform: rotate(180deg); }
-        .blade-5 { transform: rotate(240deg); }
-        .blade-6 { transform: rotate(300deg); }
-
-        .fan-hub {
-            position: absolute;
-            top: 28px;
-            left: 28px;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: radial-gradient(circle, #1d4d63 0%, #051019 70%, #01060a 100%);
-            border: 1px solid rgba(0, 210, 255, 0.4);
-            box-shadow: 0 0 12px rgba(0, 210, 255, 0.35);
-        }
-
-        .fan-hub::after {
-            content: '';
-            position: absolute;
-            inset: 6px;
-            border-radius: 50%;
-            background: radial-gradient(circle, #0fd9ff 0%, #082534 100%);
-            box-shadow: 0 0 8px rgba(0, 210, 255, 0.45);
-        }
-
-        .engine-fan.spin {
-            animation: fanSpin 0.9s linear infinite;
-        }
-
-        @keyframes fanSpin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        /* АНИМАЦИЯ ИСЧЕЗНОВЕНИЯ (Сворачивание в центр) */
-        @keyframes collapse-in {
-            0% { opacity: 1; transform: scale(1); }
-            100% { opacity: 0; transform: scale(0); }
-        }
-
-        .dashboard-collapsed {
-            animation: collapse-in 0.5s forwards; /* forwards сохраняет конечное состояние (скрыто) */
-            pointer-events: none; /* Чтобы нельзя было нажать на скрытые элементы */
-        }
-
-        /* Скрываем кнопку по умолчанию, пока JS не покажет её */
-        #engine-btn-wrapper {
-            display: none; 
-        }
-        /* АНИМАЦИЯ ПОЯВЛЕНИЯ (Расходятся по местам) */
-        @keyframes expand-out {
-            0% { opacity: 0; transform: scale(0.5) translateY(-50px); }
-            100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
-
-        .dashboard-expanded {
-            animation: expand-out 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        }
-        #engine-btn-wrapper {
-        position: fixed; /* Фиксируем на экране, чтобы она плавала */
-        top: 20%;        /* Начальная позиция сверху */
-        left: 50%;       /* Начальная позиция слева */
-        transform: translate(-50%, -50%); /* Центровка */
-        z-index: 9999;   /* Поверх всех остальных элементов */
-        cursor: grab;    /* Курсор в виде "лапки" */
-        
-        /* Убираем отступы, если они были */
-        margin: 0;
-        padding: 0;
-        }
-
-        #engine-btn-wrapper:active {
-        cursor: grabbing; /* Когда тащим - лапка сжимается */
-        }
-        /* --- EXCEL-LIKE FILTER STYLES --- */
-        .filter-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-        }
-
-        .filter-icon {
-            color: #adb5bd;
-            font-size: 0.8rem;
-            margin-left: 5px;
-            transition: color 0.2s;
-        }
-
-        .filter-icon:hover, .filter-icon.active {
-            color: #0d6efd; /* Синий цвет при наведении или активности */
-        }
-
-        .filter-dropdown-menu {
-            max-height: 300px;
-            overflow-y: auto;
-            min-width: 200px;
-            padding: 10px;
-            font-size: 0.9rem;
-            font-weight: normal; /* Чтобы текст в меню не был жирным как в заголовке */
-        }
-
-        .filter-checkbox-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-
-        .filter-checkbox-item input {
-            margin-right: 8px;
-        }
-
-        /* Neon sidebar section headers */
-        .neon-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #ffffff !important;
-            text-shadow:
-                0 0 8px rgba(0, 255, 255, 0.95),
-                0 0 18px rgba(0, 180, 255, 0.85),
-                0 0 32px rgba(0, 120, 255, 0.7);
-            font-weight: 800;
-            letter-spacing: 2px;
-            font-size: 0.9rem;
-            transition: all 0.25s ease;
-            animation: neonPulse 1.8s ease-in-out infinite;
-        }
-
-        .neon-header i {
-            font-size: 0.75rem;
-            color: inherit;
-            text-shadow:
-                0 0 12px rgba(0, 255, 255, 0.9),
-                0 0 22px rgba(0, 200, 255, 0.7);
-        }
-
-        .neon-header:hover {
-            text-shadow:
-                0 0 15px rgba(0, 255, 255, 1),
-                0 0 30px rgba(0, 200, 255, 0.95),
-                0 0 48px rgba(0, 160, 255, 0.85);
-            color: #e7ffff !important;
-        }
-
-        @keyframes neonPulse {
-            0%, 100% {
-                text-shadow:
-                    0 0 12px rgba(0, 220, 255, 1),
-                    0 0 24px rgba(0, 220, 255, 0.85),
-                    0 0 36px rgba(0, 160, 255, 0.7);
-            }
-            50% {
-                text-shadow:
-                    0 0 18px rgba(0, 255, 255, 1),
-                    0 0 36px rgba(0, 210, 255, 1),
-                    0 0 54px rgba(0, 170, 255, 0.85);
-            }
-        }
-        
-        /* --- DELETE BUTTON STYLES --- */
-        .delete-col {
-            background-color: #fff3cd !important;
-            vertical-align: middle !important;
-        }
-        
-        .delete-col .btn-danger {
-            padding: 2px 6px;
-            font-size: 0.75rem;
-            transition: all 0.2s;
-        }
-        
-        .delete-col .btn-danger:hover {
-            transform: scale(1.1);
-            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4);
-        }
-        /* === AUTHENTICATION STYLES === */
-        .login-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-
-        .login-box {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            width: 400px;
-            max-width: 90%;
-        }
-
-        .login-box h2 {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #333;
-        }
-
-        .login-error {
-            background: #fee;
-            color: #c33;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            display: none;
-        }
-
-        /* User Header Bar */
-        .user-header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 60px;
-            padding: 0 20px;
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            gap: 10px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-        }
-
-        .user-icon-btn {
-            position: relative;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 2px solid #ddd;
-            background: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .user-icon-btn:hover {
-            border-color: #007bff;
-            transform: scale(1.05);
-        }
-
-        #user-profile-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            font-weight: bold;
-            font-size: 14px;
-            border: none;
-        }
-
-        .notification-badge {
-            position: absolute;
-            top: -4px;
-            right: -4px;
-            min-width: 18px;
-            height: 18px;
-            background: #dc3545;
-            color: white;
-            border-radius: 3px;
-            font-size: 11px;
-            font-weight: bold;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 0 4px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        #add-user-btn {
-            display: none;
-            padding: 8px 16px;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.2s;
-        }
-
+        /* ENGINE HISTORY TIMELINE STYLES */
         #add-user-btn:hover {
             background: #218838;
         }
@@ -1201,337 +90,265 @@
             margin-bottom: 8px;
         }
 
-        .profile-role {
-            display: inline-block;
-            padding: 4px 12px;
-            background: #e3f2fd;
-            color: #1976d2;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .profile-menu {
-            padding: 8px 0;
-        }
-
-        .profile-menu-item {
-            padding: 12px 20px;
-            cursor: pointer;
+        .profile-actions {
             display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: background 0.2s;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 12px;
         }
 
-        .profile-menu-item:hover {
-            background: #f8f9fa;
-        }
-
-        .profile-menu-item i {
-            width: 20px;
-            text-align: center;
-            color: #666;
-        }
-
-        /* Notifications Panel */
-        .notifications-panel {
-            position: fixed;
-            top: 65px;
-            right: 20px;
-            width: 360px;
-            max-height: 500px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-            display: none;
-            z-index: 999;
-        }
-
-        .notifications-panel.show {
-            display: flex;
-            flex-direction: column;
-            animation: dropdownSlide 0.2s ease;
-        }
-
-        .notifications-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .notifications-header h5 {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .mark-all-read {
-            color: #007bff;
-            cursor: pointer;
+        .profile-actions .btn {
+            padding: 6px 12px;
+            border-radius: 8px;
             font-size: 13px;
-            text-decoration: none;
         }
 
-        .mark-all-read:hover {
-            text-decoration: underline;
+        .profile-links {
+            list-style: none;
+            padding: 0;
+            margin: 0;
         }
 
-        .notifications-list {
-            overflow-y: auto;
-            max-height: 440px;
-        }
-
-        .notification-item {
-            padding: 16px 20px;
+        .profile-links li {
             border-bottom: 1px solid #f0f0f0;
-            cursor: pointer;
-            transition: background 0.2s;
         }
 
-        .notification-item:hover {
-            background: #f8f9fa;
+        .profile-links li:last-child {
+            border-bottom: none;
         }
 
-        .notification-item.unread {
-            background: #f0f7ff;
-        }
-
-        .notification-item.unread:hover {
-            background: #e3f2fd;
-        }
-
-        .notification-time {
-            font-size: 12px;
-            color: #999;
-            margin-top: 6px;
-        }
-        
-        /* Store Condition Color Styles */
-        #store-condition.sv-sent {
-            background-color: #28a745 !important;
-            color: white !important;
-            font-weight: bold;
-        }
-        #store-condition.under-repair {
-            background-color: #0056b3 !important;
-            color: white !important;
-            font-weight: bold;
-        }
-        #store-condition.delivered-roma {
-            background-color: #90ee90 !important;
-            color: black !important;
-            font-weight: bold;
-        }
-        #store-condition.no-capability {
-            background-color: #dc3545 !important;
-            color: white !important;
-            font-weight: bold;
-        }
-        #store-condition.us-shj {
-            background-color: #ffc107 !important;
-            color: black !important;
-            font-weight: bold;
-        }
-
-        /* === 3D PARTS CARDS === */
-        :root {
-            --parts-card-height: 200px;
-            --parts-card-width: 50%;
-        }
-        .parts-cards-section {
-            margin-top: 2.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .parts-cards-grid {
+        .profile-links a {
             display: flex;
-            flex-wrap: wrap;
-            gap: 1.5rem;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            color: #333;
+            text-decoration: none;
+            transition: background 0.2s, color 0.2s;
         }
 
-        .parts-cards-grid .parts-card-wrapper {
-            flex: 0 0 calc(var(--parts-card-width, 50%) - 1rem);
-            min-width: 240px;
+        .profile-links a:hover {
+            background: #f8f9fa;
+            color: #007bff;
         }
 
-        .parts-card-3d {
+        .profile-links i {
+            width: 18px;
+            text-align: center;
+            color: #555;
+        }
+
+        .profile-footer {
+            padding: 12px 18px;
+            background: #f8f9fa;
+            border-top: 1px solid #eee;
+            text-align: center;
+        }
+
+        .profile-footer button {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+
+        .timeline-container {
             position: relative;
-            height: var(--parts-card-height, 200px);
+            padding: 20px 0;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .timeline-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 15px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 20px;
-            padding: 2rem;
-            cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            transform-style: preserve-3d;
-            perspective: 1000px;
-            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
-            overflow: hidden;
-        }
-
-        .parts-card-3d::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .parts-card-3d:hover::before {
-            opacity: 1;
-        }
-
-        .parts-card-3d:hover {
-            transform: translateY(-10px) rotateX(5deg);
-            box-shadow: 0 20px 60px rgba(102, 126, 234, 0.5);
-        }
-
-        .parts-card-3d.card-green {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            box-shadow: 0 10px 40px rgba(17, 153, 142, 0.3);
-        }
-
-        .parts-card-3d.card-green:hover {
-            box-shadow: 0 20px 60px rgba(17, 153, 142, 0.5);
-        }
-
-        .parts-card-icon {
-            position: absolute;
-            right: 2rem;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: clamp(3.5rem, calc(var(--parts-card-height, 200px) * 0.35), 5.5rem);
-            color: rgba(255, 255, 255, 0.15);
-            transition: all 0.3s;
-        }
-
-        .parts-card-3d:hover .parts-card-icon {
-            transform: translateY(-50%) scale(1.1) rotate(10deg);
-            color: rgba(255, 255, 255, 0.25);
-        }
-
-        .parts-card-content {
-            position: relative;
-            z-index: 2;
             color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }
 
-        .parts-card-title {
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        .timeline-header h5 {
+            margin: 0;
+            font-weight: 600;
         }
 
-        .parts-card-subtitle {
-            font-size: 0.95rem;
-            opacity: 0.9;
-            font-weight: 400;
+        .timeline-header .engine-meta {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 10px;
+            font-size: 0.9rem;
         }
 
-        .parts-card-count {
+        .timeline-line {
             position: absolute;
-            bottom: 2rem;
-            left: 2rem;
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: rgba(255, 255, 255, 0.95);
-            text-shadow: 0 2px 15px rgba(0,0,0,0.2);
-        }
-
-        /* Parts Modal */
-        .parts-modal-overlay {
-            display: none;
-            position: fixed;
+            left: 50%;
             top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 10000;
-            backdrop-filter: blur(4px);
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, #667eea, #764ba2);
+            transform: translateX(-50%);
         }
 
-        .parts-modal-overlay.show {
+        .timeline-event {
+            position: relative;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .timeline-event:nth-child(odd) {
+            flex-direction: row;
+        }
+
+        .timeline-event:nth-child(even) {
+            flex-direction: row-reverse;
+        }
+
+        .timeline-date {
+            width: 45%;
+            text-align: right;
+            padding-right: 30px;
+            font-weight: 600;
+            color: #666;
+            padding-top: 15px;
+        }
+
+        .timeline-event:nth-child(even) .timeline-date {
+            text-align: left;
+            padding-left: 30px;
+            padding-right: 0;
+        }
+
+        .timeline-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            animation: fadeIn 0.3s;
+            font-size: 1.3rem;
+            color: white;
+            z-index: 10;
+            flex-shrink: 0;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
         }
 
-        .parts-modal-content {
+        .timeline-icon.install { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .timeline-icon.remove { background: linear-gradient(135deg, #ee0979, #ff6a00); }
+        .timeline-icon.repair { background: linear-gradient(135deg, #f093fb, #f5576c); }
+        .timeline-icon.ship { background: linear-gradient(135deg, #8e44ad, #3498db); }
+        .timeline-icon.part { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+        .timeline-icon.atlb { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+        .timeline-icon.inspect { background: linear-gradient(135deg, #f39c12, #e67e22); }
+        .timeline-icon.param { background: linear-gradient(135deg, #fa709a, #fee140); }
+
+        .timeline-content {
+            width: 45%;
+            padding: 15px 20px;
             background: white;
-            border-radius: 20px;
-            width: 90%;
-            max-width: 1200px;
-            max-height: 85vh;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 10px;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
         }
 
-        .parts-modal-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1.5rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .timeline-event:nth-child(even) .timeline-content {
+            border-left: none;
+            border-right: 4px solid #667eea;
         }
 
-        .parts-modal-header.green {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        .timeline-content:hover {
+            box-shadow: 0 5px 25px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
         }
 
-        .parts-modal-header h4 {
-            margin: 0;
-            font-weight: 700;
+        .timeline-content h6 {
+            margin: 0 0 8px 0;
+            color: #333;
+            font-weight: 600;
         }
 
-        .parts-modal-close {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 1.5rem;
-            transition: all 0.3s;
+        .timeline-content .badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
         }
 
-        .parts-modal-close:hover {
-            background: rgba(255,255,255,0.3);
-            transform: rotate(90deg);
+        .timeline-details {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+            font-size: 0.85rem;
+            color: #666;
         }
 
-        .parts-modal-body {
-            padding: 2rem;
-            max-height: calc(85vh - 100px);
-            overflow-y: auto;
+        .timeline-details strong {
+            color: #333;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        .timeline-no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
         }
 
-        @keyframes slideUp {
-            from { 
-                opacity: 0;
-                transform: translateY(50px) scale(0.95); 
-            }
-            to { 
-                opacity: 1;
-                transform: translateY(0) scale(1); 
-            }
+        @media (max-width: 768px) {
+            .timeline-line { left: 25px; }
+            .timeline-event { flex-direction: column !important; }
+            .timeline-date, .timeline-content { width: 100%; text-align: left !important; padding-left: 70px !important; padding-right: 0 !important; }
+            .timeline-icon { position: absolute; left: 0; }
         }
+
+        /* Sidebar + layout */
+        .sidebar-brand { padding: 1.25rem 1rem; font-weight: 700; letter-spacing: 0.3px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+        #sidebar-wrapper .list-group-item { background: transparent; color: #c7d1dd; border: none; padding: 12px 18px; font-size: 0.95rem; }
+        #sidebar-wrapper .list-group-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        #sidebar-wrapper .list-group-item i { width: 18px; text-align: center; margin-right: 8px; }
+        .btn-neon { background: linear-gradient(135deg, #1f9cff, #6f7bff); color: #fff; border: none; box-shadow: 0 8px 20px rgba(31,156,255,0.35); }
+        .btn-neon:hover { filter: brightness(1.05); color: #fff; }
+
+        /* Engine radial button */
+        .engine-btn-container { position: fixed; right: 22px; bottom: 22px; z-index: 999; }
+        .engine-btn-core { position: relative; width: 88px; height: 88px; }
+        .btn-engine-start { width: 88px; height: 88px; border-radius: 50%; border: none; background: radial-gradient(circle at 30% 30%, #7cf5ff, #1b4bff 60%); box-shadow: 0 10px 30px rgba(27,75,255,0.35); position: relative; overflow: hidden; }
+        .engine-fan { display: block; position: absolute; inset: 0; animation: fan-spin 2s linear infinite; }
+        .fan-blade { position: absolute; width: 8px; height: 32px; background: rgba(255,255,255,0.85); left: 50%; top: 50%; transform-origin: center 100%; border-radius: 6px; }
+        .blade-1 { transform: translate(-50%, -100%) rotate(0deg); }
+        .blade-2 { transform: translate(-50%, -100%) rotate(60deg); }
+        .blade-3 { transform: translate(-50%, -100%) rotate(120deg); }
+        .blade-4 { transform: translate(-50%, -100%) rotate(180deg); }
+        .blade-5 { transform: translate(-50%, -100%) rotate(240deg); }
+        .blade-6 { transform: translate(-50%, -100%) rotate(300deg); }
+        .fan-hub { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #0a1f4d; left: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7); }
+        @keyframes fan-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .engine-btn-menu { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+        .engine-menu-item { position: absolute; width: 96px; height: 96px; border-radius: 18px; background: rgba(0,210,255,0.08); border: 1px solid rgba(0,210,255,0.28); color: #ecfaff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 0.85rem; opacity: 0; transform: translate(-50%, -50%) rotate(var(--angle)) translate(0) rotate(calc(-1 * var(--angle))); transition: opacity 0.25s ease, transform 0.25s ease; }
+        .engine-btn-menu.show .engine-menu-item { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) rotate(var(--angle)) translate(120px) rotate(calc(-1 * var(--angle))); }
+
+        /* Dashboard widgets */
+        .dashboard-content { background: #f5f7fb; padding: 18px; border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+        .btn-dashboard { position: relative; padding: 14px 16px; border-radius: 14px; border: none; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.12); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .btn-dashboard .label { font-weight: 600; font-size: 1rem; }
+        .btn-dashboard .count { font-size: 1.4rem; font-weight: 700; }
+        .btn-dashboard i { position: absolute; right: 12px; top: 12px; font-size: 1.3rem; opacity: 0.9; }
+        .btn-dashboard:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(0,0,0,0.18); color: #fff; }
+        .btn-status-sv { background: linear-gradient(135deg, #1fbf75, #0f8d52); }
+        .btn-status-us { background: linear-gradient(135deg, #f54b64, #d31027); }
+        .btn-status-rem { background: linear-gradient(135deg, #ff9f43, #ff6a00); }
+        .btn-status-inst { background: linear-gradient(135deg, #4c6fff, #1b35ff); }
+
+        /* Generic helpers */
+        .btn-circle { width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+        .card { border-radius: 14px; }
+        .card-header { border-top-left-radius: 14px; border-top-right-radius: 14px; }
+        .table thead th { white-space: nowrap; }
+        .spinner-sm { width: 1.75rem; height: 1.75rem; }
+
+        /* Scroll containers */
+        .table-responsive { border-radius: 10px; }
+        .dashboard-collapsed { max-height: 0 !important; overflow: hidden; opacity: 0; transition: all 0.3s ease; }
+        .dashboard-expanded { max-height: 2000px; opacity: 1; transition: all 0.3s ease; }
     </style>
 </head>
 <body>
@@ -1632,6 +449,9 @@
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openBoroscopeView(); return false;">
                     <i class="bi bi-camera-video"></i> Borescope
                 </a>
+                <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openEngineReportsView(); return false;">
+                    <i class="bi bi-clock-history"></i> Engine Reports
+                </a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openPurchaseOrdersView(); return false;">
                     <i class="bi bi-receipt"></i> Purchase Orders
                 </a>
@@ -1705,6 +525,29 @@
                 <div class="modal-body text-center py-4">
                     <i class="bi bi-x-circle text-danger" style="font-size: 3rem;"></i>
                     <p class="mt-3 mb-0" id="errorMessage">An error occurred!</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ENGINE HISTORY TIMELINE MODAL -->
+    <div class="modal fade" id="engineHistoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="bi bi-clock-history me-2"></i>Engine Full History Timeline</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="engineHistoryBody">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-3">Loading engine history...</p>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -1925,8 +768,10 @@
                                         <th>Install To</th>
                                         <th>Pos</th>
                                         <th>Loc From</th>
-                                        <th>TT</th>
-                                        <th>TC</th>
+                                        <th>TT(Engine Flight Hours)</th>
+                                        <th>TC(Engine Cycles)</th>
+                                        <th>TTSN(A/C)</th>
+                                        <th>TCSN(A/C)</th>
                                         <th>Remarks</th>
                                     </tr>
                                 </thead>
@@ -1997,12 +842,23 @@
 
                                         <div class="row mb-3">
                                             <div class="col-md-6">
-                                                <label class="form-label small fw-bold">TT (Flight Hours) <span class="text-danger">*</span></label>
+                                                <label class="form-label small fw-bold">TT (Engine Flight Hours) <span class="text-danger">*</span></label>
                                                 <input type="number" step="0.1" class="form-control" id="in-tt" required>
                                             </div>
                                             <div class="col-md-6">
-                                                <label class="form-label small fw-bold">TC (Cycles) <span class="text-danger">*</span></label>
+                                                <label class="form-label small fw-bold">TC (Engine Cycles) <span class="text-danger">*</span></label>
                                                 <input type="number" class="form-control" id="in-tc" required>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold">TTSN(A/C) <span class="text-danger">*</span></label>
+                                                <input type="number" step="0.1" class="form-control" id="in-ac-ttsn" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold">TCSN(A/C) <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="in-ac-tcsn" required>
                                             </div>
                                         </div>
 
@@ -2235,7 +1091,42 @@
                 </div>
             </div>
             
-            <!-- 5. BORESCOPE VIEW -->
+            <!-- 5. ENGINE REPORTS VIEW -->
+            <div id="view-engine-reports" style="display: none;">
+                <h4 class="mb-3 text-info"><i class="bi bi-clock-history"></i> Engine Reports - Full History</h4>
+                <p class="text-muted">Click on any engine to view its complete history timeline (installations, removals, repairs, parts, utilization).</p>
+                
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="input-group" style="max-width: 300px;">
+                                <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control border-start-0 ps-0" id="engine-reports-search" placeholder="Search engine..." onkeyup="filterTable('engine-reports-body', 'engine-reports-search')">
+                            </div>
+                            <a href="#" class="btn btn-sm btn-primary" onclick="loadEngineReportsList(); return false;" role="button"><i class="bi bi-arrow-clockwise"></i> Refresh</a>
+                        </div>
+                        
+                        <table class="table table-hover table-bordered table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Original S/N</th>
+                                    <th>Current S/N</th>
+                                    <th>Status</th>
+                                    <th>Aircraft</th>
+                                    <th>Location</th>
+                                    <th>TT</th>
+                                    <th>TC</th>
+                                    <th style="width: 120px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="engine-reports-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. BORESCOPE VIEW -->
             <div id="view-borescope" style="display: none;">
                 <h4 class="mb-3 text-info"><i class="bi bi-camera-video"></i> Borescope Inspections</h4>
                 
@@ -2355,10 +1246,10 @@
                 
                 <ul class="nav nav-tabs mb-4">
                     <li class="nav-item">
-                        <button class="nav-link active" id="tab-po-info-btn" onclick="switchPurchaseOrdersTab('info')">История заказов</button>
+                        <button class="nav-link active" id="tab-po-info-btn" onclick="switchPurchaseOrdersTab('info')">Order History</button>
                     </li>
                     <li class="nav-item">
-                        <button class="nav-link" id="tab-po-entry-btn" onclick="switchPurchaseOrdersTab('entry')">Внести данные</button>
+                        <button class="nav-link" id="tab-po-entry-btn" onclick="switchPurchaseOrdersTab('entry')">Add Entry</button>
                     </li>
                 </ul>
 
@@ -2374,26 +1265,31 @@
                                 
                                 <div>
                                     <a href="#" class="btn btn-sm btn-primary" onclick="loadPurchaseOrdersHistory(); return false;" role="button"><i class="bi bi-arrow-clockwise"></i> Refresh</a>
-                                    <button class="btn btn-sm btn-warning ms-2" id="btn-purchase-orders-edit" onclick="toggleEditModeTable('purchase-orders')"><i class="bi bi-pencil-square"></i> Edit</button>
-                                    <button class="btn btn-sm btn-success ms-2 d-none" id="btn-purchase-orders-save" onclick="saveEditModeTable('purchase-orders')"><i class="bi bi-check-lg"></i> Save Changes</button>
-                                    <button class="btn btn-sm btn-secondary ms-2 d-none" id="btn-purchase-orders-cancel" onclick="cancelEditModeTable('purchase-orders')"><i class="bi bi-x-lg"></i> Cancel</button>
-                                    <button class="btn btn-circle btn-success d-none" id="add-row-purchase-orders" onclick="addEmptyRowTable('purchase-orders')" title="Add Row"><i class="bi bi-plus-lg"></i></button>
+                                    <button class="btn btn-sm btn-warning ms-2" id="btn-purchase-orders-edit" onclick="toggleEditModeColumnHeaders('purchase-orders')"><i class="bi bi-pencil-square"></i> Edit</button>
+                                    <button class="btn btn-sm btn-success ms-2 d-none" id="btn-purchase-orders-save" onclick="saveColumnHeaders('purchase-orders')"><i class="bi bi-check-lg"></i> Save Changes</button>
+                                    <button class="btn btn-sm btn-secondary ms-2 d-none" id="btn-purchase-orders-cancel" onclick="cancelColumnHeaders('purchase-orders')"><i class="bi bi-x-lg"></i> Cancel</button>
                                 </div>
                             </div>
-                            <table class="table table-hover table-bordered table-sm">
+                            <div style="overflow-x: auto; max-width: 100%; width: 100%;">
+                            <table class="table table-hover table-bordered table-sm" style="white-space: nowrap;">
                                 <thead class="table-light">
                                     <tr>
                                         <th class="delete-col-purchase-orders" style="width: 40px; display: none;"><i class="bi bi-trash"></i></th>
-                                        <th>Дата</th>
-                                        <th>Наименование</th>
-                                        <th>Цель покупки</th>
-                                        <th>На какой самолет</th>
+                                        <th>Date</th>
+                                        <th>Item Name</th>
+                                        <th>PN</th>
+                                        <th>SN</th>
+                                        <th>Price</th>
+                                        <th>Purchase Purpose</th>
+                                        <th>Aircraft</th>
                                         <th>RO#</th>
                                         <th>Link</th>
+                                        <th id="po-header-add-btn" style="width: 40px; text-align: center; display: none;"><button class="btn btn-sm btn-success" title="Add new column"><i class="bi bi-plus-circle-fill"></i></button></th>
                                     </tr>
                                 </thead>
                                 <tbody id="purchase-orders-history-body"></tbody>
                             </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2408,24 +1304,39 @@
                                     <form id="form-purchase-order">
                                         <div class="row mb-3">
                                             <div class="col-md-4">
-                                                <label class="form-label small fw-bold">Дата <span class="text-danger">*</span></label>
+                                                <label class="form-label small fw-bold">Date <span class="text-danger">*</span></label>
                                                 <input type="date" class="form-control" id="po-date" required>
                                             </div>
                                             <div class="col-md-8">
-                                                <label class="form-label small fw-bold">Наименование <span class="text-danger">*</span></label>
-                                                <input type="text" class="form-control" id="po-name" placeholder="Название закупки" required>
+                                                <label class="form-label small fw-bold">Item Name <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" id="po-name" placeholder="Item name" required>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-bold">PN</label>
+                                                <input type="text" class="form-control" id="po-pn" placeholder="Part Number">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-bold">SN</label>
+                                                <input type="text" class="form-control" id="po-sn" placeholder="Serial Number">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-bold">Price</label>
+                                                <input type="number" step="0.01" class="form-control" id="po-price" placeholder="0.00">
                                             </div>
                                         </div>
 
                                         <div class="row mb-3">
                                             <div class="col-md-6">
-                                                <label class="form-label small fw-bold">Цель покупки <span class="text-danger">*</span></label>
-                                                <input type="text" class="form-control" id="po-purpose" placeholder="Для чего нужно" required>
+                                                <label class="form-label small fw-bold">Purchase Purpose <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" id="po-purpose" placeholder="Reason / objective" required>
                                             </div>
                                             <div class="col-md-6">
-                                                <label class="form-label small fw-bold">На какой самолет <span class="text-danger">*</span></label>
+                                                <label class="form-label small fw-bold">Aircraft <span class="text-danger">*</span></label>
                                                 <select class="form-select" id="po-aircraft" required>
-                                                    <option value="">Выберите...</option>
+                                                    <option value="">Select...</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -2434,12 +1345,12 @@
                                             <div class="col-md-6">
                                                 <label class="form-label small fw-bold">RO# <span class="text-danger">*</span></label>
                                                 <input type="text" class="form-control" id="po-ro-number" placeholder="RO-xxxxx" required>
-                                                <small class="text-muted">Номер для отслеживания одобрения</small>
+                                                <small class="text-muted">Tracking number / approval</small>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label small fw-bold">Link</label>
                                                 <input type="url" class="form-control" id="po-link" placeholder="https://...">
-                                                <small class="text-muted">Ссылка на подписанный файл</small>
+                                                <small class="text-muted">Link to signed file</small>
                                             </div>
                                         </div>
 
@@ -3474,6 +2385,7 @@
                                 <button class="btn btn-sm btn-primary" onclick="loadMainTable()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                                 <button class="btn btn-sm btn-warning" id="btn-main-edit" onclick="toggleEditMode()"><i class="bi bi-pencil-square"></i> Edit Table</button>
                                 <button class="btn btn-sm btn-info" id="btn-main-filter" onclick="toggleEngineFilter()" title="Filter"><i class="bi bi-funnel"></i> Filter</button>
+                                <button class="btn btn-sm btn-danger d-none" id="btn-main-delete-selected" onclick="bulkDeleteSelected()"><i class="bi bi-trash3"></i> Delete Selected</button>
                                 <button class="btn btn-sm btn-success d-none" id="btn-main-save" onclick="saveEditMode()"><i class="bi bi-check-lg"></i> Save Changes</button>
                                 <button class="btn btn-sm btn-secondary d-none" id="btn-main-cancel" onclick="cancelEditMode()"><i class="bi bi-x-lg"></i> Cancel</button>
                             </div>
@@ -3482,7 +2394,12 @@
                                 <table class="table table-bordered table-hover table-sm text-center align-middle" style="font-size: 0.85rem;">
                                     <thead class="table-dark">
                                         <tr>
-                                            <th class="delete-col" style="width: 40px; display: none;"><i class="bi bi-trash"></i></th>
+                                            <th class="delete-col" style="width: 64px; display: none; white-space: nowrap;">
+                                                <div class="bulk-controls">
+                                                    <input type="checkbox" id="select-all-delete" class="form-check-input select-all" onchange="toggleSelectAllRows(this)">
+                                                    <i class="bi bi-trash text-danger" title="Delete / Select"></i>
+                                                </div>
+                                            </th>
                                             <th>Date</th><th>Model</th><th>Orig. ESN</th><th>GSS ID</th><th>Status</th>
                                             <th>TT</th><th>TC</th><th>Moved From</th><th>Removed From</th>
                                             <th>Remarks</th><th>Links/Photo</th>
@@ -3500,10 +2417,17 @@
                 </div>
                 
                 <!-- Выдвижная панель фильтра -->
-                <div id="engine-filter-panel" class="position-fixed" style="right: -350px; top: 0; width: 350px; height: 100vh; background: white; border-left: 1px solid #ddd; box-shadow: -2px 0 8px rgba(0,0,0,0.1); z-index: 1000; transition: right 0.3s ease; padding: 20px; overflow-y: auto;">
+                <div id="engine-filter-panel" class="position-fixed" style="right: -400px; top: 0; width: 400px; height: 100vh; background: white; border-left: 1px solid #ddd; box-shadow: -2px 0 8px rgba(0,0,0,0.1); z-index: 1000; transition: right 0.3s ease; padding: 20px; overflow-y: auto;">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <h5 class="mb-0">Filter Engines</h5>
                         <button class="btn btn-close" onclick="toggleEngineFilter()"></button>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">User (Created By)</label>
+                        <select class="form-select" id="engine-user-filter" onchange="filterEnginesByUser()">
+                            <option value="">All Users</option>
+                        </select>
                     </div>
                     
                     <div class="mb-4">
@@ -3521,6 +2445,57 @@
                             <option value="REMOVED">REMOVED</option>
                             <option value="AS">AS (As Removed)</option>
                         </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">Model</label>
+                        <input type="text" class="form-control" id="engine-model-filter" onchange="applyEngineFilters()" placeholder="e.g. CF6-80">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">Orig. ESN</label>
+                        <input type="text" class="form-control" id="engine-esn-filter" onchange="applyEngineFilters()" placeholder="Search ESN">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">GSS ID</label>
+                        <input type="text" class="form-control" id="engine-gss-filter" onchange="applyEngineFilters()" placeholder="Search GSS ID">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">Location (Moved From)</label>
+                        <input type="text" class="form-control" id="engine-location-filter" onchange="applyEngineFilters()" placeholder="Search location">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">Removed From (AC)</label>
+                        <input type="text" class="form-control" id="engine-removed-filter" onchange="applyEngineFilters()" placeholder="Search removed from">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">TT Range</label>
+                        <div class="d-flex gap-2">
+                            <input type="number" class="form-control" id="engine-tt-min" onchange="applyEngineFilters()" placeholder="Min">
+                            <input type="number" class="form-control" id="engine-tt-max" onchange="applyEngineFilters()" placeholder="Max">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">TC Range</label>
+                        <div class="d-flex gap-2">
+                            <input type="number" class="form-control" id="engine-tc-min" onchange="applyEngineFilters()" placeholder="Min">
+                            <input type="number" class="form-control" id="engine-tc-max" onchange="applyEngineFilters()" placeholder="Max">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="small fw-bold d-block mb-2">Remarks</label>
+                        <input type="text" class="form-control" id="engine-remarks-filter" onchange="applyEngineFilters()" placeholder="Search remarks">
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" id="engine-has-photo" onchange="applyEngineFilters()">
+                        <label class="form-check-label" for="engine-has-photo">With Photo only</label>
                     </div>
                     
                     <div class="d-flex gap-2">
@@ -3943,6 +2918,7 @@ function openDashboardView() {
             'view-eng-param',
             'view-utilization-param',
             'view-borescope',
+            'view-engine-reports',
             'view-purchase-orders'
         ];
         
@@ -5758,14 +4734,14 @@ function restoreView(viewName) {
     async function loadInstallHistory() {
         const tbody = document.getElementById('install-history-body');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">Loading…</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">Loading…</td></tr>';
 
         let res = await safeFetch('/api/history/INSTALL' + noCache());
         if (!res || !res.ok) res = await safeFetch('/api/history/INSTALL');
 
         if (!res || !res.ok) {
             console.error('Error loading installation history', res && res.status);
-            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-3">Unable to load installations</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger py-3">Unable to load installations</td></tr>';
             return;
         }
 
@@ -5774,7 +4750,7 @@ function restoreView(viewName) {
 
         tbody.innerHTML = '';
         if (!Array.isArray(serverData) || serverData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No installations found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted">No installations found</td></tr>';
             return;
         }
 
@@ -5794,6 +4770,8 @@ function restoreView(viewName) {
                     <td>${row.location_from}</td>
                     <td>${row.tt}</td>
                     <td>${row.tc}</td>
+                    <td>${row.ac_ttsn}</td>
+                    <td>${row.ac_tcsn}</td>
                     <td><small>${row.remarks||'-'}</small></td>
                 </tr>
             `;
@@ -5802,8 +4780,9 @@ function restoreView(viewName) {
     // 5. Отправка формы (Save)
 // 4. Подготовка формы (Загрузка SV двигателей)
     async function prepareInstallForm() {
-        let res = await safeFetch('/api/engines?status=SV'); 
-        if (!res || !res.ok) res = await safeFetch('/api/engines');
+        // Всегда грузим свежие данные без кеша, чтобы список был актуальным
+        let res = await safeFetch('/api/engines?status=SV' + noCache().replace('?', '&')); 
+        if (!res || !res.ok) res = await safeFetch('/api/engines' + noCache());
         
         let engines = [];
         try { engines = res && res.ok ? await res.json() : []; } catch { engines = []; }
@@ -5828,9 +4807,18 @@ function restoreView(viewName) {
                 document.getElementById('in-engine-id').value = '';
                 document.getElementById('in-cur-sn').value = '';
             } else {
+                // Проверяем, что двигатель уже INSTALLED - это недопустимо для Installation
+                if (selectedEngine.status === 'INSTALLED') {
+                    const aircraftInfo = selectedEngine.aircraft ? ` on aircraft ${selectedEngine.aircraft}` : ' on some aircraft';
+                    showErrorNotification(`❌ Engine ${selectedEngine.original_sn} CANNOT be installed! This engine is already INSTALLED${aircraftInfo}. Please select a different engine or remove this one first.`);
+                    this.value = '';
+                    document.getElementById('in-engine-id').value = '';
+                    document.getElementById('in-cur-sn').value = '';
+                    return;
+                }
                 // Проверяем статус двигателя
                 if (selectedEngine.status !== 'SV') {
-                    showErrorNotification(`Engine ${selectedEngine.original_sn} cannot be installed! Status is ${selectedEngine.status}, must be SV (Serviceable).`);
+                    showErrorNotification(`❌ Engine ${selectedEngine.original_sn} cannot be installed! Status is ${selectedEngine.status}, must be SV (Serviceable).`);
                     this.value = '';
                     document.getElementById('in-engine-id').value = '';
                     document.getElementById('in-cur-sn').value = '';
@@ -5841,8 +4829,14 @@ function restoreView(viewName) {
             }
         });
     }
+    // Guard flag to prevent double-submit
+    let _installSubmitting = false;
     // 5. Отправка формы (Save)
     async function submitInstallForm() {
+        if (_installSubmitting) { return; }
+        _installSubmitting = true;
+        const saveBtn = document.querySelector('#tab-inst-entry .btn.btn-success');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         const date = document.getElementById('in-date').value;
         const engInputVal = document.getElementById('in-engine-input').value;
         const engId = document.getElementById('in-engine-id').value;
@@ -5850,7 +4844,7 @@ function restoreView(viewName) {
         const acText = document.getElementById('in-ac').options[document.getElementById('in-ac').selectedIndex]?.text;
         
         // Валидация обязательных полей
-        if(!date || !acId || document.getElementById('in-tt').value === "" || document.getElementById('in-tc').value === "") { 
+        if(!date || !acId || document.getElementById('in-tt').value === "" || document.getElementById('in-tc').value === "" || document.getElementById('in-ac-ttsn').value === "" || document.getElementById('in-ac-tcsn').value === "") { 
             showErrorNotification("Please fill in all required fields (*)");
             return; 
         }
@@ -5881,6 +4875,8 @@ function restoreView(viewName) {
             position: parseInt(document.getElementById('in-pos').value),
             tt: parseFloat(document.getElementById('in-tt').value),
             tc: parseInt(document.getElementById('in-tc').value),
+            ac_ttsn: parseFloat(document.getElementById('in-ac-ttsn').value),
+            ac_tcsn: parseInt(document.getElementById('in-ac-tcsn').value),
             remarks: document.getElementById('in-rem').value
         };
         
@@ -5916,6 +4912,9 @@ function restoreView(viewName) {
             
         } catch(e) { 
             showErrorNotification("Error: " + e.message);
+        } finally {
+            _installSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Save Record'; }
         }
     }
         // ------------------------------------------------------------------------------------
@@ -6003,6 +5002,296 @@ function restoreView(viewName) {
         document.getElementById('view-borescope').style.display = 'block';
         updateHistory('borescope');
         await loadBoroscopeHistory();
+    }
+
+// --- ENGINE REPORTS MODULE LOGIC ---
+    async function openEngineReportsView() {
+        document.querySelectorAll('.container-fluid > div').forEach(el => el.style.display = 'none');
+        document.getElementById('view-engine-reports').style.display = 'block';
+        updateHistory('engine-reports');
+        await loadEngineReportsList();
+    }
+
+    async function loadEngineReportsList() {
+        const tbody = document.getElementById('engine-reports-body');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Loading engines...</td></tr>';
+
+        let res = await safeFetch('/api/engines' + noCache());
+        if (!res || !res.ok) res = await safeFetch('/api/engines');
+
+        if (!res || !res.ok) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-3">Unable to load engines</td></tr>';
+            return;
+        }
+
+        let engines = [];
+        try { engines = await res.json(); } catch { engines = []; }
+
+        if (!Array.isArray(engines) || engines.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No engines found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        engines.forEach((eng, idx) => {
+            const statusClass = {
+                'SV': 'success',
+                'INSTALLED': 'primary',
+                'USV': 'warning',
+                'REPAIR': 'danger',
+                'SCRAP': 'dark'
+            }[eng.status] || 'secondary';
+
+            tbody.innerHTML += `
+                <tr style="cursor: pointer;" onclick="showEngineHistoryTimeline(${eng.id}, '${eng.original_sn}')">
+                    <td>${idx + 1}</td>
+                    <td><strong>${eng.original_sn}</strong></td>
+                    <td>${eng.current_sn}</td>
+                    <td><span class="badge bg-${statusClass}">${eng.status}</span></td>
+                    <td>${eng.aircraft || '-'}</td>
+                    <td>${eng.location}</td>
+                    <td>${eng.tt || 0}</td>
+                    <td>${eng.tc || 0}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); showEngineHistoryTimeline(${eng.id}, '${eng.original_sn}')">
+                            <i class="bi bi-clock-history"></i> View Timeline
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    async function showEngineHistoryTimeline(engineId, serialNumber) {
+        const modal = new bootstrap.Modal(document.getElementById('engineHistoryModal'));
+        const modalBody = document.getElementById('engineHistoryBody');
+        
+        modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted mt-3">Loading full history for engine ${serialNumber}...</p>
+            </div>
+        `;
+        
+        modal.show();
+
+        // Параллельно загружаем данные двигателя и его историю
+        let engineRes = await safeFetch(`/api/engines/${engineId}` + noCache());
+        let historyRes = await safeFetch(`/api/engines/${engineId}/history` + noCache());
+        
+        if (!engineRes || !engineRes.ok || !historyRes || !historyRes.ok) {
+            modalBody.innerHTML = `
+                <div class="timeline-no-data">
+                    <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
+                    <p class="mt-3">Unable to load engine history. Please try again.</p>
+                </div>
+            `;
+            return;
+        }
+
+        let engine = {};
+        let history = [];
+        try { 
+            engine = await engineRes.json(); 
+            history = await historyRes.json();
+            console.log('🔍 Engine data:', engine);
+            console.log('🔍 Engine history items:', history.length, 'events');
+            if (history.length > 0) console.log('🔍 First event:', history[0]);
+        } catch { 
+            engine = {};
+            history = [];
+            console.error('❌ Error parsing engine/history JSON');
+        }
+
+        if (!Array.isArray(history) || history.length === 0) {
+            modalBody.innerHTML = `
+                <div class="timeline-header">
+                    <h5>Engine ${serialNumber} - ${engine.current_sn || 'N/A'}</h5>
+                    <div class="engine-meta">
+                        <span><i class="bi bi-speedometer2"></i> TT: ${engine.tt || 0} hrs</span>
+                        <span><i class="bi bi-arrow-repeat"></i> TC: ${engine.tc || 0} cycles</span>
+                        <span><i class="bi bi-geo-alt"></i> ${engine.location || 'Unknown'}</span>
+                    </div>
+                </div>
+                <div class="timeline-no-data">
+                    <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                    <p class="mt-3">No history records found for this engine.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Сортируем историю по дате хронологически (старые события внизу, новые вверху в виде восходящей шкалы)
+        history.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // Группируем по типу действия для иконок
+        const actionIcons = {
+            'INSTALL': '<i class="bi bi-arrow-up-circle"></i>',
+            'REMOVE': '<i class="bi bi-arrow-down-circle"></i>',
+            'REPAIR': '<i class="bi bi-wrench"></i>',
+            'SHIP': '<i class="bi bi-truck"></i>',
+            'PART': '<i class="bi bi-puzzle"></i>',
+            'PART_ACTION': '<i class="bi bi-puzzle"></i>',
+            'PART_INSTALLED': '<i class="bi bi-puzzle-fill"></i>',
+            'ATLB': '<i class="bi bi-airplane"></i>',
+            'FLIGHT': '<i class="bi bi-airplane"></i>',
+            'INSPECT': '<i class="bi bi-eyeglass"></i>',
+            'ENG_PARAM': '<i class="bi bi-gear"></i>',
+            'UTIL_PARAM': '<i class="bi bi-bar-chart"></i>'
+        };
+
+        const actionLabels = {
+            'INSTALL': 'Installation',
+            'REMOVE': 'Removal',
+            'REPAIR': 'Repair',
+            'SHIP': 'Shipment',
+            'PART': 'Part Installed',
+            'PART_ACTION': 'Part Action',
+            'PART_INSTALLED': 'Part Installed on Engine',
+            'ATLB': 'Flight Log (ATLB)',
+            'FLIGHT': 'Flight Log',
+            'INSPECT': 'Engine Inspection/Created',
+            'ENG_PARAM': 'Engine Parameters Update',
+            'UTIL_PARAM': 'Utilization Update'
+        };
+
+        const actionClasses = {
+            'INSTALL': 'install',
+            'REMOVE': 'remove',
+            'REPAIR': 'repair',
+            'SHIP': 'ship',
+            'PART': 'part',
+            'PART_ACTION': 'part',
+            'PART_INSTALLED': 'part',
+            'ATLB': 'atlb',
+            'FLIGHT': 'atlb',
+            'INSPECT': 'inspect',
+            'ENG_PARAM': 'param',
+            'UTIL_PARAM': 'param'
+        };
+
+        let timelineHTML = `
+            <div class="timeline-container">
+                <div class="timeline-header">
+                    <h5>Full History Timeline - Engine ${serialNumber}</h5>
+                    <div class="engine-meta">
+                        <span><i class="bi bi-card-text"></i> Current S/N: ${engine.current_sn || 'N/A'}</span>
+                        <span><i class="bi bi-speedometer2"></i> Total Time: ${engine.tt || 0} hrs</span>
+                        <span><i class="bi bi-arrow-repeat"></i> Total Cycles: ${engine.tc || 0}</span>
+                        <span><i class="bi bi-geo-alt"></i> Location: ${engine.location || 'Unknown'}</span>
+                        <span><i class="bi bi-tag"></i> Status: <span class="badge bg-info">${engine.status || 'N/A'}</span></span>
+                    </div>
+                </div>
+                <div style="position: relative;">
+                    <div class="timeline-line"></div>
+        `;
+
+        history.forEach((event, idx) => {
+            const actionType = event.action_type || 'UNKNOWN';
+            const icon = actionIcons[actionType] || '<i class="bi bi-question-circle"></i>';
+            const label = actionLabels[actionType] || actionType;
+            const cssClass = actionClasses[actionType] || 'param';
+            
+            let detailsHTML = '';
+            if (actionType === 'INSTALL') {
+                detailsHTML = `
+                    <div class="timeline-details">
+                        <strong>Aircraft:</strong> ${event.install_to || 'N/A'}<br>
+                        <strong>Position:</strong> ${event.position || 'N/A'}<br>
+                        <strong>Location From:</strong> ${event.location_from || 'N/A'}<br>
+                        <strong>TT at Install:</strong> ${event.tt || 0} hrs | <strong>TC:</strong> ${event.tc || 0}
+                        ${event.remarks ? `<br><strong>Remarks:</strong> ${event.remarks}` : ''}
+                    </div>
+                `;
+            } else if (actionType === 'REMOVE') {
+                detailsHTML = `
+                    <div class="timeline-details">
+                        <strong>From Aircraft:</strong> ${event.aircraft || 'N/A'}<br>
+                        <strong>Destination:</strong> ${event.destination || 'N/A'}<br>
+                        <strong>TT at Removal:</strong> ${event.tt || 0} hrs | <strong>TC:</strong> ${event.tc || 0}
+                        ${event.remarks ? `<br><strong>Remarks:</strong> ${event.remarks}` : ''}
+                    </div>
+                `;
+            } else if (actionType === 'REPAIR') {
+                detailsHTML = `
+                    <div class="timeline-details">
+                        <strong>Station:</strong> ${event.station || 'N/A'}<br>
+                        <strong>Defect:</strong> ${event.defect || 'N/A'}<br>
+                        <strong>Correction:</strong> ${event.correction || 'N/A'}
+                        ${event.remarks ? `<br><strong>Remarks:</strong> ${event.remarks}` : ''}
+                    </div>
+                `;
+            } else if (actionType === 'PART' || actionType === 'PART_INSTALLED') {
+                detailsHTML = `
+                    <div class="timeline-details">
+                        <strong>Part Number:</strong> ${event.part_number || 'N/A'}<br>
+                        <strong>Part Name:</strong> ${event.part_name || 'N/A'}<br>
+                        <strong>S/N:</strong> ${event.part_sn || 'N/A'}
+                        ${event.remarks ? `<br><strong>Remarks:</strong> ${event.remarks}` : ''}
+                    </div>
+                `;
+            } else if (actionType === 'ATLB' || actionType === 'FLIGHT') {
+                detailsHTML = `
+                    <div class="timeline-details">
+                        <strong>Aircraft:</strong> ${event.aircraft || 'N/A'}<br>
+                        <strong>Flight Hours:</strong> ${event.flight_hours || 0}<br>
+                        <strong>Cycles:</strong> ${event.cycles || 0}
+                        ${event.remarks ? `<br><strong>Remarks:</strong> ${event.remarks}` : ''}
+                    </div>
+                `;
+            } else if (actionType === 'SHIP') {
+                detailsHTML = `
+                    <div class="timeline-details">
+                        <strong>From Location:</strong> ${event.aircraft || 'N/A'}<br>
+                        <strong>To Location:</strong> ${event.destination || 'N/A'}<br>
+                        ${event.remarks ? `<strong>Waybill/Details:</strong> ${event.remarks}` : ''}
+                    </div>
+                `;
+            } else if (actionType === 'INSPECT') {
+                detailsHTML = `
+                    <div class="timeline-details">
+                        <strong>Location:</strong> ${event.destination || 'N/A'}<br>
+                        <strong>TT:</strong> ${event.tt || 0} hrs | <strong>TC:</strong> ${event.tc || 0}
+                        ${event.remarks ? `<br><strong>Details:</strong> ${event.remarks}` : ''}
+                    </div>
+                `;
+            } else if (actionType === 'PART_ACTION') {
+                detailsHTML = `
+                    <div class="timeline-details">
+                        <strong>Action:</strong> ${event.aircraft || 'N/A'}<br>
+                        <strong>Part Name:</strong> ${event.destination || 'N/A'}<br>
+                        ${event.remarks ? `<strong>Details:</strong> ${event.remarks}` : ''}
+                    </div>
+                `;
+            } else {
+                detailsHTML = `
+                    <div class="timeline-details">
+                        ${event.remarks ? `<strong>Details:</strong> ${event.remarks}` : '<em>No additional details</em>'}
+                    </div>
+                `;
+            }
+
+            timelineHTML += `
+                <div class="timeline-event">
+                    <div class="timeline-date">${event.date || 'Unknown date'}</div>
+                    <div class="timeline-icon ${cssClass}">${icon}</div>
+                    <div class="timeline-content">
+                        <h6>${label} <span class="badge bg-secondary">#${idx + 1}</span></h6>
+                        ${detailsHTML}
+                    </div>
+                </div>
+            `;
+        });
+
+        timelineHTML += `
+                </div>
+            </div>
+        `;
+
+        modalBody.innerHTML = timelineHTML;
     }
 
     function switchBoroscopeTab(tabName) {
@@ -6176,14 +5465,26 @@ function restoreView(viewName) {
     async function loadPurchaseOrdersHistory() {
         const tbody = document.getElementById('purchase-orders-history-body');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Loading…</td></tr>';
+        
+        // Загружаем конфигурацию столбцов
+        let config = { columns: [] };
+        try {
+            const configRes = await safeFetch('/api/table-config/purchase-orders');
+            if (configRes && configRes.ok) {
+                config = await configRes.json();
+            }
+        } catch (e) {
+            console.warn('Could not load column config:', e);
+        }
+        
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">Loading…</td></tr>';
 
         let res = await safeFetch('/api/history/PURCHASE_ORDER' + noCache());
         if (!res || !res.ok) res = await safeFetch('/api/history/PURCHASE_ORDER');
 
         if (!res || !res.ok) {
             console.error('Error loading purchase orders', res && res.status);
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-3">Unable to load purchase orders</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger py-3">Unable to load purchase orders</td></tr>';
             return;
         }
 
@@ -6192,13 +5493,16 @@ function restoreView(viewName) {
 
         tbody.innerHTML = '';
         if (!Array.isArray(serverData) || serverData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No purchase orders found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">No purchase orders found</td></tr>';
             return;
         }
 
         serverData.forEach(row => {
             const linkHtml = row.link ? `<a href="${row.link}" target="_blank" class="btn btn-sm btn-outline-success"><i class="bi bi-link-45deg"></i></a>` : '-';
-            tbody.innerHTML += `
+            const priceText = row.price !== null && row.price !== undefined ? row.price : '-';
+            
+            // Собираем значения для стандартных колонок
+            let rowHtml = `
                 <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
                     <td class="delete-col-purchase-orders" style="display: none;">
                         <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('PURCHASE_ORDER', ${row.id || 0}, '')" title="Delete">
@@ -6207,12 +5511,17 @@ function restoreView(viewName) {
                     </td>
                     <td>${row.date}</td>
                     <td>${row.name || '-'}</td>
+                    <td>${row.part_number || '-'}</td>
+                    <td>${row.serial_number || '-'}</td>
+                    <td>${priceText}</td>
                     <td>${row.purpose || '-'}</td>
                     <td>${row.aircraft || '-'}</td>
                     <td>${row.ro_number || '-'}</td>
                     <td>${linkHtml}</td>
-                </tr>
             `;
+            
+            rowHtml += `</tr>`;
+            tbody.innerHTML += rowHtml;
         });
     }
 
@@ -6224,7 +5533,7 @@ function restoreView(viewName) {
             const aircrafts = await acRes.json();
             
             const acSelect = document.getElementById('po-aircraft');
-            acSelect.innerHTML = '<option value="">Выберите...</option>';
+            acSelect.innerHTML = '<option value="">Select...</option>';
             
             if (Array.isArray(aircrafts)) {
                 aircrafts.forEach(ac => {
@@ -6236,7 +5545,7 @@ function restoreView(viewName) {
             // Fallback - добавляем стандартные самолеты
             const acSelect = document.getElementById('po-aircraft');
             acSelect.innerHTML = `
-                <option value="">Выберите...</option>
+                <option value="">Select...</option>
                 <option value="ER-BAT">ER-BAT</option>
                 <option value="ER-BAR">ER-BAR</option>
                 <option value="ER-BAQ">ER-BAQ</option>
@@ -6247,6 +5556,9 @@ function restoreView(viewName) {
     async function submitPurchaseOrderForm() {
         const date = document.getElementById('po-date').value;
         const name = document.getElementById('po-name').value;
+        const pn = document.getElementById('po-pn').value;
+        const sn = document.getElementById('po-sn').value;
+        const price = document.getElementById('po-price').value;
         const purpose = document.getElementById('po-purpose').value;
         const aircraft = document.getElementById('po-aircraft').value;
         const roNumber = document.getElementById('po-ro-number').value;
@@ -6254,13 +5566,16 @@ function restoreView(viewName) {
         
         // Валидация обязательных полей
         if (!date || !name || !purpose || !aircraft || !roNumber) {
-            showErrorNotification("Please fill all required fields: Date, Name, Purpose, Aircraft, RO Number");
+            showErrorNotification("Please fill all required fields: Date, Item Name, Purpose, Aircraft, RO Number");
             return;
         }
         
         const payload = {
             date: date,
             name: name,
+            part_number: pn || '',
+            serial_number: sn || '',
+            price: price ? parseFloat(price) : null,
             purpose: purpose,
             aircraft: aircraft,
             ro_number: roNumber,
@@ -6392,6 +5707,15 @@ function restoreView(viewName) {
             const found = engines.find(e => e.original_sn === val);
             
             if (found) {
+                // Проверяем статус - INSTALLED двигатели нельзя отправлять (они на крыльях)
+                if(found.status === 'INSTALLED') {
+                    showErrorNotification(`❌ Engine ${found.original_sn} has status INSTALLED (On Wing). Cannot ship installed engines - remove from aircraft first.`);
+                    this.value = '';
+                    document.getElementById('ship-engine-id').value = '';
+                    document.getElementById('ship-loc-from').value = '';
+                    return;
+                }
+                
                 // Если нашли в базе — ставим реальные данные
                 document.getElementById('ship-engine-id').value = found.id;
                 document.getElementById('ship-loc-from').value = found.location;
@@ -6584,7 +5908,7 @@ function restoreView(viewName) {
             const found = engines.find(e => e.original_sn === val);
             
             if(!found) {
-                showErrorNotification(`Engine "${val}" not found in Master Engine List! Please add the engine to the database first before removing it.`);
+                showErrorNotification(`❌ Engine "${val}" not found in INSTALLED engines list. Please check the serial number or add the engine first.`);
                 this.value = '';
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
@@ -6596,7 +5920,7 @@ function restoreView(viewName) {
             
             // Проверяем статус двигателя
             if(found.status !== 'INSTALLED') {
-                showErrorNotification(`Engine ${found.original_sn} cannot be removed! Current status: ${found.status}. Only INSTALLED engines can be removed.`);
+                showErrorNotification(`❌ Engine ${found.original_sn} cannot be removed! Current status: ${found.status}. Only INSTALLED engines can be removed.`);
                 this.value = '';
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
@@ -6608,7 +5932,7 @@ function restoreView(viewName) {
             
             // Проверяем что двигатель установлен на самолете
             if(!found.aircraft_id || !found.aircraft) {
-                showErrorNotification(`Engine ${found.original_sn} is not installed on any aircraft! Only engines installed on aircraft can be removed.`);
+                showErrorNotification(`❌ Engine ${found.original_sn} is not linked to any aircraft! Cannot remove uninstalled engine. System error - please contact support.`);
                 this.value = '';
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
@@ -6638,7 +5962,12 @@ function restoreView(viewName) {
         });
     }
 
+    let _removeSubmitting = false;
     async function submitRemoveForm() {
+        if (_removeSubmitting) { return; }
+        _removeSubmitting = true;
+        const saveBtn = document.querySelector('#tab-rem-entry .btn.btn-danger.px-4');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         const date = document.getElementById('rem-date').value;
         const engInput = document.getElementById('rem-engine-input').value;
         const engId = document.getElementById('rem-engine-id').value || 0;
@@ -6704,6 +6033,9 @@ function restoreView(viewName) {
 
         } catch(e) { 
             alert("❌ Ошибка: " + e.message); 
+        } finally {
+            _removeSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Confirm Removal'; }
         }
     }    
 // --- MASTER ENGINE LOGIC ---
@@ -6729,7 +6061,7 @@ function restoreView(viewName) {
 
     // Сохраняем полный список двигателей для фильтрации
     let allEnginesData = [];
-    let engineFilterState = { date: '', status: '' };
+    let engineFilterState = { date: '', status: '', user: '', model: '', esn: '', gss: '', location: '', removed: '', ttMin: '', ttMax: '', tcMin: '', tcMax: '', remarks: '', hasPhoto: false };
     
     function toggleEngineFilter() {
         const panel = document.getElementById('engine-filter-panel');
@@ -6737,20 +6069,60 @@ function restoreView(viewName) {
         const isOpen = panel.style.right === '0px';
         
         if(isOpen) {
-            panel.style.right = '-350px';
+            panel.style.right = '-400px';
             overlay.style.display = 'none';
         } else {
             panel.style.right = '0px';
             overlay.style.display = 'block';
+            if(Array.isArray(allEnginesData) && allEnginesData.length > 0) {
+                updateUsersList(); // Загружаем список пользователей при открытии фильтра
+            }
         }
+    }
+    
+    function updateUsersList() {
+        const users = new Set(allEnginesData.filter(e => e.performed_by).map(e => e.performed_by));
+        const userSelect = document.getElementById('engine-user-filter');
+        const currentVal = userSelect.value;
+        
+        // Сохраняем уже существующие опции
+        const options = userSelect.querySelectorAll('option');
+        const existingUsers = new Set();
+        for(let i = 1; i < options.length; i++) {
+            existingUsers.add(options[i].value);
+        }
+        
+        // Добавляем новых пользователей
+        users.forEach(user => {
+            if(!existingUsers.has(user)) {
+                const opt = document.createElement('option');
+                opt.value = user;
+                opt.textContent = user;
+                userSelect.appendChild(opt);
+            }
+        });
+        
+        // Восстанавливаем выбранное значение
+        userSelect.value = currentVal;
     }
     
     function applyEngineFilters() {
         const dateVal = document.getElementById('engine-date-filter').value;
         const statusVal = document.getElementById('engine-status-filter').value;
+        const userVal = document.getElementById('engine-user-filter').value;
+        const modelVal = document.getElementById('engine-model-filter').value.toLowerCase();
+        const esnVal = document.getElementById('engine-esn-filter').value.toLowerCase();
+        const gssVal = document.getElementById('engine-gss-filter').value.toLowerCase();
+        const locVal = document.getElementById('engine-location-filter').value.toLowerCase();
+        const removedVal = document.getElementById('engine-removed-filter').value.toLowerCase();
+        const ttMin = parseFloat(document.getElementById('engine-tt-min').value) || null;
+        const ttMax = parseFloat(document.getElementById('engine-tt-max').value) || null;
+        const tcMin = parseFloat(document.getElementById('engine-tc-min').value) || null;
+        const tcMax = parseFloat(document.getElementById('engine-tc-max').value) || null;
+        const remarksVal = document.getElementById('engine-remarks-filter').value.toLowerCase();
+        const hasPhoto = document.getElementById('engine-has-photo').checked;
         
-        engineFilterState.date = dateVal;
-        engineFilterState.status = statusVal;
+        engineFilterState = { date: dateVal, status: statusVal, user: userVal, model: modelVal, esn: esnVal, gss: gssVal, location: locVal, removed: removedVal, ttMin, ttMax, tcMin, tcMax, remarks: remarksVal, hasPhoto };
         
         let filtered = allEnginesData;
         
@@ -6765,27 +6137,78 @@ function restoreView(viewName) {
             filtered = filtered.filter(eng => eng.status === statusVal);
         }
         
+        if(userVal) {
+            filtered = filtered.filter(eng => eng.performed_by === userVal);
+        }
+        
+        if(modelVal) {
+            filtered = filtered.filter(eng => (eng.model || '').toLowerCase().includes(modelVal));
+        }
+        
+        if(esnVal) {
+            filtered = filtered.filter(eng => (eng.original_sn || '').toLowerCase().includes(esnVal));
+        }
+        if(gssVal) {
+            filtered = filtered.filter(eng => (eng.gss_sn || '').toLowerCase().includes(gssVal));
+        }
+        
+        if(locVal) {
+            filtered = filtered.filter(eng => (eng.location || '').toLowerCase().includes(locVal));
+        }
+        if(removedVal) {
+            filtered = filtered.filter(eng => (eng.removed_from || '').toLowerCase().includes(removedVal));
+        }
+        if(ttMin !== null) {
+            filtered = filtered.filter(eng => (typeof eng.tt === 'number' ? eng.tt : parseFloat(eng.tt) || 0) >= ttMin);
+        }
+        if(ttMax !== null) {
+            filtered = filtered.filter(eng => (typeof eng.tt === 'number' ? eng.tt : parseFloat(eng.tt) || 0) <= ttMax);
+        }
+        if(tcMin !== null) {
+            filtered = filtered.filter(eng => (typeof eng.tc === 'number' ? eng.tc : parseFloat(eng.tc) || 0) >= tcMin);
+        }
+        if(tcMax !== null) {
+            filtered = filtered.filter(eng => (typeof eng.tc === 'number' ? eng.tc : parseFloat(eng.tc) || 0) <= tcMax);
+        }
+        if(hasPhoto) {
+            filtered = filtered.filter(eng => !!eng.photo_url);
+        }
+        
+        if(remarksVal) {
+            filtered = filtered.filter(eng => (eng.remarks || '').toLowerCase().includes(remarksVal));
+        }
+        
         renderEngineTable(filtered);
     }
     
     function filterEnginesByDate() {
-        // Этот метод вызывается при изменении даты, но применяет фильтры автоматически
-        const dateVal = document.getElementById('engine-date-filter').value;
-        engineFilterState.date = dateVal;
         applyEngineFilters();
     }
     
     function filterEnginesByStatus() {
-        // Этот метод вызывается при изменении статуса, но применяет фильтры автоматически
-        const statusVal = document.getElementById('engine-status-filter').value;
-        engineFilterState.status = statusVal;
+        applyEngineFilters();
+    }
+    
+    function filterEnginesByUser() {
         applyEngineFilters();
     }
     
     function clearEngineFilters() {
         document.getElementById('engine-date-filter').value = '';
         document.getElementById('engine-status-filter').value = '';
-        engineFilterState = { date: '', status: '' };
+        document.getElementById('engine-user-filter').value = '';
+        document.getElementById('engine-model-filter').value = '';
+        document.getElementById('engine-esn-filter').value = '';
+        document.getElementById('engine-gss-filter').value = '';
+        document.getElementById('engine-location-filter').value = '';
+        document.getElementById('engine-removed-filter').value = '';
+        document.getElementById('engine-tt-min').value = '';
+        document.getElementById('engine-tt-max').value = '';
+        document.getElementById('engine-tc-min').value = '';
+        document.getElementById('engine-tc-max').value = '';
+        document.getElementById('engine-remarks-filter').value = '';
+        document.getElementById('engine-has-photo').checked = false;
+        engineFilterState = { date: '', status: '', user: '', model: '', esn: '', gss: '', location: '', removed: '', ttMin: '', ttMax: '', tcMin: '', tcMax: '', remarks: '', hasPhoto: false };
         renderEngineTable(allEnginesData);
     }
     
@@ -6841,9 +6264,12 @@ function restoreView(viewName) {
                     data-photo="${eng.photo_url || ''}"
                     data-install-date="${installDate}">
                     <td class="delete-col" style="display: none;">
-                        <button class="btn btn-sm btn-danger" onclick="deleteEngine(${eng.id}, '${eng.original_sn}')" title="Delete">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                        <div class="select-controls">
+                            <input type="checkbox" class="form-check-input row-select-delete" title="Select row" />
+                            <button class="btn btn-sm btn-danger trash-btn" onclick="deleteEngine(${eng.id}, '${eng.original_sn}')" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
                     </td>
                     <td data-key="date">${installDate}</td>
                     <td data-key="model">${model}</td>
@@ -6868,10 +6294,14 @@ function restoreView(viewName) {
         document.getElementById('btn-main-edit').classList.add('d-none');
         document.getElementById('btn-main-save').classList.remove('d-none');
         document.getElementById('btn-main-cancel').classList.remove('d-none');
+        const btnDelSel = document.getElementById('btn-main-delete-selected');
+        if (btnDelSel) btnDelSel.classList.remove('d-none');
         document.getElementById('add-row-btn').classList.remove('d-none'); // Показываем плюс
 
         // Показываем колонку с корзинами
         document.querySelectorAll('.delete-col').forEach(el => el.style.display = 'table-cell');
+        const selAll = document.getElementById('select-all-delete');
+        if (selAll) selAll.checked = false;
 
         // Превращаем ячейки в поля ввода
         const rows = document.querySelectorAll('#main-engine-body tr');
@@ -6880,6 +6310,7 @@ function restoreView(viewName) {
             
             // Получаем данные из data-атрибутов строки
             const rowData = {
+                date: tr.getAttribute('data-install-date') || '',
                 model: tr.getAttribute('data-model') || '-',
                 originalSN: tr.getAttribute('data-original-sn') || '',
                 gssSN: tr.getAttribute('data-gss-sn') || '',
@@ -6899,7 +6330,7 @@ function restoreView(viewName) {
                 let inputHTML = '';
                 
                 if (key === 'date') {
-                    inputHTML = `<input type="date" class="editing-input" value="">`;
+                    inputHTML = `<input type="date" class="editing-input" value="${rowData.date && rowData.date !== '-' ? rowData.date : ''}">`;
                 } else if (key === 'model') {
                     inputHTML = `<input type="text" class="editing-input" value="${rowData.model}">`;
                 } else if (key === 'esn') {
@@ -7037,20 +6468,22 @@ function restoreView(viewName) {
             
             await Promise.all(allPromises);
             
+            // Показываем уведомление СРАЗУ после успешного сохранения
+            showSuccessNotification(`Successfully saved ${allPromises.length} engine record(s)!`);
+            
             // Выходим из режима редактирования
             isMainEdit = false;
             document.getElementById('btn-main-edit').classList.remove('d-none');
             document.getElementById('btn-main-save').classList.add('d-none');
             document.getElementById('btn-main-cancel').classList.add('d-none');
+            const btnDelSel = document.getElementById('btn-main-delete-selected');
+            if (btnDelSel) btnDelSel.classList.add('d-none');
             document.getElementById('add-row-btn').classList.add('d-none');
             document.querySelectorAll('.delete-col').forEach(el => el.style.display = 'none');
             
-            // Перезагружаем таблицу и дашборд
+            // Перезагружаем таблицу и дашборд в фоне
             await loadMainTable();
             await loadDashboardData();
-            
-            // Показываем уведомление ПОСЛЕ успешного обновления
-            showSuccessNotification(`Successfully saved ${allPromises.length} engine record(s)!`);
             
         } catch (error) {
             showErrorNotification(`Error saving data: ${error.message}`);
@@ -7063,12 +6496,60 @@ function restoreView(viewName) {
         document.getElementById('btn-main-edit').classList.remove('d-none');
         document.getElementById('btn-main-save').classList.add('d-none');
         document.getElementById('btn-main-cancel').classList.add('d-none');
+        const btnDelSel = document.getElementById('btn-main-delete-selected');
+        if (btnDelSel) btnDelSel.classList.add('d-none');
         document.getElementById('add-row-btn').classList.add('d-none');
         
         // Скрываем колонку с корзинами
         document.querySelectorAll('.delete-col').forEach(el => el.style.display = 'none');
+        const selAll = document.getElementById('select-all-delete');
+        if (selAll) selAll.checked = false;
         
         loadMainTable();
+    }
+
+    // Выделение всех чекбоксов в колонке удаления
+    function toggleSelectAllRows(master) {
+        const boxes = document.querySelectorAll('#main-engine-body .row-select-delete');
+        boxes.forEach(cb => cb.checked = master.checked);
+    }
+
+    // Пакетное удаление выбранных двигателей
+    async function bulkDeleteSelected() {
+        const selected = Array.from(document.querySelectorAll('#main-engine-body tr'))
+            .map(tr => ({
+                tr,
+                id: parseInt(tr.getAttribute('data-engine-id') || '0', 10),
+                sn: tr.getAttribute('data-original-sn') || ''
+            }))
+            .filter(x => x.id > 0 && x.tr.querySelector('.row-select-delete')?.checked);
+
+        if (selected.length === 0) {
+            showErrorNotification('Выберите хотя бы одну строку для удаления.');
+            return;
+        }
+
+        const sample = selected.slice(0, 5).map(x => x.sn || x.id).join(', ');
+        const more = selected.length > 5 ? ` … +${selected.length - 5}` : '';
+        const okConfirm = confirm(`Удалить выбранные записи?\n\nВсего: ${selected.length}\nПримеры: ${sample}${more}\n\nЭто действие нельзя отменить.`);
+        if (!okConfirm) return;
+
+        try {
+            const results = await Promise.allSettled(
+                selected.map(x => fetch(`/api/engines/${x.id}?user_id=${currentUser.id}`, { method: 'DELETE' }))
+            );
+            const ok = results.filter(r => r.status === 'fulfilled' && r.value.ok).length;
+            const failed = results.length - ok;
+
+            await loadMainTable();
+            await loadDashboardData();
+
+            if (ok > 0) showSuccessNotification(`Удалено: ${ok}. Ошибок: ${failed}.`);
+            if (failed > 0) showErrorNotification(`Не удалось удалить ${failed} записи. Возможно, некоторые двигатели установлены (INSTALLED).`);
+        } catch (e) {
+            showErrorNotification('Ошибка пакетного удаления: ' + e.message);
+            console.error('bulk delete error', e);
+        }
     }
 
     // Функция удаления двигателя с подтверждением
@@ -7365,9 +6846,10 @@ function restoreView(viewName) {
         },
         'purchase-orders': {
             bodyId: 'purchase-orders-history-body',
-            columns: ['date', 'name', 'purpose', 'aircraft', 'ro_number', 'link'],
+            columns: ['date', 'name', 'part_number', 'serial_number', 'price', 'purpose', 'aircraft', 'ro_number', 'link'],
             columnTypes: {
-                date: 'date'
+                date: 'date',
+                price: 'number'
             },
             reloadFunction: loadPurchaseOrdersHistory,
             hasDeleteCol: true
@@ -7576,6 +7058,405 @@ function restoreView(viewName) {
     }
 
     // Включить режим редактирования таблицы
+// ============================================
+// COLUMN HEADER EDITING FOR PURCHASE ORDERS
+// ============================================
+
+let poHeaderBackup = null;
+let poCustomColumns = [];
+
+async function toggleEditModeColumnHeaders(tableName) {
+    if (tableName !== 'purchase-orders') return;
+    
+    const thead = document.querySelector('#purchase-orders-history-body').parentElement.querySelector('thead tr');
+    const tbody = document.querySelector('#purchase-orders-history-body');
+    const editBtn = document.getElementById('btn-purchase-orders-edit');
+    const saveBtn = document.getElementById('btn-purchase-orders-save');
+    const cancelBtn = document.getElementById('btn-purchase-orders-cancel');
+    const addBtn = document.getElementById('po-header-add-btn');
+    const ths = Array.from(thead.querySelectorAll('th'));
+
+    // Проверяем, находимся ли мы в режиме редактирования
+    const isEditMode = ths.some(th => th.querySelector('input[type="text"]'));
+
+    if (isEditMode) {
+        // ВЫКЛЮЧАЕМ режим редактирования: превращаем обратно в простой текст
+        addBtn.style.display = 'none';
+        editBtn.classList.remove('d-none');
+        saveBtn.classList.add('d-none');
+        cancelBtn.classList.add('d-none');
+        document.querySelectorAll('.delete-col-purchase-orders').forEach(el => el.style.display = 'none');
+
+        ths.forEach(th => {
+            if (th.id === 'delete-col' || th.id === 'po-header-add-btn') return;
+
+            const input = th.querySelector('input[type="text"]');
+            const span = th.querySelector('span');
+            const text = input ? input.value.trim() : (span ? span.textContent.trim() : th.textContent.trim());
+            th.innerHTML = '';
+            th.textContent = text;
+            th.style.cursor = '';
+            th.title = '';
+        });
+    } else {
+        // ВКЛЮЧАЕМ режим редактирования: добавляем контролы
+        addBtn.style.display = 'table-cell';
+        editBtn.classList.add('d-none');
+        saveBtn.classList.remove('d-none');
+        cancelBtn.classList.remove('d-none');
+        addBtn.querySelector('button').onclick = addNewColumnHeader;
+        document.querySelectorAll('.delete-col-purchase-orders').forEach(el => el.style.display = '');
+
+        ths.forEach((th, idx) => {
+            // Пропускаем первый столбец (delete) и последний (add-btn)
+            if (idx === 0 || th.id === 'po-header-add-btn') return;
+
+            const currentText = th.textContent.replace(/✎|×|📌|✓|⊕|✚|delete/g, '').trim();
+
+            // Очищаем и создаем новый контент с редактированием и удалением
+            th.innerHTML = '';
+            const content = document.createElement('div');
+            content.style.display = 'flex';
+            content.style.gap = '5px';
+            content.style.alignItems = 'center';
+
+            const titleSpan = document.createElement('span');
+            titleSpan.textContent = currentText;
+            titleSpan.style.flex = '1';
+            titleSpan.style.cursor = 'pointer';
+            titleSpan.title = 'Double-click to edit';
+            titleSpan.ondblclick = function() { makeHeaderEditable(th); };
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'btn btn-sm btn-outline-danger';
+            deleteBtn.style.padding = '2px 6px';
+            deleteBtn.innerHTML = '<i class="bi bi-x-circle" style="font-size: 0.8rem;"></i>';
+            deleteBtn.title = 'Delete column';
+            deleteBtn.onclick = async function(e) {
+                e.stopPropagation();
+                const result = confirm('Delete this column? All data in it will be lost.');
+                if (result) {
+                    deletePoHeaderColumn(th);
+                }
+            };
+
+            content.appendChild(titleSpan);
+            content.appendChild(deleteBtn);
+            th.appendChild(content);
+            th.style.cursor = 'pointer';
+            th.title = 'Double-click to edit';
+        });
+    }
+}
+
+function makeHeaderEditable(thElement) {
+    const originalText = thElement.textContent.replace(/✎|×|📌|✓|⊕|✚|📌|🔧|delete|×/g, '').trim();
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-control';
+    input.style.padding = '5px';
+    input.style.fontSize = '0.9rem';
+    input.value = originalText;
+    
+    thElement.innerHTML = '';
+    thElement.appendChild(input);
+    input.focus();
+    input.select();
+    
+    function saveHeader() {
+        const newText = input.value.trim() || originalText;
+        
+        // Очищаем и создаем новый контент
+        thElement.innerHTML = '';
+        const newContent = document.createElement('div');
+        newContent.style.display = 'flex';
+        newContent.style.gap = '5px';
+        newContent.style.alignItems = 'center';
+        
+        const titleSpan = document.createElement('span');
+        titleSpan.textContent = newText;
+        titleSpan.style.flex = '1';
+        titleSpan.style.cursor = 'pointer';
+        titleSpan.title = 'Double-click to edit';
+        titleSpan.ondblclick = function() { makeHeaderEditable(thElement); };
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-sm btn-outline-danger';
+        deleteBtn.style.padding = '2px 6px';
+        deleteBtn.innerHTML = '<i class="bi bi-x-circle" style="font-size: 0.8rem;"></i>';
+        deleteBtn.title = 'Delete column';
+        deleteBtn.onclick = function(e) {
+            e.stopPropagation();
+            const result = confirm('Delete this column? All data in it will be lost.');
+            if (result) {
+                deletePoHeaderColumn(thElement);
+            }
+        };
+        
+        newContent.appendChild(titleSpan);
+        newContent.appendChild(deleteBtn);
+        thElement.appendChild(newContent);
+        thElement.style.cursor = 'pointer';
+        thElement.title = 'Double-click to edit';
+    }
+    
+    input.onblur = saveHeader;
+    input.onkeydown = function(e) {
+        if (e.key === 'Enter') saveHeader();
+        if (e.key === 'Escape') {
+            thElement.innerHTML = '';
+            const newContent = document.createElement('div');
+            newContent.style.display = 'flex';
+            newContent.style.gap = '5px';
+            newContent.style.alignItems = 'center';
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.textContent = originalText;
+            titleSpan.style.flex = '1';
+            titleSpan.style.cursor = 'pointer';
+            titleSpan.title = 'Double-click to edit';
+            titleSpan.ondblclick = function() { makeHeaderEditable(thElement); };
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'btn btn-sm btn-outline-danger';
+            deleteBtn.style.padding = '2px 6px';
+            deleteBtn.innerHTML = '<i class="bi bi-x-circle" style="font-size: 0.8rem;"></i>';
+            deleteBtn.title = 'Delete column';
+            deleteBtn.onclick = function(e) {
+                e.stopPropagation();
+                const result = confirm('Delete this column? All data in it will be lost.');
+                if (result) {
+                    deletePoHeaderColumn(thElement);
+                }
+            };
+            
+            newContent.appendChild(titleSpan);
+            newContent.appendChild(deleteBtn);
+            thElement.appendChild(newContent);
+            thElement.style.cursor = 'pointer';
+        }
+    };
+}
+
+function addNewColumnHeader() {
+    const thead = document.querySelector('#purchase-orders-history-body').parentElement.querySelector('thead tr');
+    
+    // Создаем новый столбец ПЕРЕД плюсиком
+    const newTh = document.createElement('th');
+    newTh.style.minWidth = '160px';
+    newTh.style.width = '160px';
+    newTh.style.padding = '5px';
+    newTh.className = 'po-custom-col';
+    
+    // Контейнер для input и кнопок
+    const inputContainer = document.createElement('div');
+    inputContainer.style.display = 'flex';
+    inputContainer.style.gap = '5px';
+    inputContainer.style.alignItems = 'center';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-control';
+    input.style.padding = '5px';
+    input.style.fontSize = '0.9rem';
+    input.style.flex = '1';
+    input.placeholder = 'Column name...';
+    
+    // Крестик для удаления пустой колонки
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn btn-sm btn-outline-danger';
+    deleteBtn.style.padding = '4px 8px';
+    deleteBtn.style.minWidth = '32px';
+    deleteBtn.innerHTML = '<i class="bi bi-x-circle"></i>';
+    deleteBtn.title = 'Delete column';
+    deleteBtn.onclick = async function(e) {
+        e.stopPropagation();
+        const result = confirm('Delete this column?');
+        if (result) {
+            deletePoHeaderColumn(newTh);
+        }
+    };
+    
+    inputContainer.appendChild(input);
+    inputContainer.appendChild(deleteBtn);
+    newTh.appendChild(inputContainer);
+    
+    // Добавляем ПЕРЕД плюсиком
+    const addBtn = document.getElementById('po-header-add-btn');
+    thead.insertBefore(newTh, addBtn);
+    
+    // Фокусируемся на input
+    input.focus();
+    
+    // При потере фокуса или Enter - сохраняем колонку
+    function confirmColumn() {
+        const text = input.value.trim();
+        if (text) {
+            // Очищаем и создаем новый заголовок
+            newTh.innerHTML = '';
+            const newContent = document.createElement('div');
+            newContent.style.display = 'flex';
+            newContent.style.gap = '5px';
+            newContent.style.alignItems = 'center';
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.textContent = text;
+            titleSpan.style.flex = '1';
+            titleSpan.style.cursor = 'pointer';
+            titleSpan.title = 'Double-click to edit';
+            titleSpan.ondblclick = function() { makeHeaderEditable(newTh); };
+            
+            const newDeleteBtn = document.createElement('button');
+            newDeleteBtn.type = 'button';
+            newDeleteBtn.className = 'btn btn-sm btn-outline-danger';
+            newDeleteBtn.style.padding = '2px 6px';
+            newDeleteBtn.innerHTML = '<i class="bi bi-x-circle" style="font-size: 0.8rem;"></i>';
+            newDeleteBtn.title = 'Delete column';
+            newDeleteBtn.onclick = function(e) {
+                e.stopPropagation();
+                const result = confirm('Delete this column? All data in it will be lost.');
+                if (result) {
+                    deletePoHeaderColumn(newTh);
+                }
+            };
+            
+            newContent.appendChild(titleSpan);
+            newContent.appendChild(newDeleteBtn);
+            newTh.appendChild(newContent);
+            newTh.style.cursor = 'pointer';
+            newTh.title = 'Double-click to edit';
+            
+            // Добавляем пустые ячейки в tbody
+            const tbody = document.querySelector('#purchase-orders-history-body');
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const newTd = document.createElement('td');
+                newTd.textContent = '';
+                row.appendChild(newTd);
+            });
+        } else {
+            // Если не заполнили - удаляем столбец
+                    deletePoHeaderColumn(newTh);
+        }
+    }
+    
+    input.onblur = confirmColumn;
+    input.onkeydown = function(e) {
+        if (e.key === 'Enter') confirmColumn();
+        if (e.key === 'Escape') deletePoHeaderColumn(newTh);
+    };
+}
+    function deletePoHeaderColumn(thElement) {
+function deletePoHeaderColumn(thElement) {
+    const thead = thElement.parentElement;
+    const tbody = document.querySelector('#purchase-orders-history-body');
+    
+    // Получаем индекс столбца среди всех th
+    const allThs = Array.from(thead.querySelectorAll('th'));
+    const thIndex = allThs.indexOf(thElement);
+    
+    // Удаляем заголовок
+    thElement.remove();
+    
+    // Удаляем соответствующие ячейки из всех строк
+    // thIndex совпадает с индексом td, так как у обоих есть delete-col на первой позиции
+    const rows = tbody.querySelectorAll('tr');
+    rows.forEach(row => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        if (cells[thIndex]) {
+            cells[thIndex].remove();
+        }
+    });
+}
+
+async function saveColumnHeaders(tableName) {
+    if (tableName !== 'purchase-orders') return;
+    
+    const thead = document.querySelector('#purchase-orders-history-body').parentElement.querySelector('thead tr');
+    const ths = Array.from(thead.querySelectorAll('th'));
+    const columns = [];
+    
+    // Стандартные колонки, которые не нужно сохранять в конфиг
+    const standardColumns = ['', 'Date', 'Item Name', 'PN', 'SN', 'Price', 'Purchase Purpose', 'Aircraft', 'RO#', 'Link'];
+    
+    // Собираем только кастомные колонки (те, которых нет в стандартном списке)
+    ths.forEach((th, idx) => {
+        if (idx === 0 || th.id === 'po-header-add-btn') return; // Skip delete column and add button
+        
+        // Получаем текст
+        let name = '';
+        const input = th.querySelector('input[type="text"]');
+        if (input) {
+            name = input.value.trim();
+        } else {
+            // Если есть span внутри div - берем текст оттуда
+            const span = th.querySelector('span');
+            if (span) {
+                name = span.textContent.trim();
+            } else {
+                name = th.textContent.replace(/✎|×|📌|✓|⊕|✚|🔧/g, '').trim();
+            }
+        }
+        
+        // Сохраняем только кастомные колонки (не стандартные и не пустые)
+        if (name && name !== 'Column name...' && name !== '' && !standardColumns.includes(name)) {
+            columns.push({ name, type: 'text' });
+        }
+    });
+    
+    try {
+        const res = await fetch('/api/table-config/purchase-orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ columns })
+        });
+        
+        if (res.ok) {
+            showSuccessNotification('Column names saved!');
+            cancelColumnHeaders('purchase-orders');
+            await loadPurchaseOrdersHistory();
+        } else {
+            showErrorNotification('Error saving columns');
+        }
+    } catch (e) {
+        showErrorNotification('Error: ' + e.message);
+    }
+}
+
+function cancelColumnHeaders(tableName) {
+    if (tableName !== 'purchase-orders') return;
+    
+    const editBtn = document.getElementById('btn-purchase-orders-edit');
+    const saveBtn = document.getElementById('btn-purchase-orders-save');
+    const cancelBtn = document.getElementById('btn-purchase-orders-cancel');
+    const addBtn = document.getElementById('po-header-add-btn');
+    
+    editBtn.classList.remove('d-none');
+    saveBtn.classList.add('d-none');
+    cancelBtn.classList.add('d-none');
+    if (addBtn) addBtn.style.display = 'none';
+    document.querySelectorAll('.delete-col-purchase-orders').forEach(el => el.style.display = 'none');
+
+    // Возвращаем текстовое состояние заголовков
+    const thead = document.querySelector('#purchase-orders-history-body').parentElement.querySelector('thead tr');
+    const ths = Array.from(thead.querySelectorAll('th'));
+    ths.forEach((th, idx) => {
+        if (idx === 0 || th.id === 'po-header-add-btn') return;
+        const span = th.querySelector('span');
+        const input = th.querySelector('input');
+        const text = input ? input.value.trim() : (span ? span.textContent.trim() : th.textContent.trim());
+        th.innerHTML = '';
+        th.textContent = text;
+        th.style.cursor = '';
+        th.title = '';
+    });
+}
+
     function toggleEditModeTable(tableName) {
         const config = tableConfigs[tableName];
         if (!config) return;
@@ -7891,11 +7772,14 @@ function restoreView(viewName) {
                 // Специальный маппинг для Purchase Orders
                 apiData = {
                     date: rowData.date || null,
-                    from_location: rowData.name || null,  // name -> from_location
-                    to_location: rowData.purpose || null,  // purpose -> to_location
-                    to_aircraft: rowData.aircraft || null,
-                    comments: rowData.ro_number || null,   // ro_number -> comments
-                    file_url: rowData.link || null
+                    name: rowData.name || null,
+                    part_number: rowData.part_number || null,
+                    serial_number: rowData.serial_number || null,
+                    price: rowData.price ? parseFloat(rowData.price) : null,
+                    purpose: rowData.purpose || null,
+                    aircraft: rowData.aircraft || null,
+                    ro_number: rowData.ro_number || null,
+                    link: rowData.link || null
                 };
             } else if (tableName === 'install') {
                 // Маппинг для Install history (использует спец поля action log)
@@ -7946,12 +7830,15 @@ function restoreView(viewName) {
                     // Валидация обязательных полей
                     if (!rowData.date || !rowData.name || !rowData.purpose || !rowData.aircraft || !rowData.ro_number) {
                         console.error('Missing required fields for Purchase Order:', rowData);
-                        validationErrors.push('❌ Purchase Order row: All fields are required (date, name, purpose, aircraft, ro_number). Link is optional.');
+                        validationErrors.push('❌ Purchase Order row: Required fields are date, item name, purpose, aircraft, RO number (PN/SN/Price/Link are optional).');
                         continue;
                     }
                     createData = {
                         date: rowData.date,
                         name: rowData.name,
+                        part_number: rowData.part_number || '',
+                        serial_number: rowData.serial_number || '',
+                        price: rowData.price ? parseFloat(rowData.price) : null,
                         purpose: rowData.purpose,
                         aircraft: rowData.aircraft,
                         ro_number: rowData.ro_number,
@@ -8229,6 +8116,11 @@ function restoreView(viewName) {
         hideAllViews(); 
         document.getElementById('view-add-engine').style.display = 'block'; 
         updateHistory('add-engine');
+        
+        // Устанавливаем текущую дату по умолчанию
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('m-date').value = today;
+        
         await loadLocationsForForm();
     }
     
@@ -8250,7 +8142,12 @@ function restoreView(viewName) {
 
 
 
+    let _mainEngineSubmitting = false;
     async function submitMainEngine() {
+        if (_mainEngineSubmitting) { return; }
+        _mainEngineSubmitting = true;
+        const saveBtn = document.querySelector('#tab-main-add .btn.btn-success.px-4');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         // 1. Собираем значения из полей
         const esn = document.getElementById('m-esn').value;
         const date = document.getElementById('m-date').value;
@@ -8287,13 +8184,18 @@ function restoreView(viewName) {
 
         try {
             // 3. Отправляем на сервер
+            console.log('Sending engine data:', payload);
             const res = await fetch(`/api/engines?user_id=${currentUser.id}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
             
-            if(!res.ok) throw new Error('Ошибка сервера');
+            if(!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Server error:', errorData);
+                throw new Error(errorData.detail || `HTTP Error ${res.status}`);
+            }
             
             alert("Двигатель успешно добавлен!");
             
@@ -8308,6 +8210,9 @@ function restoreView(viewName) {
             
         } catch(e) {
             alert("Ошибка при сохранении: " + e.message);
+        } finally {
+            _mainEngineSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Save Record'; }
         }
     }
     // --- REPAIR LOGIC ---
@@ -8373,6 +8278,15 @@ function restoreView(viewName) {
             document.getElementById('rep-cur-sn').classList.remove('border', 'border-danger');
 
             if(f) { 
+                // Проверяем статус - SV двигатели нельзя отремонтировать
+                if(f.status === 'SV') {
+                    showErrorNotification(`❌ Engine ${f.original_sn} has status SV (Serviceable) and does not need repair. Only non-SV engines can be repaired.`);
+                    this.value = '';
+                    document.getElementById('rep-engine-id').value = ''; 
+                    document.getElementById('rep-cur-sn').value = '';
+                    return;
+                }
+                
                 document.getElementById('rep-engine-id').value = f.id; 
                 document.getElementById('rep-cur-sn').value = f.current_sn; 
                 document.getElementById('rep-status-view').value = f.status; 
@@ -8385,7 +8299,12 @@ function restoreView(viewName) {
         };
     }
 
+    let _repairSubmitting = false;
     async function submitRepairForm() {
+        if (_repairSubmitting) { return; }
+        _repairSubmitting = true;
+        const saveBtn = document.querySelector('#tab-rep-entry .btn.btn-warning.px-4');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         const date = document.getElementById('rep-date').value;
         const eid = document.getElementById('rep-engine-id').value;
         const vendor = document.getElementById('rep-vendor').value;
@@ -8423,6 +8342,9 @@ function restoreView(viewName) {
             alert("✅ Ремонт записан! Статус обновлен на SV.");
         } catch(e) { 
             alert("❌ Ошибка: " + e.message); 
+        } finally {
+            _repairSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Save (Set SV)'; }
         }
     }
 
@@ -8547,7 +8469,12 @@ function restoreView(viewName) {
         }
     }
 
+    let _storeBalanceSubmitting = false;
     async function submitStoreBalanceForm() {
+        if (_storeBalanceSubmitting) { return; }
+        _storeBalanceSubmitting = true;
+        const saveBtn = document.querySelector('#tab-store-balance-add .btn.btn-primary.px-4');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         const form = document.getElementById('form-store-part');
         if (!form) return;
 
@@ -8605,6 +8532,9 @@ function restoreView(viewName) {
         } catch (error) {
             console.error('Store balance save error:', error);
             showErrorNotification(`Error saving store item: ${error.message}`);
+        } finally {
+            _storeBalanceSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Save Item'; }
         }
     }
 
@@ -8713,7 +8643,12 @@ function restoreView(viewName) {
         );
     }
 
+    let _partsSubmitting = false;
     async function submitPartForm() {
+        if (_partsSubmitting) { return; }
+        _partsSubmitting = true;
+        const saveBtn = document.querySelector('#tab-parts-add .btn.btn-primary.px-4');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         const date = document.getElementById('part-date').value || new Date().toISOString().split('T')[0];
         const action = document.getElementById('part-action').value || 'INSTALLED';
         const name = document.getElementById('part-name').value || 'Part';
@@ -8759,6 +8694,9 @@ function restoreView(viewName) {
         } catch(e) { 
             showErrorNotification(`Error: ${e.message}`);
             console.error('Part save error:', e);
+        } finally {
+            _partsSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Save Record'; }
         }
     }
 
@@ -9273,7 +9211,12 @@ function restoreView(viewName) {
         });
     }
 
+    let _atlbSubmitting = false;
     async function submitAtlbForm() {
+        if (_atlbSubmitting) { return; }
+        _atlbSubmitting = true;
+        const saveBtn = document.querySelector('#tab-atlb-entry .btn.btn-success');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         const aircraftSelect = document.getElementById('atlb-ac');
         const aircraftId = aircraftSelect.value;
         if (!aircraftId) { alert('Выберите самолет'); return; }
@@ -9646,7 +9589,12 @@ function restoreView(viewName) {
         */
     }
 
+    let _engParamSubmitting = false;
     async function submitEngParams() {
+        if (_engParamSubmitting) { return; }
+        _engParamSubmitting = true;
+        const saveBtn = document.querySelector('#tab-eng-param-entry .btn.btn-primary.px-4');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         console.log('=== submitEngParams called ===');
         console.log('Function exists and running...');
         
@@ -9733,6 +9681,9 @@ function restoreView(viewName) {
         } catch (err) {
             console.error('Error in submitEngParams:', err);
             showErrorNotification(`Error saving parameters: ${err.message}`);
+        } finally {
+            _engParamSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Save Parameters'; }
         }
     }
     // === UTILIZATION PARAMETERS LOGIC ===
@@ -9804,7 +9755,12 @@ function restoreView(viewName) {
         }
     }
 
+    let _utilParamSubmitting = false;
     async function submitUtilParams() {
+        if (_utilParamSubmitting) { return; }
+        _utilParamSubmitting = true;
+        const saveBtn = document.querySelector('#tab-util-param-entry .btn.btn-primary.px-4');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         const date = document.getElementById('util-param-date').value;
         const aircraft = document.getElementById('util-param-ac').value;
         const ttsn = document.getElementById('util-param-ttsn').value;
@@ -9861,6 +9817,9 @@ function restoreView(viewName) {
         } catch (err) {
             console.error('Error saving utilization parameters:', err);
             showErrorNotification('Ошибка сохранения: ' + err.message);
+        } finally {
+            _utilParamSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Сохранить'; }
         }
     }
 
@@ -12022,6 +11981,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+// Expose handlers for inline onclick attributes to avoid ReferenceError
+window.toggleReportsMenu = toggleReportsMenu;
+window.toggleActionsMenu = toggleActionsMenu;
+window.toggleLogisticsMenu = toggleLogisticsMenu;
+window.openInstallView = openInstallView;
+window.openMainEngineView = openMainEngineView;
+window.openTableModal = openTableModal;
+window.openAtlbView = openAtlbView;
+window.openRemoveView = openRemoveView;
+
 async function sendNotification(actionType, entityType, entityId, message) {
     if (!currentUser) return;
     try {
@@ -12166,6 +12135,132 @@ async function updatePartsCardCounts() {
         console.error('Error updating parts counts:', err);
     }
 }
+
+// ============================================
+// COLUMN MANAGER - для редактирования структуры таблиц
+// ============================================
+
+let currentTableName = '';
+let tableColumnsConfig = {};
+
+async function openColumnManager(tableName) {
+    currentTableName = tableName;
+    const modal = document.getElementById('column-manager-modal');
+    
+    // Загружаем текущую конфигурацию столбцов
+    try {
+        const res = await safeFetch(`/api/table-config/${tableName}`);
+        if (res && res.ok) {
+            tableColumnsConfig = await res.json();
+        } else {
+            tableColumnsConfig = { columns: [] };
+        }
+    } catch (e) {
+        console.error('Error loading column config:', e);
+        tableColumnsConfig = { columns: [] };
+    }
+    
+    // Отображаем столбцы в модальном окне
+    renderColumnList();
+    modal.style.display = 'flex';
+}
+
+function closeColumnManager() {
+    const modal = document.getElementById('column-manager-modal');
+    modal.style.display = 'none';
+    currentTableName = '';
+}
+
+function renderColumnList() {
+    const columnList = document.getElementById('column-list');
+    columnList.innerHTML = '';
+    
+    if (!tableColumnsConfig.columns || tableColumnsConfig.columns.length === 0) {
+        columnList.innerHTML = '<p class="text-muted">No columns configured yet.</p>';
+        return;
+    }
+    
+    tableColumnsConfig.columns.forEach((col, idx) => {
+        const item = document.createElement('div');
+        item.className = 'input-group mb-2';
+        item.style.display = 'flex';
+        item.style.gap = '10px';
+        item.style.alignItems = 'center';
+        
+        item.innerHTML = `
+            <input type="text" class="form-control col-name-${idx}" value="${col.name}" placeholder="Column name">
+            <select class="form-select col-type-${idx}" style="max-width: 150px;">
+                <option value="text" ${col.type === 'text' ? 'selected' : ''}>Text</option>
+                <option value="number" ${col.type === 'number' ? 'selected' : ''}>Number</option>
+                <option value="date" ${col.type === 'date' ? 'selected' : ''}>Date</option>
+                <option value="currency" ${col.type === 'currency' ? 'selected' : ''}>Currency</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-danger" onclick="deleteColumn(${idx})">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        columnList.appendChild(item);
+    });
+}
+
+function addNewColumn() {
+    const name = document.getElementById('new-column-name').value.trim();
+    const type = document.getElementById('new-column-type').value;
+    
+    if (!name) {
+        alert('Please enter a column name');
+        return;
+    }
+    
+    if (!tableColumnsConfig.columns) {
+        tableColumnsConfig.columns = [];
+    }
+    
+    tableColumnsConfig.columns.push({ name, type });
+    document.getElementById('new-column-name').value = '';
+    document.getElementById('new-column-type').value = 'text';
+    renderColumnList();
+}
+
+function deleteColumn(idx) {
+    if (confirm('Delete this column?')) {
+        tableColumnsConfig.columns.splice(idx, 1);
+        renderColumnList();
+    }
+}
+
+async function saveColumnChanges() {
+    // Собираем обновленные данные
+    const columns = [];
+    if (tableColumnsConfig.columns) {
+        tableColumnsConfig.columns.forEach((col, idx) => {
+            const name = document.querySelector(`.col-name-${idx}`)?.value || col.name;
+            const type = document.querySelector(`.col-type-${idx}`)?.value || col.type;
+            columns.push({ name, type });
+        });
+    }
+    
+    try {
+        const res = await fetch(`/api/table-config/${currentTableName}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ columns })
+        });
+        
+        if (res.ok) {
+            showSuccessNotification('Column configuration saved!');
+            closeColumnManager();
+            // Перезагружаем таблицу
+            if (currentTableName === 'purchase-orders') {
+                loadPurchaseOrdersHistory();
+            }
+        } else {
+            showErrorNotification('Error saving column configuration');
+        }
+    } catch (e) {
+        showErrorNotification('Error: ' + e.message);
+    }
+}
 </script>
 
 <!-- Universal Filter Panel -->
@@ -12251,6 +12346,36 @@ async function updatePartsCardCounts() {
                     <tbody id="modal-parts-logistics-body"></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Column Manager for Tables -->
+<div id="column-manager-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 10000; justify-content: center; align-items: center; overflow-y: auto;">
+    <div style="background: white; border-radius: 8px; padding: 30px; max-width: 600px; width: 90%; margin: 20px auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h5 style="margin: 0;">Manage Table Columns</h5>
+            <button onclick="closeColumnManager()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999;">&times;</button>
+        </div>
+
+        <div id="column-list" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+            <!-- Columns will be listed here dynamically -->
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="new-column-name" placeholder="New column name" class="form-control" style="flex: 1;">
+            <select id="new-column-type" class="form-select" style="flex: 1;">
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="date">Date</option>
+                <option value="currency">Currency</option>
+            </select>
+            <button onclick="addNewColumn()" class="btn btn-primary">+ Add</button>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button onclick="closeColumnManager()" class="btn btn-secondary">Cancel</button>
+            <button onclick="saveColumnChanges()" class="btn btn-success">Save Changes</button>
         </div>
     </div>
 </div>

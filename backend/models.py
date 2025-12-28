@@ -134,6 +134,10 @@ class ActionLog(Base):
     snapshot_tt = Column(Float, nullable=True)
     snapshot_tc = Column(Integer, nullable=True)
     
+    # Наработка самолета при установке двигателя
+    ac_ttsn = Column(Float, nullable=True)
+    ac_tcsn = Column(Integer, nullable=True)
+    
     comments = Column(Text, nullable=True)
     file_url = Column(String, nullable=True) # Ссылка на Google Drive / S3
     is_maintenance = Column(Boolean, default=False)
@@ -201,6 +205,9 @@ class PurchaseOrder(Base):
     id = Column(Integer, primary_key=True, index=True)
     date = Column(String, nullable=False)
     name = Column(String, nullable=False)
+    part_number = Column(String, nullable=True)
+    serial_number = Column(String, nullable=True)
+    price = Column(Float, nullable=True)
     purpose = Column(String, nullable=False)
     aircraft = Column(String, nullable=False)
     ro_number = Column(String, nullable=False)
@@ -274,3 +281,13 @@ class Notification(Base):
     performed_by = Column(String, nullable=False)  # Кто совершил действие
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class TableColumnConfig(Base):
+    """Конфигурация столбцов для таблиц (для динамического управления колонками)"""
+    __tablename__ = "table_column_configs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    table_name = Column(String, unique=True, nullable=False)  # 'purchase_orders', 'repairs', и т.д.
+    columns_json = Column(Text, nullable=False)  # JSON с конфигурацией колонок
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
