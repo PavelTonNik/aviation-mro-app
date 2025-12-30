@@ -10,6 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     
     <style>
+        html { overflow-y: scroll; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9eaee; overflow-x: hidden; padding-top: 0; }
         
         /* --- SIDEBAR --- */
@@ -1147,11 +1148,19 @@
             border-radius: 3px;
             font-size: 11px;
             font-weight: bold;
-            display: none;
+            display: flex;
             align-items: center;
             justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s;
             padding: 0 4px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .notification-badge.show {
+            opacity: 1;
+            visibility: visible;
         }
 
         #add-user-btn {
@@ -13978,9 +13987,9 @@ async function updateNotificationCount() {
         const badge = document.getElementById('notification-count');
         if (data.count > 0) {
             badge.textContent = data.count > 99 ? '99+' : data.count;
-            badge.style.display = 'block';
+            badge.classList.add('show');
         } else {
-            badge.style.display = 'none';
+            badge.classList.remove('show');
         }
     } catch (error) {
         // Silently fail - notification count is not critical
