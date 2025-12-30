@@ -656,8 +656,9 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
 
 @app.get("/api/locations")
 def get_locations_overview(db: Session = Depends(get_db)):
-    locations = db.query(models.Location).all()
-    result = []
+    try:
+        locations = db.query(models.Location).all()
+        result = []
     for loc in locations:
         engine_count = db.query(models.Engine).filter(models.Engine.location_id == loc.id).count()
         result.append({
@@ -666,7 +667,10 @@ def get_locations_overview(db: Session = Depends(get_db)):
             "city": loc.city,
             "engine_count": engine_count
         })
-    return result
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_locations_overview: {e}")
+        return []
 
 class LocationUpdateSchema(BaseModel):
     name: Optional[str] = None
@@ -715,8 +719,9 @@ def delete_location(location_id: int, db: Session = Depends(get_db)):
 
 @app.get("/api/fleet")
 def get_fleet_status(db: Session = Depends(get_db)):
-    aircrafts = db.query(models.Aircraft).all()
-    result = []
+    try:
+        aircrafts = db.query(models.Aircraft).all()
+        result = []
     
     for ac in aircrafts:
         engines_on_wing = db.query(models.Engine).filter(models.Engine.aircraft_id == ac.id).all()
@@ -743,7 +748,10 @@ def get_fleet_status(db: Session = Depends(get_db)):
             "total_cycles": ac.total_cycles or 0,
             "engines": eng_list
         })
-    return result
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_fleet_status: {e}")
+        return []
 
 class AircraftCreateSchema(BaseModel):
     tail_number: str
@@ -834,9 +842,10 @@ def delete_aircraft(aircraft_id: int, db: Session = Depends(get_db)):
 @app.get("/api/recent-actions")
 def get_recent_actions(limit: int = 20, db: Session = Depends(get_db)):
     """Get recent actions/activity log"""
-    notifications = db.query(models.Notification).order_by(
-        models.Notification.created_at.desc()
-    ).limit(limit).all()
+    try:
+        notifications = db.query(models.Notification).order_by(
+            models.Notification.created_at.desc()
+        ).limit(limit).all()
     
     result = []
     for notif in notifications:
@@ -850,8 +859,11 @@ def get_recent_actions(limit: int = 20, db: Session = Depends(get_db)):
             "created_at": notif.created_at.isoformat() if notif.created_at else None,
             "is_read": notif.is_read
         })
-    
-    return result
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_recent_actions: {e}")
+        return []
 
 @app.delete("/api/recent-actions")
 def delete_recent_actions(range_key: str = Query("all", alias="range"), db: Session = Depends(get_db)):
@@ -945,7 +957,8 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
     - 4 позиции двигателей (даже если пустые)
     - Для каждого двигателя: TSN/CSN с момента установки, N1/N2, дата обновления
     """
-    aircrafts = db.query(models.Aircraft).all()
+    try:
+        aircrafts = db.query(models.Aircraft).all()
     
     # Если в базе нет самолетов - создаем пустые карточки для визуализации
     if not aircrafts:
@@ -1095,19 +1108,23 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                 positions[4]
             ]
         })
-    
-    return result
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_aircraft_dashboard_details: {e}")
+        return []
 
 # --- ВОТ ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОКАЗЫВАЕТ ВСЕ ДВИГАТЕЛИ) ---
 @app.get("/api/engines")
 def get_all_engines(status: str = None, db: Session = Depends(get_db)):
-    # 1. Запрашиваем ВСЕ двигатели из базы
-    query = db.query(models.Engine)
-    if status:
-        query = query.filter(models.Engine.status == status)
-    
-    engines = query.all()
-    result = []
+    try:
+        # 1. Запрашиваем ВСЕ двигатели из базы
+        query = db.query(models.Engine)
+        if status:
+            query = query.filter(models.Engine.status == status)
+        
+        engines = query.all()
+        result = []
     
     for eng in engines:
         # 2. Безопасное определение локации (чтобы не было ошибок, если локация удалена)
@@ -1161,7 +1178,10 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
             "ac_ttsn": ac_ttsn,
             "ac_tcsn": ac_tcsn
         })
-    return result
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_all_engines: {e}")
+        return []
 
 # --- API (ACTIONS & HISTORY) ---
 
@@ -2458,8 +2478,9 @@ def get_flight_history(db: Session = Depends(get_db)):
 
 @app.get("/api/utilization/summary")
 def get_utilization_summary(db: Session = Depends(get_db)):
-    aircrafts = db.query(models.Aircraft).all()
-    summary = []
+    try:
+        aircrafts = db.query(models.Aircraft).all()
+        summary = []
     for ac in aircrafts:
         baseline = get_baseline_for_tail(ac.tail_number) or {}
         baseline_tt = hhmm_to_hours(baseline.get("initial_ttsn")) if baseline.get("initial_ttsn") else 0.0
@@ -2494,7 +2515,10 @@ def get_utilization_summary(db: Session = Depends(get_db)):
             "next_atlb_ref": next_atlb_ref,
             "last_entry_date": last_entry_date
         })
-    return summary
+        return summary
+    except Exception as e:
+        print(f"❌ Error in get_utilization_summary: {e}")
+        return []
 
 # 16. Добавить Налет (UTILIZATION ADD)
 @app.post("/api/actions/utilization")
@@ -2908,7 +2932,8 @@ def save_engine_parameters(data: EngineParametersSchema, db: Session = Depends(g
 # 20. Получить историю параметров двигателя
 @app.get("/api/engines/parameters/history")
 def get_parameter_history(engine_id: int = None, db: Session = Depends(get_db)):
-    query = db.query(models.EngineParameterHistory)
+    try:
+        query = db.query(models.EngineParameterHistory)
     
     if engine_id:
         query = query.filter(models.EngineParameterHistory.engine_id == engine_id)
@@ -2932,8 +2957,11 @@ def get_parameter_history(engine_id: int = None, db: Session = Depends(get_db)):
             "n2_cruise": h.n2_cruise,
             "egt_cruise": h.egt_cruise
         })
-    
-    return result
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_parameter_history: {e}")
+        return []
 
 # --- BORESCOPE INSPECTIONS API ---
 
@@ -3306,9 +3334,10 @@ def get_history(action_type: str, db: Session = Depends(get_db)):
 @app.get("/api/utilization-parameters")
 def get_utilization_parameters(db: Session = Depends(get_db)):
     """Get all utilization parameters from database"""
-    params = db.query(models.UtilizationParameter).order_by(
-        models.UtilizationParameter.date.desc()
-    ).all()
+    try:
+        params = db.query(models.UtilizationParameter).order_by(
+            models.UtilizationParameter.date.desc()
+        ).all()
     
     result = []
     for p in params:
@@ -3323,7 +3352,10 @@ def get_utilization_parameters(db: Session = Depends(get_db)):
             "date_to": p.date_to.strftime("%Y-%m-%d") if p.date_to else None,
             "created_at": p.created_at.isoformat() if p.created_at else None
         })
-    return result
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_utilization_parameters: {e}")
+        return []
 
 
 @app.post("/api/utilization-parameters")
