@@ -66,6 +66,7 @@ class Engine(Base):
     # Наработка
     total_time = Column(Float, default=0.0)   # TT
     total_cycles = Column(Integer, default=0) # TC
+    price = Column(Float, default=0.0)
     
     # Snapshot при установке (для расчета наработки на конкретном самолете)
     tsn_at_install = Column(Float, nullable=True)   # TSN на момент установки
@@ -291,3 +292,74 @@ class TableColumnConfig(Base):
     columns_json = Column(Text, nullable=False)  # JSON с конфигурацией колонок
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class CustomColumn(Base):
+    __tablename__ = "custom_columns"
+
+    id = Column(Integer, primary_key=True, index=True)
+    table_name = Column(String, nullable=False)
+    column_key = Column(String, nullable=False)
+    column_label = Column(String, nullable=False)
+    column_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class PurchaseOrderCustomData(Base):
+    __tablename__ = "purchase_order_custom_data"
+
+    id = Column(Integer, primary_key=True, index=True)
+    purchase_order_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
+    column_key = Column(String, nullable=False)
+    value = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class FakeInstalled(Base):
+    __tablename__ = "fake_installed"
+
+    id = Column(Integer, primary_key=True, index=True)
+    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)
+    engine_original_sn = Column(String, nullable=True)
+    engine_current_sn = Column(String, nullable=True)
+    aircraft_id = Column(Integer, ForeignKey("aircrafts.id"), nullable=True)
+    aircraft_tail = Column(String, nullable=True)
+    position = Column(Integer, nullable=True)
+    documented_date = Column(String, nullable=True)
+    documented_reason = Column(String, nullable=True)
+    old_engine_sn = Column(String, nullable=True)
+    new_engine_sn = Column(String, nullable=True)
+    is_fake = Column(Boolean, default=True)
+    actual_notes = Column(Text, nullable=True)
+    created_by = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class FakeInstalledSettings(Base):
+    __tablename__ = "fake_installed_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    headers_json = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class NameplateTracker(Base):
+    __tablename__ = "nameplate_tracker"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nameplate_sn = Column(String, nullable=False)
+    engine_model = Column(String, nullable=True)
+    gss_id = Column(String, nullable=True)
+    engine_orig_sn = Column(String, nullable=True)
+    aircraft_tail = Column(String, nullable=True)
+    position = Column(String, nullable=True)
+    installed_date = Column(String, nullable=True)
+    removed_date = Column(String, nullable=True)
+    location_type = Column(String, nullable=True)
+    action_note = Column(String, nullable=True)
+    performed_by = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -52,6 +52,7 @@ def startup_event():
     ensure_sqlite_column("purchase_orders", "part_number TEXT")
     ensure_sqlite_column("purchase_orders", "serial_number TEXT")
     ensure_sqlite_column("purchase_orders", "price FLOAT DEFAULT 0")
+    ensure_sqlite_column("engines", "price FLOAT DEFAULT 0")
     ensure_sqlite_column("action_logs", "performed_by TEXT")
 
     # Открываем сессию базы данных
