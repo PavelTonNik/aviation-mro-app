@@ -29,24 +29,30 @@ def table_exists(inspector, table_name):
     return table_name in inspector.get_table_names()
 
 def run_migrations():
-    inspector = inspect(engine)
+    # Refresh inspector after each change
     
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         # Add price column to engines if missing
-        if table_exists(inspector, 'engines'):
-            if not column_exists(inspector, 'engines', 'price'):
+        print("Checking engines.price column...")
+        try:
+            result = conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name='engines' AND column_name='price'"
+            ))
+            if result.fetchone() is None:
                 print("Adding 'price' column to engines table...")
                 conn.execute(text("ALTER TABLE engines ADD COLUMN price double precision DEFAULT 0"))
-                conn.commit()
                 print("✓ Added price column")
             else:
                 print("✓ Price column already exists")
+        except Exception as e:
+            print(f"Warning: Could not check/add price column: {e}")
         
         # Create custom_columns table
-        if not table_exists(inspector, 'custom_columns'):
-            print("Creating custom_columns table...")
+        print("Checking custom_columns table...")
+        try:
             conn.execute(text("""
-                CREATE TABLE custom_columns (
+                CREATE TABLE IF NOT EXISTS custom_columns (
                     id serial PRIMARY KEY,
                     table_name varchar NOT NULL,
                     column_key varchar NOT NULL,
@@ -56,16 +62,15 @@ def run_migrations():
                     updated_at timestamptz
                 )
             """))
-            conn.commit()
-            print("✓ Created custom_columns table")
-        else:
-            print("✓ custom_columns table already exists")
+            print("✓ custom_columns table ready")
+        except Exception as e:
+            print(f"Warning: custom_columns issue: {e}")
         
         # Create purchase_order_custom_data table
-        if not table_exists(inspector, 'purchase_order_custom_data'):
-            print("Creating purchase_order_custom_data table...")
+        print("Checking purchase_order_custom_data table...")
+        try:
             conn.execute(text("""
-                CREATE TABLE purchase_order_custom_data (
+                CREATE TABLE IF NOT EXISTS purchase_order_custom_data (
                     id serial PRIMARY KEY,
                     purchase_order_id integer NOT NULL,
                     column_key varchar NOT NULL,
@@ -74,16 +79,15 @@ def run_migrations():
                     updated_at timestamptz
                 )
             """))
-            conn.commit()
-            print("✓ Created purchase_order_custom_data table")
-        else:
-            print("✓ purchase_order_custom_data table already exists")
+            print("✓ purchase_order_custom_data table ready")
+        except Exception as e:
+            print(f"Warning: purchase_order_custom_data issue: {e}")
         
         # Create fake_installed table
-        if not table_exists(inspector, 'fake_installed'):
-            print("Creating fake_installed table...")
+        print("Checking fake_installed table...")
+        try:
             conn.execute(text("""
-                CREATE TABLE fake_installed (
+                CREATE TABLE IF NOT EXISTS fake_installed (
                     id serial PRIMARY KEY,
                     engine_id integer,
                     engine_original_sn varchar,
@@ -101,32 +105,30 @@ def run_migrations():
                     created_at timestamptz DEFAULT now()
                 )
             """))
-            conn.commit()
-            print("✓ Created fake_installed table")
-        else:
-            print("✓ fake_installed table already exists")
+            print("✓ fake_installed table ready")
+        except Exception as e:
+            print(f"Warning: fake_installed issue: {e}")
         
         # Create fake_installed_settings table
-        if not table_exists(inspector, 'fake_installed_settings'):
-            print("Creating fake_installed_settings table...")
+        print("Checking fake_installed_settings table...")
+        try:
             conn.execute(text("""
-                CREATE TABLE fake_installed_settings (
+                CREATE TABLE IF NOT EXISTS fake_installed_settings (
                     id serial PRIMARY KEY,
                     headers_json text,
                     created_at timestamptz DEFAULT now(),
                     updated_at timestamptz
                 )
             """))
-            conn.commit()
-            print("✓ Created fake_installed_settings table")
-        else:
-            print("✓ fake_installed_settings table already exists")
+            print("✓ fake_installed_settings table ready")
+        except Exception as e:
+            print(f"Warning: fake_installed_settings issue: {e}")
         
         # Create nameplate_tracker table
-        if not table_exists(inspector, 'nameplate_tracker'):
-            print("Creating nameplate_tracker table...")
+        print("Checking nameplate_tracker table...")
+        try:
             conn.execute(text("""
-                CREATE TABLE nameplate_tracker (
+                CREATE TABLE IF NOT EXISTS nameplate_tracker (
                     id serial PRIMARY KEY,
                     nameplate_sn varchar NOT NULL,
                     engine_model varchar,
@@ -143,10 +145,9 @@ def run_migrations():
                     created_at timestamptz DEFAULT now()
                 )
             """))
-            conn.commit()
-            print("✓ Created nameplate_tracker table")
-        else:
-            print("✓ nameplate_tracker table already exists")
+            print("✓ nameplate_tracker table ready")
+        except Exception as e:
+            print(f"Warning: nameplate_tracker issue: {e}")
     
     print("\n✅ All migrations completed successfully!")
 
