@@ -1139,7 +1139,7 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
             "location": loc_name,
             "tt": eng.total_time if eng.total_time is not None else 0,
             "tc": eng.total_cycles if eng.total_cycles is not None else 0,
-            "price": eng.price,
+            "price": getattr(eng, 'price', None),
             "aircraft_id": eng.aircraft_id,
             "aircraft": eng.aircraft.tail_number if eng.aircraft else None,
             "position": eng.position,
