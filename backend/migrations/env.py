@@ -8,10 +8,15 @@ from alembic import context
 
 # Ensure backend package is importable
 BASE_DIR = Path(__file__).resolve().parents[2]
-sys.path.append(str(BASE_DIR))
+sys.path.insert(0, str(BASE_DIR))
 
-from backend import models  # noqa: E402
-from backend.database import Base, DATABASE_URL  # noqa: E402
+try:
+    from backend import models  # noqa: E402
+    from backend.database import Base, DATABASE_URL  # noqa: E402
+except ImportError:
+    # Fallback for direct imports
+    import models
+    from database import Base, DATABASE_URL
 
 # This config object is Alembic's Config
 config = context.config
