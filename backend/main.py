@@ -19,7 +19,10 @@ except ImportError:  # fallback when running as a standalone script
     import database
 
 # Создаем таблицы в БД (если их нет)
-models.Base.metadata.create_all(bind=database.engine)
+try:
+    models.Base.metadata.create_all(bind=database.engine)
+except Exception as e:
+    print(f"⚠️ Warning: Could not create tables: {e}")
 
 app = FastAPI(title="Aviation MRO System")
 # --- ВСТАВИТЬ ЭТО В backend/main.py ПОСЛЕ app = FastAPI(...) ---
@@ -52,7 +55,6 @@ def startup_event():
     ensure_sqlite_column("purchase_orders", "part_number TEXT")
     ensure_sqlite_column("purchase_orders", "serial_number TEXT")
     ensure_sqlite_column("purchase_orders", "price FLOAT DEFAULT 0")
-    ensure_sqlite_column("engines", "price FLOAT DEFAULT 0")
     ensure_sqlite_column("action_logs", "performed_by TEXT")
 
     # Открываем сессию базы данных
@@ -636,26 +638,39 @@ def create_notification(db: Session, action_type: str, entity_type: str,
 
 @app.get("/api/dashboard/stats")
 def get_dashboard_stats(db: Session = Depends(get_db)):
-    return {
-        "SV": db.query(models.Engine).filter(models.Engine.status == "SV").count(),
-        "US": db.query(models.Engine).filter(models.Engine.status == "US").count(),
-        "INSTALLED": db.query(models.Engine).filter(models.Engine.status == "INSTALLED").count(),
-        "REMOVED": db.query(models.Engine).filter(models.Engine.status == "REMOVED").count()
-    }
+    try:
+        return {
+            "SV": db.query(models.Engine).filter(models.Engine.status == "SV").count(),
+            "US": db.query(models.Engine).filter(models.Engine.status == "US").count(),
+            "INSTALLED": db.query(models.Engine).filter(models.Engine.status == "INSTALLED").count(),
+            "REMOVED": db.query(models.Engine).filter(models.Engine.status == "REMOVED").count()
+        }
+    except Exception as e:
+        print(f"❌ Error in get_dashboard_stats: {e}")
+        return {
+            "SV": 0,
+            "US": 0,
+            "INSTALLED": 0,
+            "REMOVED": 0
+        }
 
 @app.get("/api/locations")
 def get_locations_overview(db: Session = Depends(get_db)):
-    locations = db.query(models.Location).all()
-    result = []
-    for loc in locations:
-        engine_count = db.query(models.Engine).filter(models.Engine.location_id == loc.id).count()
-        result.append({
-            "id": loc.id,
-            "name": loc.name,
-            "city": loc.city,
-            "engine_count": engine_count
-        })
-    return result
+    try:
+        locations = db.query(models.Location).all()
+        result = []
+        for loc in locations:
+            engine_count = db.query(models.Engine).filter(models.Engine.location_id == loc.id).count()
+            result.append({
+                "id": loc.id,
+                "name": loc.name,
+                "city": loc.city,
+                "engine_count": engine_count
+            })
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_locations_overview: {e}")
+        return []
 
 class LocationUpdateSchema(BaseModel):
     name: Optional[str] = None
@@ -704,35 +719,39 @@ def delete_location(location_id: int, db: Session = Depends(get_db)):
 
 @app.get("/api/fleet")
 def get_fleet_status(db: Session = Depends(get_db)):
-    aircrafts = db.query(models.Aircraft).all()
-    result = []
-    
-    for ac in aircrafts:
-        engines_on_wing = db.query(models.Engine).filter(models.Engine.aircraft_id == ac.id).all()
-        eng_list = []
-        for eng in engines_on_wing:
-            eng_list.append({
-                "position": eng.position,
-                "current_sn": eng.current_sn,
-                "original_sn": eng.original_sn,
-                "tt": eng.total_time,
-                "tc": eng.total_cycles,
-                "n1_to": eng.n1_takeoff, 
-                "n1_cr": eng.n1_cruise,
-                "n2_to": eng.n2_takeoff, 
-                "n2_cr": eng.n2_cruise
+    try:
+        aircrafts = db.query(models.Aircraft).all()
+        result = []
+        
+        for ac in aircrafts:
+            engines_on_wing = db.query(models.Engine).filter(models.Engine.aircraft_id == ac.id).all()
+            eng_list = []
+            for eng in engines_on_wing:
+                eng_list.append({
+                    "position": eng.position,
+                    "current_sn": eng.current_sn,
+                    "original_sn": eng.original_sn,
+                    "tt": eng.total_time,
+                    "tc": eng.total_cycles,
+                    "n1_to": eng.n1_takeoff, 
+                    "n1_cr": eng.n1_cruise,
+                    "n2_to": eng.n2_takeoff, 
+                    "n2_cr": eng.n2_cruise
+                })
+                
+            result.append({
+                "id": ac.id,
+                "tail_number": ac.tail_number,
+                "model": ac.model,
+                "msn": ac.msn,
+                "total_time": round(ac.total_time, 2) if ac.total_time else 0.0,
+                "total_cycles": ac.total_cycles or 0,
+                "engines": eng_list
             })
-            
-        result.append({
-            "id": ac.id,
-            "tail_number": ac.tail_number,
-            "model": ac.model,
-            "msn": ac.msn,
-            "total_time": round(ac.total_time, 2) if ac.total_time else 0.0,
-            "total_cycles": ac.total_cycles or 0,
-            "engines": eng_list
-        })
-    return result
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_fleet_status: {e}")
+        return []
 
 class AircraftCreateSchema(BaseModel):
     tail_number: str
@@ -823,24 +842,28 @@ def delete_aircraft(aircraft_id: int, db: Session = Depends(get_db)):
 @app.get("/api/recent-actions")
 def get_recent_actions(limit: int = 20, db: Session = Depends(get_db)):
     """Get recent actions/activity log"""
-    notifications = db.query(models.Notification).order_by(
-        models.Notification.created_at.desc()
-    ).limit(limit).all()
-    
-    result = []
-    for notif in notifications:
-        result.append({
-            "id": notif.id,
-            "action_type": notif.action_type,
-            "entity_type": notif.entity_type,
-            "entity_id": notif.entity_id,
-            "message": notif.message,
-            "performed_by": notif.performed_by,
-            "created_at": notif.created_at.isoformat() if notif.created_at else None,
-            "is_read": notif.is_read
-        })
-    
-    return result
+    try:
+        notifications = db.query(models.Notification).order_by(
+            models.Notification.created_at.desc()
+        ).limit(limit).all()
+        
+        result = []
+        for notif in notifications:
+            result.append({
+                "id": notif.id,
+                "action_type": notif.action_type,
+                "entity_type": notif.entity_type,
+                "entity_id": notif.entity_id,
+                "message": notif.message,
+                "performed_by": notif.performed_by,
+                "created_at": notif.created_at.isoformat() if notif.created_at else None,
+                "is_read": notif.is_read
+            })
+            
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_recent_actions: {e}")
+        return []
 
 @app.delete("/api/recent-actions")
 def delete_recent_actions(range_key: str = Query("all", alias="range"), db: Session = Depends(get_db)):
@@ -934,223 +957,232 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
     - 4 позиции двигателей (даже если пустые)
     - Для каждого двигателя: TSN/CSN с момента установки, N1/N2, дата обновления
     """
-    aircrafts = db.query(models.Aircraft).all()
-    
-    # Если в базе нет самолетов - создаем пустые карточки для визуализации
-    if not aircrafts:
-        result = [
-            {
-                "aircraft_id": 1,
-                "tail_number": "ER-BAT",
-                "model": "Boeing 747-200",
-                "total_time": 0.0,
-                "total_cycles": 0,
-                "positions": [None, None, None, None]
-            },
-            {
-                "aircraft_id": 2,
-                "tail_number": "ER-BAR",
-                "model": "Boeing 747-200",
-                "total_time": 0.0,
-                "total_cycles": 0,
-                "positions": [None, None, None, None]
-            },
-            {
-                "aircraft_id": 3,
-                "tail_number": "ER-BAQ",
-                "model": "Boeing 747-200",
-                "total_time": 0.0,
-                "total_cycles": 0,
-                "positions": [None, None, None, None]
-            }
-        ]
-        return result
-    
-    result = []
-    
-    for ac in aircrafts:
-        # Последняя запись БЕЗ периода для заголовка (текущий налет)
-        latest_non_period = db.query(models.UtilizationParameter).filter(
-            models.UtilizationParameter.aircraft == ac.tail_number,
-            models.UtilizationParameter.period == False
-        ).order_by(
-            models.UtilizationParameter.created_at.desc(),
-            models.UtilizationParameter.date.desc(),
-            models.UtilizationParameter.id.desc()
-        ).first()
-
-        # Последняя ПЕРИОДНАЯ запись для сводки внутри раскрытия
-        latest_period = db.query(models.UtilizationParameter).filter(
-            models.UtilizationParameter.aircraft == ac.tail_number,
-            models.UtilizationParameter.period == True
-        ).order_by(
-            models.UtilizationParameter.created_at.desc(),
-            models.UtilizationParameter.date.desc(),
-            models.UtilizationParameter.id.desc()
-        ).first()
-
-        # Итог для заголовка: берем без периода, если есть, иначе поля самолета
-        util_ttsn = ac.total_time or 0.0
-        util_tcsn = ac.total_cycles or 0
-        util_date = None
-        if latest_non_period:
-            util_ttsn = latest_non_period.ttsn if latest_non_period.ttsn is not None else util_ttsn
-            util_tcsn = latest_non_period.tcsn if latest_non_period.tcsn is not None else util_tcsn
-            util_date = latest_non_period.date.strftime("%Y-%m-%d") if latest_non_period.date else None
-
-        # Сводка периода: берем последнюю периодную запись
-        util_period = bool(latest_period)
-        util_date_from = latest_period.date_from.strftime("%Y-%m-%d") if latest_period and latest_period.date_from else None
-        util_date_to = latest_period.date_to.strftime("%Y-%m-%d") if latest_period and latest_period.date_to else None
-        period_ttsn = latest_period.ttsn if latest_period else None
-        period_tcsn = latest_period.tcsn if latest_period else None
-
-        # Последняя дата ввода данных (любая запись - периодная или нет)
-        last_entry = db.query(models.UtilizationParameter).filter(
-            models.UtilizationParameter.aircraft == ac.tail_number
-        ).order_by(
-            models.UtilizationParameter.created_at.desc()
-        ).first()
-        last_data_date = last_entry.created_at.strftime("%d-%m-%Y") if last_entry and last_entry.created_at else None
-
-        # Все двигатели на самолете
-        engines_on_wing = db.query(models.Engine).filter(
-            models.Engine.aircraft_id == ac.id,
-            models.Engine.status == "INSTALLED"
-        ).all()
+    try:
+        aircrafts = db.query(models.Aircraft).all()
         
-        # Создаем 4 позиции (1, 2, 3, 4)
-        positions = {}
-        for pos in [1, 2, 3, 4]:
-            positions[pos] = None
-            
-        # Заполняем реальными двигателями
-        for eng in engines_on_wing:
-            if eng.position and 1 <= eng.position <= 4:
-                # Вычисляем налет на конкретном самолете
-                tsn_on_aircraft = 0.0
-                csn_on_aircraft = 0
-                
-                if eng.tsn_at_install is not None and eng.csn_at_install is not None:
-                    # Налет = Текущий TSN - TSN при установке
-                    tsn_on_aircraft = eng.total_time - eng.tsn_at_install
-                    csn_on_aircraft = eng.total_cycles - eng.csn_at_install
-                
-                # Находим последнюю запись ATLB для определения даты обновления
-                last_atlb = db.query(models.ActionLog).filter(
-                    models.ActionLog.action_type == "FLIGHT"
-                ).order_by(models.ActionLog.date.desc()).first()
-                
-                last_update = last_atlb.date.strftime("%Y-%m-%d %H:%M") if last_atlb else "N/A"
-                
-                positions[eng.position] = {
-                    "engine_id": eng.id,
-                    "original_sn": eng.original_sn,
-                    "gss_sn": eng.gss_sn or eng.original_sn,
-                    "current_sn": eng.current_sn,
-                    "model": eng.model,
-                    "total_tsn": round(eng.total_time, 1),
-                    "total_csn": eng.total_cycles,
-                    "tsn_on_aircraft": round(tsn_on_aircraft, 1),
-                    "csn_on_aircraft": csn_on_aircraft,
-                    "n1_takeoff": eng.n1_takeoff,
-                    "n1_cruise": eng.n1_cruise,
-                    "n2_takeoff": eng.n2_takeoff,
-                    "n2_cruise": eng.n2_cruise,
-                    "egt_takeoff": eng.egt_takeoff,
-                    "egt_cruise": eng.egt_cruise,
-                    "install_date": eng.install_date.strftime("%Y-%m-%d") if eng.install_date else "N/A",
-                    "last_update": last_update,
-                    "param_date": eng.last_param_update.strftime("%d.%m.%Y") if eng.last_param_update else None
+        # Если в базе нет самолетов - создаем пустые карточки для визуализации
+        if not aircrafts:
+            result = [
+                {
+                    "aircraft_id": 1,
+                    "tail_number": "ER-BAT",
+                    "model": "Boeing 747-200",
+                    "total_time": 0.0,
+                    "total_cycles": 0,
+                    "positions": [None, None, None, None]
+                },
+                {
+                    "aircraft_id": 2,
+                    "tail_number": "ER-BAR",
+                    "model": "Boeing 747-200",
+                    "total_time": 0.0,
+                    "total_cycles": 0,
+                    "positions": [None, None, None, None]
+                },
+                {
+                    "aircraft_id": 3,
+                    "tail_number": "ER-BAQ",
+                    "model": "Boeing 747-200",
+                    "total_time": 0.0,
+                    "total_cycles": 0,
+                    "positions": [None, None, None, None]
                 }
-        
-        result.append({
-            "aircraft_id": ac.id,
-            "tail_number": ac.tail_number,
-            "model": ac.model,
-            "total_time": round(util_ttsn, 1) if util_ttsn else 0.0,
-            "total_cycles": util_tcsn if util_tcsn else 0,
-            "utilization_date": util_date,
-            "utilization_period": util_period,
-            "utilization_date_from": util_date_from,
-            "utilization_date_to": util_date_to,
-            "period_ttsn": period_ttsn,
-            "period_tcsn": period_tcsn,
-            "last_data_date": last_data_date,
-            "positions": [
-                positions[1],
-                positions[2],
-                positions[3],
-                positions[4]
             ]
-        })
-    
-    return result
+            return result
+        
+        result = []
+        
+        for ac in aircrafts:
+            # Последняя запись БЕЗ периода для заголовка (текущий налет)
+            latest_non_period = db.query(models.UtilizationParameter).filter(
+                models.UtilizationParameter.aircraft == ac.tail_number,
+                models.UtilizationParameter.period == False
+            ).order_by(
+                models.UtilizationParameter.created_at.desc(),
+                models.UtilizationParameter.date.desc(),
+                models.UtilizationParameter.id.desc()
+            ).first()
+
+            # Последняя ПЕРИОДНАЯ запись для сводки внутри раскрытия
+            latest_period = db.query(models.UtilizationParameter).filter(
+                models.UtilizationParameter.aircraft == ac.tail_number,
+                models.UtilizationParameter.period == True
+            ).order_by(
+                models.UtilizationParameter.created_at.desc(),
+                models.UtilizationParameter.date.desc(),
+                models.UtilizationParameter.id.desc()
+            ).first()
+
+            # Итог для заголовка: берем без периода, если есть, иначе поля самолета
+            util_ttsn = ac.total_time or 0.0
+            util_tcsn = ac.total_cycles or 0
+            util_date = None
+            if latest_non_period:
+                util_ttsn = latest_non_period.ttsn if latest_non_period.ttsn is not None else util_ttsn
+                util_tcsn = latest_non_period.tcsn if latest_non_period.tcsn is not None else util_tcsn
+                util_date = latest_non_period.date.strftime("%Y-%m-%d") if latest_non_period.date else None
+
+            # Сводка периода: берем последнюю периодную запись
+            util_period = bool(latest_period)
+            util_date_from = latest_period.date_from.strftime("%Y-%m-%d") if latest_period and latest_period.date_from else None
+            util_date_to = latest_period.date_to.strftime("%Y-%m-%d") if latest_period and latest_period.date_to else None
+            period_ttsn = latest_period.ttsn if latest_period else None
+            period_tcsn = latest_period.tcsn if latest_period else None
+
+            # Последняя дата ввода данных (любая запись - периодная или нет)
+            last_entry = db.query(models.UtilizationParameter).filter(
+                models.UtilizationParameter.aircraft == ac.tail_number
+            ).order_by(
+                models.UtilizationParameter.created_at.desc()
+            ).first()
+            last_data_date = last_entry.created_at.strftime("%d-%m-%Y") if last_entry and last_entry.created_at else None
+
+            # Все двигатели на самолете
+            engines_on_wing = db.query(models.Engine).filter(
+                models.Engine.aircraft_id == ac.id,
+                models.Engine.status == "INSTALLED"
+            ).all()
+            
+            # Создаем 4 позиции (1, 2, 3, 4)
+            positions = {}
+            for pos in [1, 2, 3, 4]:
+                positions[pos] = None
+                
+            # Заполняем реальными двигателями
+            for eng in engines_on_wing:
+                if eng.position and 1 <= eng.position <= 4:
+                    # Вычисляем налет на конкретном самолете
+                    tsn_on_aircraft = 0.0
+                    csn_on_aircraft = 0
+                    
+                    if eng.tsn_at_install is not None and eng.csn_at_install is not None:
+                        # Налет = Текущий TSN - TSN при установке
+                        tsn_on_aircraft = eng.total_time - eng.tsn_at_install
+                        csn_on_aircraft = eng.total_cycles - eng.csn_at_install
+                    
+                    # Находим последнюю запись ATLB для определения даты обновления
+                    last_atlb = db.query(models.ActionLog).filter(
+                        models.ActionLog.action_type == "FLIGHT"
+                    ).order_by(models.ActionLog.date.desc()).first()
+                    
+                    last_update = last_atlb.date.strftime("%Y-%m-%d %H:%M") if last_atlb else "N/A"
+                    
+                    positions[eng.position] = {
+                        "engine_id": eng.id,
+                        "original_sn": eng.original_sn,
+                        "gss_sn": eng.gss_sn or eng.original_sn,
+                        "current_sn": eng.current_sn,
+                        "model": eng.model,
+                        "total_tsn": round(eng.total_time, 1),
+                        "total_csn": eng.total_cycles,
+                        "tsn_on_aircraft": round(tsn_on_aircraft, 1),
+                        "csn_on_aircraft": csn_on_aircraft,
+                        "n1_takeoff": eng.n1_takeoff,
+                        "n1_cruise": eng.n1_cruise,
+                        "n2_takeoff": eng.n2_takeoff,
+                        "n2_cruise": eng.n2_cruise,
+                        "egt_takeoff": eng.egt_takeoff,
+                        "egt_cruise": eng.egt_cruise,
+                        "install_date": eng.install_date.strftime("%Y-%m-%d") if eng.install_date else "N/A",
+                        "last_update": last_update,
+                        "param_date": eng.last_param_update.strftime("%d.%m.%Y") if eng.last_param_update else None
+                    }
+            
+            result.append({
+                "aircraft_id": ac.id,
+                "tail_number": ac.tail_number,
+                "model": ac.model,
+                "total_time": round(util_ttsn, 1) if util_ttsn else 0.0,
+                "total_cycles": util_tcsn if util_tcsn else 0,
+                "utilization_date": util_date,
+                "utilization_period": util_period,
+                "utilization_date_from": util_date_from,
+                "utilization_date_to": util_date_to,
+                "period_ttsn": period_ttsn,
+                "period_tcsn": period_tcsn,
+                "last_data_date": last_data_date,
+                "positions": [
+                    positions[1],
+                    positions[2],
+                    positions[3],
+                    positions[4]
+                ]
+            })
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_aircraft_dashboard_details: {e}")
+        return []
 
 # --- ВОТ ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОКАЗЫВАЕТ ВСЕ ДВИГАТЕЛИ) ---
 @app.get("/api/engines")
 def get_all_engines(status: str = None, db: Session = Depends(get_db)):
-    # 1. Запрашиваем ВСЕ двигатели из базы
-    query = db.query(models.Engine)
-    if status:
-        query = query.filter(models.Engine.status == status)
-    
-    engines = query.all()
-    result = []
-    
-    for eng in engines:
-        # 2. Безопасное определение локации (чтобы не было ошибок, если локация удалена)
-        loc_name = "Не указано" 
+    try:
+        # 1. Запрашиваем ВСЕ двигатели из базы
+        query = db.query(models.Engine)
+        if status:
+            query = query.filter(models.Engine.status == status)
         
-        try:
-            if eng.location:
-                loc_name = eng.location.name
-            elif eng.aircraft:
-                tail = eng.aircraft.tail_number if eng.aircraft.tail_number else "No Tail"
-                loc_name = f"{tail} (Pos {eng.position})"
-        except Exception:
-            loc_name = "Ошибка данных" # Если ссылка на удаленный объект
-
-        # 2.1 Дата установки: если пусто, берем первую дату из истории двигателя
-        display_date = eng.install_date
-        if not display_date and eng.logs:
+        engines = query.all()
+        result = []
+        
+        for eng in engines:
+            # 2. Безопасное определение локации (чтобы не было ошибок, если локация удалена)
+            loc_name = "Не указано" 
+            
             try:
-                log_dates = [log.date for log in eng.logs if getattr(log, "date", None)]
-                if log_dates:
-                    display_date = sorted(log_dates)[0]
+                if eng.location:
+                    loc_name = eng.location.name
+                elif eng.aircraft:
+                    tail = eng.aircraft.tail_number if eng.aircraft.tail_number else "No Tail"
+                    loc_name = f"{tail} (Pos {eng.position})"
             except Exception:
-                display_date = None
+                loc_name = "Ошибка данных" # Если ссылка на удаленный объект
 
-        # 3. Собираем данные, заменяя пустые (None) на текст или нули
-        # 3.1 Если двигатель установлен, добавляем данные о самолете
-        ac_ttsn = None
-        ac_tcsn = None
-        if eng.aircraft:
-            ac_ttsn = eng.aircraft.total_time if eng.aircraft.total_time is not None else None
-            ac_tcsn = eng.aircraft.total_cycles if eng.aircraft.total_cycles is not None else None
+            # 2.1 Дата установки: если пусто, берем первую дату из истории двигателя
+            display_date = eng.install_date
+            if not display_date and eng.logs:
+                try:
+                    log_dates = [log.date for log in eng.logs if getattr(log, "date", None)]
+                    if log_dates:
+                        display_date = sorted(log_dates)[0]
+                except Exception:
+                    display_date = None
+
+            # 3. Собираем данные, заменяя пустые (None) на текст или нули
+            # 3.1 Если двигатель установлен, добавляем данные о самолете
+            ac_ttsn = None
+            ac_tcsn = None
+            if eng.aircraft:
+                ac_ttsn = eng.aircraft.total_time if eng.aircraft.total_time is not None else None
+                ac_tcsn = eng.aircraft.total_cycles if eng.aircraft.total_cycles is not None else None
+            
+            result.append({
+                "id": eng.id,
+                "original_sn": eng.original_sn or "Нет данных",
+                "gss_sn": eng.gss_sn or eng.original_sn,
+                "current_sn": eng.current_sn or "Нет данных",
+                "model": eng.model or "-",
+                "status": eng.status,
+                "location": loc_name,
+                "tt": eng.total_time if eng.total_time is not None else 0,
+                "tc": eng.total_cycles if eng.total_cycles is not None else 0,
+                "price": getattr(eng, "price", None),
+                "aircraft_id": eng.aircraft_id,
+                "aircraft": eng.aircraft.tail_number if eng.aircraft else None,
+                "position": eng.position,
+                "photo_url": eng.photo_url,
+                "remarks": eng.remarks or "",
+                "removed_from": eng.removed_from or "",
+                "install_date": display_date.strftime('%Y-%m-%d') if display_date else None,
+                "ac_ttsn": ac_ttsn,
+                "ac_tcsn": ac_tcsn
+            })
         
-        result.append({
-            "id": eng.id,
-            "original_sn": eng.original_sn or "Нет данных",
-            "gss_sn": eng.gss_sn or eng.original_sn,
-            "current_sn": eng.current_sn or "Нет данных",
-            "model": eng.model or "-",
-            "status": eng.status,
-            "location": loc_name,
-            "tt": eng.total_time if eng.total_time is not None else 0,
-            "tc": eng.total_cycles if eng.total_cycles is not None else 0,
-            "price": getattr(eng, 'price', None),
-            "aircraft_id": eng.aircraft_id,
-            "aircraft": eng.aircraft.tail_number if eng.aircraft else None,
-            "position": eng.position,
-            "photo_url": eng.photo_url,
-            "remarks": eng.remarks or "",
-            "removed_from": eng.removed_from or "",
-            "install_date": display_date.strftime('%Y-%m-%d') if display_date else None,
-            "ac_ttsn": ac_ttsn,
-            "ac_tcsn": ac_tcsn
-        })
-    return result
+            return result
+    except Exception as e:
+        print(f"❌ Error in get_all_engines: {e}")
+        return []
 
 # --- API (ACTIONS & HISTORY) ---
 
@@ -1172,68 +1204,75 @@ class EngineCreateSchema(BaseModel):
 
 @app.post("/api/engines")
 def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., alias="user_id"), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.id == current_user_id).first()
-    if not user or user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can create engines")
-    actor_name = resolve_actor_name(db, current_user_id, "Admin")
-    
-    # Проверяем, существует ли уже двигатель с таким original_sn
-    existing = db.query(models.Engine).filter(models.Engine.original_sn == data.original_sn).first()
-    if existing:
-        raise HTTPException(400, f"Engine with ESN {data.original_sn} already exists")
-    
-    # location_id обязателен для создания
-    if not data.location_id:
-        raise HTTPException(400, "location_id is required for creating new engine")
-    
-    # Парсим дату если передана
-    install_date = None
-    if data.date and data.date.strip():
-        try:
-            # Пробуем разные форматы
-            date_str = data.date.strip()
-            if 'T' in date_str:  # ISO формат с временем
-                install_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            else:  # Простой формат YYYY-MM-DD
-                install_date = datetime.strptime(date_str, '%Y-%m-%d')
-        except Exception as e:
-            print(f"[create_engine] date parse error for '{data.date}': {e}")
-            install_date = None
-    
-    # Создаем новый двигатель
-    new_engine = models.Engine(
-        original_sn=data.original_sn,
-        gss_sn=data.gss_sn or data.original_sn,
-        current_sn=data.current_sn,
-        model=data.model,
-        status=data.status,
-        location_id=data.location_id,
-        total_time=data.total_time,
-        total_cycles=data.total_cycles,
-        price=data.price,
-        photo_url=data.photo_url,
-        remarks=data.remarks,
-        removed_from=data.removed_from,
-        install_date=install_date
-    )
-    
-    db.add(new_engine)
-    db.commit()
-    db.refresh(new_engine)
-    
-    # Создаем только notification для Recent Actions (БЕЗ ActionLog - это не действие, а просто добавление записи)
-    location = db.query(models.Location).filter(models.Location.id == data.location_id).first()
-    loc_name = location.name if location else "Unknown"
-    
-    create_notification(db, 
-                       action_type="created",
-                       entity_type="engine",
-                       entity_id=new_engine.id,
-                       message=f"Был добавлен новый двигатель {new_engine.current_sn} (ESN: {new_engine.original_sn}) в локацию {loc_name} пользователем {actor_name}",
-                       performed_by=actor_name,
-                       performed_by_user_id=current_user_id)
-    
-    return {"message": "Engine created successfully", "id": new_engine.id}
+    try:
+        user = db.query(models.User).filter(models.User.id == current_user_id).first()
+        if not user or user.role != "admin":
+            raise HTTPException(status_code=403, detail="Only admins can create engines")
+        actor_name = resolve_actor_name(db, current_user_id, "Admin")
+        
+        # Проверяем, существует ли уже двигатель с таким original_sn
+        existing = db.query(models.Engine).filter(models.Engine.original_sn == data.original_sn).first()
+        if existing:
+            raise HTTPException(400, f"Engine with ESN {data.original_sn} already exists")
+        
+        # location_id обязателен для создания
+        if not data.location_id:
+            raise HTTPException(400, "location_id is required for creating new engine")
+        
+        # Парсим дату если передана
+        install_date = None
+        if data.date and data.date.strip():
+            try:
+                # Пробуем разные форматы
+                date_str = data.date.strip()
+                if 'T' in date_str:  # ISO формат с временем
+                    install_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                else:  # Простой формат YYYY-MM-DD
+                    install_date = datetime.strptime(date_str, '%Y-%m-%d')
+            except Exception as e:
+                print(f"[create_engine] date parse error for '{data.date}': {e}")
+                install_date = None
+        
+        # Создаем новый двигатель
+        new_engine = models.Engine(
+            original_sn=data.original_sn,
+            gss_sn=data.gss_sn or data.original_sn,
+            current_sn=data.current_sn,
+            model=data.model,
+            status=data.status,
+            location_id=data.location_id,
+            total_time=data.total_time,
+            total_cycles=data.total_cycles,
+            price=data.price,
+            photo_url=data.photo_url,
+            remarks=data.remarks,
+            removed_from=data.removed_from,
+            install_date=install_date
+        )
+        
+        db.add(new_engine)
+        db.commit()
+        db.refresh(new_engine)
+        
+        # Создаем только notification для Recent Actions (БЕЗ ActionLog - это не действие, а просто добавление записи)
+        location = db.query(models.Location).filter(models.Location.id == data.location_id).first()
+        loc_name = location.name if location else "Unknown"
+        
+        create_notification(db, 
+                           action_type="created",
+                           entity_type="engine",
+                           entity_id=new_engine.id,
+                           message=f"Был добавлен новый двигатель {new_engine.current_sn} (ESN: {new_engine.original_sn}) в локацию {loc_name} пользователем {actor_name}",
+                           performed_by=actor_name,
+                           performed_by_user_id=current_user_id)
+        
+        return {"message": "Engine created successfully", "id": new_engine.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error in create_engine: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create engine")
 
 # УДАЛЕНИЕ ДВИГАТЕЛЯ
 @app.delete("/api/engines/{engine_id}")
@@ -1730,52 +1769,70 @@ def delete_history_record(action_type: str, log_id: int, db: Session = Depends(g
 # 1. Получить историю установок (Вся информация)
 @app.get("/api/history/INSTALL")
 def get_install_history(db: Session = Depends(get_db)):
-    # Берем логи только типа INSTALL
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "INSTALL").order_by(models.ActionLog.date.desc()).all()
-    def _safe_float(val):
-        try:
-            return float(val) if val not in (None, "") else None
-        except Exception:
-            return None
+    try:
+        # Берем логи только типа INSTALL
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "INSTALL").order_by(models.ActionLog.date.desc()).all()
+        def _safe_float(val):
+            try:
+                return float(val) if val not in (None, "") else None
+            except Exception:
+                return None
 
-    def _safe_int(val):
-        try:
-            return int(val) if val not in (None, "") else None
-        except Exception:
-            return None
+        def _safe_int(val):
+            try:
+                return int(val) if val not in (None, "") else None
+            except Exception:
+                return None
 
-    res = []
-    for l in logs:
-        # Если двигатель удален, пишем заглушку
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "install_to": l.to_aircraft, 
-            "position": l.position,
-            "location_from": l.from_location,
-            "tt": l.snapshot_tt,
-            "tc": l.snapshot_tc,
-            "ac_ttsn": _safe_float(getattr(l, "block_time_str", None)),
-            "ac_tcsn": _safe_int(getattr(l, "block_in_str", None)),
-            "remarks": l.comments
-        })
-    return res
+        res = []
+        for l in logs:
+            # Если двигатель удален, пишем заглушку
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "install_to": l.to_aircraft, 
+                "position": l.position,
+                "location_from": l.from_location,
+                "tt": l.snapshot_tt,
+                "tc": l.snapshot_tc,
+                "ac_ttsn": _safe_float(getattr(l, "block_time_str", None)),
+                "ac_tcsn": _safe_int(getattr(l, "block_in_str", None)),
+                "remarks": l.comments
+            })
+        return res
+    except Exception as e:
+        print(f"❌ Error in get_install_history: {e}")
+        return []
 
 # 3. Сохранить Установку (INSTALL)
 @app.post("/api/actions/install")
 def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
     # Ищем двигатель
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
-    if not eng: raise HTTPException(404, "Engine not found")
+    if not eng:
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_FOUND",
+            "message": "⚠️ Двигатель не найден в базе данных",
+            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "action": "create_engine"
+        }
     
     # Ищем самолет
     ac = db.query(models.Aircraft).filter(models.Aircraft.id == data.aircraft_id).first()
-    if not ac: raise HTTPException(404, "Aircraft not found")
+    if not ac:
+        return {
+            "status": "warning",
+            "code": "AIRCRAFT_NOT_FOUND",
+            "message": "⚠️ Самолет не найден в базе данных",
+            "hint": "Пожалуйста, сначала добавьте самолет в Fleet",
+            "action": "create_aircraft"
+        }
     
     # Запоминаем откуда взяли
     from_loc = eng.location.name if eng.location else "Unknown"
@@ -1826,42 +1883,70 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
         message=f"Были внесены данные пользователем User в группу Installation: двигатель {eng.current_sn} установлен на {ac.tail_number} позиция {data.position}",
         performed_by="User"
     )
-    return {"message": "Success"}
+    return {
+        "status": "success",
+        "message": f"✅ Двигатель {eng.current_sn} успешно установлен на {ac.tail_number} (позиция {data.position})",
+        "data": {"engine_id": eng.id, "aircraft_id": ac.id, "log_id": new_log.id}
+    }
 
 # 4. История перемещений (SHIP)
 @app.get("/api/history/SHIP")
 def get_shipment_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "SHIP").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "from": l.from_location or "-",
-            "to": l.to_location or "-",
-            "remarks": l.comments
-        })
-    return res
+    try:
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "SHIP").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "from": l.from_location or "-",
+                "to": l.to_location or "-",
+                "remarks": l.comments
+            })
+        return res
+    except Exception as e:
+        print(f"❌ Error in get_shipment_history: {e}")
+        return []
 
 # 5. Сохранить Перемещение (SHIPMENT)
 @app.post("/api/actions/ship")
 def ship_engine(data: ShipmentSchema, db: Session = Depends(get_db)):
     # Ищем двигатель
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
-    if not eng: raise HTTPException(404, "Engine not found")
+    if not eng:
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_FOUND",
+            "message": "⚠️ Двигатель не найден в базе данных",
+            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "action": "create_engine"
+        }
     
     # Проверка: INSTALLED двигатели нельзя отправлять (они на крыльях)
     if eng.status == "INSTALLED":
-        raise HTTPException(400, f"Cannot ship INSTALLED engine {eng.original_sn}. Remove from aircraft first.")
+        return {
+            "status": "warning",
+            "code": "ENGINE_INSTALLED",
+            "message": f"⚠️ Невозможно отправить двигатель {eng.original_sn}",
+            "hint": "Двигатель установлен на самолете. Сначала снимите его с самолета",
+            "action": "remove_engine_first"
+        }
     
     # Ищем локацию назначения
     dest_loc = db.query(models.Location).filter(models.Location.id == data.to_location_id).first()
-    if not dest_loc: raise HTTPException(404, "Destination Location not found")
+    if not dest_loc:
+        return {
+            "status": "warning",
+            "code": "LOCATION_NOT_FOUND",
+            "message": "⚠️ Локация назначения не найдена",
+            "hint": "Пожалуйста, проверьте выбранную локацию",
+            "action": "check_location"
+        }
 
     # Откуда забираем (для истории)
     from_loc_txt = "Unknown"
@@ -1901,43 +1986,76 @@ def ship_engine(data: ShipmentSchema, db: Session = Depends(get_db)):
         message=f"Были внесены данные пользователем User в группу Shipment: двигатель {eng.current_sn} отправлен из {from_loc_txt} в {dest_loc.name}",
         performed_by="User"
     )
-    return {"message": "Shipment Saved"}
+    return {
+        "status": "success",
+        "message": f"✅ Двигатель {eng.current_sn} успешно отправлен в {dest_loc.name}",
+        "data": {"engine_id": eng.id, "location_id": dest_loc.id, "log_id": new_log.id}
+    }
 
 # 6. История снятий (REMOVE)
 @app.get("/api/history/REMOVE")
 def get_remove_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "REMOVE").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "from": l.from_location or "-",
-            "to": l.to_location or "-",
-            "remarks": l.comments
-        })
-    return res
+    try:
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "REMOVE").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "from": l.from_location or "-",
+                "to": l.to_location or "-",
+                "remarks": l.comments
+            })
+        return res
+    except Exception as e:
+        print(f"❌ Error in get_remove_history: {e}")
+        return []
 
 # 7. Сохранить Снятие (REMOVE)
 @app.post("/api/actions/remove")
 def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
-    if not eng: 
-        raise HTTPException(404, "Engine not found in database. Please add the engine to Master Engine List first.")
+    if not eng:
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_FOUND",
+            "message": "⚠️ Двигатель не найден в базе данных",
+            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "action": "create_engine"
+        }
     
     # Проверяем что двигатель установлен на самолете
     if eng.status != models.EngineStatus.INSTALLED:
-        raise HTTPException(400, f"Engine {eng.original_sn} cannot be removed! Current status: {eng.status}. Only INSTALLED engines can be removed.")
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_INSTALLED",
+            "message": f"⚠️ Невозможно снять двигатель {eng.original_sn}",
+            "hint": f"Текущий статус: {eng.status}. Можно снимать только установленные двигатели (INSTALLED)",
+            "action": "install_first"
+        }
     
     if not eng.aircraft_id:
-        raise HTTPException(400, f"Engine {eng.original_sn} is not installed on any aircraft!")
+        return {
+            "status": "warning",
+            "code": "ENGINE_NO_AIRCRAFT",
+            "message": f"⚠️ Двигатель {eng.original_sn} не установлен на самолете",
+            "hint": "Проверьте статус двигателя в системе",
+            "action": "check_status"
+        }
     
     dest_loc = db.query(models.Location).filter(models.Location.id == data.to_location_id).first()
-    if not dest_loc: raise HTTPException(404, "Destination Location not found")
+    if not dest_loc:
+        return {
+            "status": "warning",
+            "code": "LOCATION_NOT_FOUND",
+            "message": "⚠️ Локация назначения не найдена",
+            "hint": "Пожалуйста, проверьте выбранную локацию",
+            "action": "check_location"
+        }
 
     # Запоминаем, откуда сняли (с самолета)
     from_txt = "Unknown"
@@ -1973,39 +2091,60 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         message=f"Были внесены данные пользователем User в группу Remove: двигатель {eng.current_sn} снят с {from_txt} и перемещен в {dest_loc.name}",
         performed_by="User"
     )
-    return {"message": "Engine Removed Successfully"}
+    return {
+        "status": "success",
+        "message": f"✅ Двигатель {eng.current_sn} успешно снят и перемещен в {dest_loc.name}",
+        "data": {"engine_id": eng.id, "location_id": dest_loc.id, "log_id": new_log.id}
+    }
     
     # 9. История ремонтов (REPAIR)
 @app.get("/api/history/REPAIR")
 def get_repair_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "REPAIR").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "vendor": l.from_location,   # Используем поле from для Вендора
-            "wo": l.to_location,         # Используем поле to для Work Order
-            "tt": l.snapshot_tt,
-            "tc": l.snapshot_tc,
-            "photo": l.file_url,
-            "remarks": l.comments
-        })
-    return res
+    try:
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "REPAIR").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "vendor": l.from_location,   # Используем поле from для Вендора
+                "wo": l.to_location,         # Используем поле to для Work Order
+                "tt": l.snapshot_tt,
+                "tc": l.snapshot_tc,
+                "photo": l.file_url,
+                "remarks": l.comments
+            })
+        return res
+    except Exception as e:
+        print(f"❌ Error in get_repair_history: {e}")
+        return []
 
 # 10. Сохранить Ремонт (REPAIR)
 @app.post("/api/actions/repair")
 def repair_engine(data: RepairSchema, db: Session = Depends(get_db)):
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
-    if not eng: raise HTTPException(404, "Engine not found")
+    if not eng:
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_FOUND",
+            "message": "⚠️ Двигатель не найден в базе данных",
+            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "action": "create_engine"
+        }
     
     # Проверка: SV двигатели нельзя отремонтировать
     if eng.status == "SV":
-        raise HTTPException(400, f"Cannot repair SV engine {eng.original_sn}. Only non-SV engines can be repaired.")
+        return {
+            "status": "warning",
+            "code": "ENGINE_ALREADY_SV",
+            "message": f"⚠️ Двигатель {eng.original_sn} уже исправен (SV)",
+            "hint": "Ремонтировать можно только двигатели в статусе US, REMOVED и т.д.",
+            "action": "check_status"
+        }
     
     # Логика ремонта:
     # 1. Обновляем наработку (обычно после ремонта она меняется или подтверждается)
@@ -2039,48 +2178,56 @@ def repair_engine(data: RepairSchema, db: Session = Depends(get_db)):
         message=f"Были внесены данные пользователем User в группу Repair: ремонт двигателя {eng.current_sn} у вендора {data.vendor}",
         performed_by="User"
     )
-    return {"message": "Repair Recorded"} 
+    return {
+        "status": "success",
+        "message": f"✅ Ремонт двигателя {eng.current_sn} успешно зарегистрирован (вендор: {data.vendor})",
+        "data": {"engine_id": eng.id, "vendor": data.vendor, "log_id": new_log.id}
+    } 
 # 13. История запчастей (PARTS LOGISTICS / STORE BALANCE)
 @app.get("/api/parts/history")
 def get_parts_history(db: Session = Depends(get_db)):
-    # Получаем логи, связанные с запчастями (где part_id не null или в комментах пометка PART)
-    # Для простоты пока будем фильтровать по типам действий запчастей
-    # Но так как мы пишем всё в ActionLog, будем искать по ключевым словам в типе или создадим новый тип
-    # В данной реализации мы просто вернем все записи, у которых есть данные о запчастях
-    # (Подразумевается, что мы расширим ActionLog или будем писать в comments JSON, но для старта сделаем просто)
-    
-    # ВАЖНО: В реальном проекте лучше отдельная таблица PartLog. 
-    # Сейчас мы будем использовать ActionLog с action_type="PART_ACTION"
-    
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "PART_ACTION").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        # Парсим данные из полей ActionLog (упрощенная схема)
-        import json
-        try:
-            details = json.loads(l.comments) if l.comments else {}
-        except:
-            details = {}
-        date_value = ""
-        if isinstance(l.date, datetime):
-            date_value = l.date.strftime("%Y-%m-%d")
-        elif isinstance(l.date, str) and l.date:
-            date_value = l.date
+    try:
+        # Получаем логи, связанные с запчастями (где part_id не null или в комментах пометка PART)
+        # Для простоты пока будем фильтровать по типам действий запчастей
+        # Но так как мы пишем всё в ActionLog, будем искать по ключевым словам в типе или создадим новый тип
+        # В данной реализации мы просто вернем все записи, у которых есть данные о запчастях
+        # (Подразумевается, что мы расширим ActionLog или будем писать в comments JSON, но для старта сделаем просто)
+        
+        # ВАЖНО: В реальном проекте лучше отдельная таблица PartLog. 
+        # Сейчас мы будем использовать ActionLog с action_type="PART_ACTION"
+        
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "PART_ACTION").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            # Парсим данные из полей ActionLog (упрощенная схема)
+            import json
+            try:
+                details = json.loads(l.comments) if l.comments else {}
+            except:
+                details = {}
+            date_value = ""
+            if isinstance(l.date, datetime):
+                date_value = l.date.strftime("%Y-%m-%d")
+            elif isinstance(l.date, str) and l.date:
+                date_value = l.date
 
-        res.append({
-            "id": l.id,
-            "date": date_value,
-            "action": l.from_location or "UNKNOWN",
-            "part_name": details.get("part_name", "-"),
-            "part_number": details.get("part_number", "-"),
-            "serial_number": details.get("serial_number", "-"),
-            "quantity": details.get("quantity", 0),
-            "from_esn": details.get("from_esn", "-"),
-            "to_esn": details.get("to_esn", "-"),
-            "location": details.get("location", "-"),
-            "reason": details.get("reason", "-")
-        })
-    return res
+            res.append({
+                "id": l.id,
+                "date": date_value,
+                "action": l.from_location or "UNKNOWN",
+                "part_name": details.get("part_name", "-"),
+                "part_number": details.get("part_number", "-"),
+                "serial_number": details.get("serial_number", "-"),
+                "quantity": details.get("quantity", 0),
+                "from_esn": details.get("from_esn", "-"),
+                "to_esn": details.get("to_esn", "-"),
+                "location": details.get("location", "-"),
+                "reason": details.get("reason", "-")
+            })
+        return res
+    except Exception as e:
+        print(f"❌ Error in get_parts_history: {e}")
+        return []
 
 # 14. Сохранить действие с запчастью (PART ACTION)
 @app.post("/api/actions/part")
@@ -2129,28 +2276,32 @@ def part_action(data: PartActionSchema, db: Session = Depends(get_db)):
 # 14A. Store Balance Inventory CRUD
 @app.get("/api/store-balance")
 def get_store_balance(db: Session = Depends(get_db)):
-    items = db.query(models.StoreItem).order_by(
-        models.StoreItem.received_date.desc(),
-        models.StoreItem.part_name.asc()
-    ).all()
+    try:
+        items = db.query(models.StoreItem).order_by(
+            models.StoreItem.received_date.desc(),
+            models.StoreItem.part_name.asc()
+        ).all()
 
-    result = []
-    for item in items:
-        result.append({
-            "id": item.id,
-            "received_date": item.received_date.strftime("%Y-%m-%d") if item.received_date else "",
-            "part_name": item.part_name,
-            "part_number": item.part_number,
-            "serial_number": item.serial_number or "",
-            "condition": item.condition or "",
-            "quantity": item.quantity or 0,
-            "unit": item.unit or "",
-            "location": item.location or "",
-            "shelf": item.shelf or "",
-            "owner": item.owner or "",
-            "remarks": item.remarks or ""
-        })
-    return result
+        result = []
+        for item in items:
+            result.append({
+                "id": item.id,
+                "received_date": item.received_date.strftime("%Y-%m-%d") if item.received_date else "",
+                "part_name": item.part_name,
+                "part_number": item.part_number,
+                "serial_number": item.serial_number or "",
+                "condition": item.condition or "",
+                "quantity": item.quantity or 0,
+                "unit": item.unit or "",
+                "location": item.location or "",
+                "shelf": item.shelf or "",
+                "owner": item.owner or "",
+                "remarks": item.remarks or ""
+            })
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_store_balance: {e}")
+        return []
 
 
 @app.post("/api/store-balance")
@@ -2273,101 +2424,111 @@ def delete_store_item(item_id: int, db: Session = Depends(get_db)):
 # 15. История налетов (UTILIZATION HISTORY)
 @app.get("/api/history/FLIGHT")
 def get_flight_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(
-        models.ActionLog.action_type == models.ActionType.FLIGHT
-    ).order_by(models.ActionLog.date.asc(), models.ActionLog.id.asc()).all()
+    try:
+        logs = db.query(models.ActionLog).filter(
+            models.ActionLog.action_type == models.ActionType.FLIGHT
+        ).order_by(models.ActionLog.date.asc(), models.ActionLog.id.asc()).all()
 
-    totals_map = {}
-    rows = []
-    placeholder = "-"
+        totals_map = {}
+        rows = []
+        placeholder = "-"
+        
+        for log in logs:
+            tail = (log.from_location or "").strip()
+            if not tail:
+                continue
 
-    for log in logs:
-        tail = (log.from_location or "").strip()
-        if not tail:
-            continue
+            if tail not in totals_map:
+                ac = db.query(models.Aircraft).filter(models.Aircraft.tail_number == tail).first()
+                base_hours = ac.initial_total_time if ac and ac.initial_total_time else 0.0
+                base_cycles = ac.initial_total_cycles if ac and ac.initial_total_cycles else 0
+                totals_map[tail] = {"hours": base_hours, "cycles": base_cycles}
 
-        if tail not in totals_map:
-            ac = db.query(models.Aircraft).filter(models.Aircraft.tail_number == tail).first()
-            base_hours = ac.initial_total_time if ac and ac.initial_total_time else 0.0
-            base_cycles = ac.initial_total_cycles if ac and ac.initial_total_cycles else 0
-            totals_map[tail] = {"hours": base_hours, "cycles": base_cycles}
+            state = totals_map[tail]
 
-        state = totals_map[tail]
+            delta_hours = log.snapshot_tt or 0.0
+            delta_cycles = log.snapshot_tc or 0
 
-        delta_hours = log.snapshot_tt or 0.0
-        delta_cycles = log.snapshot_tc or 0
+            if log.is_maintenance:
+                delta_hours = 0.0
+                delta_cycles = 0
 
-        if log.is_maintenance:
-            delta_hours = 0.0
-            delta_cycles = 0
+            state["hours"] += delta_hours
+            state["cycles"] += delta_cycles
 
-        state["hours"] += delta_hours
-        state["cycles"] += delta_cycles
+            atlb_ref = log.atlb_ref or extract_atlb_ref(log.comments) or ""
 
-        atlb_ref = log.atlb_ref or extract_atlb_ref(log.comments) or ""
+            log_date = log.date or datetime.utcnow()
 
-        log_date = log.date or datetime.utcnow()
-
-        rows.append({
-            "id": log.id,
-            "date": log_date.strftime("%Y-%m-%d"),
-            "aircraft": tail,
-            "route": log.to_location or "",
-            "added_tt": round(delta_hours, 2),
-            "added_tc": delta_cycles,
-            "cycles": delta_cycles,
-            "ref": atlb_ref,
-            "total_ttsn": hours_to_hhmm(state["hours"]),
-            "total_tcsn": state["cycles"],
-            "maintenance": bool(log.is_maintenance),
-            "_sort": (log_date, log.id or 0)
-        })
-
-    rows.sort(key=lambda item: item["_sort"], reverse=True)
-    for row in rows:
-        row.pop("_sort", None)
-    return rows
+            rows.append({
+                "id": log.id,
+                "date": log_date.strftime("%Y-%m-%d"),
+                "aircraft": tail,
+                "route": log.to_location or "",
+                "added_tt": round(delta_hours, 2),
+                "added_tc": delta_cycles,
+                "cycles": delta_cycles,
+                "ref": atlb_ref,
+                "total_ttsn": hours_to_hhmm(state["hours"]),
+                "total_tcsn": state["cycles"],
+                "maintenance": bool(log.is_maintenance),
+                "_sort": (log_date, log.id or 0)
+            })
+        
+        rows.sort(key=lambda item: item["_sort"], reverse=True)
+        for row in rows:
+            row.pop("_sort", None)
+        return rows
+    except Exception as e:
+        print(f"❌ Error in get_flight_history: {e}")
+        return []
 
 
 @app.get("/api/utilization/summary")
 def get_utilization_summary(db: Session = Depends(get_db)):
-    aircrafts = db.query(models.Aircraft).all()
-    summary = []
-    for ac in aircrafts:
-        baseline = get_baseline_for_tail(ac.tail_number) or {}
-        baseline_tt = hhmm_to_hours(baseline.get("initial_ttsn")) if baseline.get("initial_ttsn") else 0.0
-        baseline_tc = baseline.get("initial_tcsn") or 0
+    try:
+        aircrafts = db.query(models.Aircraft).all()
+        summary = []
+        
+        for ac in aircrafts:
+            baseline = get_baseline_for_tail(ac.tail_number) or {}
+            baseline_tt = hhmm_to_hours(baseline.get("initial_ttsn")) if baseline.get("initial_ttsn") else 0.0
+            baseline_tc = baseline.get("initial_tcsn") or 0
 
-        current_tt = ac.total_time if ac.total_time is not None else baseline_tt
-        current_tc = ac.total_cycles if ac.total_cycles is not None else baseline_tc
-        initial_tt = ac.initial_total_time if ac.initial_total_time not in (None, 0) else (baseline_tt or current_tt or 0.0)
-        initial_tc = ac.initial_total_cycles if ac.initial_total_cycles not in (None, 0) else (baseline_tc or current_tc or 0)
+            current_tt = ac.total_time if ac.total_time is not None else baseline_tt
+            current_tc = ac.total_cycles if ac.total_cycles is not None else baseline_tc
+            initial_tt = ac.initial_total_time if ac.initial_total_time not in (None, 0) else (baseline_tt or current_tt or 0.0)
+            initial_tc = ac.initial_total_cycles if ac.initial_total_cycles not in (None, 0) else (baseline_tc or current_tc or 0)
 
-        last_log = db.query(models.ActionLog).filter(
-            models.ActionLog.action_type == models.ActionType.FLIGHT,
-            models.ActionLog.from_location == ac.tail_number
-        ).order_by(models.ActionLog.date.desc(), models.ActionLog.id.desc()).first()
-        last_entry_date = last_log.date.strftime("%d.%m.%Y") if last_log and last_log.date else None
-        if not last_entry_date and baseline.get("last_date"):
-            last_entry_date = baseline.get("last_date")
+            last_log = db.query(models.ActionLog).filter(
+                models.ActionLog.action_type == models.ActionType.FLIGHT,
+                models.ActionLog.from_location == ac.tail_number
+            ).order_by(models.ActionLog.date.desc(), models.ActionLog.id.desc()).first()
+            last_entry_date = last_log.date.strftime("%d.%m.%Y") if last_log and last_log.date else None
+            if not last_entry_date and baseline.get("last_date"):
+                last_entry_date = baseline.get("last_date")
 
-        last_atlb_ref = ac.last_atlb_ref or extract_atlb_ref(last_log.comments if last_log else None) or baseline.get("last_atlb")
-        next_atlb_ref = increment_atlb_ref(last_atlb_ref) if last_atlb_ref else None
+            last_atlb_ref = ac.last_atlb_ref or extract_atlb_ref(last_log.comments if last_log else None) or baseline.get("last_atlb")
+            next_atlb_ref = increment_atlb_ref(last_atlb_ref) if last_atlb_ref else None
 
-        summary.append({
-            "aircraft_id": ac.id,
-            "tail_number": ac.tail_number,
-            "model": ac.model,
-            "msn": ac.msn or baseline.get("msn"),
-            "initial_ttsn": hours_to_hhmm(initial_tt),
-            "initial_tcsn": initial_tc,
-            "current_ttsn": hours_to_hhmm(current_tt),
-            "current_tcsn": current_tc,
-            "last_atlb_ref": last_atlb_ref,
-            "next_atlb_ref": next_atlb_ref,
-            "last_entry_date": last_entry_date
-        })
-    return summary
+            summary.append({
+                "aircraft_id": ac.id,
+                "tail_number": ac.tail_number,
+                "model": ac.model,
+                "msn": ac.msn or baseline.get("msn"),
+                "initial_ttsn": hours_to_hhmm(initial_tt),
+                "initial_tcsn": initial_tc,
+                "current_ttsn": hours_to_hhmm(current_tt),
+                "current_tcsn": current_tc,
+                "last_atlb_ref": last_atlb_ref,
+                "next_atlb_ref": next_atlb_ref,
+                "last_entry_date": last_entry_date
+            })
+        
+            return summary
+    except Exception as e:
+        print(f"❌ Error in get_utilization_summary: {e}")
+        return []
 
 # 16. Добавить Налет (UTILIZATION ADD)
 @app.post("/api/actions/utilization")
@@ -2476,105 +2637,109 @@ def reset_utilization_state(db: Session = Depends(get_db)):
 # 17. История ATLB
 @app.get("/api/history/ATLB")
 def get_atlb_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(
-        models.ActionLog.action_type == models.ActionType.FLIGHT
-    ).order_by(models.ActionLog.date.asc(), models.ActionLog.id.asc()).all()
+    try:
+        logs = db.query(models.ActionLog).filter(
+            models.ActionLog.action_type == models.ActionType.FLIGHT
+        ).order_by(models.ActionLog.date.asc(), models.ActionLog.id.asc()).all()
 
-    totals_map = {}
-    rows = []
-    placeholder = "-"
+        totals_map = {}
+        rows = []
+        placeholder = "-"
+        
+        for log in logs:
+            tail = (log.from_location or "").strip()
+            if not tail:
+                continue
 
-    for log in logs:
-        tail = (log.from_location or "").strip()
-        if not tail:
-            continue
+            if tail not in totals_map:
+                ac = db.query(models.Aircraft).filter(models.Aircraft.tail_number == tail).first()
+                base_hours = ac.initial_total_time if ac and ac.initial_total_time else 0.0
+                base_cycles = ac.initial_total_cycles if ac and ac.initial_total_cycles else 0
+                totals_map[tail] = {"hours": base_hours, "cycles": base_cycles}
 
-        if tail not in totals_map:
-            ac = db.query(models.Aircraft).filter(models.Aircraft.tail_number == tail).first()
-            base_hours = ac.initial_total_time if ac and ac.initial_total_time else 0.0
-            base_cycles = ac.initial_total_cycles if ac and ac.initial_total_cycles else 0
-            totals_map[tail] = {"hours": base_hours, "cycles": base_cycles}
+            state = totals_map[tail]
 
-        state = totals_map[tail]
+            computed_block = compute_time_diff(log.block_out_str, log.block_in_str)
+            computed_flight = compute_time_diff(log.flight_off_str, log.flight_on_str)
 
-        computed_block = compute_time_diff(log.block_out_str, log.block_in_str)
-        computed_flight = compute_time_diff(log.flight_off_str, log.flight_on_str)
+            delta_hours = log.snapshot_tt if log.snapshot_tt is not None else hhmm_to_hours(log.flight_time_str or computed_flight)
+            delta_hours = delta_hours or 0.0
+            delta_cycles = log.snapshot_tc if log.snapshot_tc is not None else 0
 
-        delta_hours = log.snapshot_tt if log.snapshot_tt is not None else hhmm_to_hours(log.flight_time_str or computed_flight)
-        delta_hours = delta_hours or 0.0
-        delta_cycles = log.snapshot_tc if log.snapshot_tc is not None else 0
+            if log.is_maintenance:
+                delta_hours = 0.0
+                delta_cycles = 0
 
-        if log.is_maintenance:
-            delta_hours = 0.0
-            delta_cycles = 0
+            state["hours"] += delta_hours
+            state["cycles"] += delta_cycles
 
-        state["hours"] += delta_hours
-        state["cycles"] += delta_cycles
+            atlb_ref = log.atlb_ref or extract_atlb_ref(log.comments) or ""
 
-        atlb_ref = log.atlb_ref or extract_atlb_ref(log.comments) or ""
+            block_time_text = normalize_time_str(log.block_time_str, computed_block or "")
+            flight_time_text = normalize_time_str(
+                log.flight_time_str,
+                computed_flight or normalize_time_str(hours_to_hhmm(delta_hours), "")
+            )
 
-        block_time_text = normalize_time_str(log.block_time_str, computed_block or "")
-        flight_time_text = normalize_time_str(
-            log.flight_time_str,
-            computed_flight or normalize_time_str(hours_to_hhmm(delta_hours), "")
-        )
+            if not block_time_text:
+                block_time_text = placeholder
+            if not flight_time_text or (log.is_maintenance and not (computed_flight or log.flight_time_str)):
+                flight_time_text = placeholder
 
-        if not block_time_text:
-            block_time_text = placeholder
-        if not flight_time_text or (log.is_maintenance and not (computed_flight or log.flight_time_str)):
-            flight_time_text = placeholder
+            if log.is_maintenance:
+                flight_leg = "Maintenance"
+            elif log.from_apt or log.to_apt:
+                flight_leg = f"{(log.from_apt or '---').upper()}-{(log.to_apt or '---').upper()}"
+            elif log.to_location:
+                flight_leg = log.to_location
+            else:
+                flight_leg = placeholder
 
-        if log.is_maintenance:
-            flight_leg = "Maintenance"
-        elif log.from_apt or log.to_apt:
-            flight_leg = f"{(log.from_apt or '---').upper()}-{(log.to_apt or '---').upper()}"
-        elif log.to_location:
-            flight_leg = log.to_location
-        else:
-            flight_leg = placeholder
+            log_date = log.date or datetime.utcnow()
 
-        log_date = log.date or datetime.utcnow()
+            block_out_display = sanitize_time_input(log.block_out_str) or placeholder
+            block_in_display = sanitize_time_input(log.block_in_str) or placeholder
+            flight_off_display = sanitize_time_input(log.flight_off_str) or placeholder
+            flight_on_display = sanitize_time_input(log.flight_on_str) or placeholder
 
-        block_out_display = sanitize_time_input(log.block_out_str) or placeholder
-        block_in_display = sanitize_time_input(log.block_in_str) or placeholder
-        flight_off_display = sanitize_time_input(log.flight_off_str) or placeholder
-        flight_on_display = sanitize_time_input(log.flight_on_str) or placeholder
-
-        rows.append({
-            "id": log.id,
-            "date": log_date.strftime("%Y-%m-%d"),
-            "tail_number": tail,
-            "atlb_sheet": atlb_ref,
-            "flight_leg": flight_leg,
-            "block_out": block_out_display,
-            "block_in": block_in_display,
-            "block_time": block_time_text,
-            "flight_off": flight_off_display,
-            "flight_on": flight_on_display,
-            "flight_time_text": flight_time_text,
-            "flight_time_decimal": round(delta_hours, 2),
-            "cycles": delta_cycles,
-            "total_ttsn": hours_to_hhmm(state["hours"]),
-            "total_tcsn": state["cycles"],
-            "maintenance": log.maintenance_type or ("Maintenance Only" if log.is_maintenance else ""),
-            "maintenance_only": bool(log.is_maintenance),
-            "user": log.performed_by or "Admin",
-            "oil_1": log.oil_1,
-            "oil_2": log.oil_2,
-            "oil_3": log.oil_3,
-            "oil_4": log.oil_4,
-            "oil_apu": log.oil_apu,
-            "hyd_1": log.hyd_1,
-            "hyd_2": log.hyd_2,
-            "hyd_3": log.hyd_3,
-            "hyd_4": log.hyd_4,
-            "_sort": (log_date, log.id or 0)
-        })
-
-    rows.sort(key=lambda item: item["_sort"], reverse=True)
-    for row in rows:
-        row.pop("_sort", None)
-    return rows
+            rows.append({
+                "id": log.id,
+                "date": log_date.strftime("%Y-%m-%d"),
+                "tail_number": tail,
+                "atlb_sheet": atlb_ref,
+                "flight_leg": flight_leg,
+                "block_out": block_out_display,
+                "block_in": block_in_display,
+                "block_time": block_time_text,
+                "flight_off": flight_off_display,
+                "flight_on": flight_on_display,
+                "flight_time_text": flight_time_text,
+                "flight_time_decimal": round(delta_hours, 2),
+                "cycles": delta_cycles,
+                "total_ttsn": hours_to_hhmm(state["hours"]),
+                "total_tcsn": state["cycles"],
+                "maintenance": log.maintenance_type or ("Maintenance Only" if log.is_maintenance else ""),
+                "maintenance_only": bool(log.is_maintenance),
+                "user": log.performed_by or "Admin",
+                "oil_1": log.oil_1,
+                "oil_2": log.oil_2,
+                "oil_3": log.oil_3,
+                "oil_4": log.oil_4,
+                "oil_apu": log.oil_apu,
+                "hyd_1": log.hyd_1,
+                "hyd_2": log.hyd_2,
+                "hyd_3": log.hyd_3,
+                "hyd_4": log.hyd_4,
+                "_sort": (log_date, log.id or 0)
+            })
+        
+        rows.sort(key=lambda item: item["_sort"], reverse=True)
+        for row in rows:
+            row.pop("_sort", None)
+        return rows
+    except Exception as e:
+        print(f"❌ Error in get_atlb_history: {e}")
+        return []
 
 # 18. Сохранить ATLB (и обновить счетчики)
 @app.post("/api/actions/atlb")
@@ -2777,51 +2942,59 @@ def save_engine_parameters(data: EngineParametersSchema, db: Session = Depends(g
 # 20. Получить историю параметров двигателя
 @app.get("/api/engines/parameters/history")
 def get_parameter_history(engine_id: int = None, db: Session = Depends(get_db)):
-    query = db.query(models.EngineParameterHistory)
-    
-    if engine_id:
-        query = query.filter(models.EngineParameterHistory.engine_id == engine_id)
-    
-    history = query.order_by(models.EngineParameterHistory.date.desc()).all()
-    
-    result = []
-    for h in history:
-        eng = h.engine
-        result.append({
-            "id": h.id,
-            "date": h.date.isoformat() if h.date else None,
-            "created_at": h.created_at.isoformat() if h.created_at else None,
-            "engine_sn": eng.current_sn if eng else "Unknown",
-            "aircraft": eng.aircraft.tail_number if eng and eng.aircraft else None,
-            "position": eng.position if eng else None,
-            "n1_takeoff": h.n1_takeoff,
-            "n2_takeoff": h.n2_takeoff,
-            "egt_takeoff": h.egt_takeoff,
-            "n1_cruise": h.n1_cruise,
-            "n2_cruise": h.n2_cruise,
-            "egt_cruise": h.egt_cruise
-        })
-    
-    return result
+    try:
+        query = db.query(models.EngineParameterHistory)
+        
+        if engine_id:
+            query = query.filter(models.EngineParameterHistory.engine_id == engine_id)
+        
+        history = query.order_by(models.EngineParameterHistory.date.desc()).all()
+        
+        result = []
+        for h in history:
+            eng = h.engine
+            result.append({
+                "id": h.id,
+                "date": h.date.isoformat() if h.date else None,
+                "created_at": h.created_at.isoformat() if h.created_at else None,
+                "engine_sn": eng.current_sn if eng else "Unknown",
+                "aircraft": eng.aircraft.tail_number if eng and eng.aircraft else None,
+                "position": eng.position if eng else None,
+                "n1_takeoff": h.n1_takeoff,
+                "n2_takeoff": h.n2_takeoff,
+                "egt_takeoff": h.egt_takeoff,
+                "n1_cruise": h.n1_cruise,
+                "n2_cruise": h.n2_cruise,
+                "egt_cruise": h.egt_cruise
+            })
+        
+            return result
+    except Exception as e:
+        print(f"❌ Error in get_parameter_history: {e}")
+        return []
 
 # --- BORESCOPE INSPECTIONS API ---
 
 @app.get("/api/history/BORESCOPE")
 def get_borescope_history(db: Session = Depends(get_db)):
-    inspections = db.query(models.BoroscopeInspection).order_by(models.BoroscopeInspection.date.desc()).all()
-    result = []
-    for insp in inspections:
-        result.append({
-            "id": insp.id,
-            "date": insp.date,
-            "aircraft": insp.aircraft,
-            "serial_number": insp.serial_number,
-            "position": insp.position,
-            "gss_id": insp.gss_id,
-            "inspector": insp.inspector,
-            "link": insp.link
-        })
-    return result
+    try:
+        inspections = db.query(models.BoroscopeInspection).order_by(models.BoroscopeInspection.date.desc()).all()
+        result = []
+        for insp in inspections:
+            result.append({
+                "id": insp.id,
+                "date": insp.date,
+                "aircraft": insp.aircraft,
+                "serial_number": insp.serial_number,
+                "position": insp.position,
+                "gss_id": insp.gss_id,
+                "inspector": insp.inspector,
+                "link": insp.link
+            })
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_borescope_history: {e}")
+        return []
 
 @app.post("/api/history/BORESCOPE")
 def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get_db)):
@@ -2853,39 +3026,43 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
 
 @app.get("/api/history/PURCHASE_ORDER")
 def get_purchase_orders_history(db: Session = Depends(get_db)):
-    orders = db.query(models.PurchaseOrder).order_by(models.PurchaseOrder.date.desc()).all()
-    
-    # Получаем все пользовательские колонки для purchase_orders
-    custom_columns = db.query(models.CustomColumn).filter(
-        models.CustomColumn.table_name == "purchase_orders"
-    ).order_by(models.CustomColumn.column_order).all()
-    
-    result = []
-    for order in orders:
-        order_data = {
-            "id": order.id,
-            "date": order.date,
-            "name": order.name,
-            "part_number": order.part_number,
-            "serial_number": order.serial_number,
-            "price": order.price,
-            "purpose": order.purpose,
-            "aircraft": order.aircraft,
-            "ro_number": order.ro_number,
-            "link": order.link
-        }
+    try:
+        orders = db.query(models.PurchaseOrder).order_by(models.PurchaseOrder.date.desc()).all()
         
-        # Добавляем данные для пользовательских колонок
-        for col in custom_columns:
-            custom_data = db.query(models.PurchaseOrderCustomData).filter(
-                models.PurchaseOrderCustomData.purchase_order_id == order.id,
-                models.PurchaseOrderCustomData.column_key == col.column_key
-            ).first()
-            order_data[col.column_key] = custom_data.value if custom_data else None
+        # Получаем все пользовательские колонки для purchase_orders
+        custom_columns = db.query(models.CustomColumn).filter(
+            models.CustomColumn.table_name == "purchase_orders"
+        ).order_by(models.CustomColumn.column_order).all()
         
-        result.append(order_data)
-    
-    return result
+        result = []
+        for order in orders:
+            order_data = {
+                "id": order.id,
+                "date": order.date,
+                "name": order.name,
+                "part_number": order.part_number,
+                "serial_number": order.serial_number,
+                "price": order.price,
+                "purpose": order.purpose,
+                "aircraft": order.aircraft,
+                "ro_number": order.ro_number,
+                "link": order.link
+            }
+            
+            # Добавляем данные для пользовательских колонок
+            for col in custom_columns:
+                custom_data = db.query(models.PurchaseOrderCustomData).filter(
+                    models.PurchaseOrderCustomData.purchase_order_id == order.id,
+                    models.PurchaseOrderCustomData.column_key == col.column_key
+                ).first()
+                order_data[col.column_key] = custom_data.value if custom_data else None
+            
+            result.append(order_data)
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_purchase_orders_history: {e}")
+        return []
 
 @app.post("/api/history/PURCHASE_ORDER")
 def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_db)):
@@ -2927,16 +3104,20 @@ def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_d
 @app.get("/api/custom-columns/{table_name}")
 def get_custom_columns(table_name: str, db: Session = Depends(get_db)):
     """Получить список пользовательских колонок для таблицы"""
-    columns = db.query(models.CustomColumn).filter(
-        models.CustomColumn.table_name == table_name
-    ).order_by(models.CustomColumn.column_order).all()
-    
-    return [{
-        "id": col.id,
-        "column_key": col.column_key,
-        "column_label": col.column_label,
-        "column_order": col.column_order
-    } for col in columns]
+    try:
+        columns = db.query(models.CustomColumn).filter(
+            models.CustomColumn.table_name == table_name
+        ).order_by(models.CustomColumn.column_order).all()
+        
+        return [{
+            "id": col.id,
+            "column_key": col.column_key,
+            "column_label": col.column_label,
+            "column_order": col.column_order
+        } for col in columns]
+    except Exception as e:
+        print(f"Error in get_custom_columns: {e}")
+        return []
 
 
 @app.post("/api/custom-columns/{table_name}")
@@ -3163,24 +3344,29 @@ def get_history(action_type: str, db: Session = Depends(get_db)):
 @app.get("/api/utilization-parameters")
 def get_utilization_parameters(db: Session = Depends(get_db)):
     """Get all utilization parameters from database"""
-    params = db.query(models.UtilizationParameter).order_by(
-        models.UtilizationParameter.date.desc()
-    ).all()
-    
-    result = []
-    for p in params:
-        result.append({
-            "id": p.id,
-            "date": p.date.strftime("%Y-%m-%d") if p.date else None,
-            "aircraft": p.aircraft,
-            "ttsn": p.ttsn,
-            "tcsn": p.tcsn,
-            "period": p.period,
-            "date_from": p.date_from.strftime("%Y-%m-%d") if p.date_from else None,
-            "date_to": p.date_to.strftime("%Y-%m-%d") if p.date_to else None,
-            "created_at": p.created_at.isoformat() if p.created_at else None
-        })
-    return result
+    try:
+        params = db.query(models.UtilizationParameter).order_by(
+            models.UtilizationParameter.date.desc()
+        ).all()
+        
+        result = []
+        for p in params:
+            result.append({
+                "id": p.id,
+                "date": p.date.strftime("%Y-%m-%d") if p.date else None,
+                "aircraft": p.aircraft,
+                "ttsn": p.ttsn,
+                "tcsn": p.tcsn,
+                "period": p.period,
+                "date_from": p.date_from.strftime("%Y-%m-%d") if p.date_from else None,
+                "date_to": p.date_to.strftime("%Y-%m-%d") if p.date_to else None,
+                "created_at": p.created_at.isoformat() if p.created_at else None
+            })
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_utilization_parameters: {e}")
+        return []
 
 
 @app.post("/api/utilization-parameters")
@@ -3565,19 +3751,23 @@ def mark_all_read(user_id: Optional[int] = None, db: Session = Depends(get_db)):
 @app.get("/api/fake-installed")
 def get_fake_installed(engine_sn: Optional[str] = None, db: Session = Depends(get_db)):
     """Получить все записи Fake Installed, опционально отфильтровать по SN двигателя"""
-    query = db.query(models.FakeInstalled)
-    
-    if engine_sn:
-        query = query.filter(
-            or_(
-                models.FakeInstalled.engine_original_sn.ilike(f"%{engine_sn}%"),
-                models.FakeInstalled.engine_current_sn.ilike(f"%{engine_sn}%")
+    try:
+        if not hasattr(models, "FakeInstalled"):
+            print("FakeInstalled model missing")
+            return []
+        query = db.query(models.FakeInstalled)
+        
+        if engine_sn:
+            query = query.filter(
+                or_(
+                    models.FakeInstalled.engine_original_sn.ilike(f"%{engine_sn}%"),
+                    models.FakeInstalled.engine_current_sn.ilike(f"%{engine_sn}%")
+                )
             )
-        )
-    
-    records = query.order_by(models.FakeInstalled.documented_date.desc()).all()
-    
-    return [
+        
+        records = query.order_by(models.FakeInstalled.documented_date.desc()).all()
+        
+        return [
         {
             "id": r.id,
             "engine_id": r.engine_id,
@@ -3596,12 +3786,17 @@ def get_fake_installed(engine_sn: Optional[str] = None, db: Session = Depends(ge
         }
         for r in records
     ]
+    except Exception as e:
+        print(f"Error in get_fake_installed: {e}")
+        return []
 
 
 @app.post("/api/fake-installed")
 def create_fake_installed(data: dict, db: Session = Depends(get_db)):
     """Добавить новую запись Fake Installed"""
     try:
+        if not hasattr(models, "FakeInstalled"):
+            raise HTTPException(status_code=500, detail="FakeInstalled model missing")
         record = models.FakeInstalled(
             engine_id=data.get("engine_id"),
             engine_original_sn=data.get("engine_original_sn", ""),
@@ -3635,6 +3830,8 @@ def create_fake_installed(data: dict, db: Session = Depends(get_db)):
 def update_fake_installed(fake_id: int, data: dict, db: Session = Depends(get_db)):
     """Обновить запись Fake Installed"""
     try:
+        if not hasattr(models, "FakeInstalled"):
+            raise HTTPException(status_code=500, detail="FakeInstalled model missing")
         record = db.query(models.FakeInstalled).filter(models.FakeInstalled.id == fake_id).first()
         if not record:
             raise HTTPException(status_code=404, detail="Record not found")
@@ -3655,6 +3852,8 @@ def update_fake_installed(fake_id: int, data: dict, db: Session = Depends(get_db
 def delete_fake_installed(fake_id: int, db: Session = Depends(get_db)):
     """Удалить запись Fake Installed"""
     try:
+        if not hasattr(models, "FakeInstalled"):
+            raise HTTPException(status_code=500, detail="FakeInstalled model missing")
         record = db.query(models.FakeInstalled).filter(models.FakeInstalled.id == fake_id).first()
         if not record:
             raise HTTPException(status_code=404, detail="Record not found")
@@ -3686,6 +3885,10 @@ DEFAULT_FAKE_HEADERS = {
 
 
 def _get_settings_row(db: Session):
+    if not hasattr(models, "FakeInstalledSettings"):
+        class _Dummy:
+            headers_json = None
+        return _Dummy()
     row = db.query(models.FakeInstalledSettings).first()
     if not row:
         row = models.FakeInstalledSettings(headers_json=None)
@@ -3698,18 +3901,24 @@ def _get_settings_row(db: Session):
 @app.get("/api/fake-installed/headers")
 def get_fake_installed_headers(db: Session = Depends(get_db)):
     """Return header labels for Fake Installed table."""
-    import json as _json
-    row = _get_settings_row(db)
-    if row.headers_json:
-        try:
-            data = _json.loads(row.headers_json)
-            # ensure defaults present
-            for k, v in DEFAULT_FAKE_HEADERS.items():
-                data.setdefault(k, v)
-            return data
-        except Exception:
-            pass
-    return DEFAULT_FAKE_HEADERS
+    try:
+        if not hasattr(models, "FakeInstalledSettings"):
+            return DEFAULT_FAKE_HEADERS
+        import json as _json
+        row = _get_settings_row(db)
+        if row.headers_json:
+            try:
+                data = _json.loads(row.headers_json)
+                # ensure defaults present
+                for k, v in DEFAULT_FAKE_HEADERS.items():
+                    data.setdefault(k, v)
+                return data
+            except Exception:
+                pass
+        return DEFAULT_FAKE_HEADERS
+    except Exception as e:
+        print(f"Error in get_fake_installed_headers: {e}")
+        return DEFAULT_FAKE_HEADERS
 
 
 @app.put("/api/fake-installed/headers")
@@ -3717,6 +3926,8 @@ def update_fake_installed_headers(payload: dict, db: Session = Depends(get_db)):
     """Update header labels mapping. Accepts partial dict of keys->labels."""
     import json as _json
     try:
+        if not hasattr(models, "FakeInstalledSettings"):
+            raise HTTPException(status_code=500, detail="FakeInstalledSettings model missing")
         current = get_fake_installed_headers(db)
         current.update({k: str(v) for k, v in payload.items() if k in DEFAULT_FAKE_HEADERS})
         row = _get_settings_row(db)
@@ -3732,6 +3943,33 @@ def update_fake_installed_headers(payload: dict, db: Session = Depends(get_db)):
 # === NAMEPLATE TRACKER API (независимый модуль) ===
 # ============================================================================
 
+@app.get("/api/engine-by-sn/{sn}")
+def get_engine_by_sn(sn: str, db: Session = Depends(get_db)):
+    """Lookup engine by serial number for autocomplete form fields."""
+    try:
+        sn = sn.strip()
+        eng = db.query(models.Engine).filter(
+            (models.Engine.original_sn.ilike(f"%{sn}%")) | (models.Engine.current_sn.ilike(f"%{sn}%"))
+        ).first()
+        
+        if not eng:
+            raise HTTPException(status_code=404, detail="Engine not found")
+        
+        return {
+            "id": eng.id,
+            "model": eng.model,
+            "gss_id": eng.gss_sn,
+            "original_sn": eng.original_sn,
+            "current_sn": eng.current_sn,
+            "aircraft_tail": eng.aircraft.tail if eng.aircraft else None,
+            "position": eng.position,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.get("/api/nameplate-tracker")
 def get_nameplate_tracker(
     nameplate_sn: Optional[str] = None,
@@ -3740,20 +3978,24 @@ def get_nameplate_tracker(
     db: Session = Depends(get_db)
 ):
     """Get all nameplate tracker records with optional filters."""
-    query = db.query(models.NameplateTracker)
-    
-    if nameplate_sn:
-        query = query.filter(models.NameplateTracker.nameplate_sn.ilike(f"%{nameplate_sn}%"))
-    
-    if gss_id:
-        query = query.filter(models.NameplateTracker.gss_id.ilike(f"%{gss_id}%"))
-    
-    if active_only:
-        query = query.filter(models.NameplateTracker.removed_date.is_(None))
-    
-    records = query.order_by(models.NameplateTracker.installed_date.desc()).all()
-    
-    return [
+    try:
+        if not hasattr(models, "NameplateTracker"):
+            print("NameplateTracker model missing")
+            return []
+        query = db.query(models.NameplateTracker)
+        
+        if nameplate_sn:
+            query = query.filter(models.NameplateTracker.nameplate_sn.ilike(f"%{nameplate_sn}%"))
+        
+        if gss_id:
+            query = query.filter(models.NameplateTracker.gss_id.ilike(f"%{gss_id}%"))
+        
+        if active_only:
+            query = query.filter(models.NameplateTracker.removed_date.is_(None))
+        
+        records = query.order_by(models.NameplateTracker.installed_date.desc()).all()
+        
+        return [
         {
             "id": r.id,
             "nameplate_sn": r.nameplate_sn,
@@ -3772,6 +4014,9 @@ def get_nameplate_tracker(
         }
         for r in records
     ]
+    except Exception as e:
+        print(f"Error in get_nameplate_tracker: {e}")
+        return []
 
 
 @app.post("/api/nameplate-tracker")
@@ -3984,6 +4229,149 @@ def apply_nameplate_action(data: dict, db: Session = Depends(get_db)):
 
         raise HTTPException(status_code=400, detail="Unhandled action type")
     except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/nameplate-tracker/execute-action")
+def execute_nameplate_action(data: dict, db: Session = Depends(get_db)):
+    """Execute swap/remove/install action with transaction safety.
+    Updates Engine.current_sn for swap/install and creates NameplateTracker records."""
+    try:
+        action = (data.get("action") or "").strip().lower()
+        
+        if action not in {"swap", "remove", "install"}:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        
+        # Helper to find engine by SN
+        def _find_eng_by_sn(sn):
+            return db.query(models.Engine).filter(
+                (models.Engine.original_sn == sn) | (models.Engine.current_sn == sn)
+            ).first()
+        
+        if action == "swap":
+            plate1_sn = (data.get("plate1_sn") or "").strip()
+            plate2_sn = (data.get("plate2_sn") or "").strip()
+            
+            if not plate1_sn or not plate2_sn or plate1_sn == plate2_sn:
+                raise HTTPException(status_code=400, detail="Both plate SNs required and must be different")
+            
+            eng1 = _find_eng_by_sn(plate1_sn)
+            eng2 = _find_eng_by_sn(plate2_sn)
+            
+            if not eng1 or not eng2:
+                raise HTTPException(status_code=404, detail="One or both engines not found")
+            
+            # Swap current_sn
+            old_sn1, old_sn2 = eng1.current_sn, eng2.current_sn
+            eng1.current_sn = old_sn2
+            eng2.current_sn = old_sn1
+            db.add(eng1)
+            db.add(eng2)
+            
+            # Record swap in tracker
+            rec = models.NameplateTracker(
+                nameplate_sn=plate1_sn,
+                engine_model=eng1.model,
+                gss_id=eng1.gss_sn,
+                engine_orig_sn=eng1.original_sn,
+                aircraft_tail=data.get("aircraft_from"),
+                position=data.get("position_from"),
+                installed_date=data.get("date") or datetime.utcnow().date().isoformat(),
+                action_note="swap",
+                performed_by=data.get("performed_by"),
+                notes=f"Swapped: {eng1.gss_sn}({old_sn1}↔{old_sn2}) with {eng2.gss_sn}({old_sn2}↔{old_sn1})",
+            )
+            db.add(rec)
+            db.commit()
+            
+            return {
+                "status": "ok",
+                "action": "swap",
+                "engine1": {"id": eng1.id, "gss_id": eng1.gss_sn, "new_sn": eng1.current_sn},
+                "engine2": {"id": eng2.id, "gss_id": eng2.gss_sn, "new_sn": eng2.current_sn},
+            }
+        
+        if action == "remove":
+            plate_sn = (data.get("plate1_sn") or "").strip()
+            if not plate_sn:
+                raise HTTPException(status_code=400, detail="Plate SN required")
+            
+            eng = _find_eng_by_sn(plate_sn)
+            if not eng:
+                raise HTTPException(status_code=404, detail="Engine not found")
+            
+            rec = models.NameplateTracker(
+                nameplate_sn=plate_sn,
+                engine_model=eng.model,
+                gss_id=eng.gss_sn,
+                engine_orig_sn=eng.original_sn,
+                aircraft_tail=data.get("aircraft_from"),
+                position=data.get("position_from"),
+                removed_date=data.get("date") or datetime.utcnow().date().isoformat(),
+                location_type=data.get("sent_to"),
+                action_note="remove",
+                performed_by=data.get("performed_by"),
+                notes=data.get("reason"),
+            )
+            db.add(rec)
+            db.commit()
+            
+            return {
+                "status": "ok",
+                "action": "remove",
+                "engine_id": eng.id,
+            }
+        
+        if action == "install":
+            plate_sn = (data.get("plate1_sn") or "").strip()
+            if not plate_sn:
+                raise HTTPException(status_code=400, detail="Plate SN required")
+            
+            eng = _find_eng_by_sn(plate_sn)
+            if not eng:
+                raise HTTPException(status_code=404, detail="Engine not found")
+            
+            ac_to = data.get("aircraft_to")
+            pos_to = data.get("position_to")
+            
+            # Update engine location
+            if ac_to:
+                ac_obj = db.query(models.Aircraft).filter(models.Aircraft.tail == ac_to).first()
+                if ac_obj:
+                    eng.aircraft_id = ac_obj.id
+                    eng.position = pos_to
+            
+            db.add(eng)
+            
+            rec = models.NameplateTracker(
+                nameplate_sn=plate_sn,
+                engine_model=eng.model,
+                gss_id=eng.gss_sn,
+                engine_orig_sn=eng.original_sn,
+                aircraft_tail=ac_to,
+                position=pos_to,
+                installed_date=data.get("date") or datetime.utcnow().date().isoformat(),
+                location_type="Aircraft",
+                action_note="install",
+                performed_by=data.get("performed_by"),
+                notes=data.get("reason"),
+            )
+            db.add(rec)
+            db.commit()
+            
+            return {
+                "status": "ok",
+                "action": "install",
+                "engine_id": eng.id,
+                "aircraft": ac_to,
+                "position": pos_to,
+            }
+    
+    except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
         db.rollback()
