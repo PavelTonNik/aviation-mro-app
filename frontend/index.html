@@ -5238,6 +5238,65 @@ function restoreView(viewName) {
             return null;
         }
     }
+
+    // Универсальная функция обработки ответов от API (поддержка warning/success/error)
+    async function handleApiResponse(response, operation = 'Операция') {
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({detail: 'Техническая ошибка'}));
+            throw new Error(error.detail || 'Ошибка сервера');
+        }
+
+        const data = await response.json();
+
+        // НОВАЯ СИСТЕМА: Проверяем status в ответе
+        if (data.status === 'warning') {
+            // 🟡 Бизнес-валидация: показываем желтое предупреждение с подсказкой
+            showWarningModal(data.message, data.hint, data.code);
+            return null; // Операция не выполнена
+        } else if (data.status === 'success') {
+            // 🟢 Успех: показываем зеленое уведомление
+            showSuccessNotification(data.message);
+            return data; // Возвращаем данные для дальнейшей обработки
+        } else {
+            // 🔵 Старый формат (обратная совместимость): просто data без status
+            return data;
+        }
+    }
+
+    // Функция показа желтого модального окна с предупреждением
+    function showWarningModal(message, hint, code) {
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.6); z-index: 9999; 
+            display: flex; align-items: center; justify-content: center;
+        `;
+        
+        const box = document.createElement('div');
+        box.style.cssText = `
+            background: #fff; border-radius: 12px; padding: 30px; 
+            max-width: 500px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        `;
+        
+        box.innerHTML = `
+            <div style="text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 15px;">⚠️</div>
+                <h4 style="color: #f59e0b; margin-bottom: 15px;">${message}</h4>
+                <p style="color: #6b7280; margin-bottom: 20px; line-height: 1.6;">${hint || ''}</p>
+                <button id="modal-close-btn" style="
+                    background: #f59e0b; color: #fff; border: none; 
+                    padding: 12px 30px; border-radius: 8px; font-size: 1rem; 
+                    cursor: pointer; font-weight: 600;
+                ">Понятно</button>
+            </div>
+        `;
+        
+        modal.appendChild(box);
+        document.body.appendChild(modal);
+        
+        document.getElementById('modal-close-btn').onclick = () => modal.remove();
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+    }
     
     // Debounce helper to avoid duplicate calls
     let lastRefreshTime = 0;
@@ -6896,10 +6955,8 @@ function restoreView(viewName) {
                 body: JSON.stringify(payload)
             });
             
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.detail || 'Save error');
-            }
+            const result = await handleApiResponse(res, 'Installation');
+            if (!result) return; // Операция не выполнена (warning)
 
             // Очистка формы
             document.getElementById('form-install').reset(); 
@@ -6915,9 +6972,6 @@ function restoreView(viewName) {
             
             // Обновляем Recent Actions
             refreshAfterDataChange();
-            
-            // Показываем уведомление об успехе
-            showSuccessNotification(`Engine ${selectedEngine.original_sn} successfully installed on ${acText} position ${payload.position}!`);
             
         } catch(e) { 
             showErrorNotification("Error: " + e.message);
@@ -8548,10 +8602,8 @@ function restoreView(viewName) {
                 body: JSON.stringify(payload)
             });
 
-            if(!res.ok) {
-                const error = await res.json();
-                throw new Error(error.detail || 'Ошибка сохранения');
-            }
+            const result = await handleApiResponse(res, 'Shipment');
+            if (!result) return; // Операция не выполнена (warning)
 
             // Очистка и переключение
             document.getElementById('form-shipment').reset();
@@ -8564,7 +8616,6 @@ function restoreView(viewName) {
             
             await loadShipmentHistory();
             refreshAfterDataChange();
-            alert("✅ Успешно сохранено!");
 
         } catch(e) {
             alert("Ошибка соединения");
@@ -8795,10 +8846,8 @@ function restoreView(viewName) {
         try {
             const res = await fetch('/api/actions/remove', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
             
-            if(!res.ok) {
-                const error = await res.json();
-                throw new Error(error.detail || 'Ошибка сохранения');
-            }
+            const result = await handleApiResponse(res, 'Remove');
+            if (!result) return; // Операция не выполнена (warning)
 
             document.getElementById('form-remove').reset();
             
@@ -8809,7 +8858,6 @@ function restoreView(viewName) {
             
             await loadRemoveHistory();
             refreshAfterDataChange();
-            alert("✅ Снятие успешно!");
 
         } catch(e) { 
             alert("❌ Error: " + e.message); 
@@ -10874,16 +10922,13 @@ function restoreView(viewName) {
         try {
             const res = await fetch('/api/actions/repair', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
             
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.detail || 'Ошибка сохранения');
-            }
+            const result = await handleApiResponse(res, 'Repair');
+            if (!result) return; // Операция не выполнена (warning)
 
             document.getElementById('form-repair').reset();
             switchRepairTab('info');
             await loadRepairHistory();
             refreshAfterDataChange();
-            alert("✅ Ремонт записан! Статус обновлен на SV.");
         } catch(e) { 
             alert("❌ Error: " + e.message); 
         } finally {

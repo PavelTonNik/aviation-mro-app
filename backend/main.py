@@ -1741,52 +1741,70 @@ def delete_history_record(action_type: str, log_id: int, db: Session = Depends(g
 # 1. Получить историю установок (Вся информация)
 @app.get("/api/history/INSTALL")
 def get_install_history(db: Session = Depends(get_db)):
-    # Берем логи только типа INSTALL
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "INSTALL").order_by(models.ActionLog.date.desc()).all()
-    def _safe_float(val):
-        try:
-            return float(val) if val not in (None, "") else None
-        except Exception:
-            return None
+    try:
+        # Берем логи только типа INSTALL
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "INSTALL").order_by(models.ActionLog.date.desc()).all()
+        def _safe_float(val):
+            try:
+                return float(val) if val not in (None, "") else None
+            except Exception:
+                return None
 
-    def _safe_int(val):
-        try:
-            return int(val) if val not in (None, "") else None
-        except Exception:
-            return None
+        def _safe_int(val):
+            try:
+                return int(val) if val not in (None, "") else None
+            except Exception:
+                return None
 
-    res = []
-    for l in logs:
-        # Если двигатель удален, пишем заглушку
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "install_to": l.to_aircraft, 
-            "position": l.position,
-            "location_from": l.from_location,
-            "tt": l.snapshot_tt,
-            "tc": l.snapshot_tc,
-            "ac_ttsn": _safe_float(getattr(l, "block_time_str", None)),
-            "ac_tcsn": _safe_int(getattr(l, "block_in_str", None)),
-            "remarks": l.comments
-        })
-    return res
+        res = []
+        for l in logs:
+            # Если двигатель удален, пишем заглушку
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "install_to": l.to_aircraft, 
+                "position": l.position,
+                "location_from": l.from_location,
+                "tt": l.snapshot_tt,
+                "tc": l.snapshot_tc,
+                "ac_ttsn": _safe_float(getattr(l, "block_time_str", None)),
+                "ac_tcsn": _safe_int(getattr(l, "block_in_str", None)),
+                "remarks": l.comments
+            })
+        return res
+    except Exception as e:
+        print(f"❌ Error in get_install_history: {e}")
+        return []
 
 # 3. Сохранить Установку (INSTALL)
 @app.post("/api/actions/install")
 def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
     # Ищем двигатель
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
-    if not eng: raise HTTPException(404, "Engine not found")
+    if not eng:
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_FOUND",
+            "message": "⚠️ Двигатель не найден в базе данных",
+            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "action": "create_engine"
+        }
     
     # Ищем самолет
     ac = db.query(models.Aircraft).filter(models.Aircraft.id == data.aircraft_id).first()
-    if not ac: raise HTTPException(404, "Aircraft not found")
+    if not ac:
+        return {
+            "status": "warning",
+            "code": "AIRCRAFT_NOT_FOUND",
+            "message": "⚠️ Самолет не найден в базе данных",
+            "hint": "Пожалуйста, сначала добавьте самолет в Fleet",
+            "action": "create_aircraft"
+        }
     
     # Запоминаем откуда взяли
     from_loc = eng.location.name if eng.location else "Unknown"
@@ -1837,42 +1855,70 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
         message=f"Были внесены данные пользователем User в группу Installation: двигатель {eng.current_sn} установлен на {ac.tail_number} позиция {data.position}",
         performed_by="User"
     )
-    return {"message": "Success"}
+    return {
+        "status": "success",
+        "message": f"✅ Двигатель {eng.current_sn} успешно установлен на {ac.tail_number} (позиция {data.position})",
+        "data": {"engine_id": eng.id, "aircraft_id": ac.id, "log_id": new_log.id}
+    }
 
 # 4. История перемещений (SHIP)
 @app.get("/api/history/SHIP")
 def get_shipment_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "SHIP").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "from": l.from_location or "-",
-            "to": l.to_location or "-",
-            "remarks": l.comments
-        })
-    return res
+    try:
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "SHIP").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "from": l.from_location or "-",
+                "to": l.to_location or "-",
+                "remarks": l.comments
+            })
+        return res
+    except Exception as e:
+        print(f"❌ Error in get_shipment_history: {e}")
+        return []
 
 # 5. Сохранить Перемещение (SHIPMENT)
 @app.post("/api/actions/ship")
 def ship_engine(data: ShipmentSchema, db: Session = Depends(get_db)):
     # Ищем двигатель
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
-    if not eng: raise HTTPException(404, "Engine not found")
+    if not eng:
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_FOUND",
+            "message": "⚠️ Двигатель не найден в базе данных",
+            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "action": "create_engine"
+        }
     
     # Проверка: INSTALLED двигатели нельзя отправлять (они на крыльях)
     if eng.status == "INSTALLED":
-        raise HTTPException(400, f"Cannot ship INSTALLED engine {eng.original_sn}. Remove from aircraft first.")
+        return {
+            "status": "warning",
+            "code": "ENGINE_INSTALLED",
+            "message": f"⚠️ Невозможно отправить двигатель {eng.original_sn}",
+            "hint": "Двигатель установлен на самолете. Сначала снимите его с самолета",
+            "action": "remove_engine_first"
+        }
     
     # Ищем локацию назначения
     dest_loc = db.query(models.Location).filter(models.Location.id == data.to_location_id).first()
-    if not dest_loc: raise HTTPException(404, "Destination Location not found")
+    if not dest_loc:
+        return {
+            "status": "warning",
+            "code": "LOCATION_NOT_FOUND",
+            "message": "⚠️ Локация назначения не найдена",
+            "hint": "Пожалуйста, проверьте выбранную локацию",
+            "action": "check_location"
+        }
 
     # Откуда забираем (для истории)
     from_loc_txt = "Unknown"
@@ -1912,43 +1958,76 @@ def ship_engine(data: ShipmentSchema, db: Session = Depends(get_db)):
         message=f"Были внесены данные пользователем User в группу Shipment: двигатель {eng.current_sn} отправлен из {from_loc_txt} в {dest_loc.name}",
         performed_by="User"
     )
-    return {"message": "Shipment Saved"}
+    return {
+        "status": "success",
+        "message": f"✅ Двигатель {eng.current_sn} успешно отправлен в {dest_loc.name}",
+        "data": {"engine_id": eng.id, "location_id": dest_loc.id, "log_id": new_log.id}
+    }
 
 # 6. История снятий (REMOVE)
 @app.get("/api/history/REMOVE")
 def get_remove_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "REMOVE").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "from": l.from_location or "-",
-            "to": l.to_location or "-",
-            "remarks": l.comments
-        })
-    return res
+    try:
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "REMOVE").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "from": l.from_location or "-",
+                "to": l.to_location or "-",
+                "remarks": l.comments
+            })
+        return res
+    except Exception as e:
+        print(f"❌ Error in get_remove_history: {e}")
+        return []
 
 # 7. Сохранить Снятие (REMOVE)
 @app.post("/api/actions/remove")
 def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
-    if not eng: 
-        raise HTTPException(404, "Engine not found in database. Please add the engine to Master Engine List first.")
+    if not eng:
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_FOUND",
+            "message": "⚠️ Двигатель не найден в базе данных",
+            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "action": "create_engine"
+        }
     
     # Проверяем что двигатель установлен на самолете
     if eng.status != models.EngineStatus.INSTALLED:
-        raise HTTPException(400, f"Engine {eng.original_sn} cannot be removed! Current status: {eng.status}. Only INSTALLED engines can be removed.")
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_INSTALLED",
+            "message": f"⚠️ Невозможно снять двигатель {eng.original_sn}",
+            "hint": f"Текущий статус: {eng.status}. Можно снимать только установленные двигатели (INSTALLED)",
+            "action": "install_first"
+        }
     
     if not eng.aircraft_id:
-        raise HTTPException(400, f"Engine {eng.original_sn} is not installed on any aircraft!")
+        return {
+            "status": "warning",
+            "code": "ENGINE_NO_AIRCRAFT",
+            "message": f"⚠️ Двигатель {eng.original_sn} не установлен на самолете",
+            "hint": "Проверьте статус двигателя в системе",
+            "action": "check_status"
+        }
     
     dest_loc = db.query(models.Location).filter(models.Location.id == data.to_location_id).first()
-    if not dest_loc: raise HTTPException(404, "Destination Location not found")
+    if not dest_loc:
+        return {
+            "status": "warning",
+            "code": "LOCATION_NOT_FOUND",
+            "message": "⚠️ Локация назначения не найдена",
+            "hint": "Пожалуйста, проверьте выбранную локацию",
+            "action": "check_location"
+        }
 
     # Запоминаем, откуда сняли (с самолета)
     from_txt = "Unknown"
@@ -1984,39 +2063,60 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         message=f"Были внесены данные пользователем User в группу Remove: двигатель {eng.current_sn} снят с {from_txt} и перемещен в {dest_loc.name}",
         performed_by="User"
     )
-    return {"message": "Engine Removed Successfully"}
+    return {
+        "status": "success",
+        "message": f"✅ Двигатель {eng.current_sn} успешно снят и перемещен в {dest_loc.name}",
+        "data": {"engine_id": eng.id, "location_id": dest_loc.id, "log_id": new_log.id}
+    }
     
     # 9. История ремонтов (REPAIR)
 @app.get("/api/history/REPAIR")
 def get_repair_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "REPAIR").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "vendor": l.from_location,   # Используем поле from для Вендора
-            "wo": l.to_location,         # Используем поле to для Work Order
-            "tt": l.snapshot_tt,
-            "tc": l.snapshot_tc,
-            "photo": l.file_url,
-            "remarks": l.comments
-        })
-    return res
+    try:
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "REPAIR").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "vendor": l.from_location,   # Используем поле from для Вендора
+                "wo": l.to_location,         # Используем поле to для Work Order
+                "tt": l.snapshot_tt,
+                "tc": l.snapshot_tc,
+                "photo": l.file_url,
+                "remarks": l.comments
+            })
+        return res
+    except Exception as e:
+        print(f"❌ Error in get_repair_history: {e}")
+        return []
 
 # 10. Сохранить Ремонт (REPAIR)
 @app.post("/api/actions/repair")
 def repair_engine(data: RepairSchema, db: Session = Depends(get_db)):
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
-    if not eng: raise HTTPException(404, "Engine not found")
+    if not eng:
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_FOUND",
+            "message": "⚠️ Двигатель не найден в базе данных",
+            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "action": "create_engine"
+        }
     
     # Проверка: SV двигатели нельзя отремонтировать
     if eng.status == "SV":
-        raise HTTPException(400, f"Cannot repair SV engine {eng.original_sn}. Only non-SV engines can be repaired.")
+        return {
+            "status": "warning",
+            "code": "ENGINE_ALREADY_SV",
+            "message": f"⚠️ Двигатель {eng.original_sn} уже исправен (SV)",
+            "hint": "Ремонтировать можно только двигатели в статусе US, REMOVED и т.д.",
+            "action": "check_status"
+        }
     
     # Логика ремонта:
     # 1. Обновляем наработку (обычно после ремонта она меняется или подтверждается)
@@ -2050,7 +2150,11 @@ def repair_engine(data: RepairSchema, db: Session = Depends(get_db)):
         message=f"Были внесены данные пользователем User в группу Repair: ремонт двигателя {eng.current_sn} у вендора {data.vendor}",
         performed_by="User"
     )
-    return {"message": "Repair Recorded"} 
+    return {
+        "status": "success",
+        "message": f"✅ Ремонт двигателя {eng.current_sn} успешно зарегистрирован (вендор: {data.vendor})",
+        "data": {"engine_id": eng.id, "vendor": data.vendor, "log_id": new_log.id}
+    } 
 # 13. История запчастей (PARTS LOGISTICS / STORE BALANCE)
 @app.get("/api/parts/history")
 def get_parts_history(db: Session = Depends(get_db)):
@@ -2094,7 +2198,7 @@ def get_parts_history(db: Session = Depends(get_db)):
             })
         return res
     except Exception as e:
-        print(f"Error in get_parts_history: {e}")
+        print(f"❌ Error in get_parts_history: {e}")
         return []
 
 # 14. Сохранить действие с запчастью (PART ACTION)
@@ -2144,28 +2248,32 @@ def part_action(data: PartActionSchema, db: Session = Depends(get_db)):
 # 14A. Store Balance Inventory CRUD
 @app.get("/api/store-balance")
 def get_store_balance(db: Session = Depends(get_db)):
-    items = db.query(models.StoreItem).order_by(
-        models.StoreItem.received_date.desc(),
-        models.StoreItem.part_name.asc()
-    ).all()
+    try:
+        items = db.query(models.StoreItem).order_by(
+            models.StoreItem.received_date.desc(),
+            models.StoreItem.part_name.asc()
+        ).all()
 
-    result = []
-    for item in items:
-        result.append({
-            "id": item.id,
-            "received_date": item.received_date.strftime("%Y-%m-%d") if item.received_date else "",
-            "part_name": item.part_name,
-            "part_number": item.part_number,
-            "serial_number": item.serial_number or "",
-            "condition": item.condition or "",
-            "quantity": item.quantity or 0,
-            "unit": item.unit or "",
-            "location": item.location or "",
-            "shelf": item.shelf or "",
-            "owner": item.owner or "",
-            "remarks": item.remarks or ""
-        })
-    return result
+        result = []
+        for item in items:
+            result.append({
+                "id": item.id,
+                "received_date": item.received_date.strftime("%Y-%m-%d") if item.received_date else "",
+                "part_name": item.part_name,
+                "part_number": item.part_number,
+                "serial_number": item.serial_number or "",
+                "condition": item.condition or "",
+                "quantity": item.quantity or 0,
+                "unit": item.unit or "",
+                "location": item.location or "",
+                "shelf": item.shelf or "",
+                "owner": item.owner or "",
+                "remarks": item.remarks or ""
+            })
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_store_balance: {e}")
+        return []
 
 
 @app.post("/api/store-balance")
@@ -2288,13 +2396,14 @@ def delete_store_item(item_id: int, db: Session = Depends(get_db)):
 # 15. История налетов (UTILIZATION HISTORY)
 @app.get("/api/history/FLIGHT")
 def get_flight_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(
-        models.ActionLog.action_type == models.ActionType.FLIGHT
-    ).order_by(models.ActionLog.date.asc(), models.ActionLog.id.asc()).all()
+    try:
+        logs = db.query(models.ActionLog).filter(
+            models.ActionLog.action_type == models.ActionType.FLIGHT
+        ).order_by(models.ActionLog.date.asc(), models.ActionLog.id.asc()).all()
 
-    totals_map = {}
-    rows = []
-    placeholder = "-"
+        totals_map = {}
+        rows = []
+        placeholder = "-"
 
     for log in logs:
         tail = (log.from_location or "").strip()
@@ -2338,10 +2447,13 @@ def get_flight_history(db: Session = Depends(get_db)):
             "_sort": (log_date, log.id or 0)
         })
 
-    rows.sort(key=lambda item: item["_sort"], reverse=True)
-    for row in rows:
-        row.pop("_sort", None)
-    return rows
+        rows.sort(key=lambda item: item["_sort"], reverse=True)
+        for row in rows:
+            row.pop("_sort", None)
+        return rows
+    except Exception as e:
+        print(f"❌ Error in get_flight_history: {e}")
+        return []
 
 
 @app.get("/api/utilization/summary")
@@ -2491,13 +2603,14 @@ def reset_utilization_state(db: Session = Depends(get_db)):
 # 17. История ATLB
 @app.get("/api/history/ATLB")
 def get_atlb_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(
-        models.ActionLog.action_type == models.ActionType.FLIGHT
-    ).order_by(models.ActionLog.date.asc(), models.ActionLog.id.asc()).all()
+    try:
+        logs = db.query(models.ActionLog).filter(
+            models.ActionLog.action_type == models.ActionType.FLIGHT
+        ).order_by(models.ActionLog.date.asc(), models.ActionLog.id.asc()).all()
 
-    totals_map = {}
-    rows = []
-    placeholder = "-"
+        totals_map = {}
+        rows = []
+        placeholder = "-"
 
     for log in logs:
         tail = (log.from_location or "").strip()
@@ -2586,10 +2699,13 @@ def get_atlb_history(db: Session = Depends(get_db)):
             "_sort": (log_date, log.id or 0)
         })
 
-    rows.sort(key=lambda item: item["_sort"], reverse=True)
-    for row in rows:
-        row.pop("_sort", None)
-    return rows
+        rows.sort(key=lambda item: item["_sort"], reverse=True)
+        for row in rows:
+            row.pop("_sort", None)
+        return rows
+    except Exception as e:
+        print(f"❌ Error in get_atlb_history: {e}")
+        return []
 
 # 18. Сохранить ATLB (и обновить счетчики)
 @app.post("/api/actions/atlb")
@@ -2823,20 +2939,24 @@ def get_parameter_history(engine_id: int = None, db: Session = Depends(get_db)):
 
 @app.get("/api/history/BORESCOPE")
 def get_borescope_history(db: Session = Depends(get_db)):
-    inspections = db.query(models.BoroscopeInspection).order_by(models.BoroscopeInspection.date.desc()).all()
-    result = []
-    for insp in inspections:
-        result.append({
-            "id": insp.id,
-            "date": insp.date,
-            "aircraft": insp.aircraft,
-            "serial_number": insp.serial_number,
-            "position": insp.position,
-            "gss_id": insp.gss_id,
-            "inspector": insp.inspector,
-            "link": insp.link
-        })
-    return result
+    try:
+        inspections = db.query(models.BoroscopeInspection).order_by(models.BoroscopeInspection.date.desc()).all()
+        result = []
+        for insp in inspections:
+            result.append({
+                "id": insp.id,
+                "date": insp.date,
+                "aircraft": insp.aircraft,
+                "serial_number": insp.serial_number,
+                "position": insp.position,
+                "gss_id": insp.gss_id,
+                "inspector": insp.inspector,
+                "link": insp.link
+            })
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_borescope_history: {e}")
+        return []
 
 @app.post("/api/history/BORESCOPE")
 def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get_db)):
@@ -2868,39 +2988,43 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
 
 @app.get("/api/history/PURCHASE_ORDER")
 def get_purchase_orders_history(db: Session = Depends(get_db)):
-    orders = db.query(models.PurchaseOrder).order_by(models.PurchaseOrder.date.desc()).all()
-    
-    # Получаем все пользовательские колонки для purchase_orders
-    custom_columns = db.query(models.CustomColumn).filter(
-        models.CustomColumn.table_name == "purchase_orders"
-    ).order_by(models.CustomColumn.column_order).all()
-    
-    result = []
-    for order in orders:
-        order_data = {
-            "id": order.id,
-            "date": order.date,
-            "name": order.name,
-            "part_number": order.part_number,
-            "serial_number": order.serial_number,
-            "price": order.price,
-            "purpose": order.purpose,
-            "aircraft": order.aircraft,
-            "ro_number": order.ro_number,
-            "link": order.link
-        }
+    try:
+        orders = db.query(models.PurchaseOrder).order_by(models.PurchaseOrder.date.desc()).all()
         
-        # Добавляем данные для пользовательских колонок
-        for col in custom_columns:
-            custom_data = db.query(models.PurchaseOrderCustomData).filter(
-                models.PurchaseOrderCustomData.purchase_order_id == order.id,
-                models.PurchaseOrderCustomData.column_key == col.column_key
-            ).first()
-            order_data[col.column_key] = custom_data.value if custom_data else None
+        # Получаем все пользовательские колонки для purchase_orders
+        custom_columns = db.query(models.CustomColumn).filter(
+            models.CustomColumn.table_name == "purchase_orders"
+        ).order_by(models.CustomColumn.column_order).all()
         
-        result.append(order_data)
-    
-    return result
+        result = []
+        for order in orders:
+            order_data = {
+                "id": order.id,
+                "date": order.date,
+                "name": order.name,
+                "part_number": order.part_number,
+                "serial_number": order.serial_number,
+                "price": order.price,
+                "purpose": order.purpose,
+                "aircraft": order.aircraft,
+                "ro_number": order.ro_number,
+                "link": order.link
+            }
+            
+            # Добавляем данные для пользовательских колонок
+            for col in custom_columns:
+                custom_data = db.query(models.PurchaseOrderCustomData).filter(
+                    models.PurchaseOrderCustomData.purchase_order_id == order.id,
+                    models.PurchaseOrderCustomData.column_key == col.column_key
+                ).first()
+                order_data[col.column_key] = custom_data.value if custom_data else None
+            
+            result.append(order_data)
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_purchase_orders_history: {e}")
+        return []
 
 @app.post("/api/history/PURCHASE_ORDER")
 def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_db)):
