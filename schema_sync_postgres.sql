@@ -57,6 +57,34 @@ CREATE TABLE IF NOT EXISTS nameplate_tracker (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Borescope Inspections table
+CREATE TABLE IF NOT EXISTS borescope_inspections (
+    id SERIAL PRIMARY KEY,
+    date VARCHAR NOT NULL,
+    aircraft VARCHAR NOT NULL,
+    serial_number VARCHAR NOT NULL,
+    position VARCHAR NOT NULL,
+    gss_id VARCHAR,
+    inspector VARCHAR NOT NULL,
+    link VARCHAR,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Purchase Orders table
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id SERIAL PRIMARY KEY,
+    date VARCHAR NOT NULL,
+    name VARCHAR NOT NULL,
+    part_number VARCHAR,
+    serial_number VARCHAR,
+    price DOUBLE PRECISION,
+    purpose VARCHAR NOT NULL,
+    aircraft VARCHAR NOT NULL,
+    ro_number VARCHAR NOT NULL,
+    link VARCHAR,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Custom columns (ensure exists)
 CREATE TABLE IF NOT EXISTS custom_columns (
     id SERIAL PRIMARY KEY,
@@ -81,3 +109,8 @@ CREATE TABLE IF NOT EXISTS purchase_order_custom_data (
 CREATE INDEX IF NOT EXISTS idx_fake_installed_engine_sn ON fake_installed(engine_original_sn, engine_current_sn);
 CREATE INDEX IF NOT EXISTS idx_nameplate_sn ON nameplate_tracker(nameplate_sn);
 CREATE INDEX IF NOT EXISTS idx_nameplate_gss ON nameplate_tracker(gss_id);
+CREATE INDEX IF NOT EXISTS idx_borescope_serial ON borescope_inspections(serial_number);
+CREATE INDEX IF NOT EXISTS idx_borescope_date ON borescope_inspections(date);
+CREATE INDEX IF NOT EXISTS idx_purchase_order_date ON purchase_orders(date);
+CREATE INDEX IF NOT EXISTS idx_purchase_order_serial ON purchase_orders(serial_number);
+

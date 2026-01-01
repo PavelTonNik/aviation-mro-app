@@ -9762,6 +9762,29 @@ function restoreView(viewName) {
         }
     };
 
+    // Helper: convert DD.MM.YYYY or other formats to YYYY-MM-DD for input[type="date"]
+    function convertToISODate(dateStr) {
+        if (!dateStr || dateStr === '-') return '';
+        // If already in ISO format (YYYY-MM-DD)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+        // If DD.MM.YYYY format
+        if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
+            const [day, month, year] = dateStr.split('.');
+            return `${year}-${month}-${day}`;
+        }
+        // Try parsing as Date object
+        try {
+            const d = new Date(dateStr);
+            if (!isNaN(d.getTime())) {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+        } catch (e) {}
+        return '';
+    }
+
     // Mapping table names to backend action types for delete endpoints
     const tableActionTypeMap = {
         'install': 'INSTALL',
@@ -9999,7 +10022,8 @@ function restoreView(viewName) {
                 const cleanValue = cell.textContent.trim();
                 
                 if (columnType === 'date') {
-                    cell.innerHTML = `<input type="date" class="editing-input" value="${cleanValue}">`;
+                    const isoDate = convertToISODate(cleanValue);
+                    cell.innerHTML = `<input type="date" class="editing-input" value="${isoDate}">`;
                 } else if (columnType === 'number') {
                     cell.innerHTML = `<input type="number" class="editing-input" value="${cleanValue}" step="0.01">`;
                 } else if (columnType === 'select' && config.selectOptions && config.selectOptions[columnName]) {

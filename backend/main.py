@@ -1662,107 +1662,116 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
 # УДАЛЕНИЕ ЗАПИСИ ИЗ ИСТОРИИ (ActionLog)
 @app.delete("/api/history/{action_type}/{log_id}")
 def delete_history_record(action_type: str, log_id: int, db: Session = Depends(get_db)):
-    # Специальная обработка для Reports
-    if action_type == "BORESCOPE":
-        inspection = db.query(models.BoroscopeInspection).filter(models.BoroscopeInspection.id == log_id).first()
-        if not inspection:
-            raise HTTPException(404, f"Borescope inspection not found (ID: {log_id})")
-        db.delete(inspection)
-        db.commit()
-        return {"message": f"Borescope inspection deleted successfully (ID: {log_id})"}
-    
-    if action_type == "PURCHASE_ORDER":
-        order = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == log_id).first()
-        if not order:
-            raise HTTPException(404, f"Purchase order not found (ID: {log_id})")
-        db.delete(order)
-        db.commit()
-        return {"message": f"Purchase order deleted successfully (ID: {log_id})"}
-    
-    if action_type == "PARAMETER":
-        param = db.query(models.EngineParameterHistory).filter(models.EngineParameterHistory.id == log_id).first()
-        if not param:
-            raise HTTPException(404, f"Engine parameter record not found (ID: {log_id})")
-        db.delete(param)
-        db.commit()
-        return {"message": f"Engine parameter record deleted successfully (ID: {log_id})"}
-    
-    # Обычная обработка для ActionLog
-    log = db.query(models.ActionLog).filter(
-        models.ActionLog.id == log_id,
-        models.ActionLog.action_type == action_type
-    ).first()
-    
-    if not log:
-        raise HTTPException(404, f"History record not found (ID: {log_id}, Type: {action_type})")
-    
-    # Если это INSTALL, отменяем установку: возвращаем двигатель в статус SV
-    if action_type == "INSTALL" and log.engine:
-        engine = log.engine
-        engine.status = models.EngineStatus.SV  # Возвращаем статус "Serviceable"
-        engine.aircraft_id = None
-        engine.position = None
-        engine.tsn_at_install = None
-        engine.csn_at_install = None
-        engine.install_date = None
-        # Примечание: location_id оставляем как есть (последняя известная локация)
-    
-    # Если это REMOVE, отменяем снятие: возвращаем двигатель обратно на самолет
-    if action_type == "REMOVE" and log.engine:
-        engine = log.engine
-        # Находим последнюю INSTALL запись для этого двигателя (до текущей REMOVE)
-        last_install = db.query(models.ActionLog).filter(
-            models.ActionLog.engine_id == engine.id,
-            models.ActionLog.action_type == "INSTALL",
-            models.ActionLog.date < log.date
-        ).order_by(models.ActionLog.date.desc()).first()
+    try:
+        # Специальная обработка для Reports
+        if action_type == "BORESCOPE":
+            inspection = db.query(models.BoroscopeInspection).filter(models.BoroscopeInspection.id == log_id).first()
+            if not inspection:
+                raise HTTPException(404, f"Borescope inspection not found (ID: {log_id})")
+            db.delete(inspection)
+            db.commit()
+            return {"message": f"Borescope inspection deleted successfully (ID: {log_id})"}
         
-        if last_install:
-            # Восстанавливаем данные из последней установки
-            aircraft = db.query(models.Aircraft).filter(models.Aircraft.tail_number == last_install.to_aircraft).first()
-            if aircraft:
-                engine.status = models.EngineStatus.INSTALLED
-                engine.aircraft_id = aircraft.id
-                engine.position = last_install.position
-                engine.location_id = None
-                engine.total_time = last_install.snapshot_tt if last_install.snapshot_tt else engine.total_time
-                engine.total_cycles = last_install.snapshot_tc if last_install.snapshot_tc else engine.total_cycles
-        else:
-            # Если нет предыдущей установки, просто меняем статус на SV
-            engine.status = models.EngineStatus.SV
+        if action_type == "PURCHASE_ORDER":
+            order = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == log_id).first()
+            if not order:
+                raise HTTPException(404, f"Purchase order not found (ID: {log_id})")
+            db.delete(order)
+            db.commit()
+            return {"message": f"Purchase order deleted successfully (ID: {log_id})"}
+        
+        if action_type == "PARAMETER":
+            param = db.query(models.EngineParameterHistory).filter(models.EngineParameterHistory.id == log_id).first()
+            if not param:
+                raise HTTPException(404, f"Engine parameter record not found (ID: {log_id})")
+            db.delete(param)
+            db.commit()
+            return {"message": f"Engine parameter record deleted successfully (ID: {log_id})"}
+        
+        # Обычная обработка для ActionLog
+        log = db.query(models.ActionLog).filter(
+            models.ActionLog.id == log_id,
+            models.ActionLog.action_type == action_type
+        ).first()
+        
+        if not log:
+            raise HTTPException(404, f"History record not found (ID: {log_id}, Type: {action_type})")
+        
+        # Если это INSTALL, отменяем установку: возвращаем двигатель в статус SV
+        if action_type == "INSTALL" and log.engine:
+            engine = log.engine
+            engine.status = models.EngineStatus.SV  # Возвращаем статус "Serviceable"
             engine.aircraft_id = None
             engine.position = None
-    
-    # Если это REPAIR, отменяем ремонт: восстанавливаем предыдущие TT/TC
-    if action_type == "REPAIR" and log.engine:
-        engine = log.engine
-        # Находим предыдущую запись с TT/TC для этого двигателя
-        prev_log = db.query(models.ActionLog).filter(
-            models.ActionLog.engine_id == engine.id,
-            models.ActionLog.date < log.date,
-            models.ActionLog.snapshot_tt.isnot(None)
-        ).order_by(models.ActionLog.date.desc()).first()
+            engine.tsn_at_install = None
+            engine.csn_at_install = None
+            engine.install_date = None
+            # Примечание: location_id оставляем как есть (последняя известная локация)
         
-        if prev_log:
-            engine.total_time = prev_log.snapshot_tt
-            engine.total_cycles = prev_log.snapshot_tc if prev_log.snapshot_tc else engine.total_cycles
-        # Примечание: Статус остается как есть (не меняем на SV автоматически)
-    
-    # Если это SHIP (отгрузка), отменяем отгрузку: возвращаем двигатель в исходную локацию
-    if action_type == "SHIP" and log.engine:
-        engine = log.engine
-        # Пытаемся найти локацию из from_location
-        if log.from_location:
-            from_location = db.query(models.Location).filter(models.Location.name == log.from_location).first()
-            if from_location:
-                engine.location_id = from_location.id
-        # Примечание: Статус не меняем (остается как был)
-    
-    # Удаляем запись
-    db.delete(log)
-    db.commit()
-    
-    return {"message": f"History record deleted successfully (ID: {log_id})"}
+        # Если это REMOVE, отменяем снятие: возвращаем двигатель обратно на самолет
+        if action_type == "REMOVE" and log.engine:
+            engine = log.engine
+            # Находим последнюю INSTALL запись для этого двигателя (до текущей REMOVE)
+            last_install = db.query(models.ActionLog).filter(
+                models.ActionLog.engine_id == engine.id,
+                models.ActionLog.action_type == "INSTALL",
+                models.ActionLog.date < log.date
+            ).order_by(models.ActionLog.date.desc()).first()
+            
+            if last_install:
+                # Восстанавливаем данные из последней установки
+                aircraft = db.query(models.Aircraft).filter(models.Aircraft.tail_number == last_install.to_aircraft).first()
+                if aircraft:
+                    engine.status = models.EngineStatus.INSTALLED
+                    engine.aircraft_id = aircraft.id
+                    engine.position = last_install.position
+                    engine.location_id = None
+                    engine.total_time = last_install.snapshot_tt if last_install.snapshot_tt else engine.total_time
+                    engine.total_cycles = last_install.snapshot_tc if last_install.snapshot_tc else engine.total_cycles
+            else:
+                # Если нет предыдущей установки, просто меняем статус на SV
+                engine.status = models.EngineStatus.SV
+                engine.aircraft_id = None
+                engine.position = None
+        
+        # Если это REPAIR, отменяем ремонт: восстанавливаем предыдущие TT/TC
+        if action_type == "REPAIR" and log.engine:
+            engine = log.engine
+            # Находим предыдущую запись с TT/TC для этого двигателя
+            prev_log = db.query(models.ActionLog).filter(
+                models.ActionLog.engine_id == engine.id,
+                models.ActionLog.date < log.date,
+                models.ActionLog.snapshot_tt.isnot(None)
+            ).order_by(models.ActionLog.date.desc()).first()
+            
+            if prev_log:
+                engine.total_time = prev_log.snapshot_tt
+                engine.total_cycles = prev_log.snapshot_tc if prev_log.snapshot_tc else engine.total_cycles
+            # Примечание: Статус остается как есть (не меняем на SV автоматически)
+        
+        # Если это SHIP (отгрузка), отменяем отгрузку: возвращаем двигатель в исходную локацию
+        if action_type == "SHIP" and log.engine:
+            engine = log.engine
+            # Пытаемся найти локацию из from_location
+            if log.from_location:
+                from_location = db.query(models.Location).filter(models.Location.name == log.from_location).first()
+                if from_location:
+                    engine.location_id = from_location.id
+            # Примечание: Статус не меняем (остается как был)
+        
+        # Удаляем запись
+        db.delete(log)
+        db.commit()
+        
+        return {"message": f"History record deleted successfully (ID: {log_id})"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error in delete_history_record ({action_type}, ID: {log_id}): {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Failed to delete {action_type} record: {str(e)}")
 
 # ВАЖНО: Сначала специфичные маршруты (INSTALL), потом общие ({action_type})
 
