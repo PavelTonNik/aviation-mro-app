@@ -759,6 +759,38 @@ def get_locations_overview(db: Session = Depends(get_db)):
         print(f"❌ Error in get_locations_overview: {e}")
         return []
 
+@app.post("/api/locations")
+def create_location(name: str = Query(...), city: str = Query(...), user_id: int = Query(...), db: Session = Depends(get_db)):
+    """Create new location (admin only)"""
+    try:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user or user.role != "admin":
+            raise HTTPException(status_code=403, detail="Only admins can create locations")
+        
+        # Check if location already exists
+        existing = db.query(models.Location).filter(models.Location.name == name).first()
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Location {name} already exists")
+        
+        # Create new location
+        new_location = models.Location(name=name.upper(), city=city)
+        db.add(new_location)
+        db.commit()
+        db.refresh(new_location)
+        
+        print(f"✅ Location created: {name} ({city})")
+        return {
+            "id": new_location.id,
+            "name": new_location.name,
+            "city": new_location.city,
+            "message": f"Location {name} created successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error creating location: {e}")
+        raise HTTPException(status_code=500, detail=f"Error creating location: {e}")
+
 class LocationUpdateSchema(BaseModel):
     name: Optional[str] = None
     city: Optional[str] = None
