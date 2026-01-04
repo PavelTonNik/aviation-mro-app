@@ -28,7 +28,8 @@ if IS_SQLITE:
 # For PostgreSQL, try to connect; if it fails, fall back to SQLite
 if not IS_SQLITE and not IS_LOCAL_DEV:
     try:
-        test_engine = create_engine(DATABASE_URL, **engine_kwargs, connect_args={"timeout": 5}, pool_pre_ping=True)
+        # PostgreSQL doesn't accept 'timeout' in connect_args
+        test_engine = create_engine(DATABASE_URL, **engine_kwargs)
         with test_engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         engine = test_engine
