@@ -843,6 +843,76 @@
         .engine-btn-menu.show .engine-menu-item-reports { transition-delay: 0.08s; }
         .engine-btn-menu.show .engine-menu-item-folders { transition-delay: 0.14s; }
 
+        /* === SECOND LEVEL RADIAL MENU (Reports submenu) === */
+        .reports-radial-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 340px;
+            height: 340px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease;
+        }
+
+        .reports-radial-menu.show {
+            opacity: 1;
+            pointer-events: auto;
+            visibility: visible;
+        }
+
+        .reports-menu-item {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 80px;
+            height: 80px;
+            border-radius: 14px;
+            background: rgba(0, 255, 150, 0.08);
+            border: 1px solid rgba(0, 255, 150, 0.35);
+            color: #ecfaff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            font-size: 0.75rem;
+            box-shadow: 0 0 16px rgba(0, 255, 150, 0.2);
+            backdrop-filter: blur(6px);
+            opacity: 0;
+            pointer-events: none;
+            --angle: 0deg;
+            --radius: 110px;
+            --scale: 0.55;
+            cursor: pointer;
+            transform: translate(-50%, -50%) rotate(var(--angle)) translate(var(--radius)) rotate(calc(var(--angle) * -1)) scale(var(--scale));
+            transition: opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+            transform-origin: center;
+        }
+
+        .reports-radial-menu.show .reports-menu-item {
+            opacity: 1;
+            pointer-events: auto;
+            --scale: 1;
+        }
+
+        .reports-menu-item:hover {
+            box-shadow: 0 0 24px rgba(0, 255, 150, 0.5);
+            border-color: rgba(0, 255, 150, 0.75);
+            background: rgba(0, 255, 150, 0.12);
+        }
+
+        .reports-menu-item i {
+            font-size: 1.4rem;
+        }
+
+        .reports-radial-menu.show .reports-menu-item-borescope { transition-delay: 0.02s; }
+        .reports-radial-menu.show .reports-menu-item-engine-reports { transition-delay: 0.06s; }
+        .reports-radial-menu.show .reports-menu-item-purchase { transition-delay: 0.10s; }
+        .reports-radial-menu.show .reports-menu-item-nameplate { transition-delay: 0.14s; }
+
         .engine-fan {
             position: relative;
             width: 78px;
@@ -1385,15 +1455,40 @@
             margin-bottom: 2rem;
         }
 
-        .parts-cards-grid {
-            display: flex;
-            flex-wrap: wrap;
+        /* Two-column layout: left has store/logistics, right has active movements/schedule status */
+        .parts-dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 1.5rem;
+            align-items: start;
         }
 
-        .parts-cards-grid .parts-card-wrapper {
-            flex: 0 0 calc(var(--parts-card-width, 50%) - 1rem);
+        .parts-dashboard-grid .parts-cards-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.25rem;
+        }
+
+        .parts-dashboard-grid .parts-cards-grid .parts-card-wrapper {
+            width: 100%;
+            flex: 1 1 100% !important;
             min-width: 240px;
+        }
+
+        .parts-dashboard-grid .schedule-cards-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.25rem;
+        }
+
+        .parts-dashboard-grid .schedule-card-wrapper {
+            width: 100%;
+        }
+
+        @media (max-width: 992px) {
+            .parts-dashboard-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .parts-card-3d {
@@ -1744,6 +1839,643 @@
             .timeline-date, .timeline-content { width: 100%; text-align: left !important; padding-left: 70px !important; padding-right: 0 !important; }
             .timeline-icon { position: absolute; left: 0; }
         }
+
+        /* ===== CALENDAR STYLES ===== */
+        .calendar-grid-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            min-height: 600px;
+        }
+
+        .calendar-header-cell {
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #495057;
+            padding: 12px 8px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .calendar-day-cell {
+            min-height: 120px;
+            padding: 10px;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            background: #ffffff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .calendar-day-cell:hover {
+            background: #f8f9ff;
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+        }
+
+        .calendar-day-cell.other-month {
+            background: #fafbfc;
+            opacity: 0.5;
+        }
+
+        .calendar-day-cell.today {
+            border: 2px solid #667eea;
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+        }
+
+        .calendar-day-number {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+        }
+
+        .calendar-day-cell.today .calendar-day-number {
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .calendar-events-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .calendar-event-badge {
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            position: relative;
+        }
+
+        .calendar-event-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+
+        .calendar-event-badge i {
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+
+        .calendar-event-badge.event-shipment { background: linear-gradient(135deg, #8e44ad, #3498db); }
+        .calendar-event-badge.event-meeting { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .calendar-event-badge.event-inspection { background: linear-gradient(135deg, #f39c12, #e67e22); }
+        .calendar-event-badge.event-maintenance { background: linear-gradient(135deg, #ee0979, #ff6a00); }
+        .calendar-event-badge.event-deadline { background: linear-gradient(135deg, #fa709a, #fee140); }
+        .calendar-event-badge.event-other { background: linear-gradient(135deg, #667eea, #764ba2); }
+
+        .calendar-event-badge.event-completed {
+            background: linear-gradient(135deg, #95a5a6, #bdc3c7) !important;
+            opacity: 0.6;
+            text-decoration: line-through;
+        }
+
+        /* Pulsing animations for urgent events */
+        @keyframes pulse-warning {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.02); }
+        }
+
+        @keyframes pulse-danger {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.03); }
+        }
+
+        .calendar-event-badge.event-urgent-2days {
+            animation: pulse-warning 2s ease-in-out infinite;
+        }
+
+        .calendar-event-badge.event-urgent-1day {
+            animation: pulse-danger 1s ease-in-out infinite;
+            background: linear-gradient(135deg, #ff4757, #ff6348) !important;
+            font-weight: 600;
+        }
+
+        .calendar-event-time {
+            font-size: 0.7rem;
+            opacity: 0.9;
+        }
+
+        .event-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            z-index: 1000;
+            pointer-events: none;
+            white-space: normal;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .event-tooltip strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.95rem;
+        }
+
+        /* ============================================================
+           LOGISTICS & SCHEDULES STYLES
+           ============================================================ */
+        
+        /* Store Balance - Simplified */
+        #store-balance-widget {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.3);
+        }
+
+        #store-balance-widget h4 {
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        #store-balance-widget .balance-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.4em;
+        }
+
+        #store-balance-widget .stat-label {
+            font-weight: 500;
+        }
+
+        #store-balance-widget .stat-value {
+            font-weight: bold;
+            font-size: 1.6em;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 20px;
+            border-radius: 8px;
+        }
+
+        /* Logistics & Movements Card */
+        #logistics-movements-widget {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        #logistics-movements-widget h4 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .movements-summary {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(17,153,142,0.3);
+        }
+
+        .movements-summary .main-stat {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .movements-summary .main-stat .icon {
+            font-size: 1.2em;
+        }
+
+        .movements-summary .main-stat .value {
+            background: rgba(0,0,0,0.25);
+            padding: 6px 18px;
+            border-radius: 8px;
+            font-size: 1.3em;
+        }
+
+        .movements-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(255,255,255,0.15);
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .breakdown-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.95em;
+        }
+
+        .breakdown-item .icon {
+            font-size: 1.3em;
+        }
+
+        .breakdown-item .label {
+            flex: 1;
+        }
+
+        .breakdown-item .value {
+            font-weight: bold;
+            background: rgba(0,0,0,0.25);
+            padding: 4px 12px;
+            border-radius: 5px;
+            font-size: 1.1em;
+        }
+
+        /* Schedule Status Section */
+        .schedule-summary {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .schedule-summary h5 {
+            margin-bottom: 12px;
+            color: #333;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .schedule-summary .stat-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .schedule-summary .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .schedule-summary .stat-row .icon {
+            font-size: 1.2em;
+        }
+
+        .schedule-summary .stat-row .label {
+            flex: 1;
+            font-size: 0.9em;
+        }
+
+        .schedule-summary .stat-row .value {
+            font-weight: bold;
+            background: #007bff;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 5px;
+            font-size: 1.1em;
+        }
+
+        .stat-row.arriving-soon {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding-left: 15px;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        .stat-row.arriving-soon .value {
+            background: #ffc107;
+            color: #000;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(255,193,7,0.5); }
+            50% { box-shadow: 0 0 15px rgba(255,193,7,0.8); }
+        }
+
+        .btn-open-logistics {
+            width: 100%;
+            padding: 14px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+        }
+
+        .btn-open-logistics:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,123,255,0.5);
+        }
+
+        /* Main Action Button (Right Side) */
+        .logistics-shipments-button {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(238,90,111,0.4);
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .btn-logistics-main {
+            background: transparent;
+            color: white;
+            font-size: 1.2em;
+            padding: 22px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-logistics-main:hover {
+            transform: translateY(-3px);
+        }
+
+        .btn-logistics-main .subtitle {
+            display: block;
+            font-size: 0.7em;
+            opacity: 0.9;
+            margin-top: 6px;
+            font-weight: 400;
+        }
+
+        .quick-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(255,255,255,0.95);
+        }
+
+        .quick-stats .stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+            color: #333;
+            padding: 5px 0;
+        }
+
+        .quick-stats .stat .label {
+            font-weight: 500;
+        }
+
+        .quick-stats .stat .value {
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 14px;
+            border-radius: 5px;
+        }
+
+        /* Schedules Modal */
+        #schedules-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1040; /* Below Bootstrap modals/backdrop (1050/1055) so status/edit pop over */
+            justify-content: center;
+            align-items: center;
+        }
+
+        #schedules-modal.active {
+            display: flex;
+        }
+
+        .schedules-modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 95%;
+            width: 1200px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .schedules-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 15px;
+        }
+
+        .schedules-modal-header h3 {
+            margin: 0;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .btn-close-modal {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-close-modal:hover {
+            background: #c82333;
+        }
+
+        /* Tabs for Schedules Modal */
+        .schedules-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .schedules-tab {
+            padding: 12px 25px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .schedules-tab.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+        }
+
+        .schedules-tab:hover {
+            color: #007bff;
+        }
+
+        .tab-content-schedules {
+            display: none;
+        }
+
+        .tab-content-schedules.active {
+            display: block;
+        }
+
+        /* Type Selector Buttons */
+        .type-selector-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .btn-type-selector {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 25px;
+            font-size: 1.2em;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #e0e7ff 0%, #cfd9ff 100%);
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-type-selector:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102,126,234,0.4);
+            border-color: #667eea;
+        }
+
+        .btn-type-selector .icon {
+            font-size: 2em;
+        }
+
+        .btn-type-selector .text-container {
+            text-align: left;
+        }
+
+        .btn-type-selector .title {
+            display: block;
+            font-size: 1em;
+            margin-bottom: 5px;
+        }
+
+        .btn-type-selector .subtitle {
+            display: block;
+            font-size: 0.7em;
+            opacity: 0.8;
+            font-weight: 400;
+        }
+
+        /* Schedules Table */
+        #schedules-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        #schedules-table th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        #schedules-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9em;
+        }
+
+        #schedules-table tbody tr:hover {
+            background: #f8f9fa;
+            cursor: pointer;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 5px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-PLANNED {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-IN_TRANSIT {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .status-DELIVERED {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-DELAYED {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .status-CANCELLED {
+            background: #e2e3e5;
+            color: #41464b;
+        }
+
     </style>
     <style>
         /* Extra spacing to avoid overlap for Nameplate tracker blocks */
@@ -1833,8 +2565,11 @@
 
             <!-- MASTER DATA ENTRY BUTTON -->
             <div class="px-3 mt-3">
-                <a href="#" class="btn btn-neon w-100 text-start" onclick="openMainEngineView(); return false;">
+                <a href="#" class="btn btn-neon w-100 text-start mb-2" onclick="openMainEngineView(); return false;">
                     <i class="bi bi-database-add"></i> Add Engine
+                </a>
+                <a href="#" class="btn btn-neon w-100 text-start" onclick="openSchedulesModal(); return false;">
+                    <i class="bi bi-calendar-check"></i> Open Schedules
                 </a>
             </div>
             <!-- REPORTS GROUP (COLLAPSIBLE) -->
@@ -2141,6 +2876,120 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Add/Edit Event Modal (Calendar) -->
+            <div class="modal fade" id="event-modal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title" id="event-modal-title">
+                                <i class="bi bi-calendar-plus me-2"></i>Add New Event
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="event-form">
+                                <input type="hidden" id="event-id" value="">
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="event-date" class="form-label">Date <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control" id="event-date" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="event-time" class="form-label">Time (optional)</label>
+                                        <input type="time" class="form-control" id="event-time">
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="event-type" class="form-label">Event Type <span class="text-danger">*</span></label>
+                                        <select class="form-select" id="event-type" required>
+                                            <option value="SHIPMENT">🚚 Shipment</option>
+                                            <option value="MEETING">🤝 Meeting</option>
+                                            <option value="INSPECTION">🔍 Inspection</option>
+                                            <option value="MAINTENANCE">🔧 Maintenance</option>
+                                            <option value="DEADLINE">⏰ Deadline</option>
+                                            <option value="OTHER">📋 Other</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="event-priority" class="form-label">Priority</label>
+                                        <select class="form-select" id="event-priority">
+                                            <option value="LOW">Low</option>
+                                            <option value="MEDIUM" selected>Medium</option>
+                                            <option value="HIGH">High</option>
+                                            <option value="URGENT">Urgent</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="event-title" class="form-label">Title <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="event-title" placeholder="e.g., Engine shipment to Baku" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="event-description" class="form-label">Description</label>
+                                    <textarea class="form-control" id="event-description" rows="3" placeholder="Additional details..."></textarea>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="event-serial" class="form-label">Engine S/N (optional)</label>
+                                        <input type="text" class="form-control" id="event-serial" placeholder="PCE-123456">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="event-location" class="form-label">Location (optional)</label>
+                                        <input type="text" class="form-control" id="event-location" placeholder="Baku, Dubai, etc.">
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="event-from" class="form-label">From (optional)</label>
+                                        <input type="text" class="form-control" id="event-from" placeholder="Origin">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="event-to" class="form-label">To (optional)</label>
+                                        <input type="text" class="form-control" id="event-to" placeholder="Destination">
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="event-status" class="form-label">Status</label>
+                                        <select class="form-select" id="event-status">
+                                            <option value="PLANNED" selected>Planned</option>
+                                            <option value="IN_PROGRESS">In Progress</option>
+                                            <option value="COMPLETED">Completed</option>
+                                            <option value="CANCELLED">Cancelled</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="event-created-by" class="form-label">Created By</label>
+                                        <input type="text" class="form-control" id="event-created-by" placeholder="Your name">
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-success" id="event-complete-btn" style="display: none;" onclick="markEventCompleted()">
+                                <i class="bi bi-check2-circle me-1"></i>Mark Done
+                            </button>
+                            <button type="button" class="btn btn-danger" id="event-delete-btn" style="display: none;" onclick="deleteEvent()">
+                                <i class="bi bi-trash me-1"></i>Delete
+                            </button>
+                            <div class="flex-grow-1"></div>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="saveEvent()">
+                                <i class="bi bi-check-circle me-1"></i>Save Event
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
            
             <div class="container-fluid p-4">
             
@@ -2163,7 +3012,7 @@
                             <i class="bi bi-journal-bookmark-fill"></i>
                             <span>Manuals</span>
                         </button>
-                        <button type="button" class="engine-menu-item engine-menu-item-reports" style="--angle: 150deg;" onclick="handleEngineMenuSelection('reports')">
+                        <button type="button" class="engine-menu-item engine-menu-item-reports" style="--angle: 150deg;" onclick="toggleReportsSubmenu()">
                             <i class="bi bi-graph-up"></i>
                             <span>Reports</span>
                         </button>
@@ -2171,6 +3020,26 @@
                             <i class="bi bi-folder2-open"></i>
                             <span>Folders</span>
                         </button>
+
+                        <!-- SECOND LEVEL RADIAL MENU for Reports -->
+                        <div class="reports-radial-menu" id="reports-radial-menu">
+                            <button type="button" class="reports-menu-item reports-menu-item-borescope" style="--angle: 0deg;" onclick="showBoroscopeReport()">
+                                <i class="bi bi-stethoscope"></i>
+                                <span>Borescope</span>
+                            </button>
+                            <button type="button" class="reports-menu-item reports-menu-item-engine-reports" style="--angle: 90deg;" onclick="showEngineReportsView()">
+                                <i class="bi bi-file-earmark-text"></i>
+                                <span>Engine Reports</span>
+                            </button>
+                            <button type="button" class="reports-menu-item reports-menu-item-purchase" style="--angle: 180deg;" onclick="showPurchaseOrdersView()">
+                                <i class="bi bi-cart-check"></i>
+                                <span>Purchase Orders</span>
+                            </button>
+                            <button type="button" class="reports-menu-item reports-menu-item-nameplate" style="--angle: 270deg;" onclick="showNameplateTrackerView()">
+                                <i class="bi bi-tag"></i>
+                                <span>Nameplate</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2654,6 +3523,7 @@
                                         <th>Самолет</th>
                                         <th>Серийник</th>
                                         <th>Позиция</th>
+                                        <th>Work Type</th>
                                         <th>GSS ID</th>
                                         <th>Кем выполнен</th>
                                         <th>Документ Link</th>
@@ -2691,7 +3561,7 @@
                                         </div>
 
                                         <div class="row mb-3">
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label class="form-label small fw-bold">Позиция <span class="text-danger">*</span></label>
                                                 <select class="form-select" id="bore-position" required>
                                                     <option value="">Выберите...</option>
@@ -2701,11 +3571,19 @@
                                                     <option value="4">Позиция 4</option>
                                                 </select>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-bold">Work Type <span class="text-danger">*</span></label>
+                                                <select class="form-select" id="bore-work-type" required>
+                                                    <option value="HPT">HPT</option>
+                                                    <option value="LPT">LPT</option>
+                                                    <option value="All Engine">All Engine</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
                                                 <label class="form-label small fw-bold">GSS ID</label>
                                                 <input type="text" class="form-control" id="bore-gss" placeholder="GSS-xxxxx">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label class="form-label small fw-bold">Кем выполнен <span class="text-danger">*</span></label>
                                                 <input type="text" class="form-control" id="bore-inspector" placeholder="Inspector name" required>
                                             </div>
@@ -4455,6 +5333,9 @@
                                     <div class="col-md-3"><label class="small fw-bold">Date</label><input type="date" class="form-control" id="m-date"></div>
                                     <div class="col-md-3"><label class="small fw-bold">Model</label><input type="text" class="form-control" id="m-model" placeholder="e.g. CF6-80"></div>
                                     <div class="col-md-3"><label class="small fw-bold">Orig. ESN *</label><input type="text" class="form-control" id="m-esn" required></div>
+                                    <div class="col-md-3"><label class="small fw-bold">Current SN</label><input type="text" class="form-control" id="m-current-sn" placeholder="If different from Orig."></div>
+                                </div>
+                                <div class="row mb-3">
                                     <div class="col-md-3"><label class="small fw-bold">GSS ID</label><input type="text" class="form-control" id="m-gssid"></div>
                                 </div>
                                 <div class="row mb-3">
@@ -4506,7 +5387,78 @@
                 <!-- === PARTS CARDS SECTION === -->
                 <div class="parts-cards-section">
                     <h6 class="text-muted text-uppercase mb-3">PARTS MANAGEMENT</h6>
-                    <div id="parts-cards-container" class="parts-cards-grid"></div>
+                    <div class="parts-dashboard-grid">
+                        <div id="parts-cards-container" class="parts-cards-grid"></div>
+
+                        <!-- Schedule Cards -->
+                        <div class="schedule-cards-grid">
+                            <!-- Active Movements Card -->
+                            <div class="schedule-card-wrapper">
+                                <div class="parts-card-3d card-green" onclick="openSchedulesModal()" style="cursor: pointer;">
+                                    <div class="parts-card-icon">
+                                        <i class="bi bi-diagram-3"></i>
+                                    </div>
+                                    <div class="parts-card-content">
+                                        <div class="parts-card-title">Active Movements</div>
+                                        <div class="parts-card-subtitle">Track all shipments</div>
+                                    </div>
+                                    <div class="parts-card-count" id="total-movements">0</div>
+                                </div>
+                            </div>
+
+                            <!-- Schedule Status Card -->
+                            <div class="schedule-card-wrapper">
+                                <div class="parts-card-3d" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 10px 40px rgba(245, 158, 11, 0.3); cursor: pointer;" onclick="openSchedulesModal()">
+                                    <div class="parts-card-icon">
+                                        <i class="bi bi-calendar-event"></i>
+                                    </div>
+                                    <div class="parts-card-content">
+                                        <div class="parts-card-title">Schedule Status</div>
+                                        <div class="parts-card-subtitle">Manage deliveries</div>
+                                    </div>
+                                    <div id="schedule-status-count" class="parts-card-count">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CALENDAR SECTION (Scheduled Events) -->
+                <div id="calendar-section" class="mt-5">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h6 class="text-muted text-uppercase mb-0">
+                                <i class="bi bi-calendar-event me-2"></i>Schedule & Calendar
+                            </h6>
+                            <p class="text-muted small mb-0">Manage shipments, meetings, inspections, and deadlines</p>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary btn-sm" onclick="openAddEventModal()">
+                                <i class="bi bi-plus-circle me-1"></i>Add Event
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Calendar Navigation -->
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-body py-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="navigateMonth(-1)">
+                                    <i class="bi bi-chevron-left"></i> Previous
+                                </button>
+                                <h5 class="mb-0" id="calendar-month-year">January 2026</h5>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="navigateMonth(1)">
+                                    Next <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calendar Grid -->
+                    <div id="calendar-grid-container" class="calendar-grid-container">
+                        <div class="spinner-border text-primary"></div>
+                        Loading calendar...
+                    </div>
                 </div>
 
                 <!-- RECENT ACTIONS SECTION (всегда сразу ПОД флотом) -->
@@ -4855,6 +5807,23 @@ function openDashboardView() {
             try { localStorage.setItem(DELETED_ENGINE_STORAGE_KEY, JSON.stringify(ids)); } catch (e) { console.warn('Cannot persist deleted engine ids', e); }
         }
     }
+    
+    function clearDeletedEngineIds() {
+        try { 
+            localStorage.removeItem(DELETED_ENGINE_STORAGE_KEY);
+            console.log('✅ Cleared all deleted engine IDs from storage');
+            // Перезагружаем таблицу после очистки
+            if (document.getElementById('view-main-engine').style.display === 'block') {
+                loadMainTable();
+            }
+        } catch (e) { 
+            console.warn('Cannot clear deleted engine ids', e); 
+        }
+    }
+    
+    // Делаем функцию доступной в консоли браузера
+    window.clearDeletedEngineIds = clearDeletedEngineIds;
+    
     const noCache = () => `?t=${new Date().getTime()}`;
     window.onload = async function() {
         await loadDashboardData();
@@ -7851,14 +8820,14 @@ function restoreView(viewName) {
     async function loadBoroscopeHistory() {
         const tbody = document.getElementById('borescope-history-body');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Loading…</td></tr>';
 
         let res = await safeFetch('/api/history/BORESCOPE' + noCache());
         if (!res || !res.ok) res = await safeFetch('/api/history/BORESCOPE');
 
         if (!res || !res.ok) {
             console.error('Error loading borescope history', res && res.status);
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-3">Unable to load borescope history</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-3">Unable to load borescope history</td></tr>';
             return;
         }
 
@@ -7867,7 +8836,7 @@ function restoreView(viewName) {
 
         tbody.innerHTML = '';
         if (!Array.isArray(serverData) || serverData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No borescope inspections found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No borescope inspections found</td></tr>';
             return;
         }
 
@@ -7884,6 +8853,7 @@ function restoreView(viewName) {
                     <td>${row.aircraft || '-'}</td>
                     <td>${row.serial_number || '-'}</td>
                     <td>${row.position || '-'}</td>
+                    <td>${row.work_type || 'All Engine'}</td>
                     <td>${row.gss_id || '-'}</td>
                     <td>${row.inspector || '-'}</td>
                     <td>${linkHtml}</td>
@@ -7925,13 +8895,14 @@ function restoreView(viewName) {
         const aircraft = document.getElementById('bore-aircraft').value;
         const serial = document.getElementById('bore-serial').value;
         const position = document.getElementById('bore-position').value;
+        const workType = document.getElementById('bore-work-type').value;
         const gss = document.getElementById('bore-gss').value;
         const inspector = document.getElementById('bore-inspector').value;
         const link = document.getElementById('bore-link').value;
         
         // Валидация обязательных полей
-        if (!date || !aircraft || !serial || !position || !inspector) {
-            showErrorNotification("Please fill all required fields: Date, Aircraft, Serial Number, Position, Inspector");
+        if (!date || !aircraft || !serial || !position || !workType || !inspector) {
+            showErrorNotification("Please fill all required fields: Date, Aircraft, Serial Number, Position, Work Type, Inspector");
             return;
         }
         
@@ -7940,6 +8911,7 @@ function restoreView(viewName) {
             aircraft: aircraft,
             serial_number: serial,
             position: position,
+            work_type: workType,
             gss_id: gss || '',
             inspector: inspector,
             link: link || ''
@@ -8882,6 +9854,9 @@ function restoreView(viewName) {
         hideAllViews();
         document.getElementById('view-main-engine').style.display = 'block';
         updateHistory('master');
+        
+        // Сбрасываем фильтры и загружаем таблицу
+        clearEngineFilters();
         await loadMainTable();
     }
 
@@ -8891,6 +9866,12 @@ function restoreView(viewName) {
         document.getElementById('tab-main-add').style.display = t==='add'?'block':'none';
         document.getElementById('tab-main-list-btn').className = t==='list'?'nav-link active':'nav-link';
         document.getElementById('tab-main-add-btn').className = t==='add'?'nav-link active':'nav-link';
+        
+        // Если переключились на список - убедимся что видны ВСЕ двигатели (сбросим фильтры)
+        if(t === 'list') {
+            clearEngineFilters();
+            renderEngineTable(allEnginesData);
+        }
         
         // Если переключились на вкладку добавления - загружаем локации
         if(t === 'add') loadLocationsForForm();
@@ -9051,31 +10032,66 @@ function restoreView(viewName) {
     
     async function loadMainTable() {
         const tb = document.getElementById('main-engine-body');
-        tb.innerHTML = '<tr><td colspan="12" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
+        tb.innerHTML = '<tr><td colspan="14" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
         
         try {
+            console.log('Fetching engines from API...');
             const res = await fetch('/api/engines' + noCache());
+            console.log('API response status:', res.status);
+            
+            if (!res.ok) {
+                throw new Error(`API returned ${res.status}`);
+            }
+            
             const engines = await res.json();
+            console.log('Engines received:', engines);
+            
+            if (!Array.isArray(engines)) {
+                throw new Error('API did not return an array');
+            }
+            
             const deletedIds = getDeletedEngineIds();
-            const filteredEngines = Array.isArray(engines) ? engines.filter(eng => !deletedIds.includes(eng.id)) : [];
+            console.log('Deleted IDs from storage:', deletedIds);
+            
+            // Фильтруем ТОЛЬКО если есть удаленные ID
+            let filteredEngines = engines;
+            if (deletedIds && deletedIds.length > 0) {
+                filteredEngines = engines.filter(eng => {
+                    const isDeleted = deletedIds.includes(eng.id);
+                    if (isDeleted) console.log('Filtering out engine ID', eng.id);
+                    return !isDeleted;
+                });
+            }
+            
+            console.log('Filtered engines:', filteredEngines);
+            
             allEnginesData = filteredEngines;
             renderEngineTable(filteredEngines);
         } catch(e) {
             console.error('Loading error двигателей:', e);
-            tb.innerHTML = '<tr><td colspan="12" class="text-center text-danger">Error loading engines. Check console.</td></tr>';
+            tb.innerHTML = '<tr><td colspan="14" class="text-center text-danger">Error loading engines: ' + e.message + '</td></tr>';
         }
     }
     
     function renderEngineTable(engines) {
         const tb = document.getElementById('main-engine-body');
+        
+        console.log('renderEngineTable called with', engines.length, 'engines');
+        
+        // ПОЛНОСТЬЮ ОЧИЩАЕМ таблицу
         tb.innerHTML = '';
         
         if(engines.length === 0) {
-            tb.innerHTML = '<tr><td colspan="12" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
+            tb.innerHTML = '<tr><td colspan="14" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
+            console.log('No engines, displaying empty message');
             return;
         }
         
-        engines.forEach((eng) => {
+        let rowsHTML = '';
+        
+        engines.forEach((eng, idx) => {
+            console.log(`Processing engine ${idx + 1}:`, eng);
+            
             let badge = 'bg-secondary';
             if(eng.status === 'SV') badge = 'bg-success';
             if(eng.status === 'US') badge = 'bg-danger';
@@ -9088,17 +10104,23 @@ function restoreView(viewName) {
             const remarks = eng.remarks || '-';
             const removedFrom = eng.removed_from || '-';
             const installDate = eng.install_date || '-';
+            const currentSN = eng.current_sn || eng.original_sn || '-';
+            const originalSN = eng.original_sn || '-';
+            const gssSN = eng.gss_sn || '-';
+            const tt = eng.tt || 0;
+            const tc = eng.tc || 0;
+            const price = eng.price || '-';
 
-            tb.innerHTML += `
+            rowsHTML += `
                 <tr data-engine-id="${eng.id}" 
-                    data-original-sn="${eng.original_sn}" 
-                    data-current-sn="${eng.current_sn}" 
-                    data-gss-sn="${eng.gss_sn}" 
+                    data-original-sn="${originalSN}" 
+                    data-current-sn="${currentSN}" 
+                    data-gss-sn="${gssSN}" 
                     data-model="${model}" 
                     data-status="${eng.status}"
-                    data-tt="${eng.tt}"
-                    data-tc="${eng.tc}"
-                    data-price="${eng.price || '0'}"
+                    data-tt="${tt}"
+                    data-tc="${tc}"
+                    data-price="${price}"
                     data-location="${location}"
                     data-remarks="${remarks}"
                     data-removed-from="${removedFrom}"
@@ -9107,20 +10129,20 @@ function restoreView(viewName) {
                     <td class="delete-col" style="display: none;">
                         <div class="select-controls">
                             <input type="checkbox" class="form-check-input row-select-delete" title="Select row" />
-                            <button class="btn btn-sm btn-danger trash-btn" onclick="deleteEngine(${eng.id}, '${eng.original_sn}')" title="Delete">
+                            <button class="btn btn-sm btn-danger trash-btn" onclick="deleteEngine(${eng.id}, '${originalSN}')" title="Delete">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
                     </td>
                     <td data-key="date">${installDate}</td>
                     <td data-key="model">${model}</td>
-                    <td data-key="csn" class="fw-bold text-primary">${eng.current_sn || '-'}</td>
-                    <td data-key="esn">${eng.original_sn}</td>
-                    <td data-key="gss">${eng.gss_sn}</td>
-                    <td data-key="price">${eng.price || '-'}</td>
+                    <td data-key="csn" class="fw-bold text-primary">${currentSN}</td>
+                    <td data-key="esn">${originalSN}</td>
+                    <td data-key="gss">${gssSN}</td>
+                    <td data-key="price">${price}</td>
                     <td data-key="status"><span class="badge ${badge}">${eng.status}</span></td>
-                    <td data-key="tt">${eng.tt}</td>
-                    <td data-key="tc">${eng.tc}</td>
+                    <td data-key="tt">${tt}</td>
+                    <td data-key="tc">${tc}</td>
                     <td data-key="moved">${location}</td>
                     <td data-key="removed">${removedFrom}</td>
                     <td data-key="rem">${remarks}</td>
@@ -9128,6 +10150,9 @@ function restoreView(viewName) {
                 </tr>
             `;
         });
+        
+        tb.innerHTML = rowsHTML;
+        console.log('Table rendered with', engines.length, 'rows');
     }
 
     // --- EDIT MODE LOGIC ---
@@ -9511,12 +10536,15 @@ function restoreView(viewName) {
                 document.body.removeChild(modal);
                 
                 try {
-                    let deleteUrl = `/api/history/${actionType}/${logId}`;
+                    // Get current user name from localStorage
+                    const currentUser = localStorage.getItem('currentUser') || 'User';
+                    
+                    let deleteUrl = `/api/history/${actionType}/${logId}?deleted_by=${encodeURIComponent(currentUser)}`;
                     if (actionType === 'STORE_BALANCE') {
-                        deleteUrl = `/api/store-balance/${logId}`;
+                        deleteUrl = `/api/store-balance/${logId}?deleted_by=${encodeURIComponent(currentUser)}`;
                     } else if (actionType === 'PARTS') {
                         // Parts history uses PART_ACTION in backend
-                        deleteUrl = `/api/history/PART_ACTION/${logId}`;
+                        deleteUrl = `/api/history/PART_ACTION/${logId}?deleted_by=${encodeURIComponent(currentUser)}`;
                     }
 
                     const res = await fetch(deleteUrl, {
@@ -10772,39 +11800,60 @@ function restoreView(viewName) {
         _mainEngineSubmitting = true;
         const saveBtn = document.querySelector('#tab-main-add .btn.btn-success.px-4');
         if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
+        
         // 1. Собираем значения из полей
-        const esn = document.getElementById('m-esn').value;
+        const esn = document.getElementById('m-esn').value.trim();
         const date = document.getElementById('m-date').value;
         const locationId = document.getElementById('m-location').value;
+        
+        console.log('Form values:', { esn, date, locationId, m_status: document.getElementById('m-status').value });
         
         // Простая валидация
         if(!esn) { 
             alert("Error: Поле 'Orig. ESN' обязательно для заполнения!"); 
+            _mainEngineSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Save Record'; }
             return; 
         }
         if(!locationId) { 
             alert("Error: Выберите локацию (Current Location)!"); 
+            _mainEngineSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Save Record'; }
             return; 
         }
         if(/[а-яА-ЯёЁ]/.test(esn)) { 
             alert("Русские буквы в серийном номере запрещены!"); 
+            _mainEngineSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Save Record'; }
             return; 
         }
 
         // 2. Создаем объект для отправки на сервер
+        const currentSN = document.getElementById('m-current-sn').value.trim();
+        const model = document.getElementById('m-model').value.trim();
+        const gssId = document.getElementById('m-gssid').value.trim();
+        const status = document.getElementById('m-status').value;
+        const tt = document.getElementById('m-tt').value;
+        const tc = document.getElementById('m-tc').value;
+        const price = document.getElementById('m-price').value;
+        const photoUrl = document.getElementById('m-photo').value.trim();
+        const remarks = document.getElementById('m-rem').value.trim();
+        const removedFrom = document.getElementById('m-removed').value.trim();
+        
         const payload = {
-            date: date,
+            date: date || null,
             original_sn: esn,
-            gss_sn: document.getElementById('m-gssid').value || esn,
-            current_sn: esn,
-            model: document.getElementById('m-model').value,
-            status: document.getElementById('m-status').value,
+            gss_sn: gssId || esn,
+            current_sn: currentSN || esn,
+            model: model || null,
+            status: status,
             location_id: parseInt(locationId),
-            total_time: parseFloat(document.getElementById('m-tt').value) || 0,
-            total_cycles: parseInt(document.getElementById('m-tc').value) || 0,
-            price: parseFloat(document.getElementById('m-price').value) || null,
-            photo_url: document.getElementById('m-photo').value,
-            remarks: document.getElementById('m-rem').value
+            total_time: parseFloat(tt) || 0,
+            total_cycles: parseInt(tc) || 0,
+            price: price ? parseFloat(price) : null,
+            photo_url: photoUrl || null,
+            remarks: remarks || null,
+            removed_from: removedFrom || null
         };
 
         try {
@@ -10816,10 +11865,30 @@ function restoreView(viewName) {
                 body: JSON.stringify(payload)
             });
             
+            console.log('Response status:', res.status, res.statusText);
+            
             if(!res.ok) {
                 const errorData = await res.json().catch(() => ({}));
                 console.error('Server error:', errorData);
                 throw new Error(errorData.detail || `HTTP Error ${res.status}`);
+            }
+            
+            const responseData = await res.json();
+            console.log('Server response:', responseData);
+            
+            // Если двигатель успешно создан с ID, очищаем его из списка удаленных (на случай если был там)
+            if (responseData.id) {
+                const deletedIds = getDeletedEngineIds();
+                const idx = deletedIds.indexOf(responseData.id);
+                if (idx > -1) {
+                    deletedIds.splice(idx, 1);
+                    try { 
+                        localStorage.setItem(DELETED_ENGINE_STORAGE_KEY, JSON.stringify(deletedIds));
+                        console.log('Removed new engine ID', responseData.id, 'from deleted list');
+                    } catch (e) { 
+                        console.warn('Cannot update deleted engine ids', e); 
+                    }
+                }
             }
             
             alert("Двигатель успешно добавлен!");
@@ -10828,12 +11897,21 @@ function restoreView(viewName) {
             document.getElementById('form-main-add').reset();
             
             // 5. Обновляем Dashboard и таблицу
+            console.log('Saving complete, refreshing data...');
             await loadDashboardData(); // Обновит счетчики на Dashboard
-            switchMainTab('list');
+            console.log('Dashboard updated');
+            
             await loadMainTable(); // Обновляем таблицу двигателей
+            console.log('Main table loaded');
+            
+            switchMainTab('list'); // Переключаемся на вкладку списка
+            console.log('Switched to list tab');
+            
             refreshAfterDataChange();
+            console.log('Data refresh complete');
             
         } catch(e) {
+            console.error('Error details:', e);
             alert("Ошибка при сохранении: " + e.message);
         } finally {
             _mainEngineSubmitting = false;
@@ -12030,11 +13108,78 @@ function restoreView(viewName) {
                 submenu.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         } else if (action === 'manuals') {
-            showSuccessNotification('Manuals shortcut activated.');
+            // Open Google Drive link
+            window.open('https://drive.google.com/drive/folders/1bbJWHMuKwmkOccrHHq6uioA_Re4pukBM?usp=drive_link', '_blank');
         } else if (action === 'folders') {
             showSuccessNotification('Folders shortcut activated.');
         }
     }
+
+    // === REPORTS SUBMENU FUNCTIONS ===
+    function toggleReportsSubmenu() {
+        const submenu = document.getElementById('reports-radial-menu');
+        if (submenu) {
+            submenu.classList.toggle('show');
+        }
+    }
+
+    function hideReportsSubmenu() {
+        const submenu = document.getElementById('reports-radial-menu');
+        if (submenu) {
+            submenu.classList.remove('show');
+        }
+    }
+
+    function showBoroscopeReport() {
+        hideReportsSubmenu();
+        toggleEngineMenu(false);
+        // Scroll to borescope section
+        const boroscopeSection = document.getElementById('boroscope-section');
+        if (boroscopeSection) {
+            boroscopeSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function showEngineReportsView() {
+        hideReportsSubmenu();
+        toggleEngineMenu(false);
+        const submenu = document.getElementById('reports-submenu');
+        if (submenu) {
+            toggleReportsMenu();
+            submenu.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function showPurchaseOrdersView() {
+        hideReportsSubmenu();
+        toggleEngineMenu(false);
+        const submenu = document.getElementById('reports-submenu');
+        if (submenu) {
+            toggleReportsMenu();
+            submenu.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function showNameplateTrackerView() {
+        hideReportsSubmenu();
+        toggleEngineMenu(false);
+        const submenu = document.getElementById('reports-submenu');
+        if (submenu) {
+            toggleReportsMenu();
+            submenu.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    // Close submenu when clicking outside
+    document.addEventListener('click', function(event) {
+        const submenu = document.getElementById('reports-radial-menu');
+        const reportsBtn = document.querySelector('.engine-menu-item-reports');
+        
+        if (submenu && !submenu.contains(event.target) && !reportsBtn.contains(event.target)) {
+            hideReportsSubmenu();
+        }
+    });
+
 
     document.addEventListener('click', function(event) {
         const menu = document.getElementById('engine-btn-menu');
@@ -15531,7 +16676,1300 @@ async function editNameplateTracker(id) {
     }
 }
 
+// ========== CALENDAR FUNCTIONS ==========
+
+let currentCalendarYear = new Date().getFullYear();
+let currentCalendarMonth = new Date().getMonth() + 1; // 1-12
+let allCalendarEvents = [];
+
+// Auto-load calendar on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+});
+
+function navigateMonth(direction) {
+    currentCalendarMonth += direction;
+    if (currentCalendarMonth > 12) {
+        currentCalendarMonth = 1;
+        currentCalendarYear++;
+    } else if (currentCalendarMonth < 1) {
+        currentCalendarMonth = 12;
+        currentCalendarYear--;
+    }
+    loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+}
+
+async function loadCalendarMonth(year, month) {
+    const container = document.getElementById('calendar-grid-container');
+    const title = document.getElementById('calendar-month-year');
+    
+    // Update title
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    if (title) {
+        title.textContent = `${monthNames[month - 1]} ${year}`;
+    }
+    
+    // Show loading
+    if (container) {
+        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">Loading calendar...</p></div>';
+    }
+    
+    try {
+        // Fetch events for this month
+        const res = await fetch(`/api/events/calendar/${year}/${month}`);
+        if (!res.ok) throw new Error('Failed to load events');
+        allCalendarEvents = await res.json();
+        
+        renderCalendar(year, month);
+    } catch (err) {
+        console.error('Error loading calendar:', err);
+        if (container) {
+            container.innerHTML = `<div class="alert alert-danger">Error loading calendar: ${err.message}</div>`;
+        }
+    }
+}
+
+function renderCalendar(year, month) {
+    const container = document.getElementById('calendar-grid-container');
+    if (!container) return;
+    
+    // Calculate calendar grid
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
+    
+    // Previous month days
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevMonthYear = month === 1 ? year - 1 : year;
+    const daysInPrevMonth = new Date(prevMonthYear, prevMonth, 0).getDate();
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
+    // Build grid HTML
+    let html = '<div class="calendar-grid">';
+    
+    // Header row (days of week)
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayNames.forEach(name => {
+        html += `<div class="calendar-header-cell">${name}</div>`;
+    });
+    
+    // Previous month days (gray out)
+    for (let i = startDayOfWeek - 1; i >= 0; i--) {
+        const day = daysInPrevMonth - i;
+        html += `<div class="calendar-day-cell other-month"><div class="calendar-day-number">${day}</div></div>`;
+    }
+    
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isToday = dateStr === todayStr;
+        const dayEvents = allCalendarEvents.filter(e => e.event_date === dateStr);
+        
+        html += `<div class="calendar-day-cell ${isToday ? 'today' : ''}" onclick="openAddEventModal('${dateStr}')">`;
+        html += `<div class="calendar-day-number">${day}</div>`;
+        html += `<div class="calendar-events-list">`;
+        
+        dayEvents.forEach(event => {
+            const eventType = event.event_type.toLowerCase();
+            // Check if event is completed: COMPLETED status OR shipment with DELIVERED/CANCELLED status
+            const isCompleted = event.status === 'COMPLETED' || event.status === 'DELIVERED' || event.status === 'CANCELLED';
+            const completedClass = isCompleted ? ' event-completed' : '';
+            
+            // Calculate days until event (only for non-completed events)
+            let urgencyClass = '';
+            if (!isCompleted) {
+                const eventDate = new Date(event.event_date);
+                eventDate.setHours(0, 0, 0, 0);
+                const daysUntil = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+                if (daysUntil === 1) urgencyClass = ' event-urgent-1day';
+                else if (daysUntil === 2) urgencyClass = ' event-urgent-2days';
+                else if (daysUntil < 0) urgencyClass = ' event-urgent-1day'; // Past event still urgent if not marked
+            }
+            
+            const timeStr = event.event_time ? `<span class="calendar-event-time">${event.event_time}</span>` : '';
+            const icon = isCompleted ? 'bi-check-circle-fill' : 'bi-circle-fill';
+            html += `<div class="calendar-event-badge event-${eventType}${completedClass}${urgencyClass}" onclick="event.stopPropagation(); openEditEventModal(${event.id})" onmouseenter="showEventTooltip(event, ${event.id})" onmouseleave="hideEventTooltip()">`;
+            html += `<i class="bi ${icon}"></i>${timeStr} ${event.title}`;
+            html += `</div>`;
+        });
+        
+        html += `</div></div>`;
+    }
+    
+    // Next month days (fill remaining cells)
+    const totalCells = startDayOfWeek + daysInMonth;
+    const remainingCells = 7 - (totalCells % 7);
+    if (remainingCells < 7) {
+        for (let day = 1; day <= remainingCells; day++) {
+            html += `<div class="calendar-day-cell other-month"><div class="calendar-day-number">${day}</div></div>`;
+        }
+    }
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+let eventTooltipTimeout;
+function showEventTooltip(mouseEvent, eventId) {
+    clearTimeout(eventTooltipTimeout);
+    eventTooltipTimeout = setTimeout(() => {
+        const event = allCalendarEvents.find(e => e.id === eventId);
+        if (!event) return;
+        
+        // Remove existing tooltip
+        const existing = document.querySelector('.event-tooltip');
+        if (existing) existing.remove();
+        
+        // Create tooltip
+        const tooltip = document.createElement('div');
+        tooltip.className = 'event-tooltip';
+        tooltip.innerHTML = `
+            <strong>${event.title}</strong>
+            <div><i class="bi bi-calendar3"></i> ${event.event_date} ${event.event_time || ''}</div>
+            <div><i class="bi bi-tag"></i> ${event.event_type}</div>
+            ${event.serial_number ? `<div><i class="bi bi-gear"></i> S/N: ${event.serial_number}</div>` : ''}
+            ${event.location ? `<div><i class="bi bi-geo-alt"></i> ${event.location}</div>` : ''}
+            ${event.description ? `<div style="margin-top: 4px;">${event.description}</div>` : ''}
+            <div style="margin-top: 4px; font-size: 0.75rem; opacity: 0.8;">Created by: ${event.created_by || 'Unknown'}</div>
+        `;
+        
+        document.body.appendChild(tooltip);
+        
+        // Position tooltip
+        const rect = mouseEvent.target.getBoundingClientRect();
+        tooltip.style.left = rect.left + 'px';
+        tooltip.style.top = (rect.bottom + 5) + 'px';
+    }, 300);
+}
+
+function hideEventTooltip() {
+    clearTimeout(eventTooltipTimeout);
+    const tooltip = document.querySelector('.event-tooltip');
+    if (tooltip) tooltip.remove();
+}
+
+function openAddEventModal(dateStr = null) {
+    const modal = new bootstrap.Modal(document.getElementById('event-modal'));
+    const title = document.getElementById('event-modal-title');
+    const deleteBtn = document.getElementById('event-delete-btn');
+    const completeBtn = document.getElementById('event-complete-btn');
+    
+    // Reset form
+    document.getElementById('event-form').reset();
+    document.getElementById('event-id').value = '';
+    
+    // Auto-fill created_by from localStorage
+    const currentUser = localStorage.getItem('currentUser') || 'User';
+    document.getElementById('event-created-by').value = currentUser;
+    
+    if (dateStr) {
+        document.getElementById('event-date').value = dateStr;
+    } else {
+        const today = new Date();
+        document.getElementById('event-date').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    }
+    
+    if (title) title.innerHTML = '<i class="bi bi-calendar-plus me-2"></i>Add New Event';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+    if (completeBtn) completeBtn.style.display = 'none';
+    
+    modal.show();
+}
+
+async function openEditEventModal(eventId) {
+    try {
+        const res = await fetch(`/api/events/${eventId}`);
+        if (!res.ok) throw new Error('Event not found');
+        const event = await res.json();
+        
+        // Fill form
+        document.getElementById('event-id').value = event.id;
+        document.getElementById('event-date').value = event.event_date;
+        document.getElementById('event-time').value = event.event_time || '';
+        document.getElementById('event-type').value = event.event_type;
+        document.getElementById('event-priority').value = event.priority;
+        document.getElementById('event-title').value = event.title;
+        document.getElementById('event-description').value = event.description || '';
+        document.getElementById('event-serial').value = event.serial_number || '';
+        document.getElementById('event-location').value = event.location || '';
+        document.getElementById('event-from').value = event.from_location || '';
+        document.getElementById('event-to').value = event.to_location || '';
+        document.getElementById('event-status').value = event.status;
+        document.getElementById('event-created-by').value = event.created_by || '';
+        
+        const modal = new bootstrap.Modal(document.getElementById('event-modal'));
+        const title = document.getElementById('event-modal-title');
+        const deleteBtn = document.getElementById('event-delete-btn');
+        const completeBtn = document.getElementById('event-complete-btn');
+        
+        if (title) title.innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Event';
+        if (deleteBtn) deleteBtn.style.display = 'block';
+        if (completeBtn) completeBtn.style.display = 'block';
+        
+        modal.show();
+    } catch (err) {
+        showErrorNotification('Error loading event: ' + err.message);
+    }
+}
+
+async function saveEvent() {
+    const eventId = document.getElementById('event-id').value;
+    const formData = {
+        event_date: document.getElementById('event-date').value,
+        event_time: document.getElementById('event-time').value || null,
+        event_type: document.getElementById('event-type').value,
+        priority: document.getElementById('event-priority').value,
+        title: document.getElementById('event-title').value,
+        description: document.getElementById('event-description').value || null,
+        serial_number: document.getElementById('event-serial').value || null,
+        location: document.getElementById('event-location').value || null,
+        from_location: document.getElementById('event-from').value || null,
+        to_location: document.getElementById('event-to').value || null,
+        status: document.getElementById('event-status').value,
+        created_by: document.getElementById('event-created-by').value || 'User'
+    };
+    
+    if (!formData.event_date || !formData.event_type || !formData.title) {
+        showErrorNotification('Please fill in all required fields (Date, Type, Title)');
+        return;
+    }
+    
+    try {
+        const isEdit = eventId && eventId !== '';
+        const url = isEdit ? `/api/events/${eventId}` : '/api/events';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.detail || 'Failed to save event');
+        }
+        
+        showSuccessNotification(`✅ Event ${isEdit ? 'updated' : 'created'} successfully!`);
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('event-modal'));
+        if (modal) modal.hide();
+        
+        // Reload calendar
+        await loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+    } catch (err) {
+        showErrorNotification('Error saving event: ' + err.message);
+    }
+}
+
+async function deleteEvent() {
+    const eventId = document.getElementById('event-id').value;
+    if (!eventId) return;
+    
+    if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        // Get current user name from localStorage
+        const currentUser = localStorage.getItem('currentUser') || 'User';
+        
+        const res = await fetch(`/api/events/${eventId}?deleted_by=${encodeURIComponent(currentUser)}`, {
+            method: 'DELETE'
+        });
+        
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.detail || 'Failed to delete event');
+        }
+        
+        showSuccessNotification('✅ Event deleted successfully!');
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('event-modal'));
+        if (modal) modal.hide();
+        
+        // Reload calendar
+        await loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+    } catch (err) {
+        showErrorNotification('Error deleting event: ' + err.message);
+    }
+}
+
+async function markEventCompleted() {
+    const eventId = document.getElementById('event-id').value;
+    if (!eventId) return;
+
+    // Reuse form data to keep other fields untouched, only change status
+    const formData = {
+        event_date: document.getElementById('event-date').value,
+        event_time: document.getElementById('event-time').value || null,
+        event_type: document.getElementById('event-type').value,
+        priority: document.getElementById('event-priority').value,
+        title: document.getElementById('event-title').value,
+        description: document.getElementById('event-description').value || null,
+        serial_number: document.getElementById('event-serial').value || null,
+        location: document.getElementById('event-location').value || null,
+        from_location: document.getElementById('event-from').value || null,
+        to_location: document.getElementById('event-to').value || null,
+        status: 'COMPLETED',
+        created_by: document.getElementById('event-created-by').value || 'User'
+    };
+
+    try {
+        const res = await fetch(`/api/events/${eventId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+
+        if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.detail || 'Failed to mark event completed');
+        }
+
+        showSuccessNotification('✅ Event marked as done');
+
+        // Close modal and refresh calendar (completed events hidden)
+        const modal = bootstrap.Modal.getInstance(document.getElementById('event-modal'));
+        if (modal) modal.hide();
+        await loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+    } catch (err) {
+        showErrorNotification('Error completing event: ' + err.message);
+    }
+}
+
+// ========== USER NAME MANAGEMENT ==========
+
+function saveCurrentUser(name) {
+    if (name && name.trim()) {
+        localStorage.setItem('currentUser', name.trim());
+        console.log('✅ User name saved:', name.trim());
+    }
+}
+
+function loadCurrentUserName() {
+    const savedName = localStorage.getItem('currentUser');
+    const input = document.getElementById('current-user-input');
+    if (input) {
+        input.value = savedName || 'admin';
+        if (!savedName) {
+            // Set default to admin
+            localStorage.setItem('currentUser', 'admin');
+        }
+    }
+}
+
+// Load user name on page load
+document.addEventListener('DOMContentLoaded', async function() {
+    loadCurrentUserName();
+    console.log('Page loaded, initializing...');
+    
+    // АВТОМАТИЧЕСКИ очищаем старые удаленные двигатели при загрузке
+    try {
+        const deletedIds = getDeletedEngineIds();
+        if (deletedIds && deletedIds.length > 0) {
+            console.log('Found', deletedIds.length, 'deleted engine IDs in storage:', deletedIds);
+            console.log('Auto-clearing deleted engine IDs...');
+            localStorage.removeItem('engine-deleted-ids');
+            console.log('Deleted engine IDs cleared automatically');
+        }
+    } catch (e) {
+        console.warn('Cannot clear deleted engine ids on init:', e);
+    }
+    
+    // Load all data
+    await updateDashboardStats();
+    await loadSchedulesData();
+    await loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+
+    // When child modals close, reopen schedules modal with fresh data
+    const engModalEl = document.getElementById('engineShipmentModal');
+    if (engModalEl) {
+        engModalEl.addEventListener('hidden.bs.modal', () => {
+            reopenSchedulesAfterChild();
+        });
+    }
+    const partsModalEl = document.getElementById('partsShipmentModal');
+    if (partsModalEl) {
+        partsModalEl.addEventListener('hidden.bs.modal', () => {
+            reopenSchedulesAfterChild();
+        });
+    }
+});
+
+
+// ============================================================
+// LOGISTICS & SCHEDULES FUNCTIONS
+// ============================================================
+
+const setTextIfExists = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+};
+
+// Parse manual SN/PN hints stored in notes
+function extractSnPn(notes) {
+    if (!notes) return { sn: null, pn: null };
+    const snMatch = notes.match(/Orig\s*SN:\s*([^\n]+)/i);
+    const pnMatch = notes.match(/PN:\s*([^\n]+)/i);
+    return {
+        sn: snMatch ? snMatch[1].trim() : null,
+        pn: pnMatch ? pnMatch[1].trim() : null
+    };
+}
+
+function jumpCalendarToDate(isoDate) {
+    if (!isoDate) return;
+    const dt = new Date(isoDate);
+    if (isNaN(dt.getTime())) return;
+    currentCalendarYear = dt.getFullYear();
+    currentCalendarMonth = dt.getMonth() + 1;
+    loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+}
+
+// Update Dashboard Statistics
+async function updateDashboardStats() {
+    try {
+        console.log('📊 Updating dashboard stats...');
+        
+        // Logistics & Movements
+        const movementsRes = await fetch('/api/logistics/movements');
+        if (!movementsRes.ok) {
+            console.warn('⚠️ Movements fetch error:', movementsRes.status);
+            throw new Error('Failed to fetch movements');
+        }
+        const movements = await movementsRes.json();
+        console.log('🚚 Movements:', movements);
+        setTextIfExists('engines-transit', movements.engines_transit || 0);
+        setTextIfExists('parts-transit', movements.parts_transit || 0);
+        setTextIfExists('location-changes', movements.location_changes || 0);
+        setTextIfExists('total-movements', movements.total || 0);
+        
+        // Schedule Status
+        const statsRes = await fetch('/api/schedules/stats');
+        if (!statsRes.ok) {
+            console.warn('⚠️ Schedule stats fetch error:', statsRes.status);
+            throw new Error('Failed to fetch stats');
+        }
+        const stats = await statsRes.json();
+        console.log('📅 Schedule Stats:', stats);
+        setTextIfExists('schedule-planned', stats.on_order || 0);
+        setTextIfExists('schedule-transit', stats.in_transit || 0);
+        setTextIfExists('schedule-arriving', stats.arriving_soon || 0);
+        
+        console.log('✅ Dashboard stats updated successfully');
+    } catch (error) {
+        console.error('❌ Failed to update dashboard stats:', error);
+        // Set all to 0 on error (already done by setTextIfExists with || 0)
+    }
+}
+
+// Schedule stats update is done manually after shipment actions (create/edit/delete)
+// No auto-update interval needed
+
+// Open Schedules Modal
+function openSchedulesModal() {
+    const modal = document.getElementById('schedules-modal');
+    modal.classList.add('active');
+    switchSchedulesTab('shipments-table'); // Open on table tab by default
+    loadSchedulesData();
+}
+
+// Close Schedules Modal
+function closeSchedulesModal() {
+    const modal = document.getElementById('schedules-modal');
+    modal.classList.remove('active');
+}
+
+// Re-open schedules after child modal closes
+function reopenSchedulesAfterChild() {
+    openSchedulesModal();
+    switchSchedulesTab('shipments-table');
+    // These now have debug logging
+    loadSchedulesData().then(() => {
+        console.log('📦 Schedules table reloaded');
+    });
+    updateDashboardStats().then(() => {
+        console.log('📊 Dashboard stats updated');
+    });
+}
+
+// Switch between tabs in Schedules Modal
+function switchSchedulesTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content-schedules').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.schedules-tab').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    if (tabName === 'type-selector') {
+        document.getElementById('tab-type-selector').classList.add('active');
+        document.querySelectorAll('.schedules-tab')[0].classList.add('active');
+    } else if (tabName === 'shipments-table') {
+        document.getElementById('tab-shipments-table').classList.add('active');
+        document.querySelectorAll('.schedules-tab')[1].classList.add('active');
+        loadSchedulesData();
+    }
+}
+
+// Load Schedules Data (all shipments)
+async function loadSchedulesData() {
+    try {
+        console.log('📦 Loading schedules data...');
+        const res = await fetch('/api/schedules');
+        if (!res.ok) throw new Error('Failed to fetch schedules');
+        
+        const shipments = await res.json();
+        console.log('📦 Shipments loaded:', shipments);
+        const tbody = document.getElementById('schedules-tbody');
+        
+        if (shipments.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                        No shipments found. Create your first shipment above.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = shipments.map(s => {
+            const expectedDate = s.expected_delivery_date ? new Date(s.expected_delivery_date).toLocaleDateString() : 'N/A';
+            const { sn, pn } = extractSnPn(s.notes);
+            const engineLabel = s.engine_id ? `Engine #${s.engine_id}` : 'Engine (manual)';
+            const snPnLabel = [sn ? `SN ${sn}` : null, pn ? `PN ${pn}` : null].filter(Boolean).join(' / ');
+            const engineInfo = snPnLabel ? `${engineLabel} [${snPnLabel}]` : engineLabel;
+            const qtyInfo = s.shipment_type === 'PARTS' ? `${s.part_quantity}x ${s.part_name}` : engineInfo;
+            
+            return `
+                <tr onclick="viewShipmentDetails(${s.id})">
+                    <td>${s.id}</td>
+                    <td>${s.shipment_type === 'ENGINE' ? '🛫 ENGINE' : '📦 PARTS'}</td>
+                    <td><span class="status-badge status-${s.status}">${s.status}</span></td>
+                    <td>${expectedDate}</td>
+                    <td>${s.supplier_name || 'N/A'}</td>
+                    <td>${qtyInfo}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-warning" title="Edit" onclick="event.stopPropagation(); openEditShipment(${s.id})">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button class="btn btn-outline-primary" title="Change status" onclick="event.stopPropagation(); openStatusModal(${s.id}, '${s.status}')">
+                                <i class="bi bi-flag"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" title="Delete" onclick="event.stopPropagation(); deleteShipment(${s.id})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('Failed to load schedules:', error);
+        document.getElementById('schedules-tbody').innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-danger py-4">
+                    Failed to load shipments. Please try again.
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// Create Engine Shipment
+function createEngineShipment() {
+    // Load engines into dropdown
+    loadEnginesForShipment();
+    // Ensure the schedules modal is hidden so engine modal stacks on top
+    closeSchedulesModal();
+    // Open modal
+    const modal = new bootstrap.Modal(document.getElementById('engineShipmentModal'));
+    modal.show();
+}
+
+// Load Engines for Shipment
+async function loadEnginesForShipment() {
+    try {
+        console.log('🚀 Loading engines...');
+        const res = await fetch('/api/engines');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const engines = await res.json();
+        console.log('🚀 Engines loaded:', engines);
+        
+        const select = document.getElementById('engine-shipment-engine-id');
+        if (!select) {
+            console.error('❌ Select element not found');
+            return;
+        }
+        
+        if (!Array.isArray(engines)) {
+            console.error('❌ Engines is not an array:', engines);
+            select.innerHTML = '<option value="">-- No engines (error) --</option>';
+            return;
+        }
+        
+        select.innerHTML = '<option value="">-- Select Engine --</option>' + 
+            engines.map(e => `<option value="${e.id}">${e.serial_number} (${e.model})</option>`).join('');
+    } catch (error) {
+        console.error('❌ Failed to load engines:', error);
+        const select = document.getElementById('engine-shipment-engine-id');
+        if (select) {
+            select.innerHTML = '<option value="">-- Error loading engines --</option>';
+        }
+    }
+}
+
+// Submit Engine Shipment
+async function submitEngineShipment() {
+    try {
+        const engineId = document.getElementById('engine-shipment-engine-id').value;
+        const engineOrigSn = document.getElementById('engine-shipment-orig-sn').value;
+        const enginePn = document.getElementById('engine-shipment-pn').value;
+        const departure = document.getElementById('engine-shipment-departure').value;
+        const expected = document.getElementById('engine-shipment-expected').value;
+        const supplier = document.getElementById('engine-shipment-supplier').value;
+        const destination = document.getElementById('engine-shipment-destination').value;
+        const tracking = document.getElementById('engine-shipment-tracking').value;
+        const notes = document.getElementById('engine-shipment-notes').value;
+        
+        if (!expected) {
+            alert('Please fill in required fields (Expected Delivery)');
+            return;
+        }
+        
+        // Compose notes with manual SN/PN if provided
+        let combinedNotes = notes || '';
+        if (engineOrigSn) {
+            combinedNotes += (combinedNotes ? '\n' : '') + `Orig SN: ${engineOrigSn}`;
+        }
+        if (enginePn) {
+            combinedNotes += (combinedNotes ? '\n' : '') + `PN: ${enginePn}`;
+        }
+
+        const payload = {
+            shipment_type: 'ENGINE',
+            status: 'PLANNED',
+            engine_id: engineId ? parseInt(engineId) : null,
+            destination_location: destination,
+            departure_date: departure || null,
+            expected_delivery_date: expected,
+            supplier_name: supplier,
+            tracking_number: tracking,
+            notes: combinedNotes,
+            created_by: loadCurrentUserName()
+        };
+        
+        const res = await fetch('/api/schedules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) throw new Error('Failed to create shipment');
+        
+        showSuccessNotification('✓ Engine shipment created successfully');
+        console.log('✅ Engine shipment created');
+        
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('engineShipmentModal')).hide();
+        
+        // Reload and reopen
+        await jumpCalendarToDate(expected);
+        reopenSchedulesAfterChild();
+        
+        // Reset form
+        document.getElementById('engine-shipment-form').reset();
+        
+    } catch (error) {
+        console.error('Failed to create engine shipment:', error);
+        showErrorNotification('Failed to create engine shipment: ' + error.message);
+    }
+}
+
+// Create Parts Shipment
+function createPartsShipment() {
+    // Ensure the schedules modal is hidden so parts modal stacks on top
+    closeSchedulesModal();
+    // Open modal
+    const modal = new bootstrap.Modal(document.getElementById('partsShipmentModal'));
+    modal.show();
+}
+
+// Submit Parts Shipment
+async function submitPartsShipment() {
+    try {
+        const partName = document.getElementById('parts-shipment-name').value;
+        const quantity = document.getElementById('parts-shipment-quantity').value;
+        const category = document.getElementById('parts-shipment-category').value;
+        const departure = document.getElementById('parts-shipment-departure').value;
+        const expected = document.getElementById('parts-shipment-expected').value;
+        const supplier = document.getElementById('parts-shipment-supplier').value;
+        const tracking = document.getElementById('parts-shipment-tracking').value;
+        const notes = document.getElementById('parts-shipment-notes').value;
+        
+        if (!partName || !quantity || !expected) {
+            alert('Please fill in required fields (Part Name, Quantity, Expected Delivery)');
+            return;
+        }
+        
+        const payload = {
+            shipment_type: 'PARTS',
+            status: 'PLANNED',
+            part_name: partName,
+            part_category: category,
+            part_quantity: parseInt(quantity),
+            reserved_quantity: parseInt(quantity),
+            departure_date: departure || null,
+            expected_delivery_date: expected,
+            supplier_name: supplier,
+            tracking_number: tracking,
+            notes: notes,
+            created_by: loadCurrentUserName()
+        };
+        
+        const res = await fetch('/api/schedules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) throw new Error('Failed to create shipment');
+        
+        showSuccessNotification(`✓ Parts shipment created: ${quantity}x ${partName}`);
+        console.log('✅ Parts shipment created');
+        
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('partsShipmentModal')).hide();
+        
+        // Reload and reopen
+        await jumpCalendarToDate(expected);
+        reopenSchedulesAfterChild();
+        
+        // Reset form
+        document.getElementById('parts-shipment-form').reset();
+        
+    } catch (error) {
+        console.error('Failed to create parts shipment:', error);
+        showErrorNotification('Failed to create parts shipment: ' + error.message);
+    }
+}
+
+let statusChangeTarget = null;
+function openStatusModal(shipmentId, currentStatus) {
+    statusChangeTarget = shipmentId;
+    const currentEl = document.getElementById('status-current');
+    const select = document.getElementById('status-new');
+    if (currentEl) currentEl.textContent = `Current: ${currentStatus || 'N/A'}`;
+    if (select) select.value = currentStatus || 'PLANNED';
+    const modalEl = document.getElementById('statusChangeModal');
+    if (modalEl) new bootstrap.Modal(modalEl).show();
+}
+
+async function applyStatusChange() {
+    const select = document.getElementById('status-new');
+    const newStatus = select ? select.value : null;
+    if (!statusChangeTarget || !newStatus) return;
+
+    const allowed = ['PLANNED', 'IN_TRANSIT', 'DELIVERED', 'DELAYED', 'CANCELLED'];
+    if (!allowed.includes(newStatus)) {
+        alert('Invalid status');
+        return;
+    }
+
+    try {
+        const payload = {
+            status: newStatus,
+            updated_by: loadCurrentUserName()
+        };
+
+        if (newStatus === 'DELIVERED') {
+            payload.actual_delivery_date = new Date().toISOString();
+        }
+
+        const res = await fetch(`/api/schedules/${statusChangeTarget}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Failed to update status');
+
+        showSuccessNotification(`✓ Shipment #${statusChangeTarget} status updated to ${newStatus}`);
+        console.log('✅ Status updated, refreshing dashboard...');
+        
+        await loadSchedulesData();
+        await updateDashboardStats();
+        await loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+
+        const modalEl = document.getElementById('statusChangeModal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+    } catch (error) {
+        console.error('Failed to change status:', error);
+        showErrorNotification('Failed to change status: ' + error.message);
+    } finally {
+        statusChangeTarget = null;
+    }
+}
+
+let editShipmentTarget = null;
+async function openEditShipment(shipmentId) {
+    editShipmentTarget = shipmentId;
+    try {
+        const res = await fetch(`/api/schedules/${shipmentId}`);
+        if (!res.ok) throw new Error('Failed to load shipment');
+        const item = await res.json();
+
+        const expectedInput = document.getElementById('edit-expected');
+        const departureInput = document.getElementById('edit-departure');
+        const supplierInput = document.getElementById('edit-supplier');
+        const trackingInput = document.getElementById('edit-tracking');
+        const notesInput = document.getElementById('edit-notes');
+
+        if (expectedInput) expectedInput.value = item.expected_delivery_date ? item.expected_delivery_date.slice(0, 16) : '';
+        if (departureInput) departureInput.value = item.departure_date ? item.departure_date.slice(0, 16) : '';
+        if (supplierInput) supplierInput.value = item.supplier_name || '';
+        if (trackingInput) trackingInput.value = item.tracking_number || '';
+        if (notesInput) notesInput.value = item.notes || '';
+
+        const modalEl = document.getElementById('editShipmentModal');
+        if (modalEl) new bootstrap.Modal(modalEl).show();
+    } catch (error) {
+        console.error('Failed to load shipment:', error);
+        alert('Failed to load shipment');
+        editShipmentTarget = null;
+    }
+}
+
+async function submitShipmentEdit() {
+    if (!editShipmentTarget) return;
+
+    const payload = {
+        expected_delivery_date: document.getElementById('edit-expected').value || null,
+        departure_date: document.getElementById('edit-departure').value || null,
+        supplier_name: document.getElementById('edit-supplier').value || null,
+        tracking_number: document.getElementById('edit-tracking').value || null,
+        notes: document.getElementById('edit-notes').value || null,
+        updated_by: loadCurrentUserName()
+    };
+
+    try {
+        const res = await fetch(`/api/schedules/${editShipmentTarget}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error('Failed to update shipment');
+
+        showSuccessNotification(`✓ Shipment #${editShipmentTarget} updated`);
+        console.log('✅ Shipment updated, refreshing dashboard...');
+        
+        await loadSchedulesData();
+        await updateDashboardStats();
+        await loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+
+        const modalEl = document.getElementById('editShipmentModal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+    } catch (error) {
+        console.error('Failed to update shipment:', error);
+        alert('Failed to update shipment');
+    } finally {
+        editShipmentTarget = null;
+    }
+}
+
+// Delete Shipment
+async function deleteShipment(shipmentId) {
+    if (!confirm(`Delete Shipment #${shipmentId}?\n\nThis will also remove related calendar events.`)) {
+        return;
+    }
+    
+    try {
+        const deletedBy = loadCurrentUserName();
+        const res = await fetch(`/api/schedules/${shipmentId}?deleted_by=${deletedBy}`, {
+            method: 'DELETE'
+        });
+        
+        if (!res.ok) throw new Error('Failed to delete shipment');
+        
+        showSuccessNotification(`✓ Shipment #${shipmentId} deleted`);
+        console.log('✅ Shipment deleted, refreshing dashboard...');
+        
+        // Reload data
+        await loadSchedulesData();
+        await updateDashboardStats();
+        await loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+        
+    } catch (error) {
+        console.error('Failed to delete shipment:', error);
+        showErrorNotification('Failed to delete shipment: ' + error.message);
+    }
+}
+
+// View Shipment Details (placeholder for future enhancement)
+async function viewShipmentDetails(shipmentId) {
+    try {
+        const res = await fetch(`/api/schedules/${shipmentId}`);
+        if (!res.ok) throw new Error('Failed to fetch shipment');
+        
+        const shipment = await res.json();
+        
+        let detailsHtml = `
+            <h5>Shipment #${shipment.id} Details</h5>
+            <p><strong>Type:</strong> ${shipment.shipment_type}</p>
+            <p><strong>Status:</strong> <span class="status-badge status-${shipment.status}">${shipment.status}</span></p>
+            <p><strong>Supplier:</strong> ${shipment.supplier_name || 'N/A'}</p>
+            <p><strong>Expected Delivery:</strong> ${shipment.expected_delivery_date ? new Date(shipment.expected_delivery_date).toLocaleString() : 'N/A'}</p>
+            <p><strong>Tracking:</strong> ${shipment.tracking_number || 'N/A'}</p>
+            <p><strong>Notes:</strong> ${shipment.notes || 'None'}</p>
+        `;
+        
+        if (shipment.shipment_type === 'PARTS') {
+            detailsHtml += `
+                <hr>
+                <p><strong>Part Name:</strong> ${shipment.part_name}</p>
+                <p><strong>Quantity:</strong> ${shipment.part_quantity}</p>
+                <p><strong>Category:</strong> ${shipment.part_category}</p>
+            `;
+        }
+        
+        alert(detailsHtml.replace(/<[^>]*>/g, '\n')); // Simple alert (можно заменить на красивый modal)
+        
+    } catch (error) {
+        console.error('Failed to load shipment details:', error);
+        alert('Failed to load shipment details');
+    }
+}
+
 </script>
+
+<!-- ============================================================
+     SCHEDULES MODAL (Logistics & Shipments Tracking)
+     ============================================================ -->
+<div id="schedules-modal">
+    <div class="schedules-modal-content">
+        <div class="schedules-modal-header">
+            <h3>📦 Schedules - Logistics & Shipments Tracking</h3>
+            <button class="btn-close-modal" onclick="closeSchedulesModal()">✕ Close</button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="schedules-tabs">
+            <button class="schedules-tab active" onclick="switchSchedulesTab('type-selector')">
+                Select Type
+            </button>
+            <button class="schedules-tab" onclick="switchSchedulesTab('shipments-table')">
+                Shipments Table
+            </button>
+        </div>
+
+        <!-- Tab 1: Type Selector -->
+        <div id="tab-type-selector" class="tab-content-schedules active">
+            <h4 class="mb-4">Select Shipment Type</h4>
+            <div class="type-selector-container">
+                <button class="btn-type-selector" onclick="createEngineShipment()">
+                    <span class="icon">🛫</span>
+                    <div class="text-container">
+                        <span class="title">ENGINE IN TRANSIT</span>
+                        <span class="subtitle">Track engines in transit to destinations</span>
+                    </div>
+                </button>
+                
+                <button class="btn-type-selector" onclick="createPartsShipment()">
+                    <span class="icon">📦</span>
+                    <div class="text-container">
+                        <span class="title">PARTS ON ORDER</span>
+                        <span class="subtitle">Track parts shipments (including pre-orders)</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab 2: Shipments Table -->
+        <div id="tab-shipments-table" class="tab-content-schedules">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">All Shipments</h4>
+                <button class="btn btn-primary" onclick="switchSchedulesTab('type-selector')">
+                    + New Shipment
+                </button>
+            </div>
+
+            <table id="schedules-table">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">ID</th>
+                        <th style="width: 100px;">Type</th>
+                        <th style="width: 120px;">Status</th>
+                        <th style="width: 140px;">Expected Delivery</th>
+                        <th>Supplier</th>
+                        <th>Qty/SN</th>
+                        <th style="width: 140px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="schedules-tbody">
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                            No shipments found. Create your first shipment above.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ENGINE SHIPMENT MODAL (Two-step) -->
+<div class="modal fade" id="engineShipmentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🛫 Create Engine Shipment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="engine-shipment-form">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Select Engine (optional)</label>
+                            <select class="form-select" id="engine-shipment-engine-id">
+                                <option value="">Manual entry</option>
+                            </select>
+                            <small class="text-muted">Можно выбрать существующий или заполнить вручную ниже</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Orig SN (manual)</label>
+                            <input type="text" class="form-control" id="engine-shipment-orig-sn" placeholder="Enter Original SN">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">PN (manual)</label>
+                            <input type="text" class="form-control" id="engine-shipment-pn" placeholder="Enter PN">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Destination Location</label>
+                            <input type="text" class="form-control" id="engine-shipment-destination" placeholder="Warehouse / Hangar">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Departure Date</label>
+                            <input type="datetime-local" class="form-control" id="engine-shipment-departure">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Expected Delivery <span class="text-danger">*</span></label>
+                            <input type="datetime-local" class="form-control" id="engine-shipment-expected" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Supplier Name</label>
+                            <input type="text" class="form-control" id="engine-shipment-supplier">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tracking Number</label>
+                            <input type="text" class="form-control" id="engine-shipment-tracking">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" id="engine-shipment-notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitEngineShipment()">Create Shipment</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PARTS SHIPMENT MODAL (Two-step) -->
+<div class="modal fade" id="partsShipmentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">📦 Create Parts Shipment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="parts-shipment-form">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Part Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="parts-shipment-name" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Quantity <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="parts-shipment-quantity" required min="1">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category (purpose)</label>
+                        <select class="form-select" id="parts-shipment-category">
+                            <option value="Aircraft">Aircraft</option>
+                            <option value="Engine">Engine</option>
+                            <option value="Office">Office</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Departure Date</label>
+                            <input type="datetime-local" class="form-control" id="parts-shipment-departure">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Expected Delivery <span class="text-danger">*</span></label>
+                            <input type="datetime-local" class="form-control" id="parts-shipment-expected" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Supplier Name</label>
+                            <input type="text" class="form-control" id="parts-shipment-supplier">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tracking Number</label>
+                            <input type="text" class="form-control" id="parts-shipment-tracking">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" id="parts-shipment-notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitPartsShipment()">Create Shipment</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- STATUS CHANGE MODAL -->
+    <div class="modal fade" id="statusChangeModal" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Change Status</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2 small text-muted" id="status-current"></div>
+                    <select class="form-select" id="status-new">
+                        <option value="PLANNED">PLANNED</option>
+                        <option value="IN_TRANSIT">IN_TRANSIT</option>
+                        <option value="DELIVERED">DELIVERED</option>
+                        <option value="DELAYED">DELAYED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="applyStatusChange()">Update</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT SHIPMENT MODAL -->
+    <div class="modal fade" id="editShipmentModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Edit Shipment</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-shipment-form">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Expected Delivery</label>
+                                <input type="datetime-local" class="form-control" id="edit-expected">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Departure</label>
+                                <input type="datetime-local" class="form-control" id="edit-departure">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Supplier</label>
+                                <input type="text" class="form-control" id="edit-supplier">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tracking</label>
+                                <input type="text" class="form-control" id="edit-tracking">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" id="edit-notes" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning btn-sm" onclick="submitShipmentEdit()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEBUG UTILITIES - ACCESSIBLE FROM BROWSER CONSOLE -->
+    <script>
+        // Make cleanup functions globally accessible
+        window.engineTools = {
+            clearCache: function() {
+                try {
+                    localStorage.removeItem('engine-deleted-ids');
+                    console.log('Engine cache cleared!');
+                    // Reload engines if view is open
+                    if (typeof loadMainTable === 'function') {
+                        loadMainTable();
+                        console.log('Engine table reloaded');
+                    }
+                    return 'Cache cleared and table reloaded';
+                } catch (e) {
+                    console.error('Error:', e);
+                    return 'Error: ' + e.message;
+                }
+            },
+            showCache: function() {
+                try {
+                    const deleted = localStorage.getItem('engine-deleted-ids');
+                    console.log('Cached deleted IDs:', deleted ? JSON.parse(deleted) : []);
+                    return deleted ? JSON.parse(deleted) : [];
+                } catch (e) {
+                    console.error('Error:', e);
+                    return 'Error: ' + e.message;
+                }
+            }
+        };
+        
+        // Shorter alias
+        window.etc = window.engineTools;
+        
+        console.log('Engine Tools Available!');
+        console.log('Usage: etc.clearCache() or etc.showCache()');
+    </script>
 
 </body>
 </html>

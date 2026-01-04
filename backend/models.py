@@ -58,7 +58,7 @@ class Engine(Base):
     id = Column(Integer, primary_key=True, index=True)
     original_sn = Column(String, unique=True)
     gss_sn = Column(String, nullable=True)
-    current_sn = Column(String, nullable=False) # Основной идентификатор
+    current_sn = Column(String, nullable=True) # Текущий серийный номер (может отличаться от original)
     model = Column(String, nullable=True) # Модель двигателя (CF6-80, CFM56 и т.д.)
     
     status = Column(String, default="SV")
@@ -193,6 +193,7 @@ class BoroscopeInspection(Base):
     gss_id = Column(String, nullable=True)
     inspector = Column(String, nullable=False)
     link = Column(String, nullable=True)
+    work_type = Column(String, nullable=False, default='All Engine')  # HPT, LPT, All Engine
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class PurchaseOrder(Base):
@@ -363,3 +364,87 @@ class NameplateTracker(Base):
     notes = Column(Text, nullable=True)  # Дополнительные заметки
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ScheduledEvent(Base):
+    """Запланированные события и встречи в календаре"""
+    __tablename__ = "scheduled_events"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    event_date = Column(String, nullable=False, index=True)  # YYYY-MM-DD
+    event_time = Column(String, nullable=True)  # HH:MM (опционально)
+    event_type = Column(String, nullable=False)  # SHIPMENT, MEETING, INSPECTION, MAINTENANCE, DEADLINE, OTHER
+    title = Column(String, nullable=False)  # "Engine shipment to Baku"
+    description = Column(Text, nullable=True)  # Детали события
+    
+    # Связь с двигателем (опционально)
+    engine_id = Column(Integer, ForeignKey('engines.id'), nullable=True)
+    serial_number = Column(String, nullable=True)  # Для быстрого доступа
+    
+    # Локация/маршрут (опционально)
+    location = Column(String, nullable=True)  # "Baku", "Dubai", etc.
+    from_location = Column(String, nullable=True)
+    to_location = Column(String, nullable=True)
+    
+    # Статус события
+    status = Column(String, default='PLANNED')  # PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+    
+    # Приоритет и визуальное оформление
+    priority = Column(String, default='MEDIUM')  # LOW, MEDIUM, HIGH, URGENT
+    color = Column(String, default='#3788d8')  # Цвет плашки на календаре
+    
+    # Метаданные
+    created_by = Column(String, nullable=True)  # Кто создал событие
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+# ============================================================
+# SHIPMENT MODEL (Logistics & Schedules Tracking)
+# ============================================================
+class Shipment(Base):
+    """
+    Модель для отслеживания отправок двигателей и запчастей в пути.
+    Поддерживает:
+    - ENGINE type: отслеживание двигателей в транзите
+    - PARTS type: отслеживание запчастей (включая pre-order - еще не в стоке)
+    
+    При статусе DELIVERED:
+    - ENGINE: обновляет engines.location_id на "On Stock"
+    - PARTS: создает новую запись в store_items (автоинвентаризация)
+    """
+    __tablename__ = "shipments"
+    
+    # Основные поля
+    id = Column(Integer, primary_key=True, index=True)
+    shipment_type = Column(String(50), nullable=False)  # ENGINE, PARTS
+    status = Column(String(50), default='PLANNED')  # PLANNED, IN_TRANSIT, DELIVERED, DELAYED, CANCELLED
+    
+    # ДЛЯ ENGINE TYPE
+    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)
+    destination_location = Column(String(255), nullable=True)  # Куда должен прибыть двигатель
+    
+    # ДЛЯ PARTS TYPE
+    part_name = Column(String(255), nullable=True)  # Имя запчасти
+    part_category = Column(String(100), nullable=True)  # Overhaul, Consumable, High-Value
+    part_quantity = Column(Integer, nullable=True)  # Количество запчастей
+    reserved_quantity = Column(Integer, default=0)  # Для pre-order (еще не в inventory)
+    
+    # Отправка и доставка
+    departure_date = Column(DateTime, nullable=True)
+    expected_delivery_date = Column(DateTime, nullable=False)
+    actual_delivery_date = Column(DateTime, nullable=True)
+    
+    # Отслеживание
+    supplier_name = Column(String(255), nullable=True)
+    tracking_number = Column(String(255), nullable=True)
+    notes = Column(Text, nullable=True)
+    
+    # Пользователь и время
+    created_by = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_by = Column(String(255), nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Связи
+    engine = relationship("Engine", foreign_keys=[engine_id])

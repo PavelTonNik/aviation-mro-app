@@ -535,6 +535,54 @@ class PurchaseOrderSchema(BaseModel):
     link: Optional[str] = ""
 
 
+class ScheduledEventSchema(BaseModel):
+    """Schema for scheduled events in calendar"""
+    event_date: str  # YYYY-MM-DD
+    event_time: Optional[str] = None  # HH:MM
+    event_type: str  # SHIPMENT, MEETING, INSPECTION, MAINTENANCE, DEADLINE, OTHER
+    title: str
+    description: Optional[str] = None
+    engine_id: Optional[int] = None
+    serial_number: Optional[str] = None
+    location: Optional[str] = None
+    from_location: Optional[str] = None
+    to_location: Optional[str] = None
+    status: Optional[str] = "PLANNED"  # PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+    priority: Optional[str] = "MEDIUM"  # LOW, MEDIUM, HIGH, URGENT
+    color: Optional[str] = "#3788d8"
+    created_by: Optional[str] = None
+
+
+class LogisticsShipmentSchema(BaseModel):
+    """Schema for Logistics & Schedules tracking (shipments in transit)"""
+    shipment_type: str  # ENGINE, PARTS
+    status: Optional[str] = "PLANNED"  # PLANNED, IN_TRANSIT, DELIVERED, DELAYED, CANCELLED
+    
+    # For ENGINE type
+    engine_id: Optional[int] = None
+    destination_location: Optional[str] = None
+    
+    # For PARTS type
+    part_name: Optional[str] = None
+    part_category: Optional[str] = None
+    part_quantity: Optional[int] = None
+    reserved_quantity: Optional[int] = 0
+    
+    # Shipping and delivery
+    departure_date: Optional[str] = None  # ISO datetime string
+    expected_delivery_date: str  # ISO datetime string (required)
+    actual_delivery_date: Optional[str] = None
+    
+    # Tracking
+    supplier_name: Optional[str] = None
+    tracking_number: Optional[str] = None
+    notes: Optional[str] = None
+    
+    # User metadata
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+
+
 class CustomColumnSchema(BaseModel):
     column_label: str
     column_order: Optional[int] = 0
@@ -1161,7 +1209,7 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
                 "id": eng.id,
                 "original_sn": eng.original_sn or "Нет данных",
                 "gss_sn": eng.gss_sn or eng.original_sn,
-                "current_sn": eng.current_sn or "Нет данных",
+                "current_sn": eng.current_sn or eng.original_sn,
                 "model": eng.model or "-",
                 "status": eng.status,
                 "location": loc_name,
@@ -1179,7 +1227,7 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
                 "ac_tcsn": ac_tcsn
             })
         
-            return result
+        return result
     except Exception as e:
         print(f"❌ Error in get_all_engines: {e}")
         return []
@@ -1661,13 +1709,24 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
 
 # УДАЛЕНИЕ ЗАПИСИ ИЗ ИСТОРИИ (ActionLog)
 @app.delete("/api/history/{action_type}/{log_id}")
-def delete_history_record(action_type: str, log_id: int, db: Session = Depends(get_db)):
+def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query("User"), db: Session = Depends(get_db)):
     try:
         # Специальная обработка для Reports
         if action_type == "BORESCOPE":
             inspection = db.query(models.BoroscopeInspection).filter(models.BoroscopeInspection.id == log_id).first()
             if not inspection:
                 raise HTTPException(404, f"Borescope inspection not found (ID: {log_id})")
+            
+            # Create notification
+            create_notification(
+                db,
+                action_type="deleted",
+                entity_type="borescope",
+                entity_id=log_id,
+                message=f"Бороскопия: борт {inspection.aircraft}, двигатель {inspection.serial_number}, позиция {inspection.position or '-'}",
+                performed_by=deleted_by
+            )
+            
             db.delete(inspection)
             db.commit()
             return {"message": f"Borescope inspection deleted successfully (ID: {log_id})"}
@@ -1676,6 +1735,17 @@ def delete_history_record(action_type: str, log_id: int, db: Session = Depends(g
             order = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == log_id).first()
             if not order:
                 raise HTTPException(404, f"Purchase order not found (ID: {log_id})")
+            
+            # Create notification
+            create_notification(
+                db,
+                action_type="deleted",
+                entity_type="purchase_order",
+                entity_id=log_id,
+                message=f"Purchase Order '{order.name}' для борта {order.aircraft or '-'} (RO: {order.ro_number or '-'})",
+                performed_by=deleted_by
+            )
+            
             db.delete(order)
             db.commit()
             return {"message": f"Purchase order deleted successfully (ID: {log_id})"}
@@ -1684,6 +1754,17 @@ def delete_history_record(action_type: str, log_id: int, db: Session = Depends(g
             param = db.query(models.EngineParameterHistory).filter(models.EngineParameterHistory.id == log_id).first()
             if not param:
                 raise HTTPException(404, f"Engine parameter record not found (ID: {log_id})")
+            
+            # Create notification
+            create_notification(
+                db,
+                action_type="deleted",
+                entity_type="utilization_parameter",
+                entity_id=log_id,
+                message=f"Обычный параметры для самолета {param.aircraft} за период {param.date_from or param.date} - {param.date_to or param.date}",
+                performed_by=deleted_by
+            )
+            
             db.delete(param)
             db.commit()
             return {"message": f"Engine parameter record deleted successfully (ID: {log_id})"}
@@ -1758,6 +1839,21 @@ def delete_history_record(action_type: str, log_id: int, db: Session = Depends(g
                 if from_location:
                     engine.location_id = from_location.id
             # Примечание: Статус не меняем (остается как был)
+        
+        # Формируем сообщение для уведомления
+        engine_info = f" двигатель {log.engine.serial_number}" if log.engine else ""
+        aircraft_info = f" с борта {log.to_aircraft or log.from_location or '-'}" if action_type in ["INSTALL", "REMOVE", "SHIP"] else ""
+        message = f"{action_type}: {engine_info}{aircraft_info}"
+        
+        # Create notification перед удалением
+        create_notification(
+            db,
+            action_type="deleted",
+            entity_type="history_log",
+            entity_id=log_id,
+            message=message,
+            performed_by=deleted_by
+        )
         
         # Удаляем запись
         db.delete(log)
@@ -2977,7 +3073,7 @@ def get_parameter_history(engine_id: int = None, db: Session = Depends(get_db)):
                 "egt_cruise": h.egt_cruise
             })
         
-            return result
+        return result
     except Exception as e:
         print(f"❌ Error in get_parameter_history: {e}")
         return []
@@ -3106,6 +3202,243 @@ def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_d
         performed_by="User"
     )
     return {"status": "ok", "id": new_order.id}
+
+
+# --- SCHEDULED EVENTS API (Calendar) ---
+
+@app.get("/api/events")
+def get_all_events(db: Session = Depends(get_db)):
+    """Получить все запланированные события"""
+    try:
+        events = db.query(models.ScheduledEvent).order_by(models.ScheduledEvent.event_date.asc()).all()
+        result = []
+        for event in events:
+            result.append({
+                "id": event.id,
+                "event_date": event.event_date,
+                "event_time": event.event_time,
+                "event_type": event.event_type,
+                "title": event.title,
+                "description": event.description,
+                "engine_id": event.engine_id,
+                "serial_number": event.serial_number,
+                "location": event.location,
+                "from_location": event.from_location,
+                "to_location": event.to_location,
+                "status": event.status,
+                "priority": event.priority,
+                "color": event.color,
+                "created_by": event.created_by,
+                "created_at": event.created_at.isoformat() if event.created_at else None,
+                "updated_at": event.updated_at.isoformat() if event.updated_at else None
+            })
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_all_events: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+
+@app.get("/api/events/calendar/{year}/{month}")
+def get_events_by_month(year: int, month: int, db: Session = Depends(get_db)):
+    """Получить события за конкретный месяц (для календаря)"""
+    try:
+        # Формируем диапазон дат для месяца (YYYY-MM)
+        month_str = f"{year:04d}-{month:02d}"
+        
+        events = db.query(models.ScheduledEvent).filter(
+            models.ScheduledEvent.event_date.like(f"{month_str}%")
+        ).order_by(models.ScheduledEvent.event_date.asc()).all()
+        
+        result = []
+        for event in events:
+            result.append({
+                "id": event.id,
+                "event_date": event.event_date,
+                "event_time": event.event_time,
+                "event_type": event.event_type,
+                "title": event.title,
+                "description": event.description,
+                "engine_id": event.engine_id,
+                "serial_number": event.serial_number,
+                "location": event.location,
+                "from_location": event.from_location,
+                "to_location": event.to_location,
+                "status": event.status,
+                "priority": event.priority,
+                "color": event.color,
+                "created_by": event.created_by
+            })
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_events_by_month: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+
+@app.get("/api/events/{event_id}")
+def get_event_by_id(event_id: int, db: Session = Depends(get_db)):
+    """Получить детали конкретного события"""
+    try:
+        event = db.query(models.ScheduledEvent).filter(models.ScheduledEvent.id == event_id).first()
+        if not event:
+            raise HTTPException(404, f"Event not found (ID: {event_id})")
+        
+        return {
+            "id": event.id,
+            "event_date": event.event_date,
+            "event_time": event.event_time,
+            "event_type": event.event_type,
+            "title": event.title,
+            "description": event.description,
+            "engine_id": event.engine_id,
+            "serial_number": event.serial_number,
+            "location": event.location,
+            "from_location": event.from_location,
+            "to_location": event.to_location,
+            "status": event.status,
+            "priority": event.priority,
+            "color": event.color,
+            "created_by": event.created_by,
+            "created_at": event.created_at.isoformat() if event.created_at else None,
+            "updated_at": event.updated_at.isoformat() if event.updated_at else None
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in get_event_by_id: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Failed to get event: {str(e)}")
+
+
+@app.post("/api/events")
+def create_event(data: ScheduledEventSchema, db: Session = Depends(get_db)):
+    """Создать новое событие в календаре"""
+    try:
+        new_event = models.ScheduledEvent(
+            event_date=data.event_date,
+            event_time=data.event_time,
+            event_type=data.event_type,
+            title=data.title,
+            description=data.description,
+            engine_id=data.engine_id,
+            serial_number=data.serial_number,
+            location=data.location,
+            from_location=data.from_location,
+            to_location=data.to_location,
+            status=data.status or "PLANNED",
+            priority=data.priority or "MEDIUM",
+            color=data.color or "#3788d8",
+            created_by=data.created_by
+        )
+        db.add(new_event)
+        db.commit()
+        db.refresh(new_event)
+        
+        # Log notification with details
+        location_info = f" в {data.location}" if data.location else ""
+        engine_info = f" (S/N: {data.serial_number})" if data.serial_number else ""
+        create_notification(
+            db,
+            action_type="created",
+            entity_type="scheduled_event",
+            entity_id=new_event.id,
+            message=f"📅 Событие '{data.title}' запланировано на {data.event_date}{location_info}{engine_info} ({data.event_type})",
+            performed_by=data.created_by or "User"
+        )
+        
+        return {"status": "ok", "id": new_event.id}
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error in create_event: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Failed to create event: {str(e)}")
+
+
+@app.put("/api/events/{event_id}")
+def update_event(event_id: int, data: ScheduledEventSchema, db: Session = Depends(get_db)):
+    """Обновить существующее событие"""
+    try:
+        event = db.query(models.ScheduledEvent).filter(models.ScheduledEvent.id == event_id).first()
+        if not event:
+            raise HTTPException(404, f"Event not found (ID: {event_id})")
+        
+        # Обновляем поля
+        event.event_date = data.event_date
+        event.event_time = data.event_time
+        event.event_type = data.event_type
+        event.title = data.title
+        event.description = data.description
+        event.engine_id = data.engine_id
+        event.serial_number = data.serial_number
+        event.location = data.location
+        event.from_location = data.from_location
+        event.to_location = data.to_location
+        event.status = data.status or event.status
+        event.priority = data.priority or event.priority
+        event.color = data.color or event.color
+        
+        db.commit()
+        
+        # Log notification with status
+        status_info = f" [Статус: {data.status}]" if data.status != "PLANNED" else ""
+        create_notification(
+            db,
+            action_type="updated",
+            entity_type="scheduled_event",
+            entity_id=event.id,
+            message=f"📅 Событие '{data.title}' обновлено ({data.event_date}){status_info}",
+            performed_by=data.created_by or "User"
+        )
+        
+        return {"status": "ok", "id": event.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error in update_event: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Failed to update event: {str(e)}")
+
+
+@app.delete("/api/events/{event_id}")
+def delete_event(event_id: int, deleted_by: str = Query("User"), db: Session = Depends(get_db)):
+    """Удалить событие из календаря"""
+    try:
+        event = db.query(models.ScheduledEvent).filter(models.ScheduledEvent.id == event_id).first()
+        if not event:
+            raise HTTPException(404, f"Event not found (ID: {event_id})")
+        
+        event_title = event.title
+        event_date = event.event_date
+        
+        # Create notification before deletion
+        create_notification(
+            db,
+            action_type="deleted",
+            entity_type="scheduled_event",
+            entity_id=event_id,
+            message=f"📅 Событие '{event_title}' удалено (было запланировано на {event_date})",
+            performed_by=deleted_by
+        )
+        
+        db.delete(event)
+        db.commit()
+        
+        return {"message": f"Event '{event_title}' deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error in delete_event: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Failed to delete event: {str(e)}")
 
 
 # --- CUSTOM COLUMNS API ---
@@ -3339,7 +3672,7 @@ def get_history(action_type: str, db: Session = Depends(get_db)):
             "date": l.date.strftime("%Y-%m-%d"),
             "original_sn": orig_sn,
             "current_sn": curr_sn,
-            "from": l.from_location or l.from_aircraft or "-",
+            "from": l.from_location or "-",
             "to": l.to_location or l.to_aircraft or "-",
             "tt": l.snapshot_tt,
             "tc": l.snapshot_tc,
@@ -4385,3 +4718,519 @@ def execute_nameplate_action(data: dict, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ============================================================
+# LOGISTICS & SCHEDULES API ENDPOINTS
+# ============================================================
+
+@app.get("/api/schedules")
+def get_all_schedules(
+    shipment_type: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Get all shipments with optional filtering"""
+    try:
+        query = db.query(models.Shipment)
+        
+        if shipment_type and shipment_type != 'ALL':
+            query = query.filter(models.Shipment.shipment_type == shipment_type)
+        
+        if status and status != 'ALL':
+            query = query.filter(models.Shipment.status == status)
+        
+        shipments = query.order_by(models.Shipment.expected_delivery_date.desc()).all()
+        
+        result = []
+        for s in shipments:
+            result.append({
+                "id": s.id,
+                "shipment_type": s.shipment_type,
+                "status": s.status,
+                "engine_id": s.engine_id,
+                "destination_location": s.destination_location,
+                "part_name": s.part_name,
+                "part_category": s.part_category,
+                "part_quantity": s.part_quantity,
+                "reserved_quantity": s.reserved_quantity,
+                "departure_date": s.departure_date.isoformat() if s.departure_date else None,
+                "expected_delivery_date": s.expected_delivery_date.isoformat() if s.expected_delivery_date else None,
+                "actual_delivery_date": s.actual_delivery_date.isoformat() if s.actual_delivery_date else None,
+                "supplier_name": s.supplier_name,
+                "tracking_number": s.tracking_number,
+                "notes": s.notes,
+                "created_by": s.created_by,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+                "updated_by": s.updated_by,
+                "updated_at": s.updated_at.isoformat() if s.updated_at else None
+            })
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_all_schedules: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Failed to fetch schedules: {str(e)}")
+
+
+@app.get("/api/schedules/stats")
+def get_schedule_stats(db: Session = Depends(get_db)):
+    """Get schedule statistics for dashboard"""
+    try:
+        from datetime import datetime, timedelta
+        
+        # On order (PLANNED)
+        on_order = db.query(models.Shipment).filter(
+            models.Shipment.status == "PLANNED"
+        ).count()
+        
+        # In transit
+        in_transit = db.query(models.Shipment).filter(
+            models.Shipment.status == "IN_TRANSIT"
+        ).count()
+        
+        # Arriving soon (next 7 days)
+        now = datetime.utcnow()
+        next_week = now + timedelta(days=7)
+        
+        # Use separate conditions to handle potential type issues
+        arriving_soon_query = db.query(models.Shipment).filter(
+            models.Shipment.status.in_(["PLANNED", "IN_TRANSIT"])
+        ).all()
+        
+        arriving_soon = 0
+        for s in arriving_soon_query:
+            if s.expected_delivery_date:
+                try:
+                    if isinstance(s.expected_delivery_date, str):
+                        exp_dt = datetime.fromisoformat(s.expected_delivery_date)
+                    else:
+                        exp_dt = s.expected_delivery_date
+                    if now <= exp_dt <= next_week:
+                        arriving_soon += 1
+                except:
+                    pass
+        
+        # Total active
+        total_active = db.query(models.Shipment).filter(
+            ~models.Shipment.status.in_(["DELIVERED", "CANCELLED"])
+        ).count()
+        
+        # Pending deliveries
+        pending = db.query(models.Shipment).filter(
+            models.Shipment.status.in_(["PLANNED", "IN_TRANSIT", "DELAYED"])
+        ).count()
+        
+        # Completed this month
+        start_of_month = datetime(now.year, now.month, 1)
+        completed_month_query = db.query(models.Shipment).filter(
+            models.Shipment.status == "DELIVERED"
+        ).all()
+        
+        completed_month = 0
+        for s in completed_month_query:
+            if s.actual_delivery_date:
+                try:
+                    if isinstance(s.actual_delivery_date, str):
+                        del_dt = datetime.fromisoformat(s.actual_delivery_date)
+                    else:
+                        del_dt = s.actual_delivery_date
+                    if del_dt >= start_of_month:
+                        completed_month += 1
+                except:
+                    pass
+        
+        print(f"✅ Schedule stats: on_order={on_order}, in_transit={in_transit}, arriving_soon={arriving_soon}")
+        
+        return {
+            "on_order": on_order,
+            "in_transit": in_transit,
+            "arriving_soon": arriving_soon,
+            "total_active": total_active,
+            "pending": pending,
+            "completed_month": completed_month
+        }
+    except Exception as e:
+        print(f"❌ Error in get_schedule_stats: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "on_order": 0,
+            "in_transit": 0,
+            "arriving_soon": 0,
+            "total_active": 0,
+            "pending": 0,
+            "completed_month": 0
+        }
+
+
+@app.get("/api/schedules/{shipment_id}")
+def get_schedule_by_id(shipment_id: int, db: Session = Depends(get_db)):
+    """Get single shipment by ID"""
+    try:
+        s = db.query(models.Shipment).filter(models.Shipment.id == shipment_id).first()
+        if not s:
+            raise HTTPException(404, f"Shipment not found (ID: {shipment_id})")
+        
+        return {
+            "id": s.id,
+            "shipment_type": s.shipment_type,
+            "status": s.status,
+            "engine_id": s.engine_id,
+            "destination_location": s.destination_location,
+            "part_name": s.part_name,
+            "part_category": s.part_category,
+            "part_quantity": s.part_quantity,
+            "reserved_quantity": s.reserved_quantity,
+            "departure_date": s.departure_date.isoformat() if s.departure_date else None,
+            "expected_delivery_date": s.expected_delivery_date.isoformat() if s.expected_delivery_date else None,
+            "actual_delivery_date": s.actual_delivery_date.isoformat() if s.actual_delivery_date else None,
+            "supplier_name": s.supplier_name,
+            "tracking_number": s.tracking_number,
+            "notes": s.notes,
+            "created_by": s.created_by,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "updated_by": s.updated_by,
+            "updated_at": s.updated_at.isoformat() if s.updated_at else None
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in get_schedule_by_id: {e}")
+        raise HTTPException(500, f"Failed to fetch shipment: {str(e)}")
+
+
+@app.post("/api/schedules")
+def create_schedule(data: LogisticsShipmentSchema, db: Session = Depends(get_db)):
+    """Create new shipment and auto-create calendar event"""
+    try:
+        # Parse dates
+        departure = datetime.fromisoformat(data.departure_date) if data.departure_date else None
+        expected = datetime.fromisoformat(data.expected_delivery_date)
+        
+        # Create shipment
+        shipment = models.Shipment(
+            shipment_type=data.shipment_type,
+            status=data.status or "PLANNED",
+            engine_id=data.engine_id,
+            destination_location=data.destination_location,
+            part_name=data.part_name,
+            part_category=data.part_category,
+            part_quantity=data.part_quantity,
+            reserved_quantity=data.reserved_quantity or 0,
+            departure_date=departure,
+            expected_delivery_date=expected,
+            supplier_name=data.supplier_name,
+            tracking_number=data.tracking_number,
+            notes=data.notes,
+            created_by=data.created_by or "User"
+        )
+        db.add(shipment)
+        db.flush()  # Get ID before commit
+        
+        # Auto-create calendar event
+        if data.shipment_type == "ENGINE":
+            engine = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
+            event_title = f"🛫 Engine {engine.serial_number if engine else 'Unknown'} Expected Arrival"
+            event_desc = f"Supplier: {data.supplier_name}, Destination: {data.destination_location}"
+        else:  # PARTS
+            event_title = f"📦 Parts: {data.part_quantity}x {data.part_name} Expected"
+            event_desc = f"Supplier: {data.supplier_name}, Category: {data.part_category}"
+        
+        calendar_event = models.ScheduledEvent(
+            event_date=expected.strftime("%Y-%m-%d"),
+            event_time=expected.strftime("%H:%M"),
+            event_type="SHIPMENT",
+            title=event_title,
+            description=event_desc,
+            status="PLANNED",
+            priority="MEDIUM",
+            color="#667eea" if data.shipment_type == "ENGINE" else "#9f7aea",
+            created_by=data.created_by or "User"
+        )
+        db.add(calendar_event)
+        
+        # Create notification
+        create_notification(
+            db,
+            action_type="created",
+            entity_type="shipment",
+            entity_id=shipment.id,
+            message=f"📦 Shipment #{shipment.id} created: {event_title}",
+            performed_by=data.created_by or "User"
+        )
+        
+        db.commit()
+        db.refresh(shipment)
+        
+        return {
+            "id": shipment.id,
+            "message": f"Shipment created successfully (ID: {shipment.id})",
+            "calendar_event_created": True
+        }
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error in create_schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Failed to create shipment: {str(e)}")
+
+
+@app.put("/api/schedules/{shipment_id}")
+def update_schedule(shipment_id: int, data: dict, db: Session = Depends(get_db)):
+    """Update shipment and trigger cascading updates on DELIVERED status"""
+    try:
+        shipment = db.query(models.Shipment).filter(models.Shipment.id == shipment_id).first()
+        if not shipment:
+            raise HTTPException(404, f"Shipment not found (ID: {shipment_id})")
+        
+        old_status = shipment.status
+        new_status = data.get("status", shipment.status)
+        
+        # Update shipment fields
+        if "status" in data:
+            shipment.status = data["status"]
+        if "departure_date" in data and data["departure_date"]:
+            shipment.departure_date = datetime.fromisoformat(data["departure_date"])
+        if "expected_delivery_date" in data and data["expected_delivery_date"]:
+            shipment.expected_delivery_date = datetime.fromisoformat(data["expected_delivery_date"])
+        if "actual_delivery_date" in data and data["actual_delivery_date"]:
+            shipment.actual_delivery_date = datetime.fromisoformat(data["actual_delivery_date"])
+        if "supplier_name" in data:
+            shipment.supplier_name = data["supplier_name"]
+        if "tracking_number" in data:
+            shipment.tracking_number = data["tracking_number"]
+        if "notes" in data:
+            shipment.notes = data["notes"]
+        if "updated_by" in data:
+            shipment.updated_by = data["updated_by"]
+        
+        # CASCADE LOGIC: DELIVERED status
+        if new_status == "DELIVERED" and old_status != "DELIVERED":
+            if shipment.shipment_type == "ENGINE" and shipment.engine_id:
+                # Update engine location to "On Stock"
+                engine = db.query(models.Engine).filter(models.Engine.id == shipment.engine_id).first()
+                if engine:
+                    # Find or create "On Stock" location
+                    on_stock_loc = db.query(models.Location).filter(models.Location.name == "On Stock").first()
+                    if not on_stock_loc:
+                        on_stock_loc = models.Location(name="On Stock", city="Warehouse")
+                        db.add(on_stock_loc)
+                        db.flush()
+                    
+                    engine.location_id = on_stock_loc.id
+                    
+                    # Create notification
+                    create_notification(
+                        db,
+                        action_type="received",
+                        entity_type="engine",
+                        entity_id=engine.id,
+                        message=f"🛬 Engine {engine.serial_number} RECEIVED - Location updated to On Stock",
+                        performed_by=data.get("updated_by", "User")
+                    )
+            
+            elif shipment.shipment_type == "PARTS":
+                # Create store_items entry (auto-inventory)
+                if shipment.part_name and shipment.part_quantity:
+                    # Use only valid StoreItem fields
+                    store_item = models.StoreItem(
+                        part_name=shipment.part_name,
+                        part_number=f"AUTO-{shipment.id}",
+                        serial_number=None,
+                        condition=shipment.part_category or None,
+                        quantity=shipment.part_quantity,
+                        unit=None,
+                        location=shipment.destination_location or None,
+                        shelf=None,
+                        owner=shipment.supplier_name or "Unknown",
+                        remarks=(
+                            f"Auto-created from shipment #{shipment.id}; "
+                            f"category={shipment.part_category or 'N/A'}; "
+                            f"tracking={shipment.tracking_number or 'N/A'}"
+                        ),
+                        received_date=shipment.actual_delivery_date or datetime.utcnow()
+                    )
+                    db.add(store_item)
+                    
+                    # Clear reserved_quantity
+                    shipment.reserved_quantity = 0
+                    
+                    # Create notification
+                    create_notification(
+                        db,
+                        action_type="received",
+                        entity_type="parts",
+                        entity_id=store_item.id,
+                        message=f"📦 {shipment.part_quantity}x {shipment.part_name} RECEIVED - Added to inventory",
+                        performed_by=data.get("updated_by", "User")
+                    )
+            
+            # Update calendar event to COMPLETED
+            calendar_events = db.query(models.ScheduledEvent).filter(
+                models.ScheduledEvent.event_type == "SHIPMENT",
+                models.ScheduledEvent.title.like(f"%{shipment.id}%")
+            ).all()
+            for event in calendar_events:
+                event.status = "COMPLETED"
+        
+        # Notification for status change
+        if old_status != new_status:
+            create_notification(
+                db,
+                action_type="updated",
+                entity_type="shipment",
+                entity_id=shipment.id,
+                message=f"📦 Shipment #{shipment.id} status changed: {old_status} → {new_status}",
+                performed_by=data.get("updated_by", "User")
+            )
+        
+        db.commit()
+        db.refresh(shipment)
+        
+        return {"message": f"Shipment #{shipment.id} updated successfully"}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error in update_schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Failed to update shipment: {str(e)}")
+
+
+@app.delete("/api/schedules/{shipment_id}")
+def delete_schedule(shipment_id: int, deleted_by: str = Query("User"), db: Session = Depends(get_db)):
+    """Delete shipment and clear reserved quantities"""
+    try:
+        shipment = db.query(models.Shipment).filter(models.Shipment.id == shipment_id).first()
+        if not shipment:
+            raise HTTPException(404, f"Shipment not found (ID: {shipment_id})")
+        
+        shipment_type = shipment.shipment_type
+        shipment_info = f"{shipment.part_name}" if shipment_type == "PARTS" else f"Engine ID {shipment.engine_id}"
+        
+        # Delete related calendar events
+        calendar_events = db.query(models.ScheduledEvent).filter(
+            models.ScheduledEvent.event_type == "SHIPMENT",
+            models.ScheduledEvent.title.like(f"%{shipment.id}%")
+        ).all()
+        for event in calendar_events:
+            db.delete(event)
+        
+        # Create notification
+        create_notification(
+            db,
+            action_type="deleted",
+            entity_type="shipment",
+            entity_id=shipment_id,
+            message=f"📦 Shipment #{shipment_id} ({shipment_info}) deleted",
+            performed_by=deleted_by
+        )
+        
+        db.delete(shipment)
+        db.commit()
+        
+        return {"message": f"Shipment #{shipment_id} deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error in delete_schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Failed to delete shipment: {str(e)}")
+
+
+@app.get("/api/schedules/calendar/{year}/{month}")
+def get_schedules_calendar(year: int, month: int, db: Session = Depends(get_db)):
+    """Get shipments for calendar display"""
+    try:
+        # Get all shipments in this month
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+        
+        shipments = db.query(models.Shipment).filter(
+            models.Shipment.expected_delivery_date >= start_date,
+            models.Shipment.expected_delivery_date < end_date
+        ).all()
+        
+        events = []
+        for s in shipments:
+            events.append({
+                "id": s.id,
+                "date": s.expected_delivery_date.strftime("%Y-%m-%d"),
+                "type": s.shipment_type,
+                "status": s.status,
+                "title": f"{s.part_name if s.shipment_type == 'PARTS' else 'Engine'} - {s.supplier_name}",
+                "supplier": s.supplier_name,
+                "tracking": s.tracking_number
+            })
+        
+        return events
+    except Exception as e:
+        print(f"❌ Error in get_schedules_calendar: {e}")
+        raise HTTPException(500, f"Failed to fetch calendar data: {str(e)}")
+
+
+# ============================================================
+# STATISTICS ENDPOINTS FOR DASHBOARD
+# ============================================================
+
+@app.get("/api/store/balance")
+def get_store_balance(db: Session = Depends(get_db)):
+    """Get store balance statistics"""
+    try:
+        total = db.query(models.StoreItem).count()
+        
+        return {"total": total}
+    except Exception as e:
+        print(f"❌ Error in get_store_balance: {e}")
+        return {"total": 0}
+
+
+@app.get("/api/logistics/movements")
+def get_logistics_movements(db: Session = Depends(get_db)):
+    """Get logistics and movements statistics"""
+    try:
+        # Engines in transit
+        engines_transit = db.query(models.Shipment).filter(
+            models.Shipment.shipment_type == "ENGINE",
+            models.Shipment.status == "IN_TRANSIT"
+        ).count()
+        
+        # Parts shipments
+        parts_transit = db.query(models.Shipment).filter(
+            models.Shipment.shipment_type == "PARTS",
+            models.Shipment.status == "IN_TRANSIT"
+        ).count()
+        
+        # Location changes (last 24 hours)
+        yesterday = datetime.utcnow() - timedelta(days=1)
+        location_changes = db.query(models.ActionLog).filter(
+            models.ActionLog.action_type == "SHIP",
+            models.ActionLog.created_at >= yesterday
+        ).count()
+        
+        total = engines_transit + parts_transit + location_changes
+        
+        return {
+            "engines_transit": engines_transit,
+            "parts_transit": parts_transit,
+            "location_changes": location_changes,
+            "total": total
+        }
+    except Exception as e:
+        print(f"❌ Error in get_logistics_movements: {e}")
+        return {
+            "engines_transit": 0,
+            "parts_transit": 0,
+            "location_changes": 0,
+            "total": 0
+        }
+

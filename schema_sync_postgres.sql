@@ -85,6 +85,27 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Scheduled Events table (Calendar)
+CREATE TABLE IF NOT EXISTS scheduled_events (
+    id SERIAL PRIMARY KEY,
+    event_date VARCHAR NOT NULL,
+    event_time VARCHAR,
+    event_type VARCHAR NOT NULL,
+    title VARCHAR NOT NULL,
+    description TEXT,
+    engine_id INTEGER REFERENCES engines(id),
+    serial_number VARCHAR,
+    location VARCHAR,
+    from_location VARCHAR,
+    to_location VARCHAR,
+    status VARCHAR DEFAULT 'PLANNED',
+    priority VARCHAR DEFAULT 'MEDIUM',
+    color VARCHAR DEFAULT '#3788d8',
+    created_by VARCHAR,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Custom columns (ensure exists)
 CREATE TABLE IF NOT EXISTS custom_columns (
     id SERIAL PRIMARY KEY,
@@ -113,4 +134,47 @@ CREATE INDEX IF NOT EXISTS idx_borescope_serial ON borescope_inspections(serial_
 CREATE INDEX IF NOT EXISTS idx_borescope_date ON borescope_inspections(date);
 CREATE INDEX IF NOT EXISTS idx_purchase_order_date ON purchase_orders(date);
 CREATE INDEX IF NOT EXISTS idx_purchase_order_serial ON purchase_orders(serial_number);
+CREATE INDEX IF NOT EXISTS idx_scheduled_events_date ON scheduled_events(event_date);
+CREATE INDEX IF NOT EXISTS idx_scheduled_events_type ON scheduled_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_scheduled_events_status ON scheduled_events(status);
+
+-- Shipments table (Logistics & Schedules Tracking)
+CREATE TABLE IF NOT EXISTS shipments (
+    id SERIAL PRIMARY KEY,
+    shipment_type VARCHAR(50) NOT NULL,  -- ENGINE, PARTS
+    status VARCHAR(50) DEFAULT 'PLANNED',  -- PLANNED, IN_TRANSIT, DELIVERED, DELAYED, CANCELLED
+    
+    -- For ENGINE type
+    engine_id INTEGER REFERENCES engines(id),
+    destination_location VARCHAR(255),
+    
+    -- For PARTS type
+    part_name VARCHAR(255),
+    part_category VARCHAR(100),
+    part_quantity INTEGER,
+    reserved_quantity INTEGER DEFAULT 0,
+    
+    -- Shipping and delivery
+    departure_date TIMESTAMPTZ,
+    expected_delivery_date TIMESTAMPTZ NOT NULL,
+    actual_delivery_date TIMESTAMPTZ,
+    
+    -- Tracking
+    supplier_name VARCHAR(255),
+    tracking_number VARCHAR(255),
+    notes TEXT,
+    
+    -- User and timestamps
+    created_by VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_by VARCHAR(255),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indices for shipments performance
+CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);
+CREATE INDEX IF NOT EXISTS idx_shipments_type ON shipments(shipment_type);
+CREATE INDEX IF NOT EXISTS idx_shipments_delivery_date ON shipments(expected_delivery_date);
+CREATE INDEX IF NOT EXISTS idx_shipments_engine_id ON shipments(engine_id);
+
 
