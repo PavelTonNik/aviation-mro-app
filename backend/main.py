@@ -33,10 +33,33 @@ def startup_event():
     if not database.IS_SQLITE:
         try:
             print("🔄 Running PostgreSQL schema sync...")
-            from .schema_sync import main as sync_schema
-            sync_schema()
+            import pathlib
+            import psycopg2
+            
+            sql_file = pathlib.Path(__file__).resolve().parent.parent / "schema_sync_postgres.sql"
+            if sql_file.exists():
+                sql = sql_file.read_text(encoding="utf-8")
+                
+                # Get DATABASE_URL and fix format
+                db_url = database.DATABASE_URL
+                
+                # Connect and execute
+                conn = psycopg2.connect(db_url)
+                try:
+                    cur = conn.cursor()
+                    cur.execute(sql)
+                    conn.commit()
+                    cur.close()
+                    print("✅ PostgreSQL schema synced successfully")
+                except Exception as inner_e:
+                    conn.rollback()
+                    print(f"⚠️  Schema sync error: {inner_e}")
+                finally:
+                    conn.close()
+            else:
+                print(f"⚠️  Schema file not found: {sql_file}")
         except Exception as e:
-            print(f"⚠️  Schema sync failed (continuing anyway): {e}")
+            print(f"⚠️  Schema sync failed: {e}")
     
     ensure_sqlite_column("aircrafts", "initial_total_time FLOAT DEFAULT 0")
     ensure_sqlite_column("aircrafts", "initial_total_cycles INTEGER DEFAULT 0")
