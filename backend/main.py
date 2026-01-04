@@ -20,7 +20,9 @@ except ImportError:  # fallback when running as a standalone script
 
 # Создаем таблицы в БД (если их нет)
 try:
+    print("📋 Creating database tables...")
     models.Base.metadata.create_all(bind=database.engine)
+    print("✅ Database tables created/verified")
 except Exception as e:
     print(f"⚠️ Warning: Could not create tables: {e}")
 
@@ -29,7 +31,15 @@ app = FastAPI(title="Aviation MRO System")
 
 @app.on_event("startup")
 def startup_event():
-    # Run PostgreSQL schema migrations if needed
+    # Ensure all tables exist first (from models.py)
+    try:
+        print("🔍 Verifying database schema...")
+        models.Base.metadata.create_all(bind=database.engine)
+        print("✅ Schema verification complete")
+    except Exception as e:
+        print(f"⚠️ Schema verification warning: {e}")
+    
+    # Run PostgreSQL schema migrations if needed (for additional columns/tables)
     if not database.IS_SQLITE:
         try:
             print("🔄 Running PostgreSQL schema sync...")
@@ -53,13 +63,13 @@ def startup_event():
                     print("✅ PostgreSQL schema synced successfully")
                 except Exception as inner_e:
                     conn.rollback()
-                    print(f"⚠️  Schema sync error: {inner_e}")
+                    print(f"⚠️  Schema sync error (non-critical): {inner_e}")
                 finally:
                     conn.close()
             else:
-                print(f"⚠️  Schema file not found: {sql_file}")
+                print(f"ℹ️  No schema sync file found (using models.py only)")
         except Exception as e:
-            print(f"⚠️  Schema sync failed: {e}")
+            print(f"⚠️  Schema sync skipped: {e}")
     
     ensure_sqlite_column("aircrafts", "initial_total_time FLOAT DEFAULT 0")
     ensure_sqlite_column("aircrafts", "initial_total_cycles INTEGER DEFAULT 0")
