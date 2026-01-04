@@ -29,6 +29,15 @@ app = FastAPI(title="Aviation MRO System")
 
 @app.on_event("startup")
 def startup_event():
+    # Run PostgreSQL schema migrations if needed
+    if not database.IS_SQLITE:
+        try:
+            print("🔄 Running PostgreSQL schema sync...")
+            from .schema_sync import main as sync_schema
+            sync_schema()
+        except Exception as e:
+            print(f"⚠️  Schema sync failed (continuing anyway): {e}")
+    
     ensure_sqlite_column("aircrafts", "initial_total_time FLOAT DEFAULT 0")
     ensure_sqlite_column("aircrafts", "initial_total_cycles INTEGER DEFAULT 0")
     ensure_sqlite_column("aircrafts", "last_atlb_ref TEXT")
