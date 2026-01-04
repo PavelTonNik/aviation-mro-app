@@ -65,6 +65,41 @@ def startup_event():
                         ) THEN
                             ALTER TABLE engines ADD COLUMN price DOUBLE PRECISION;
                         END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='action_logs' AND column_name='ttsn'
+                        ) THEN
+                            ALTER TABLE action_logs ADD COLUMN ttsn DOUBLE PRECISION;
+                        END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='action_logs' AND column_name='tcsn'
+                        ) THEN
+                            ALTER TABLE action_logs ADD COLUMN tcsn INTEGER;
+                        END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='action_logs' AND column_name='ttsn_ac'
+                        ) THEN
+                            ALTER TABLE action_logs ADD COLUMN ttsn_ac DOUBLE PRECISION;
+                        END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='action_logs' AND column_name='tcsn_ac'
+                        ) THEN
+                            ALTER TABLE action_logs ADD COLUMN tcsn_ac INTEGER;
+                        END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='action_logs' AND column_name='remarks_removal'
+                        ) THEN
+                            ALTER TABLE action_logs ADD COLUMN remarks_removal TEXT;
+                        END IF;
                     END $$;
                 """))
                 db.commit()
@@ -104,6 +139,11 @@ def startup_event():
     ensure_sqlite_column("purchase_orders", "serial_number TEXT")
     ensure_sqlite_column("purchase_orders", "price FLOAT DEFAULT 0")
     ensure_sqlite_column("action_logs", "performed_by TEXT")
+    ensure_sqlite_column("action_logs", "ttsn FLOAT")
+    ensure_sqlite_column("action_logs", "tcsn INTEGER")
+    ensure_sqlite_column("action_logs", "ttsn_ac FLOAT")
+    ensure_sqlite_column("action_logs", "tcsn_ac INTEGER")
+    ensure_sqlite_column("action_logs", "remarks_removal TEXT")
 
     # Открываем сессию базы данных
     db = database.SessionLocal()

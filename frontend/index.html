@@ -9851,7 +9851,7 @@ function restoreView(viewName) {
                 return;
             }
             
-            const found = engines.find(e => e.original_sn === val);
+            const found = engines.find(e => e.original_sn === val || e.current_sn === val);
             
             if(!found) {
                 showErrorNotification(`❌ Engine "${val}" not found in INSTALLED engines list. Please check the serial number or add the engine first.`);
