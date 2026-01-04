@@ -27,7 +27,16 @@ except Exception as e:
     print(f"⚠️ Warning: Could not create tables: {e}")
 
 app = FastAPI(title="Aviation MRO System")
-# --- ВСТАВИТЬ ЭТО В backend/main.py ПОСЛЕ app = FastAPI(...) ---
+
+# CORS Configuration
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 def startup_event():
