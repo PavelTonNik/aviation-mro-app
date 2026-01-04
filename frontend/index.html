@@ -10369,7 +10369,8 @@ function restoreView(viewName) {
                     const locationId = td.getAttribute('data-location-id') || '';
                     inputHTML = `<select class="editing-input location-select" data-location-id="${locationId}"></select>`;
                 } else if (key === 'moved') {
-                    inputHTML = `<input type="text" class="editing-input" value="${rowData.location}" readonly>`;
+                    const currentText = td.innerText;
+                    inputHTML = `<input type="text" class="editing-input" value="${currentText}">`;
                 } else if (key === 'removed') {
                     inputHTML = `<input type="text" class="editing-input" value="${rowData.removedFrom}">`;
                 } else if (key === 'rem') {
