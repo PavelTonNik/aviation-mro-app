@@ -3506,9 +3506,38 @@
                                         </div>
 
                                         <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold">TTSN (Engine) <span class="text-danger">*</span></label>
+                                                <input type="number" step="0.1" class="form-control" id="rem-ttsn" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold">TCSN (Engine) <span class="text-danger">*</span></label>
+                                                <input type="number" class="form-control" id="rem-tcsn" required>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold">TTSN (Aircraft)</label>
+                                                <input type="number" step="0.1" class="form-control" id="rem-ttsn-ac">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold">TCSN (Aircraft)</label>
+                                                <input type="number" class="form-control" id="rem-tcsn-ac">
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
                                             <div class="col-md-12">
                                                 <label class="form-label small fw-bold">Reason</label>
                                                 <input type="text" class="form-control" id="rem-reason" placeholder="e.g. End of Lease, Repair...">
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-12">
+                                                <label class="form-label small fw-bold">Remarks</label>
+                                                <textarea class="form-control" id="rem-remarks" rows="3"></textarea>
                                             </div>
                                         </div>
 
@@ -5294,7 +5323,7 @@
                                                 </div>
                                             </th>
                                             <th>Date</th><th>Model</th><th>Current SN</th><th>Orig. ESN</th><th>GSS ID</th><th>Price</th><th>Status</th>
-                                            <th>TT</th><th>TC</th><th>Moved From</th><th>Removed From</th>
+                                            <th>TT</th><th>TC</th><th>Current Location</th><th>Moved From</th><th>Removed From</th>
                                             <th>Remarks</th><th>Links/Photo</th>
                                         </tr>
                                     </thead>
@@ -9728,10 +9757,15 @@ function restoreView(viewName) {
         
         allData.forEach(row => {
             const isTest = row.isTest ? 'table-warning' : '';
+            const ttsnText = row.ttsn !== null && row.ttsn !== undefined ? `${row.ttsn}` : '-';
+            const tcsnText = row.tcsn !== null && row.tcsn !== undefined ? `${row.tcsn}` : '-';
+            const ttsnAcText = row.ttsn_ac !== null && row.ttsn_ac !== undefined ? `${row.ttsn_ac}` : '-';
+            const tcsnAcText = row.tcsn_ac !== null && row.tcsn_ac !== undefined ? `${row.tcsn_ac}` : '-';
+            const remarksRemovalText = row.remarks_removal ? `${row.remarks_removal}` : '-';
             tbody.innerHTML += `
-                <tr class="${isTest}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
+                <tr class="${isTest}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}" onclick="toggleRemovalDetails(this)" style="cursor: pointer;">
                     <td class="delete-col-remove" style="display: none;">
-                        <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('REMOVE', ${row.id || 0}, '${row.current_sn || row.original_sn}')" title="Delete">
+                        <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('REMOVE', ${row.id || 0}, '${row.current_sn || row.original_sn}'); event.stopPropagation();" title="Delete">
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
@@ -9740,8 +9774,28 @@ function restoreView(viewName) {
                     <td>${row.from}</td>
                     <td><span class="badge bg-success">${row.to}</span></td>
                     <td>${row.remarks||'-'}</td>
+                </tr>
+                <tr class="removal-details-row" style="display: none;">
+                    <td colspan="6" class="bg-light p-3">
+                        <div class="row">
+                            <div class="col-md-3"><strong>TTSN (Engine):</strong> ${ttsnText}</div>
+                            <div class="col-md-3"><strong>TCSN (Engine):</strong> ${tcsnText}</div>
+                            <div class="col-md-3"><strong>TTSN (AC):</strong> ${ttsnAcText}</div>
+                            <div class="col-md-3"><strong>TCSN (AC):</strong> ${tcsnAcText}</div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-12"><strong>Remarks:</strong> ${remarksRemovalText}</div>
+                        </div>
+                    </td>
                 </tr>`;
         });
+    }
+
+    function toggleRemovalDetails(row) {
+        const detailsRow = row.nextElementSibling;
+        if (detailsRow && detailsRow.classList.contains('removal-details-row')) {
+            detailsRow.style.display = detailsRow.style.display === 'none' ? 'table-row' : 'none';
+        }
     }
 
     async function prepareRemoveForm() {
@@ -9901,7 +9955,12 @@ function restoreView(viewName) {
             date: date,
             engine_id: parseInt(engId),
             to_location_id: parseInt(destId),
-            reason: document.getElementById('rem-reason').value
+            reason: document.getElementById('rem-reason').value,
+            ttsn: parseFloat(document.getElementById('rem-ttsn').value) || null,
+            tcsn: parseInt(document.getElementById('rem-tcsn').value) || null,
+            ttsn_ac: parseFloat(document.getElementById('rem-ttsn-ac').value) || null,
+            tcsn_ac: parseInt(document.getElementById('rem-tcsn-ac').value) || null,
+            remarks: document.getElementById('rem-remarks').value
         };
 
         try {
@@ -10112,7 +10171,7 @@ function restoreView(viewName) {
     
     async function loadMainTable() {
         const tb = document.getElementById('main-engine-body');
-        tb.innerHTML = '<tr><td colspan="14" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
+        tb.innerHTML = '<tr><td colspan="15" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
         
         try {
             console.log('Fetching engines from API...');
@@ -10149,7 +10208,7 @@ function restoreView(viewName) {
             renderEngineTable(filteredEngines);
         } catch(e) {
             console.error('Loading error двигателей:', e);
-            tb.innerHTML = '<tr><td colspan="14" class="text-center text-danger">Error loading engines: ' + e.message + '</td></tr>';
+            tb.innerHTML = '<tr><td colspan="15" class="text-center text-danger">Error loading engines: ' + e.message + '</td></tr>';
         }
     }
     
@@ -10162,7 +10221,7 @@ function restoreView(viewName) {
         tb.innerHTML = '';
         
         if(engines.length === 0) {
-            tb.innerHTML = '<tr><td colspan="14" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
+            tb.innerHTML = '<tr><td colspan="15" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
             console.log('No engines, displaying empty message');
             return;
         }
@@ -10223,6 +10282,7 @@ function restoreView(viewName) {
                     <td data-key="status"><span class="badge ${badge}">${eng.status}</span></td>
                     <td data-key="tt">${tt}</td>
                     <td data-key="tc">${tc}</td>
+                    <td data-key="location" data-location-id="${eng.location_id || ''}">${location}</td>
                     <td data-key="moved">${location}</td>
                     <td data-key="removed">${removedFrom}</td>
                     <td data-key="rem">${remarks}</td>
@@ -10302,6 +10362,9 @@ function restoreView(viewName) {
                     inputHTML = `<input type="number" class="editing-input" value="${rowData.tt}">`;
                 } else if (key === 'tc') {
                     inputHTML = `<input type="number" class="editing-input" value="${rowData.tc}">`;
+                } else if (key === 'location') {
+                    const locationId = td.getAttribute('data-location-id') || '';
+                    inputHTML = `<select class="editing-input location-select" data-location-id="${locationId}"></select>`;
                 } else if (key === 'moved') {
                     inputHTML = `<input type="text" class="editing-input" value="${rowData.location}" readonly>`;
                 } else if (key === 'removed') {
@@ -10318,6 +10381,28 @@ function restoreView(viewName) {
                 td.innerHTML = inputHTML;
             });
         });
+        
+        // Загружаем location dropdown для всех location-select
+        loadLocationSelectsInTable();
+    }
+    
+    async function loadLocationSelectsInTable() {
+        try {
+            const res = await fetch('/api/locations');
+            if (!res.ok) return;
+            const locations = await res.json();
+            
+            document.querySelectorAll('.location-select').forEach(select => {
+                const currentLocationId = select.getAttribute('data-location-id');
+                select.innerHTML = '<option value="">- Select -</option>';
+                locations.forEach(loc => {
+                    const selected = loc.id == currentLocationId ? 'selected' : '';
+                    select.innerHTML += `<option value="${loc.id}" ${selected}>${loc.name}</option>`;
+                });
+            });
+        } catch (err) {
+            console.error('Failed to load locations:', err);
+        }
     }
 
     function addEmptyRow() {
@@ -10342,12 +10427,14 @@ function restoreView(viewName) {
             <td><select class="editing-input"><option>SV</option><option>US</option><option>AS</option></select></td>
             <td><input type="number" class="editing-input" value="0"></td>
             <td><input type="number" class="editing-input" value="0"></td>
+            <td><select class="editing-input location-select"></select></td>
             <td><input type="text" class="editing-input"></td>
             <td><input type="text" class="editing-input"></td>
             <td><input type="text" class="editing-input"></td>
             <td><input type="text" class="editing-input"></td>
         `;
         tb.appendChild(newRow);
+        loadLocationSelectsInTable();
     }
 
     async function saveEditMode() {
@@ -10376,10 +10463,10 @@ function restoreView(viewName) {
                 status: inputs[6].value,
                 total_time: parseFloat(inputs[7].value) || 0,
                 total_cycles: parseInt(inputs[8].value) || 0,
-                location_id: 1, // Default location (SHJ)
-                removed_from: inputs[10].value || null,
-                remarks: inputs[11].value,
-                photo_url: inputs[12].value
+                location_id: parseInt(inputs[9].value) || null,
+                removed_from: inputs[11].value || null,
+                remarks: inputs[12].value,
+                photo_url: inputs[13].value
             };
             
             console.log('Saving engine:', engineId, engineData);

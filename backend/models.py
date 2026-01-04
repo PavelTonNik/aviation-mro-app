@@ -158,6 +158,11 @@ class ActionLog(Base):
     hyd_3 = Column(Float, nullable=True)
     hyd_4 = Column(Float, nullable=True)
     performed_by = Column(String, nullable=True)
+    ttsn = Column(Float, nullable=True)  # TTSN (Engine) при снятии
+    tcsn = Column(Integer, nullable=True)  # TCSN (Engine) при снятии
+    ttsn_ac = Column(Float, nullable=True)  # TTSN (Aircraft) при снятии
+    tcsn_ac = Column(Integer, nullable=True)  # TCSN (Aircraft) при снятии
+    remarks_removal = Column(String, nullable=True)  # Дополнительные замечания при снятии
     
     engine = relationship("Engine", back_populates="logs")
 

@@ -459,6 +459,11 @@ class RemoveSchema(BaseModel):
     engine_id: int
     to_location_id: int # Куда положили снятый двигатель
     reason: Optional[str] = ""
+    ttsn: Optional[float] = None
+    tcsn: Optional[int] = None
+    ttsn_ac: Optional[float] = None
+    tcsn_ac: Optional[int] = None
+    remarks: Optional[str] = ""
 
 
 class RepairSchema(BaseModel):
@@ -1465,7 +1470,12 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
     engine.model = data.model
     engine.gss_sn = data.gss_sn or data.original_sn
     engine.current_sn = data.current_sn
-    engine.status = data.status
+    # НЕ меняем status и location если двигатель в "системном" статусе (INSTALLED, REMOVED, REPAIRED)
+    protected_statuses = ["INSTALLED", "REMOVED", "REPAIRED"]
+    if engine.status not in protected_statuses:
+        engine.status = data.status
+        if data.location_id:
+            engine.location_id = data.location_id
     engine.total_time = data.total_time
     engine.total_cycles = data.total_cycles
     engine.price = data.price
@@ -1473,9 +1483,6 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
     engine.remarks = data.remarks
     engine.removed_from = data.removed_from
     engine.install_date = install_date
-    
-    if data.location_id:
-        engine.location_id = data.location_id
     
     db.commit()
     db.refresh(engine)
@@ -2205,7 +2212,12 @@ def get_remove_history(db: Session = Depends(get_db)):
                 "current_sn": curr_sn,
                 "from": l.from_location or "-",
                 "to": l.to_location or "-",
-                "remarks": l.comments
+                "remarks": l.comments,
+                "ttsn": l.ttsn,
+                "tcsn": l.tcsn,
+                "ttsn_ac": l.ttsn_ac,
+                "tcsn_ac": l.tcsn_ac,
+                "remarks_removal": l.remarks_removal
             })
         return res
     except Exception as e:
@@ -2274,7 +2286,12 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         comments=data.reason,
         date=datetime.now(),
         snapshot_tt=eng.total_time,
-        snapshot_tc=eng.total_cycles
+        snapshot_tc=eng.total_cycles,
+        ttsn=data.ttsn,
+        tcsn=data.tcsn,
+        ttsn_ac=data.ttsn_ac,
+        tcsn_ac=data.tcsn_ac,
+        remarks_removal=data.remarks
     )
     db.add(new_log)
     db.commit()
