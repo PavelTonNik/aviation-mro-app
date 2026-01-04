@@ -39,37 +39,34 @@ def startup_event():
     except Exception as e:
         print(f"⚠️ Schema verification warning: {e}")
     
-    # Run PostgreSQL schema migrations if needed (for additional columns/tables)
+    # Add missing columns directly for PostgreSQL
     if not database.IS_SQLITE:
         try:
-            print("🔄 Running PostgreSQL schema sync...")
-            import pathlib
-            import psycopg2
-            
-            sql_file = pathlib.Path(__file__).resolve().parent.parent / "schema_sync_postgres.sql"
-            if sql_file.exists():
-                sql = sql_file.read_text(encoding="utf-8")
-                
-                # Get DATABASE_URL and fix format
-                db_url = database.DATABASE_URL
-                
-                # Connect and execute
-                conn = psycopg2.connect(db_url)
-                try:
-                    cur = conn.cursor()
-                    cur.execute(sql)
-                    conn.commit()
-                    cur.close()
-                    print("✅ PostgreSQL schema synced successfully")
-                except Exception as inner_e:
-                    conn.rollback()
-                    print(f"⚠️  Schema sync error (non-critical): {inner_e}")
-                finally:
-                    conn.close()
-            else:
-                print(f"ℹ️  No schema sync file found (using models.py only)")
+            print("🔧 Adding missing columns to PostgreSQL...")
+            from sqlalchemy import text
+            db = database.SessionLocal()
+            try:
+                # Add price column to engines if missing
+                db.execute(text("""
+                    DO $$ 
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='engines' AND column_name='price'
+                        ) THEN
+                            ALTER TABLE engines ADD COLUMN price DOUBLE PRECISION;
+                        END IF;
+                    END $$;
+                """))
+                db.commit()
+                print("✅ Missing columns added successfully")
+            except Exception as col_e:
+                print(f"ℹ️  Column update: {col_e}")
+                db.rollback()
+            finally:
+                db.close()
         except Exception as e:
-            print(f"⚠️  Schema sync skipped: {e}")
+            print(f"ℹ️  Column sync skipped: {e}")
     
     ensure_sqlite_column("aircrafts", "initial_total_time FLOAT DEFAULT 0")
     ensure_sqlite_column("aircrafts", "initial_total_cycles INTEGER DEFAULT 0")
