@@ -12,6 +12,11 @@ DEFAULT_SQLITE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
 
 DATABASE_URL = os.environ.get("DATABASE_URL", DEFAULT_SQLITE_URL)
 
+# Render.com uses postgres:// but SQLAlchemy 1.4+ requires postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    print(f"🔧 Fixed DATABASE_URL: postgres:// -> postgresql://")
+
 # Try to detect if we're in local development mode
 IS_LOCAL_DEV = os.environ.get("LOCAL_DEV", "").lower() in ("1", "true", "yes")
 
@@ -29,13 +34,12 @@ if IS_SQLITE:
 if not IS_SQLITE and not IS_LOCAL_DEV:
     try:
         # PostgreSQL doesn't accept 'timeout' in connect_args
-        test_engine = create_engine(DATABASE_URL, **engine_kwargs)
-        with test_engine.connect() as conn:
+        engine = create_engine(DATABASE_URL, **engine_kwargs)
+        with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        engine = test_engine
-        print(f"✅ Connected to PostgreSQL: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else DATABASE_URL}")
+        print(f"✅ Connected to PostgreSQL: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'database'}")
     except Exception as e:
-        print(f"⚠️  PostgreSQL unavailable ({type(e).__name__}), falling back to local SQLite")
+        print(f"⚠️  PostgreSQL unavailable ({type(e).__name__}: {e}), falling back to local SQLite")
         print(f"   Path: {DEFAULT_SQLITE_PATH}")
         DATABASE_URL = DEFAULT_SQLITE_URL
         IS_SQLITE = True
