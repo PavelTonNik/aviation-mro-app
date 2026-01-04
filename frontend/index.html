@@ -9799,9 +9799,9 @@ function restoreView(viewName) {
     }
 
     async function prepareRemoveForm() {
-        // Загружаем ТОЛЬКО установленные двигатели (status=INSTALLED)
-        let engRes = await safeFetch('/api/engines?status=INSTALLED' + noCache().replace('?', '&'));
-        if (!engRes || !engRes.ok) engRes = await safeFetch('/api/engines?status=INSTALLED');
+        // Загружаем ВСЕ двигатели для поиска, но снимать можем только INSTALLED
+        let engRes = await safeFetch('/api/engines' + noCache());
+        if (!engRes || !engRes.ok) engRes = await safeFetch('/api/engines');
         
         let engines = [];
         try { engines = engRes && engRes.ok ? await engRes.json() : []; } catch { engines = []; }
@@ -9816,7 +9816,7 @@ function restoreView(viewName) {
         const datalist = document.getElementById('engine-options-rem');
         if(datalist) {
             datalist.innerHTML = '';
-            engines.forEach(eng => {
+            engines.filter(e => e.status === 'INSTALLED').forEach(eng => {
                 // Подсказка, где двигатель
                 const locInfo = eng.location.includes('Pos') ? eng.location : "Storage"; 
                 datalist.innerHTML += `<option value="${eng.original_sn}">${eng.current_sn} (${locInfo})</option>`;
@@ -10226,6 +10226,9 @@ function restoreView(viewName) {
             return;
         }
         
+        // Сортируем по ID в обратном порядке (последние добавленные сверху)
+        engines.sort((a, b) => (b.id || 0) - (a.id || 0));
+        
         let rowsHTML = '';
         
         engines.forEach((eng, idx) => {
@@ -10283,7 +10286,7 @@ function restoreView(viewName) {
                     <td data-key="tt">${tt}</td>
                     <td data-key="tc">${tc}</td>
                     <td data-key="location" data-location-id="${eng.location_id || ''}">${location}</td>
-                    <td data-key="moved">${location}</td>
+                    <td data-key="moved">${remarks}</td>
                     <td data-key="removed">${removedFrom}</td>
                     <td data-key="rem">${remarks}</td>
                     <td data-key="photo">${photo}</td>
