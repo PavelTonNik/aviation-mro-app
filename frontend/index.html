@@ -5654,6 +5654,11 @@
                                             </h2>
                                             <div id="collapse-city" class="accordion-collapse collapse show" data-bs-parent="#dashboard-accordion">
                                                 <div class="accordion-body p-2">
+                                                    <div class="d-flex justify-content-end mb-2">
+                                                        <button class="btn btn-sm btn-success" onclick="addNewLocation()">
+                                                            <i class="bi bi-plus-lg me-1"></i>Add Location
+                                                        </button>
+                                                    </div>
                                                     <div id="locations-edit-list" class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;">
                                                         <!-- Populated by JS -->
                                                     </div>
@@ -14789,6 +14794,42 @@ async function addNewAircraft() {
         await loadAircraftDropdown(); // Refresh utilization parameters dropdown
     } catch (err) {
         console.error('Error adding aircraft:', err);
+        showErrorNotification('Error: ' + err.message);
+    }
+}
+
+async function addNewLocation() {
+    if (!isAdmin()) {
+        showErrorNotification('Only admins can add locations');
+        return;
+    }
+    
+    const name = prompt('Enter location code (e.g., SHJ, DXB):');
+    if (!name) return;
+    
+    const city = prompt('Enter city name (e.g., Sharjah):') || name;
+    
+    try {
+        const response = await fetch(`/api/locations?user_id=${currentUser.id}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: name.toUpperCase(),
+                city: city
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create location');
+        }
+        
+        showSuccessNotification(`Location ${name} added successfully`);
+        await populateLocationsList();
+        await loadDashboardData();
+        await loadLocationDropdown(); // Refresh engine dropdown
+    } catch (err) {
+        console.error('Error adding location:', err);
         showErrorNotification('Error: ' + err.message);
     }
 }
