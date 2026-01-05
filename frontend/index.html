@@ -23,8 +23,23 @@
             color: #202020;
             transition: margin 0.3s ease-out;
             margin-top: 0;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
         }
         #wrapper.toggled #sidebar-wrapper { margin-left: -260px; }
+        
+        #page-content { 
+            flex: 1; 
+            margin-left: 260px; 
+            transition: margin-left 0.3s ease-out;
+            width: calc(100% - 260px);
+        }
+        #wrapper.toggled #page-content { 
+            margin-left: 0; 
+            width: 100%;
+        }
         
         .sidebar-brand { padding: 1.5rem 1rem; font-size: 1.3rem; font-weight: bold; border-bottom: 1px solid #4b545c; color: #423a3a; text-decoration: none; display: block; }
         .list-group-item { background: transparent; color: #fbfbffa9; border: none; padding: 12px 20px; font-size: 0.95rem; }
@@ -2796,7 +2811,7 @@
 
     <div id="page-content-wrapper" class="w-100">
         
-        <nav class="navbar navbar-light bg-white border-bottom px-3 py-3">
+        <nav class="navbar navbar-light bg-white border-bottom px-3 py-3" style="position: sticky; top: 0; z-index: 999;">
             <button class="btn btn-outline-secondary btn-sm" id="menu-toggle"><i class="bi bi-list fs-5"></i></button>
             <div class="flex-grow-1"></div>
             <div class="d-flex align-items-center gap-2">
