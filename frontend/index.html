@@ -2644,7 +2644,7 @@
                     <i class="bi bi-database-add"></i> Add Engine
                 </a>
                 <a href="#" class="btn btn-neon w-100 text-start" onclick="openSchedulesModal(); return false;">
-                    <i class="bi bi-calendar-check"></i> Open Schedules
+                    <i class="bi bi-calendar-check"></i> Add Schedule
                 </a>
             </div>
             <!-- REPORTS GROUP (COLLAPSIBLE) -->
@@ -10368,9 +10368,6 @@ function restoreView(viewName) {
                 } else if (key === 'location') {
                     const locationId = td.getAttribute('data-location-id') || '';
                     inputHTML = `<select class="editing-input location-select" data-location-id="${locationId}"></select>`;
-                } else if (key === 'moved') {
-                    const currentText = td.innerText;
-                    inputHTML = `<input type="text" class="editing-input" value="${currentText}">`;
                 } else if (key === 'removed') {
                     inputHTML = `<input type="text" class="editing-input" value="${rowData.removedFrom}">`;
                 } else if (key === 'rem') {
@@ -10432,10 +10429,9 @@ function restoreView(viewName) {
             <td><input type="number" class="editing-input" value="0"></td>
             <td><input type="number" class="editing-input" value="0"></td>
             <td><select class="editing-input location-select"></select></td>
-            <td><input type="text" class="editing-input"></td>
-            <td><input type="text" class="editing-input"></td>
-            <td><input type="text" class="editing-input"></td>
-            <td><input type="text" class="editing-input"></td>
+            <td><input type="text" class="editing-input" placeholder="Removed From"></td>
+            <td><input type="text" class="editing-input" placeholder="Remarks"></td>
+            <td><input type="text" class="editing-input" placeholder="Photo URL"></td>
         `;
         tb.appendChild(newRow);
         loadLocationSelectsInTable();
@@ -10468,9 +10464,9 @@ function restoreView(viewName) {
                 total_time: parseFloat(inputs[7].value) || 0,
                 total_cycles: parseInt(inputs[8].value) || 0,
                 location_id: parseInt(inputs[9].value) || null,
-                removed_from: inputs[11].value || null,
-                remarks: inputs[12].value,
-                photo_url: inputs[13].value
+                removed_from: inputs[10].value || null,
+                remarks: inputs[11].value,
+                photo_url: inputs[12].value
             };
             
             console.log('Saving engine:', engineId, engineData);
