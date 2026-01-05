@@ -21,26 +21,10 @@
             min-height: 100vh;
             background-color: #011325; 
             color: #202020;
-            transition: transform 0.3s ease-out;
+            transition: margin 0.3s ease-out;
             margin-top: 0;
-            position: fixed;
-            left: 0;
-            top: 0;
-            z-index: 999;
-            transform: translateX(0);
         }
-        #wrapper.toggled #sidebar-wrapper { transform: translateX(-260px); }
-        
-        #page-content { 
-            flex: 1; 
-            margin-left: 260px;
-            transition: margin-left 0.3s ease-out;
-            width: auto;
-        }
-        #wrapper.toggled #page-content { 
-            margin-left: 0; 
-            width: 100%;
-        }
+        #wrapper.toggled #sidebar-wrapper { margin-left: -260px; }
         
         .sidebar-brand { padding: 1.5rem 1rem; font-size: 1.3rem; font-weight: bold; border-bottom: 1px solid #4b545c; color: #423a3a; text-decoration: none; display: block; }
         .list-group-item { background: transparent; color: #fbfbffa9; border: none; padding: 12px 20px; font-size: 0.95rem; }
@@ -2660,7 +2644,7 @@
                     <i class="bi bi-database-add"></i> Add Engine
                 </a>
                 <a href="#" class="btn btn-neon w-100 text-start" onclick="openSchedulesModal(); return false;">
-                    <i class="bi bi-calendar-check"></i> Add Schedule
+                    <i class="bi bi-calendar-check"></i> Open Schedules
                 </a>
             </div>
             <!-- REPORTS GROUP (COLLAPSIBLE) -->
@@ -2812,7 +2796,7 @@
 
     <div id="page-content-wrapper" class="w-100">
         
-        <nav class="navbar navbar-light bg-white border-bottom px-3 py-3" style="position: sticky; top: 0; z-index: 999;">
+        <nav class="navbar navbar-light bg-white border-bottom px-3 py-3">
             <button class="btn btn-outline-secondary btn-sm" id="menu-toggle"><i class="bi bi-list fs-5"></i></button>
             <div class="flex-grow-1"></div>
             <div class="d-flex align-items-center gap-2">
@@ -10256,7 +10240,7 @@ function restoreView(viewName) {
             if(eng.status === 'INSTALLED') badge = 'bg-primary';
             if(eng.status === 'REMOVED') badge = 'bg-warning';
 
-            const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-link-45deg"></i> Link</a>` : `<span class="text-muted">-</span>`;
+            const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank"><i class="bi bi-image"></i></a>` : '-';
             const model = eng.model || '-';
             const location = eng.location || '-';
             const remarks = eng.remarks || '-';
