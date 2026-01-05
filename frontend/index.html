@@ -23,20 +23,23 @@
             color: #202020;
             transition: transform 0.3s ease-out;
             margin-top: 0;
-            position: absolute;
+            position: fixed;
             left: 0;
             top: 0;
             z-index: 999;
+            transform: translateX(0);
         }
         #wrapper.toggled #sidebar-wrapper { transform: translateX(-260px); }
         
         #page-content { 
             flex: 1; 
-            width: 100%;
+            margin-left: 260px;
             transition: margin-left 0.3s ease-out;
+            width: auto;
         }
         #wrapper.toggled #page-content { 
-            margin-left: 0;
+            margin-left: 0; 
+            width: 100%;
         }
         
         .sidebar-brand { padding: 1.5rem 1rem; font-size: 1.3rem; font-weight: bold; border-bottom: 1px solid #4b545c; color: #423a3a; text-decoration: none; display: block; }
@@ -2657,7 +2660,7 @@
                     <i class="bi bi-database-add"></i> Add Engine
                 </a>
                 <a href="#" class="btn btn-neon w-100 text-start" onclick="openSchedulesModal(); return false;">
-                    <i class="bi bi-calendar-check"></i> Open Schedules
+                    <i class="bi bi-calendar-check"></i> Add Schedule
                 </a>
             </div>
             <!-- REPORTS GROUP (COLLAPSIBLE) -->
