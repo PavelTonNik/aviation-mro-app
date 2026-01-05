@@ -21,24 +21,22 @@
             min-height: 100vh;
             background-color: #011325; 
             color: #202020;
-            transition: margin 0.3s ease-out;
+            transition: transform 0.3s ease-out;
             margin-top: 0;
-            position: fixed;
+            position: absolute;
             left: 0;
             top: 0;
-            z-index: 1000;
+            z-index: 999;
         }
-        #wrapper.toggled #sidebar-wrapper { margin-left: -260px; }
+        #wrapper.toggled #sidebar-wrapper { transform: translateX(-260px); }
         
         #page-content { 
             flex: 1; 
-            margin-left: 260px; 
+            width: 100%;
             transition: margin-left 0.3s ease-out;
-            width: calc(100% - 260px);
         }
         #wrapper.toggled #page-content { 
-            margin-left: 0; 
-            width: 100%;
+            margin-left: 0;
         }
         
         .sidebar-brand { padding: 1.5rem 1rem; font-size: 1.3rem; font-weight: bold; border-bottom: 1px solid #4b545c; color: #423a3a; text-decoration: none; display: block; }
@@ -10255,7 +10253,7 @@ function restoreView(viewName) {
             if(eng.status === 'INSTALLED') badge = 'bg-primary';
             if(eng.status === 'REMOVED') badge = 'bg-warning';
 
-            const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank"><i class="bi bi-image"></i></a>` : '-';
+            const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-link-45deg"></i> Link</a>` : `<span class="text-muted">-</span>`;
             const model = eng.model || '-';
             const location = eng.location || '-';
             const remarks = eng.remarks || '-';
