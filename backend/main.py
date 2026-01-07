@@ -2001,7 +2001,8 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
                 raise HTTPException(404, f"Engine parameter record not found (ID: {log_id})")
             
             # Get engine and aircraft info
-            engine_info = f"двигатель {param.engine.current_sn}" if param.engine else "Unknown engine"
+            engine_sn = param.engine.original_sn or param.engine.current_sn or "Unknown" if param.engine else "Unknown engine"
+            engine_info = f"двигатель {engine_sn}"
             aircraft_info = f"борт {param.engine.aircraft.tail_number}" if param.engine and param.engine.aircraft else "N/A"
             date_info = param.date.strftime("%Y-%m-%d") if param.date else "Unknown date"
             
@@ -2091,7 +2092,8 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
             # Примечание: Статус не меняем (остается как был)
         
         # Формируем сообщение для уведомления
-        engine_info = f" двигатель {log.engine.serial_number}" if log.engine else ""
+        engine_sn = log.engine.original_sn or log.engine.current_sn or "Unknown" if log.engine else ""
+        engine_info = f" двигатель {engine_sn}" if log.engine else ""
         aircraft_info = f" с борта {log.to_aircraft or log.from_location or '-'}" if action_type in ["INSTALL", "REMOVE", "SHIP"] else ""
         message = f"{action_type}: {engine_info}{aircraft_info}"
         
@@ -3360,6 +3362,7 @@ def get_borescope_history(db: Session = Depends(get_db)):
                 "aircraft": insp.aircraft,
                 "serial_number": insp.serial_number,
                 "position": insp.position,
+                "work_type": insp.work_type,
                 "gss_id": insp.gss_id,
                 "inspector": insp.inspector,
                 "link": insp.link
@@ -5275,7 +5278,8 @@ def create_schedule(data: LogisticsShipmentSchema, db: Session = Depends(get_db)
         # Auto-create calendar event
         if data.shipment_type == "ENGINE":
             engine = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
-            event_title = f"🛫 Engine {engine.serial_number if engine else 'Unknown'} Expected Arrival"
+            engine_sn = engine.original_sn or engine.current_sn or 'Unknown' if engine else 'Unknown'
+            event_title = f"🛫 Engine {engine_sn} Expected Arrival"
             event_desc = f"Supplier: {data.supplier_name}, Destination: {data.destination_location}"
         else:  # PARTS
             event_title = f"📦 Parts: {data.part_quantity}x {data.part_name} Expected"
