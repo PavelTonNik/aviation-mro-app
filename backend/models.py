@@ -164,8 +164,20 @@ class ActionLog(Base):
     tcsn_ac = Column(Integer, nullable=True)  # TCSN (Aircraft) при снятии
     remarks_removal = Column(String, nullable=True)  # Дополнительные замечания при снятии
     supplier = Column(String, nullable=True)  # Поставщик (для Installation)
-    
     engine = relationship("Engine", back_populates="logs")
+
+class AircraftUtilizationHistory(Base):
+    """История общего налета самолёта (TTSN/TCSN)"""
+    __tablename__ = "aircraft_utilization_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    aircraft_id = Column(Integer, ForeignKey("aircrafts.id"), nullable=False)
+    date = Column(DateTime(timezone=True), nullable=False)
+    total_time = Column(Float, nullable=False)  # TTSN самолёта
+    total_cycles = Column(Integer, nullable=False)  # TCSN самолёта
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    aircraft = relationship("Aircraft")
 
 class EngineParameterHistory(Base):
     """История ввода параметров двигателя (N1, N2, EGT)"""
@@ -430,6 +442,8 @@ class Shipment(Base):
     
     # ДЛЯ ENGINE TYPE
     engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)
+    engine_model = Column(String(100), nullable=True)  # Модель двигателя
+    gss_id = Column(String(100), nullable=True)  # GSS ID двигателя
     destination_location = Column(String(255), nullable=True)  # Куда должен прибыть двигатель
     
     # ДЛЯ PARTS TYPE
@@ -456,3 +470,13 @@ class Shipment(Base):
     
     # Связи
     engine = relationship("Engine", foreign_keys=[engine_id])
+
+
+class ConditionStatus(Base):
+    """Справочник статусов Condition для Store Balance"""
+    __tablename__ = "condition_statuses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, unique=True)
+    color = Column(String(20), nullable=False, default="#6c757d")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

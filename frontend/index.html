@@ -241,7 +241,7 @@
         }
         
         .engine-positions.expanded {
-            max-height: 2000px;
+            max-height: 4000px;
         }
         
         .engine-position-card {
@@ -2633,7 +2633,7 @@
 
 <div id="wrapper">
     <div id="sidebar-wrapper">
-        <a href="#" class="sidebar-brand text-white text-decoration-none">
+        <a href="#" class="sidebar-brand text-white text-decoration-none" onclick="openDashboardView(); return false;">
             <i class="bi bi-gear-fill"></i> Engine Management
         </a>
         <div class="list-group list-group-flush">
@@ -2730,7 +2730,7 @@
     </div>
 
     <!-- Error Notification Modal -->
-    <div class="modal fade" id="errorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="false">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
@@ -3356,6 +3356,8 @@
                                         <th class="delete-col-shipment" style="width: 40px; display: none;"><i class="bi bi-trash"></i></th>
                                         <th>Date</th>
                                         <th>Engine SN</th>
+                                        <th>Engine Model</th>
+                                        <th>GSS ID</th>
                                         <th>From</th>
                                         <th>To (Destination)</th>
                                         <th>Remarks / Waybill</th>
@@ -3376,30 +3378,38 @@
                                 <div class="card-body">
                                     <form id="form-shipment">
                                         <div class="row mb-3">
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label class="form-label small fw-bold">Date <span class="text-danger">*</span></label>
                                                 <input type="date" class="form-control" id="ship-date" required>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label class="form-label small fw-bold">Engine <span class="text-danger">*</span></label>
                                                 <input class="form-control" list="engine-options-ship" id="ship-engine-input" placeholder="Search Engine..." required>
                                                 <datalist id="engine-options-ship"></datalist>
                                                 <input type="hidden" id="ship-engine-id">
                                             </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label small fw-bold">From (Location)</label>
-                                                <input type="text" class="form-control" id="ship-loc-from">
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-bold">Engine Model</label>
+                                                <input type="text" class="form-control" id="ship-engine-model" placeholder="e.g. CFM56">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-bold">GSS ID</label>
+                                                <input type="text" class="form-control" id="ship-gss-id" placeholder="e.g. GSS-12345">
                                             </div>
                                         </div>
 
                                         <div class="row mb-3">
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-bold">From (Location)</label>
+                                                <input type="text" class="form-control" id="ship-loc-from">
+                                            </div>
+                                            <div class="col-md-4">
                                                 <label class="form-label small fw-bold">Destination (To) <span class="text-danger">*</span></label>
                                                 <select class="form-select" id="ship-dest" required>
                                                     <!-- Заполнится JS -->
                                                 </select>
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
                                                 <label class="form-label small fw-bold">Waybill #</label>
                                                 <input type="text" class="form-control" id="ship-wb" placeholder="e.g. AWB-123456">
                                             </div>
@@ -4592,14 +4602,14 @@
                                     </div>
                                     <div class="col-md-3">
                                         <label class="small fw-bold">Condition</label>
-                                        <select class="form-control" id="store-condition">
-                                            <option value="">-- Select --</option>
-                                            <option value="SV - NGV (SENT)">SV - NGV (SENT)</option>
-                                            <option value="UNDER REPAIRING">UNDER REPAIRING</option>
-                                            <option value="Delivered in Roma Italy">Delivered in Roma Italy</option>
-                                            <option value="NO CAPABILITY">NO CAPABILITY</option>
-                                            <option value="US - SHJ">US - SHJ</option>
-                                        </select>
+                                        <div class="d-flex gap-1">
+                                            <select class="form-control" id="store-condition" style="flex: 1;">
+                                                <option value="">-- Select --</option>
+                                            </select>
+                                            <button type="button" class="btn btn-sm btn-outline-success" onclick="openAddConditionModal()" title="Add new condition status" style="padding: 0.25rem 0.5rem;">
+                                                <i class="bi bi-plus-lg"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="col-md-2">
                                         <label class="small fw-bold">Quantity *</label>
@@ -5083,12 +5093,25 @@
                                             <option value="4">4</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-2">
-                                        <label class="small fw-bold">Orig SN</label>
+                                </div>
+                                
+                                <!-- Информация о всех позициях для справки -->
+                                <div id="all-positions-info" class="row mb-3" style="display: none;">
+                                    <div class="col-12">
+                                        <div class="alert alert-info" style="background: #e7f3ff; border: 1px solid #0066cc; padding: 12px;">
+                                            <h6 class="mb-2">Двигатели на самолете:</h6>
+                                            <div id="positions-info-content" style="display: flex; gap: 15px; flex-wrap: wrap;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-4">
+                                    <div class="col-md-3">
+                                        <label class="small fw-bold">Orig SN (выбранной позиции)</label>
                                         <input type="text" class="form-control" id="util-param-orig-sn" readonly style="background-color: #f5f5f5;">
                                     </div>
-                                    <div class="col-md-2">
-                                        <label class="small fw-bold">GSS ID</label>
+                                    <div class="col-md-3">
+                                        <label class="small fw-bold">GSS ID (выбранной позиции)</label>
                                         <input type="text" class="form-control" id="util-param-gss-sn" readonly style="background-color: #f5f5f5;">
                                     </div>
                                 </div>
@@ -5101,32 +5124,62 @@
                                         <label class="small fw-bold">TCSN *</label>
                                         <input type="number" class="form-control" id="util-param-tcsn" required placeholder="Введите TCSN">
                                     </div>
-                                    <div class="col-md-2 d-flex align-items-end">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="util-param-period" onchange="togglePeriodFields()">
-                                            <label class="form-check-label fw-bold" for="util-param-period">
-                                                Period
-                                            </label>
-                                        </div>
+                                </div>
+                                
+                                <!-- PERIOD FIELDS (always enabled and required) -->
+                                <div class="row mb-4" id="period-fields">
+                                    <div class="col-md-6">
+                                        <label class="small fw-bold">Date From *</label>
+                                        <input type="date" class="form-control" id="util-param-date-from" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="small fw-bold">Date To *</label>
+                                        <input type="date" class="form-control" id="util-param-date-to" required>
                                     </div>
                                 </div>
                                 
-                                <!-- PERIOD FIELDS (initially disabled) -->
-                                <div class="row mb-4" id="period-fields">
-                                    <div class="col-md-6">
-                                        <label class="small fw-bold">Date From</label>
-                                        <input type="date" class="form-control" id="util-param-date-from" disabled>
+                                <div class="d-flex justify-content-end gap-2 mb-4">
+                                    <button type="button" class="btn btn-secondary" onclick="openDashboardView()">Отмена</button>
+                                    <button type="button" class="btn btn-primary px-4" onclick="submitUtilParams()">Сохранить</button>
+                                </div>
+                            </form>
+                            
+                            <!-- SECTION 2: TOTAL AIRCRAFT UTILIZATION -->
+                            <hr class="my-5">
+                            <h5 class="mb-4 text-primary"><i class="bi bi-airplane"></i> Total Aircraft Utilization</h5>
+                            <form id="form-aircraft-util">
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">Date Aircraft *</label>
+                                        <select class="form-select" id="aircraft-util-ac" required onchange="onAircraftUtilChange()">
+                                            <option value="">Выберите самолет...</option>
+                                            <option value="ER-BAT">ER-BAT</option>
+                                            <option value="ER-BAR">ER-BAR</option>
+                                            <option value="ER-BAQ">ER-BAQ</option>
+                                        </select>
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="small fw-bold">Date To</label>
-                                        <input type="date" class="form-control" id="util-param-date-to" disabled>
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">Date *</label>
+                                        <input type="date" class="form-control" id="aircraft-util-date" required>
+                                        <small class="text-muted">По умолчанию сегодняшняя дата</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">Total A/C TTSN *</label>
+                                        <input type="number" step="0.1" class="form-control" id="aircraft-util-ttsn" required placeholder="Введите TTSN самолета">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">Total A/C TCSN *</label>
+                                        <input type="number" class="form-control" id="aircraft-util-tcsn" required placeholder="Введите TCSN самолета">
                                     </div>
                                 </div>
                                 
                                 <div class="d-flex justify-content-end gap-2">
-                                    <button type="button" class="btn btn-secondary" onclick="openDashboardView()">Отмена</button>
-                                    <button type="button" class="btn btn-primary px-4" onclick="submitUtilParams()">Сохранить</button>
+                                    <button type="button" class="btn btn-success px-4" onclick="submitAircraftUtil()"><i class="bi bi-check-lg"></i> Сохранить</button>
                                 </div>
+                            </form>
                             </form>
                         </div>
                     </div>
@@ -5134,7 +5187,14 @@
                 
                 <!-- TAB 2: HISTORY TABLE -->
                 <div id="tab-util-param-history" style="display: none;">
-                    <div class="card shadow-sm">
+                    <!-- SUB-TABS: Periodic and Aircraft Util History -->
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item"><button class="nav-link active" id="tab-util-param-periodic-btn" onclick="switchUtilHistoryTab('periodic')">Периодичный налет</button></li>
+                        <li class="nav-item"><button class="nav-link" id="tab-util-param-aircraft-btn" onclick="switchUtilHistoryTab('aircraft')">Общий налет самолёта</button></li>
+                    </ul>
+                    
+                    <!-- SUB-TAB 1: Periodic Utilization History -->
+                    <div id="tab-util-param-periodic" class="card shadow-sm">
                         <div class="card-body">
                             <div class="d-flex justify-content-end mb-2">
                                 <button class="btn btn-sm btn-primary" onclick="loadUtilParamHistory()"><i class="bi bi-arrow-clockwise"></i> Обновить</button>
@@ -5162,6 +5222,29 @@
                                 </thead>
                                 <tbody id="util-param-history-body">
                                     <tr><td colspan="12" class="text-muted">Нет данных</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- SUB-TAB 2: Aircraft Utilization History -->
+                    <div id="tab-util-param-aircraft" style="display: none;" class="card shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-end mb-2">
+                                <button class="btn btn-sm btn-primary" onclick="loadAircraftUtilHistory()"><i class="bi bi-arrow-clockwise"></i> Обновить</button>
+                            </div>
+                            <table class="table table-hover table-bordered table-sm text-center" id="aircraft-util-history-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Дата</th>
+                                        <th>Самолет</th>
+                                        <th>Total A/C TTSN</th>
+                                        <th>Total A/C TCSN</th>
+                                        <th>Сохранено</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="aircraft-util-history-body">
+                                    <tr><td colspan="5" class="text-muted">Нет данных</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -6175,27 +6258,6 @@ function restoreView(viewName) {
             let positionsHTML = '';
             const positions = ac.positions || [null, null, null, null];
             
-            // Создаем при необходимости блок с периодом перед позициями
-            let periodHTML = '';
-            if (ac.utilization_period) {
-                const periodText = `Period: ${ac.utilization_date_from || '-'} — ${ac.utilization_date_to || '-'}`;
-                periodHTML = `
-                    <div class="engine-position-card" style="border-left: 4px solid #ffc107; background: #fff8e1; width: 100%;">
-                        <div class="position-header" style="padding: 6px 12px; font-size: 0.85rem;">${periodText}</div>
-                        <div style="display: flex; gap: 15px; padding: 6px 12px; justify-content: center;">
-                            <div style="text-align: center;">
-                                <div style="font-size: 1.1rem; font-weight: bold; color: #ff6b00;">${(ac.period_ttsn ?? 'N/A')}</div>
-                                <div style="font-size: 0.7rem; color: #666; margin-top: 1px;">TTSN (hrs)</div>
-                            </div>
-                            <div style="text-align: center;">
-                                <div style="font-size: 1.1rem; font-weight: bold; color: #ff6b00;">${(ac.period_tcsn ?? 'N/A')}</div>
-                                <div style="font-size: 0.7rem; color: #666; margin-top: 1px;">TCSN (cyc)</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
             // Создаем 4 отдельные карточки для каждой позиции (без SVG анимации)
             positions.forEach((pos, index) => {
                 const posNum = index + 1;
@@ -6210,9 +6272,32 @@ function restoreView(viewName) {
                         </div>
                     `;
                 } else {
+                    // Блок с периодом для этой позиции (если есть данные)
+                    let positionPeriodHTML = '';
+                    if (pos.util_date_from && pos.util_date_to && pos.util_ttsn !== null && pos.util_tcsn !== null) {
+                        positionPeriodHTML = `
+                            <div style="border-left: 4px solid #ffc107; background: #fff8e1; padding: 8px 12px; margin-bottom: 8px; border-radius: 4px;">
+                                <div style="font-size: 0.75rem; color: #666; margin-bottom: 4px;">
+                                    Period: ${pos.util_date_from} — ${pos.util_date_to}
+                                </div>
+                                <div style="display: flex; gap: 15px; justify-content: center;">
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 1.1rem; font-weight: bold; color: #ff6b00;">${pos.util_ttsn}</div>
+                                        <div style="font-size: 0.7rem; color: #666;">TTSN (hrs)</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 1.1rem; font-weight: bold; color: #ff6b00;">${pos.util_tcsn}</div>
+                                        <div style="font-size: 0.7rem; color: #666;">TCSN (cyc)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
                     positionsHTML += `
                         <div class="engine-position-card">
                             <div class="position-header">Position ${posNum}</div>
+                            ${positionPeriodHTML}
                             <div class="engine-data" style="margin-bottom: 10px; padding: 8px; background: #e7f3ff; border-radius: 4px;">
                                 <div class="engine-data-item">
                                     <div class="engine-data-label"><strong>Orig. ESN</strong></div>
@@ -6296,9 +6381,9 @@ function restoreView(viewName) {
                         <div class="aircraft-card-header">
                             <div class="aircraft-name">${ac.tail_number}</div>
                             <div class="aircraft-stats">
-                                <div class="aircraft-hours">${ac.total_time} hrs</div>
+                                <div class="aircraft-hours">${ac.total_time || 0} hrs</div>
                                 <div class="aircraft-hours-label">Total Time</div>
-                                <div class="aircraft-hours" style="font-size: 0.9rem; margin-top: 4px;">${ac.total_cycles} cyc</div>
+                                <div class="aircraft-hours" style="font-size: 0.9rem; margin-top: 4px;">${ac.total_cycles || 0} cyc</div>
                             </div>
                         </div>
                         ${ac.last_data_date ? `
@@ -6313,7 +6398,7 @@ function restoreView(viewName) {
                         </div>
                         
                         <div class="engine-positions" id="${positionsId}">
-                            ${periodHTML}${positionsHTML}
+                            ${positionsHTML}
                         </div>
                     </div>
                 </div>
@@ -7891,7 +7976,7 @@ function restoreView(viewName) {
     async function loadInstallHistory() {
         const tbody = document.getElementById('install-history-body');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-3">Loading…</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="17" class="text-center text-muted py-3">Loading…</td></tr>';
 
         let res = await safeFetch('/api/history/INSTALL' + noCache());
         if (!res || !res.ok) res = await safeFetch('/api/history/INSTALL');
@@ -9140,27 +9225,54 @@ function restoreView(viewName) {
 
     async function loadPurchaseOrdersHistory() {
         const tbody = document.getElementById('purchase-orders-history-body');
-        if (!tbody) return;
+        if (!tbody) {
+            console.error('❌ purchase-orders-history-body not found');
+            return;
+        }
+        
+        // Убедимся, что customColumns это массив
+        if (!customColumns) customColumns = [];
         
         // Определяем количество колонок (10 базовых + пользовательские + кнопка плюс)
-        const totalCols = 10 + customColumns.length + 1;
+        const totalCols = 10 + (customColumns.length || 0) + 1;
         tbody.innerHTML = `<tr><td colspan="${totalCols}" class="text-center text-muted py-3">Loading…</td></tr>`;
 
-        let res = await safeFetch('/api/history/PURCHASE_ORDER' + noCache());
-        if (!res || !res.ok) res = await safeFetch('/api/history/PURCHASE_ORDER');
+        console.log('🔄 Fetching purchase orders...');
+        const url = '/api/history/PURCHASE_ORDER?t=' + Date.now();
+        console.log('URL:', url);
+        let res = await fetch(url, {
+            method: 'GET',
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
+        console.log('📡 Response received:', res ? res.status : 'null', res ? res.statusText : '');
 
         if (!res || !res.ok) {
-            console.error('Error loading purchase orders', res && res.status);
+            console.error('❌ Error loading purchase orders', res && res.status);
             tbody.innerHTML = `<tr><td colspan="${totalCols}" class="text-center text-danger py-3">Unable to load purchase orders</td></tr>`;
             return;
         }
 
         let serverData = [];
-        try { serverData = await res.json(); } catch { serverData = []; }
+        try { 
+            const text = await res.text();
+            console.log('📄 Raw response:', text.substring(0, 500));
+            serverData = JSON.parse(text); 
+            console.log('📦 Parsed data:', serverData);
+        } catch (e) { 
+            console.error('❌ JSON parse error:', e);
+            serverData = []; 
+        }
+        
+        console.log('📊 Purchase orders data:', serverData);
         
         // Load custom column data for all purchase orders
         let customDataMap = {};
-        if (customColumns.length > 0) {
+        if (customColumns && customColumns.length > 0) {
             try {
                 const customDataRes = await fetch('/api/purchase-order-custom-data' + noCache());
                 if (customDataRes.ok) {
@@ -9174,12 +9286,13 @@ function restoreView(viewName) {
                     });
                 }
             } catch (error) {
-                console.error('Error loading custom column data:', error);
+                console.error('⚠️ Error loading custom column data:', error);
             }
         }
 
         tbody.innerHTML = '';
         if (!Array.isArray(serverData) || serverData.length === 0) {
+            console.warn('⚠️ No purchase orders found');
             tbody.innerHTML = `<tr><td colspan="${totalCols}" class="text-center text-muted py-3">No purchase orders found</td></tr>`;
             return;
         }
@@ -9191,10 +9304,12 @@ function restoreView(viewName) {
             
             // Собираем HTML для пользовательских колонок
             let customColsHtml = '';
-            customColumns.forEach(col => {
-                const value = (customDataMap[row.id] && customDataMap[row.id][col.column_key]) || '';
-                customColsHtml += `<td data-column-key="${col.column_key}">${value}</td>`;
-            });
+            if (customColumns && Array.isArray(customColumns)) {
+                customColumns.forEach(col => {
+                    const value = (customDataMap[row.id] && customDataMap[row.id][col.column_key]) || '';
+                    customColsHtml += `<td data-column-key="${col.column_key}">${value}</td>`;
+                });
+            }
             
             tbody.innerHTML += `
                 <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
@@ -9217,10 +9332,15 @@ function restoreView(viewName) {
                 </tr>
             `;
         });
+        console.log(`✅ Rendered ${serverData.length} purchase orders`);
     }
 
     async function preparePurchaseOrderForm() {
         try {
+            // Инициализируем дату на сегодня
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('po-date').value = today;
+            
             const acRes = await fetch('/api/dashboard/aircraft-details' + noCache());
             if (!acRes.ok) throw new Error('Failed to fetch aircraft');
             
@@ -9283,22 +9403,37 @@ function restoreView(viewName) {
                 body: JSON.stringify(payload)
             });
             
+            let errorMsg = '';
             if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.detail || 'Failed to save purchase order');
+                try {
+                    const error = await res.json();
+                    errorMsg = error.detail || `HTTP ${res.status}`;
+                } catch {
+                    errorMsg = `HTTP ${res.status}: ${res.statusText}`;
+                }
+                throw new Error(errorMsg);
             }
             
             // Успешно сохранено
             showSuccessNotification("Purchase order saved successfully!");
+            console.log("✅ Purchase order saved, refreshing list...");
             
             // Очищаем форму
             document.getElementById('form-purchase-order').reset();
             
-            // Переключаемся на вкладку истории
-            switchPurchaseOrdersTab('info');
+            // Небольшая задержка, чтобы убедиться, что БД обновилась
+            await new Promise(resolve => setTimeout(resolve, 500));
             
             // Перезагружаем таблицу с новыми данными
+            console.log("📥 Loading purchase orders...");
             await loadPurchaseOrdersHistory();
+            console.log("✅ Purchase orders loaded");
+            
+            // Переключаемся на вкладку истории (БЕЗ повторной загрузки)
+            document.getElementById('tab-po-info').style.display = 'block';
+            document.getElementById('tab-po-entry').style.display = 'none';
+            document.getElementById('tab-po-info-btn').classList.add('active');
+            document.getElementById('tab-po-entry-btn').classList.remove('active');
             
         } catch (error) {
             showErrorNotification(`Error: ${error.message}`);
@@ -9619,14 +9754,14 @@ function restoreView(viewName) {
     async function loadShipmentHistory() {
         const tbody = document.getElementById('shipment-history-body');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Loading…</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>';
 
         let res = await safeFetch('/api/history/SHIP' + noCache());
         if (!res || !res.ok) res = await safeFetch('/api/history/SHIP');
 
         if (!res || !res.ok) {
             console.error('Error loading shipment history', res && res.status);
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Unable to load shipment records</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-3">Unable to load shipment records</td></tr>';
             return;
         }
 
@@ -9635,7 +9770,7 @@ function restoreView(viewName) {
 
         tbody.innerHTML = '';
         if (!Array.isArray(data) || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No shipment records</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No shipment records</td></tr>';
             return;
         }
 
@@ -9652,6 +9787,8 @@ function restoreView(viewName) {
                     </td>
                     <td>${row.date}</td>
                     <td><strong>${row.current_sn}</strong> <small class="text-muted">(${row.original_sn})</small></td>
+                    <td>${row.engine_model || '-'}</td>
+                    <td>${row.gss_id || '-'}</td>
                     <td>${row.from}</td>
                     <td><span class="badge bg-info text-dark">${row.to}</span></td>
                     <td>${row.remarks || '-'}</td>
@@ -9724,6 +9861,8 @@ function restoreView(viewName) {
         const date = document.getElementById('ship-date').value;
         const engInputVal = document.getElementById('ship-engine-input').value;
         const engId = document.getElementById('ship-engine-id').value || 0;
+        const engineModel = document.getElementById('ship-engine-model').value;
+        const gssId = document.getElementById('ship-gss-id').value;
         const destId = document.getElementById('ship-dest').value;
         // Получаем текст назначения для отображения
         const destText = document.getElementById('ship-dest').options[document.getElementById('ship-dest').selectedIndex]?.text || "Dest";
@@ -9736,6 +9875,8 @@ function restoreView(viewName) {
         const payload = {
             date: date,
             engine_id: parseInt(engId),
+            engine_model: engineModel,
+            gss_id: gssId,
             to_location_id: parseInt(destId),
             waybill: document.getElementById('ship-wb').value,
             remarks: document.getElementById('ship-rem').value
@@ -10910,12 +11051,15 @@ function restoreView(viewName) {
     const tableConfigs = {
         'install': {
             bodyId: 'install-history-body',
-            columns: ['date', 'original_sn', 'current_sn', 'install_to', 'position', 'location_from', 'tt', 'tc', 'supplier', 'remarks'],
+            columns: ['date', 'original_sn', 'current_sn', 'install_to', 'position', 'location_from', 'tt', 'tc', 'ac_ttsn', 'ac_tcsn', 'supplier', 'remarks'],
             columnTypes: {
                 date: 'date',
                 position: 'number',
                 tt: 'number',
-                tc: 'number'
+                tc: 'number',
+                ac_ttsn: 'number',
+                ac_tcsn: 'number',
+                
             },
             reloadFunction: loadInstallHistory,
             hasDeleteCol: true
@@ -11421,14 +11565,17 @@ function restoreView(viewName) {
                 const dataId = row.getAttribute('data-id');
                 const values = Array.from(inputs).map(inp => inp.value);
                 
+                // Колонки в таблице util-param идут так:
+                // 0: date, 1: aircraft, 2: position, 3: orig_sn, 4: gss_sn, 5: ttsn, 6: tcsn, 7: period, 8: date_from, 9: date_to, 10: created_at
                 const itemData = {
                     date: values[0] || new Date().toISOString().split('T')[0],
                     aircraft: values[1] || '',
-                    ttsn: parseFloat(values[2]) || 0,
-                    tcsn: parseInt(values[3]) || 0,
-                    period: values[4] === 'Да' || values[4] === 'true',
-                    date_from: values[5] !== '-' ? values[5] : null,
-                    date_to: values[6] !== '-' ? values[6] : null
+                    position: parseInt(values[2]) || null,
+                    ttsn: parseFloat(values[5]) || 0,
+                    tcsn: parseInt(values[6]) || 0,
+                    period: values[7] === 'Да' || values[7] === 'true',
+                    date_from: values[8] && values[8] !== '-' ? values[8] : null,
+                    date_to: values[9] && values[9] !== '-' ? values[9] : null
                 };
                 
                 // Обновляем через API
@@ -11634,6 +11781,8 @@ function restoreView(viewName) {
                     position: rowData.position ? parseInt(rowData.position) : null,
                     snapshot_tt: rowData.tt ? parseFloat(rowData.tt) : null,
                     snapshot_tc: rowData.tc ? parseInt(rowData.tc) : null,
+                    ac_ttsn: rowData.ac_ttsn ? parseFloat(rowData.ac_ttsn) : null,
+                    ac_tcsn: rowData.ac_tcsn ? parseInt(rowData.ac_tcsn) : null,
                     comments: rowData.remarks || null,
                     supplier: rowData.supplier || null
                 };
@@ -11747,6 +11896,8 @@ function restoreView(viewName) {
                         position: rowData.position ? parseInt(rowData.position) : null,
                         snapshot_tt: rowData.tt ? parseFloat(rowData.tt) : null,
                         snapshot_tc: rowData.tc ? parseInt(rowData.tc) : null,
+                        ac_ttsn: rowData.ac_ttsn ? parseFloat(rowData.ac_ttsn) : null,
+                        ac_tcsn: rowData.ac_tcsn ? parseInt(rowData.ac_tcsn) : null,
                         comments: rowData.remarks || ''
                     };
                 } else if (tableName === 'parts') {
@@ -12327,6 +12478,7 @@ function restoreView(viewName) {
         }
         switchStoreBalanceTab('list');
         updateHistory('store-balance');
+        await loadConditionStatuses();
         await loadStoreBalance();
     }
 
@@ -12390,17 +12542,11 @@ function restoreView(viewName) {
                     return escapeHtml(value);
                 };
 
-                // Map condition text to CSS class for colored badge
+                // Get condition color from loaded statuses
                 const condText = (item.condition || '').trim();
-                const condClassMap = {
-                    'SV - NGV (SENT)': 'cond-sv',
-                    'UNDER REPAIRING': 'cond-under',
-                    'Delivered in Roma Italy': 'cond-delivered',
-                    'NO CAPABILITY': 'cond-nocap',
-                    'US - SHJ': 'cond-us'
-                };
-                const condClass = condClassMap[condText] || 'cond-default';
-                const condHtml = condText ? `<span class="cond-badge ${condClass}">${escapeHtml(condText)}</span>` : '-';
+                const condStatus = window.conditionStatuses?.find(s => s.name === condText);
+                const condColor = condStatus ? condStatus.color : '#6c757d';
+                const condHtml = condText ? `<span class="cond-badge" style="background-color: ${condColor}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">${escapeHtml(condText)}</span>` : '-';
 
                 tbody.innerHTML += `
                     <tr data-log-id="${item.id}">
@@ -13725,8 +13871,9 @@ function restoreView(viewName) {
         document.getElementById('view-utilization-param').style.display = 'block';
         updateHistory('utilization-param');
         
-        // Устанавливаем сегодняшнюю дату по умолчанию
+        // Устанавливаем сегодняшнюю дату по умолчанию для обеих форм
         document.getElementById('util-param-date').valueAsDate = new Date();
+        document.getElementById('aircraft-util-date').valueAsDate = new Date();
         
         // Загружаем список самолетов
         await loadAircraftDropdown();
@@ -13767,13 +13914,69 @@ function restoreView(viewName) {
         document.getElementById('tab-util-param-history').style.display = tab === 'history' ? 'block' : 'none';
         document.getElementById('tab-util-param-entry-btn').className = tab === 'entry' ? 'nav-link active' : 'nav-link';
         document.getElementById('tab-util-param-history-btn').className = tab === 'history' ? 'nav-link active' : 'nav-link';
-        if (tab === 'history') loadUtilParamHistory();
+        if (tab === 'history') {
+            loadUtilParamHistory();
+            loadAircraftUtilHistory();
+        }
+    }
+
+    function switchUtilHistoryTab(tab) {
+        document.getElementById('tab-util-param-periodic').style.display = tab === 'periodic' ? 'block' : 'none';
+        document.getElementById('tab-util-param-aircraft').style.display = tab === 'aircraft' ? 'block' : 'none';
+        document.getElementById('tab-util-param-periodic-btn').className = tab === 'periodic' ? 'nav-link active' : 'nav-link';
+        document.getElementById('tab-util-param-aircraft-btn').className = tab === 'aircraft' ? 'nav-link active' : 'nav-link';
+        if (tab === 'aircraft') {
+            loadAircraftUtilHistory();
+        }
     }
 
     async function onUtilAircraftChange() {
         // Clear engine details when aircraft changes
         document.getElementById('util-param-orig-sn').value = '';
         document.getElementById('util-param-gss-sn').value = '';
+        
+        const aircraft = document.getElementById('util-param-ac').value;
+        if (!aircraft) {
+            document.getElementById('all-positions-info').style.display = 'none';
+            return;
+        }
+        
+        try {
+            // Загружаем информацию о всех позициях
+            const response = await fetch(`/api/aircraft/${aircraft}`);
+            if (!response.ok) throw new Error('Failed to load aircraft');
+            
+            const aircraft_data = await response.json();
+            const infoContainer = document.getElementById('positions-info-content');
+            infoContainer.innerHTML = '';
+            
+            // Показываем все 4 позиции
+            for (let pos = 1; pos <= 4; pos++) {
+                const engine = aircraft_data.engines && aircraft_data.engines.find(e => e.position === pos);
+                if (engine) {
+                    infoContainer.innerHTML += `
+                        <div style="flex: 1; min-width: 200px; padding: 8px; background: white; border-radius: 4px; border: 1px solid #ddd;">
+                            <div style="font-weight: bold; color: #0066cc; margin-bottom: 4px;">Position ${pos}</div>
+                            <div style="font-size: 0.85rem;"><strong>Orig SN:</strong> ${engine.original_sn || '-'}</div>
+                            <div style="font-size: 0.85rem;"><strong>GSS ID:</strong> ${engine.gss_sn || engine.original_sn || '-'}</div>
+                            <div style="font-size: 0.85rem;"><strong>Current S/N:</strong> ${engine.current_sn || '-'}</div>
+                        </div>
+                    `;
+                } else {
+                    infoContainer.innerHTML += `
+                        <div style="flex: 1; min-width: 200px; padding: 8px; background: #f5f5f5; border-radius: 4px; border: 1px solid #ddd;">
+                            <div style="font-weight: bold; color: #999; margin-bottom: 4px;">Position ${pos}</div>
+                            <div style="font-size: 0.85rem; color: #999;">No Engine</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            document.getElementById('all-positions-info').style.display = 'block';
+        } catch (err) {
+            console.error('Error loading aircraft positions:', err);
+        }
+        
         // Auto-fetch when position is also selected
         if (document.getElementById('util-param-position').value) {
             await onUtilPositionChange();
@@ -13817,21 +14020,7 @@ function restoreView(viewName) {
         }
     }
 
-    function togglePeriodFields() {
-        const checkbox = document.getElementById('util-param-period');
-        const dateFrom = document.getElementById('util-param-date-from');
-        const dateTo = document.getElementById('util-param-date-to');
-        
-        if (checkbox.checked) {
-            dateFrom.disabled = false;
-            dateTo.disabled = false;
-        } else {
-            dateFrom.disabled = true;
-            dateTo.disabled = true;
-            dateFrom.value = '';
-            dateTo.value = '';
-        }
-    }
+    // togglePeriodFields removed - period fields are always enabled now
 
     let _utilParamSubmitting = false;
     async function submitUtilParams() {
@@ -13844,17 +14033,11 @@ function restoreView(viewName) {
         const position = document.getElementById('util-param-position').value;
         const ttsn = document.getElementById('util-param-ttsn').value;
         const tcsn = document.getElementById('util-param-tcsn').value;
-        const periodChecked = document.getElementById('util-param-period').checked;
         const dateFrom = document.getElementById('util-param-date-from').value;
         const dateTo = document.getElementById('util-param-date-to').value;
 
-        if (!date || !aircraft || !position || !ttsn || !tcsn) {
-            showErrorNotification('Пожалуйста, заполните все обязательные поля: Дата, Самолет, Позиция, TTSN и TCSN');
-            return;
-        }
-
-        if (periodChecked && (!dateFrom || !dateTo)) {
-            showErrorNotification('При выборе периода укажите Date From и Date To');
+        if (!date || !aircraft || !position || !ttsn || !tcsn || !dateFrom || !dateTo) {
+            showErrorNotification('Пожалуйста, заполните все обязательные поля: Дата, Самолет, Позиция, TTSN, TCSN, Date From и Date To');
             return;
         }
 
@@ -13864,9 +14047,9 @@ function restoreView(viewName) {
             position: parseInt(position),
             ttsn: parseFloat(ttsn),
             tcsn: parseInt(tcsn),
-            period: periodChecked,
-            date_from: periodChecked ? dateFrom : null,
-            date_to: periodChecked ? dateTo : null
+            period: true,
+            date_from: dateFrom,
+            date_to: dateTo
         };
 
         // Сохраняем в базу данных через API
@@ -13899,6 +14082,92 @@ function restoreView(viewName) {
             showErrorNotification('Ошибка сохранения: ' + err.message);
         } finally {
             _utilParamSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Сохранить'; }
+        }
+    }
+
+    async function onAircraftUtilChange() {
+        const aircraft = document.getElementById('aircraft-util-ac').value;
+        if (!aircraft) return;
+        
+        try {
+            const response = await fetch(`/api/aircraft/${aircraft}`);
+            if (!response.ok) throw new Error('Failed to load aircraft');
+            
+            const aircraft_data = await response.json();
+            // Можно здесь подтягивать текущие значения TTSN/TCSN если они сохранены
+            // Пока оставим пустыми для ввода новых значений
+            document.getElementById('aircraft-util-ttsn').value = '';
+            document.getElementById('aircraft-util-tcsn').value = '';
+        } catch (err) {
+            console.error('Error fetching aircraft:', err);
+        }
+    }
+
+    let _aircraftUtilSubmitting = false;
+    async function submitAircraftUtil() {
+        if (_aircraftUtilSubmitting) { return; }
+        _aircraftUtilSubmitting = true;
+        
+        const aircraft = document.getElementById('aircraft-util-ac').value;
+        const date = document.getElementById('aircraft-util-date').value;
+        const ttsn = document.getElementById('aircraft-util-ttsn').value;
+        const tcsn = document.getElementById('aircraft-util-tcsn').value;
+        
+        if (!aircraft || !date || !ttsn || !tcsn) {
+            showErrorNotification('Пожалуйста, заполните все обязательные поля');
+            _aircraftUtilSubmitting = false;
+            return;
+        }
+        
+        const saveBtn = document.querySelector('#form-aircraft-util .btn.btn-success');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
+        
+        try {
+            // Обновляем данные самолёта И сохраняем историю
+            const response = await fetch(`/api/aircraft-utilization`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    aircraft: aircraft,
+                    date: date,
+                    total_time: parseFloat(ttsn),
+                    total_cycles: parseInt(tcsn)
+                })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to save');
+            }
+            
+            showSuccessNotification('Total Aircraft Utilization успешно сохранены!');
+            
+            // Обновляем историю общего налета
+            if (document.getElementById('aircraft-util-history-body')) {
+                await loadAircraftUtilHistory();
+            }
+            
+            // Перезагружаем дашборд
+            setTimeout(async () => {
+                if (typeof loadDashboardData === 'function') {
+                    try {
+                        await loadDashboardData();
+                        console.log('Dashboard updated after aircraft util save');
+                    } catch (e) {
+                        console.error('Error updating dashboard:', e);
+                    }
+                }
+            }, 300);
+            
+            // Очищаем форму
+            document.getElementById('form-aircraft-util').reset();
+            document.getElementById('aircraft-util-date').valueAsDate = new Date();
+        } catch (err) {
+            console.error('Error saving aircraft utilization:', err);
+            showErrorNotification('Ошибка сохранения: ' + err.message);
+        } finally {
+            _aircraftUtilSubmitting = false;
             if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Сохранить'; }
         }
     }
@@ -13982,6 +14251,49 @@ function restoreView(viewName) {
         } catch (err) {
             console.error('Error deleting record:', err);
             showErrorNotification('Ошибка удаления: ' + err.message);
+        }
+    }
+
+    async function loadAircraftUtilHistory() {
+        const tbody = document.getElementById('aircraft-util-history-body');
+        if (!tbody) return; // Таблица не на этой странице
+        
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted">Loading...</td></tr>';
+        
+        try {
+            const response = await fetch('/api/aircraft-utilization-history');
+            if (!response.ok) {
+                throw new Error('Failed to load data');
+            }
+            
+            const data = await response.json();
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-muted">Нет данных</td></tr>';
+                return;
+            }
+
+            // Сортируем по дате (новые первыми)
+            data.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            data.forEach((item) => {
+                const dateStr = new Date(item.date).toLocaleDateString('ru-RU');
+                const createdStr = new Date(item.created_at).toLocaleString('ru-RU');
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${dateStr}</td>
+                    <td>${item.aircraft_tail_number || item.aircraft}</td>
+                    <td>${item.total_time || 0}</td>
+                    <td>${item.total_cycles || 0}</td>
+                    <td>${createdStr}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        } catch (err) {
+            console.error('Error loading aircraft utilization history:', err);
+            tbody.innerHTML = '<tr><td colspan="5" class="text-danger">Ошибка загрузки данных</td></tr>';
         }
     }
 
@@ -18333,6 +18645,172 @@ async function viewShipmentDetails(shipmentId) {
         console.log('Engine Tools Available!');
         console.log('Usage: etc.clearCache() or etc.showCache()');
     </script>
+
+    <script>
+        // Condition Statuses Management
+        window.conditionStatuses = [];
+
+        async function loadConditionStatuses() {
+            try {
+                const res = await fetch('/api/condition-statuses');
+                if (!res.ok) throw new Error('Failed to load condition statuses');
+                window.conditionStatuses = await res.json();
+                
+                // Update select dropdown
+                const select = document.getElementById('store-condition');
+                if (select) {
+                    select.innerHTML = '<option value="">-- Select --</option>';
+                    window.conditionStatuses.forEach(status => {
+                        const opt = document.createElement('option');
+                        opt.value = status.name;
+                        opt.textContent = status.name;
+                        opt.style.backgroundColor = status.color;
+                        opt.style.color = 'white';
+                        opt.dataset.statusId = status.id;
+                        select.appendChild(opt);
+                    });
+                }
+                
+                // Update status list in modal
+                updateConditionStatusList();
+            } catch (error) {
+                console.error('Error loading condition statuses:', error);
+            }
+        }
+
+        function updateConditionStatusList() {
+            const listContainer = document.getElementById('condition-status-list');
+            if (!listContainer) return;
+            
+            listContainer.innerHTML = '';
+            
+            if (window.conditionStatuses.length === 0) {
+                listContainer.innerHTML = '<div class="text-muted small">No statuses yet</div>';
+                return;
+            }
+            
+            window.conditionStatuses.forEach(status => {
+                const item = document.createElement('div');
+                item.className = 'd-flex align-items-center justify-content-between mb-2 p-2 border rounded';
+                item.innerHTML = `
+                    <span class="d-flex align-items-center gap-2">
+                        <span style="width: 20px; height: 20px; background-color: ${status.color}; border-radius: 3px; display: inline-block;"></span>
+                        <span>${status.name}</span>
+                    </span>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="deleteConditionStatus(${status.id})" style="padding: 2px 6px; font-size: 0.75rem;">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        async function deleteConditionStatus(statusId) {
+            if (!confirm('Delete this status?')) return;
+            
+            try {
+                const res = await fetch(`/api/condition-statuses/${statusId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await res.json();
+                
+                if (data.status === 'error') {
+                    showErrorNotification(data.message || 'Failed to delete status');
+                    return;
+                }
+                
+                showSuccessNotification('Status deleted successfully!');
+                await loadConditionStatuses();
+            } catch (error) {
+                console.error('Error deleting condition status:', error);
+                showErrorNotification('Failed to delete status');
+            }
+        }
+
+        function openAddConditionModal() {
+            const modal = new bootstrap.Modal(document.getElementById('addConditionModal'));
+            document.getElementById('new-condition-name').value = '';
+            document.getElementById('new-condition-color').value = '#28a745';
+            
+            updateConditionStatusList();
+            modal.show();
+        }
+
+        async function saveConditionStatus() {
+            const name = document.getElementById('new-condition-name').value.trim();
+            const color = document.getElementById('new-condition-color').value;
+            
+            if (!name) {
+                showErrorNotification('Please enter status name');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/condition-statuses', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, color})
+                });
+                
+                const data = await res.json();
+                
+                if (data.status === 'error') {
+                    showErrorNotification(data.message || 'Failed to add status');
+                    return;
+                }
+                
+                showSuccessNotification(`Status "${name}" added successfully!`);
+                document.getElementById('new-condition-name').value = '';
+                document.getElementById('new-condition-color').value = '#28a745';
+                await loadConditionStatuses();
+            } catch (error) {
+                console.error('Error saving condition status:', error);
+                showErrorNotification('Failed to save status');
+            }
+        }
+
+        // Load statuses on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConditionStatuses();
+        });
+    </script>
+
+    <!-- Add Condition Status Modal -->
+    <div class="modal fade" id="addConditionModal" tabindex="-1">
+        <div class="modal-dialog modal-md">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Manage Condition Statuses</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Add New Status</label>
+                        <div class="row g-2">
+                            <div class="col-7">
+                                <input type="text" class="form-control form-control-sm" id="new-condition-name" placeholder="e.g. SERVICEABLE">
+                            </div>
+                            <div class="col-3">
+                                <input type="color" class="form-control form-control-color" id="new-condition-color" value="#28a745" style="width: 100%; height: 31px;">
+                            </div>
+                            <div class="col-2">
+                                <button type="button" class="btn btn-sm btn-success w-100" onclick="saveConditionStatus()">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div>
+                        <label class="form-label small fw-bold">Existing Statuses</label>
+                        <div id="condition-status-list" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>

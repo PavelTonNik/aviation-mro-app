@@ -1,12 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, status, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import func, or_, text
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import hashlib
@@ -179,6 +179,9 @@ def startup_event():
     ensure_sqlite_column("action_logs", "ttsn_ac FLOAT")
     ensure_sqlite_column("action_logs", "tcsn_ac INTEGER")
     ensure_sqlite_column("action_logs", "remarks_removal TEXT")
+    # Ensure new Shipment columns exist in local SQLite
+    ensure_sqlite_column("shipments", "engine_model TEXT")
+    ensure_sqlite_column("shipments", "gss_id TEXT")
 
     # Открываем сессию базы данных
     db = database.SessionLocal()
@@ -526,6 +529,8 @@ class InstallSchema(BaseModel):
 class ShipmentSchema(BaseModel):
     date: str
     engine_id: int
+    engine_model: Optional[str] = None
+    gss_id: Optional[str] = None
     to_location_id: int  # Куда отправляем (ID локации)
     waybill: Optional[str] = "" # Номер накладной
     remarks: Optional[str] = ""
@@ -560,6 +565,10 @@ class PartActionSchema(BaseModel):
     part_number: str
     serial_number: str
     quantity: int
+    from_esn: Optional[str] = None
+    to_esn: Optional[str] = None
+    location: Optional[str] = None
+    reason: Optional[str] = None
 
 
 class StoreItemSchema(BaseModel):
@@ -726,12 +735,12 @@ class UtilizationParameterSchema(BaseModel):
     """Schema for Utilization Parameters"""
     date: str
     aircraft: str
-    position: Optional[int] = None  # Позиция двигателя (1-4) или NULL
+    position: int  # Позиция двигателя (1-4) обязательна
     ttsn: float
     tcsn: int
-    period: bool = False
-    date_from: Optional[str] = None
-    date_to: Optional[str] = None
+    period: bool = True  # Теперь всегда True по умолчанию
+    date_from: str  # Обязательная дата начала периода
+    date_to: str  # Обязательная дата конца периода
 
 
 class UserCreateSchema(BaseModel):
@@ -987,6 +996,8 @@ class AircraftUpdateSchema(BaseModel):
     tail_number: Optional[str] = None
     model: Optional[str] = None
     msn: Optional[str] = None
+    total_time: Optional[float] = None
+    total_cycles: Optional[int] = None
 
 @app.post("/api/aircrafts")
 def create_aircraft(data: AircraftCreateSchema, current_user_id: int = Query(..., alias="user_id"), db: Session = Depends(get_db)):
@@ -1034,6 +1045,10 @@ def update_aircraft(aircraft_id: int, data: AircraftUpdateSchema, db: Session = 
         aircraft.model = data.model
     if data.msn:
         aircraft.msn = data.msn
+    if data.total_time is not None:
+        aircraft.total_time = data.total_time
+    if data.total_cycles is not None:
+        aircraft.total_cycles = data.total_cycles
     
     db.commit()
     db.refresh(aircraft)
@@ -1041,7 +1056,9 @@ def update_aircraft(aircraft_id: int, data: AircraftUpdateSchema, db: Session = 
     return {
         "message": "Aircraft updated successfully",
         "id": aircraft.id,
-        "tail_number": aircraft.tail_number
+        "tail_number": aircraft.tail_number,
+        "total_time": aircraft.total_time,
+        "total_cycles": aircraft.total_cycles
     }
 
 @app.delete("/api/aircrafts/{aircraft_id}")
@@ -1274,14 +1291,47 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
             # Заполняем реальными двигателями
             for eng in engines_on_wing:
                 if eng.position and 1 <= eng.position <= 4:
-                    # Вычисляем налет на конкретном самолете
+                    # Вычисляем налет на конкретном самолете по согласованной логике
                     tsn_on_aircraft = 0.0
                     csn_on_aircraft = 0
                     
-                    if eng.tsn_at_install is not None and eng.csn_at_install is not None:
-                        # Налет = Текущий TSN - TSN при установке
-                        tsn_on_aircraft = eng.total_time - eng.tsn_at_install
-                        csn_on_aircraft = eng.total_cycles - eng.csn_at_install
+                    # Находим последнюю запись INSTALL для этого двигателя
+                    last_install = db.query(models.ActionLog).filter(
+                        models.ActionLog.engine_id == eng.id,
+                        models.ActionLog.action_type == "INSTALL"
+                    ).order_by(models.ActionLog.date.desc()).first()
+                    
+                    if last_install:
+                        # Текущий налёт самолёта
+                        current_ac_ttsn = ac.total_time or 0.0
+                        current_ac_tcsn = ac.total_cycles or 0
+                        
+                        # Налёт самолёта на момент установки хранится в строковых полях block_time_str/block_in_str
+                        def _to_float(v):
+                            try:
+                                return float(v) if v is not None and str(v).strip() != "" else 0.0
+                            except Exception:
+                                return 0.0
+                        def _to_int(v):
+                            try:
+                                return int(v) if v is not None and str(v).strip() != "" else 0
+                            except Exception:
+                                return 0
+                        ac_ttsn_at_install = _to_float(getattr(last_install, "block_time_str", None))
+                        ac_tcsn_at_install = _to_int(getattr(last_install, "block_in_str", None))
+                        
+                        # Налёт двигателя на момент установки берём из snapshot_tt/snapshot_tc
+                        engine_tsn_at_install = last_install.snapshot_tt or 0.0
+                        engine_csn_at_install = last_install.snapshot_tc or 0
+                        
+                        tsn_on_aircraft = current_ac_ttsn - ac_ttsn_at_install - engine_tsn_at_install
+                        csn_on_aircraft = current_ac_tcsn - ac_tcsn_at_install - engine_csn_at_install
+                        
+                        # Защита от отрицательных значений
+                        if tsn_on_aircraft < 0:
+                            tsn_on_aircraft = 0.0
+                        if csn_on_aircraft < 0:
+                            csn_on_aircraft = 0
                     
                     # Находим последнюю запись ATLB для определения даты обновления
                     last_atlb = db.query(models.ActionLog).filter(
@@ -1289,13 +1339,25 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                     ).order_by(models.ActionLog.date.desc()).first()
                     
                     last_update = last_atlb.date.strftime("%Y-%m-%d %H:%M") if last_atlb else "N/A"
-                    # Находим последнюю запись INSTALL для этого двигателя (там supplier)
-                    last_install = db.query(models.ActionLog).filter(
-                        models.ActionLog.engine_id == eng.id,
-                        models.ActionLog.action_type == "INSTALL"
-                    ).order_by(models.ActionLog.date.desc()).first()
                     
                     supplier = last_install.supplier if last_install and last_install.supplier else None
+                    
+                    # Находим последнюю периодическую запись для этой позиции
+                    util_param = db.query(models.UtilizationParameter).filter(
+                        models.UtilizationParameter.aircraft == ac.tail_number,
+                        models.UtilizationParameter.position == eng.position,
+                        models.UtilizationParameter.period == True
+                    ).order_by(
+                        models.UtilizationParameter.created_at.desc(),
+                        models.UtilizationParameter.date.desc(),
+                        models.UtilizationParameter.id.desc()
+                    ).first()
+                    
+                    # Данные периода для этой позиции
+                    position_util_ttsn = util_param.ttsn if util_param else None
+                    position_util_tcsn = util_param.tcsn if util_param else None
+                    position_date_from = util_param.date_from.strftime("%Y-%m-%d") if util_param and util_param.date_from else None
+                    position_date_to = util_param.date_to.strftime("%Y-%m-%d") if util_param and util_param.date_to else None
                     
                     positions[eng.position] = {
                         "engine_id": eng.id,
@@ -1316,7 +1378,12 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                         "install_date": eng.install_date.strftime("%Y-%m-%d") if eng.install_date else "N/A",
                         "last_update": last_update,
                         "supplier": supplier,
-                        "param_date": eng.last_param_update.strftime("%d.%m.%Y") if eng.last_param_update else None
+                        "param_date": eng.last_param_update.strftime("%d.%m.%Y") if eng.last_param_update else None,
+                        # Данные периода для этой конкретной позиции
+                        "util_ttsn": position_util_ttsn,
+                        "util_tcsn": position_util_tcsn,
+                        "util_date_from": position_date_from,
+                        "util_date_to": position_date_to
                     }
             
             result.append({
@@ -1397,6 +1464,117 @@ def get_aircraft_by_tail_number(tail_number: str, db: Session = Depends(get_db))
     except Exception as e:
         print(f"❌ Error in get_aircraft_by_tail_number: {e}")
         return {"error": str(e)}, 500
+
+@app.patch("/api/aircraft/{tail_number}")
+def update_aircraft_by_tail_number(tail_number: str, data: AircraftUpdateSchema, db: Session = Depends(get_db)):
+    """Update aircraft by tail_number - PATCH"""
+    aircraft = db.query(models.Aircraft).filter(models.Aircraft.tail_number == tail_number).first()
+    
+    if not aircraft:
+        raise HTTPException(status_code=404, detail=f"Aircraft {tail_number} not found")
+    
+    if data.tail_number:
+        aircraft.tail_number = data.tail_number
+    if data.model:
+        aircraft.model = data.model
+    if data.msn:
+        aircraft.msn = data.msn
+    if data.total_time is not None:
+        aircraft.total_time = data.total_time
+    if data.total_cycles is not None:
+        aircraft.total_cycles = data.total_cycles
+    
+    db.commit()
+    db.refresh(aircraft)
+    
+    return {
+        "message": "Aircraft updated successfully",
+        "tail_number": aircraft.tail_number,
+        "total_time": aircraft.total_time,
+        "total_cycles": aircraft.total_cycles
+    }
+
+# ===== AIRCRAFT UTILIZATION HISTORY =====
+class AircraftUtilizationSchema(BaseModel):
+    aircraft: str  # tail_number
+    date: str
+    total_time: float
+    total_cycles: int
+
+@app.post("/api/aircraft-utilization")
+def save_aircraft_utilization(data: AircraftUtilizationSchema, db: Session = Depends(get_db)):
+    """Save aircraft total time/cycles and update aircraft record"""
+    try:
+        # Find aircraft by tail_number
+        aircraft = db.query(models.Aircraft).filter(
+            models.Aircraft.tail_number == data.aircraft
+        ).first()
+        
+        if not aircraft:
+            raise HTTPException(status_code=404, detail=f"Aircraft {data.aircraft} not found")
+        
+        # Parse date
+        parsed_date = parse_input_date(data.date)
+        if not parsed_date:
+            parsed_date = datetime.now(timezone.utc)
+        
+        # Update aircraft totals
+        aircraft.total_time = data.total_time
+        aircraft.total_cycles = data.total_cycles
+        
+        # Save to history
+        history = models.AircraftUtilizationHistory(
+            aircraft_id=aircraft.id,
+            date=parsed_date,
+            total_time=data.total_time,
+            total_cycles=data.total_cycles
+        )
+        
+        db.add(history)
+        db.commit()
+        db.refresh(history)
+        
+        return {
+            "message": "Aircraft utilization saved successfully",
+            "id": history.id,
+            "aircraft": aircraft.tail_number,
+            "total_time": aircraft.total_time,
+            "total_cycles": aircraft.total_cycles
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/aircraft-utilization-history")
+def get_aircraft_utilization_history(aircraft: str = None, db: Session = Depends(get_db)):
+    """Get aircraft utilization history"""
+    try:
+        query = db.query(models.AircraftUtilizationHistory)
+        
+        if aircraft:
+            query = query.join(models.Aircraft).filter(
+                models.Aircraft.tail_number == aircraft
+            )
+        
+        records = query.order_by(models.AircraftUtilizationHistory.date.desc()).all()
+        
+        result = []
+        for record in records:
+            result.append({
+                "id": record.id,
+                "aircraft_id": record.aircraft_id,
+                "aircraft": record.aircraft.tail_number if record.aircraft else "N/A",
+                "aircraft_tail_number": record.aircraft.tail_number if record.aircraft else "N/A",
+                "date": record.date.isoformat() if record.date else None,
+                "total_time": record.total_time,
+                "total_cycles": record.total_cycles,
+                "created_at": record.created_at.isoformat() if record.created_at else None
+            })
+        
+        return result
+    except Exception as e:
+        print(f"Error getting aircraft utilization history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- ВОТ ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОКАЗЫВАЕТ ВСЕ ДВИГАТЕЛИ) ---
 @app.get("/api/engines")
@@ -1753,6 +1931,8 @@ class ActionLogUpdateSchema(BaseModel):
     to_location: Optional[str] = None
     to_aircraft: Optional[str] = None
     position: Optional[int] = None
+    ac_ttsn: Optional[float] = None
+    ac_tcsn: Optional[int] = None
     snapshot_tt: Optional[float] = None
     snapshot_tc: Optional[int] = None
     comments: Optional[str] = None
@@ -1767,6 +1947,8 @@ class ActionLogCreateSchema(BaseModel):
     to_location: Optional[str] = None
     to_aircraft: Optional[str] = None
     position: Optional[int] = None
+    ac_ttsn: Optional[float] = None
+    ac_tcsn: Optional[int] = None
     snapshot_tt: Optional[float] = None
     snapshot_tc: Optional[int] = None
     comments: Optional[str] = None
@@ -1899,6 +2081,12 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
             log.snapshot_tc = data.snapshot_tc
             engine.total_cycles = data.snapshot_tc
             engine.csn_at_install = data.snapshot_tc
+
+        # Сохраняем налёт самолета в логе (НЕ обновляем Aircraft.total_time/cycles)
+        if data.ac_ttsn is not None:
+            log.block_time_str = str(data.ac_ttsn)
+        if data.ac_tcsn is not None:
+            log.block_in_str = str(data.ac_tcsn)
 
         if data.comments is not None:
             log.comments = data.comments
@@ -2204,11 +2392,7 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
     eng.total_time = data.tt
     eng.total_cycles = data.tc
 
-    # При необходимости фиксируем текущую наработку самолета
-    if data.ac_ttsn is not None:
-        ac.total_time = data.ac_ttsn
-    if data.ac_tcsn is not None:
-        ac.total_cycles = data.ac_tcsn
+    # НЕ обновляем aircraft.total_time/cycles здесь - только через Utilization Parameters
     
     # SNAPSHOT для отслеживания наработки на конкретном самолете
     eng.tsn_at_install = data.tt
@@ -2257,12 +2441,18 @@ def get_shipment_history(db: Session = Depends(get_db)):
         for l in logs:
             orig_sn = l.engine.original_sn if l.engine else "Deleted"
             curr_sn = l.engine.current_sn if l.engine else "-"
-            
+            engine_model = (getattr(l.engine, "model", None) if l.engine else None) or "-"
+            gss_id = (
+                getattr(l.engine, "gss_id", None) if l.engine else None
+            ) or (getattr(l.engine, "gss_sn", None) if l.engine else None) or "-"
+
             res.append({
                 "id": l.id,
                 "date": l.date.strftime("%Y-%m-%d"),
                 "original_sn": orig_sn,
                 "current_sn": curr_sn,
+                "engine_model": engine_model,
+                "gss_id": gss_id,
                 "from": l.from_location or "-",
                 "to": l.to_location or "-",
                 "remarks": l.comments
@@ -3413,6 +3603,7 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
 def get_purchase_orders_history(db: Session = Depends(get_db)):
     try:
         orders = db.query(models.PurchaseOrder).order_by(models.PurchaseOrder.date.desc()).all()
+        print(f"📦 Found {len(orders)} purchase orders in DB")
         
         # Получаем все пользовательские колонки для purchase_orders
         custom_columns = db.query(models.CustomColumn).filter(
@@ -3444,44 +3635,73 @@ def get_purchase_orders_history(db: Session = Depends(get_db)):
             
             result.append(order_data)
         
-        return result
+        print(f"✅ Returning {len(result)} purchase orders")
+        return JSONResponse(
+            content=result,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     except Exception as e:
         print(f"❌ Error in get_purchase_orders_history: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 @app.post("/api/history/PURCHASE_ORDER")
 def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_db)):
-    price_val = None
     try:
-        price_val = float(data.price) if data.price is not None else None
-    except Exception:
+        print(f"📝 Creating purchase order:")
+        print(f"  - date: {data.date}")
+        print(f"  - name: {data.name}")
+        print(f"  - aircraft: {data.aircraft}")
+        print(f"  - ro_number: {data.ro_number}")
+        print(f"  - purpose: {data.purpose}")
+        
         price_val = None
+        try:
+            price_val = float(data.price) if data.price is not None else None
+        except Exception as e:
+            print(f"  ⚠️ Price parse error: {e}")
+            price_val = None
 
-    new_order = models.PurchaseOrder(
-        date=data.date,
-        name=data.name,
-        part_number=data.part_number,
-        serial_number=data.serial_number,
-        price=price_val,
-        purpose=data.purpose,
-        aircraft=data.aircraft,
-        ro_number=data.ro_number,
-        link=data.link
-    )
-    db.add(new_order)
-    db.commit()
-    db.refresh(new_order)
+        new_order = models.PurchaseOrder(
+            date=data.date,
+            name=data.name,
+            part_number=data.part_number,
+            serial_number=data.serial_number,
+            price=price_val,
+            purpose=data.purpose,
+            aircraft=data.aircraft,
+            ro_number=data.ro_number,
+            link=data.link
+        )
+        db.add(new_order)
+        db.flush()
+        print(f"  ✓ Flushed to DB")
+        db.commit()
+        print(f"  ✓ Committed to DB")
+        db.refresh(new_order)
+        print(f"✅ Purchase order saved: ID={new_order.id}, name={new_order.name}")
 
-    # Log action
-    create_notification(
-        db,
-        action_type="created",
-        entity_type="purchase_order",
-        entity_id=new_order.id,
-        message=f"Purchase Order '{data.name}' для борта {data.aircraft or '-'} (RO: {data.ro_number or '-'}) создан",
-        performed_by="User"
-    )
-    return {"status": "ok", "id": new_order.id}
+        # Log action
+        create_notification(
+            db,
+            action_type="created",
+            entity_type="purchase_order",
+            entity_id=new_order.id,
+            message=f"Purchase Order '{data.name}' для борта {data.aircraft or '-'} (RO: {data.ro_number or '-'}) создан",
+            performed_by="User"
+        )
+        return {"status": "ok", "id": new_order.id, "message": f"Purchase order '{data.name}' saved successfully"}
+    except Exception as e:
+        print(f"❌ Error in create_purchase_order: {e}")
+        import traceback
+        traceback.print_exc()
+        db.rollback()
+        return {"status": "error", "detail": f"Failed to create purchase order: {str(e)}"}
 
 
 # --- SCHEDULED EVENTS API (Calendar) ---
@@ -4010,22 +4230,34 @@ def create_utilization_parameter(data: UtilizationParameterSchema, db: Session =
     if not parsed_date:
         raise HTTPException(status_code=400, detail="Invalid date format")
     
-    parsed_date_from = parse_input_date(data.date_from) if data.date_from else None
-    parsed_date_to = parse_input_date(data.date_to) if data.date_to else None
+    # Валидация обязательных полей
+    if not data.position or data.position < 1 or data.position > 4:
+        raise HTTPException(status_code=400, detail="Position is required and must be between 1 and 4")
     
-    # Если указана позиция - ищем двигатель на этой позиции
-    engine_id = None
-    if data.position:
-        engine = db.query(models.Engine).filter(
-            models.Engine.aircraft_id == db.query(models.Aircraft).filter(
-                models.Aircraft.tail_number == data.aircraft
-            ).first().id if db.query(models.Aircraft).filter(
-                models.Aircraft.tail_number == data.aircraft
-            ).first() else None,
-            models.Engine.position == data.position,
-            models.Engine.status == "INSTALLED"
-        ).first()
-        engine_id = engine.id if engine else None
+    if not data.date_from or not data.date_to:
+        raise HTTPException(status_code=400, detail="Date From and Date To are required")
+    
+    parsed_date_from = parse_input_date(data.date_from)
+    parsed_date_to = parse_input_date(data.date_to)
+    
+    if not parsed_date_from or not parsed_date_to:
+        raise HTTPException(status_code=400, detail="Invalid date format for date_from or date_to")
+    
+    # Позиция обязательна - ищем двигатель на этой позиции
+    ac = db.query(models.Aircraft).filter(
+        models.Aircraft.tail_number == data.aircraft
+    ).first()
+    
+    if not ac:
+        raise HTTPException(status_code=404, detail=f"Aircraft {data.aircraft} not found")
+    
+    engine = db.query(models.Engine).filter(
+        models.Engine.aircraft_id == ac.id,
+        models.Engine.position == data.position,
+        models.Engine.status == "INSTALLED"
+    ).first()
+    
+    engine_id = engine.id if engine else None
     
     new_param = models.UtilizationParameter(
         date=parsed_date,
@@ -4086,20 +4318,30 @@ def update_utilization_parameter(param_id: int, data: UtilizationParameterSchema
     if not parsed_date:
         raise HTTPException(status_code=400, detail="Invalid date format")
     
-    parsed_date_from = parse_input_date(data.date_from) if data.date_from else None
-    parsed_date_to = parse_input_date(data.date_to) if data.date_to else None
+    # Валидация обязательных полей
+    if not data.position or data.position < 1 or data.position > 4:
+        raise HTTPException(status_code=400, detail="Position is required and must be between 1 and 4")
     
-    # Если указана позиция - ищем двигатель на этой позиции
-    engine_id = None
-    if data.position:
-        ac = db.query(models.Aircraft).filter(models.Aircraft.tail_number == data.aircraft).first()
-        if ac:
-            engine = db.query(models.Engine).filter(
-                models.Engine.aircraft_id == ac.id,
-                models.Engine.position == data.position,
-                models.Engine.status == "INSTALLED"
-            ).first()
-            engine_id = engine.id if engine else None
+    if not data.date_from or not data.date_to:
+        raise HTTPException(status_code=400, detail="Date From and Date To are required")
+    
+    parsed_date_from = parse_input_date(data.date_from)
+    parsed_date_to = parse_input_date(data.date_to)
+    
+    if not parsed_date_from or not parsed_date_to:
+        raise HTTPException(status_code=400, detail="Invalid date format for date_from or date_to")
+    
+    # Позиция обязательна - ищем двигатель на этой позиции
+    ac = db.query(models.Aircraft).filter(models.Aircraft.tail_number == data.aircraft).first()
+    if not ac:
+        raise HTTPException(status_code=404, detail=f"Aircraft {data.aircraft} not found")
+    
+    engine = db.query(models.Engine).filter(
+        models.Engine.aircraft_id == ac.id,
+        models.Engine.position == data.position,
+        models.Engine.status == "INSTALLED"
+    ).first()
+    engine_id = engine.id if engine else None
     
     param.date = parsed_date
     param.aircraft = data.aircraft
@@ -5260,6 +5502,8 @@ def create_schedule(data: LogisticsShipmentSchema, db: Session = Depends(get_db)
             shipment_type=data.shipment_type,
             status=data.status or "PLANNED",
             engine_id=data.engine_id,
+            engine_model=data.engine_model,
+            gss_id=data.gss_id,
             destination_location=data.destination_location,
             part_name=data.part_name,
             part_category=data.part_category,
@@ -5581,3 +5825,56 @@ def get_logistics_movements(db: Session = Depends(get_db)):
             "total": 0
         }
 
+
+# --- CONDITION STATUSES API (Store Balance) ---
+
+@app.get("/api/condition-statuses")
+def get_condition_statuses(db: Session = Depends(get_db)):
+    """Получить все статусы Condition"""
+    try:
+        statuses = db.query(models.ConditionStatus).all()
+        return [{"id": s.id, "name": s.name, "color": s.color} for s in statuses]
+    except Exception as e:
+        print(f"❌ Error in get_condition_statuses: {e}")
+        return []
+
+@app.post("/api/condition-statuses")
+def create_condition_status(data: dict, db: Session = Depends(get_db)):
+    """Создать новый статус Condition"""
+    try:
+        name = data.get("name", "").strip()
+        color = data.get("color", "#6c757d")
+        
+        if not name:
+            return {"status": "error", "message": "Name is required"}
+        
+        # Проверка на дубликат
+        existing = db.query(models.ConditionStatus).filter(models.ConditionStatus.name == name).first()
+        if existing:
+            return {"status": "error", "message": "Status already exists"}
+        
+        new_status = models.ConditionStatus(name=name, color=color)
+        db.add(new_status)
+        db.commit()
+        db.refresh(new_status)
+        return {"status": "success", "id": new_status.id, "name": new_status.name, "color": new_status.color}
+    except Exception as e:
+        print(f"❌ Error in create_condition_status: {e}")
+        db.rollback()
+        return {"status": "error", "message": str(e)}
+
+@app.delete("/api/condition-statuses/{status_id}")
+def delete_condition_status(status_id: int, db: Session = Depends(get_db)):
+    """Удалить статус Condition"""
+    try:
+        status = db.query(models.ConditionStatus).filter(models.ConditionStatus.id == status_id).first()
+        if not status:
+            return {"status": "error", "message": "Status not found"}
+        
+        db.delete(status)
+        db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        print(f"❌ Error in delete_condition_status: {e}")
+        db.rollback()
+        return {"status": "error", "message": str(e)}

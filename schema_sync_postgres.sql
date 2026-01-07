@@ -85,6 +85,24 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Add missing columns to purchase_orders if table already exists
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'purchase_orders' AND column_name = 'part_number'
+    ) THEN
+        ALTER TABLE purchase_orders ADD COLUMN part_number VARCHAR;
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'purchase_orders' AND column_name = 'serial_number'
+    ) THEN
+        ALTER TABLE purchase_orders ADD COLUMN serial_number VARCHAR;
+    END IF;
+END$$;
+
 -- Scheduled Events table (Calendar)
 CREATE TABLE IF NOT EXISTS scheduled_events (
     id SERIAL PRIMARY KEY,
@@ -145,8 +163,26 @@ CREATE TABLE IF NOT EXISTS shipments (
     status VARCHAR(50) DEFAULT 'PLANNED',  -- PLANNED, IN_TRANSIT, DELIVERED, DELAYED, CANCELLED
     
     -- For ENGINE type
+        engine_model VARCHAR(100),
+        gss_id VARCHAR(100),
     engine_id INTEGER REFERENCES engines(id),
     destination_location VARCHAR(255),
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'shipments' AND column_name = 'engine_model'
+        ) THEN
+            ALTER TABLE shipments ADD COLUMN engine_model VARCHAR(100);
+        END IF;
+    
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'shipments' AND column_name = 'gss_id'
+        ) THEN
+            ALTER TABLE shipments ADD COLUMN gss_id VARCHAR(100);
+        END IF;
+    END$$;
     
     -- For PARTS type
     part_name VARCHAR(255),
@@ -176,5 +212,15 @@ CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);
 CREATE INDEX IF NOT EXISTS idx_shipments_type ON shipments(shipment_type);
 CREATE INDEX IF NOT EXISTS idx_shipments_delivery_date ON shipments(expected_delivery_date);
 CREATE INDEX IF NOT EXISTS idx_shipments_engine_id ON shipments(engine_id);
+
+-- Condition Statuses (Store Balance)
+CREATE TABLE IF NOT EXISTS condition_statuses (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    color VARCHAR(20) NOT NULL DEFAULT '#6c757d',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_condition_statuses_name ON condition_statuses(name);
 
 
