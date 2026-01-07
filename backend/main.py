@@ -44,6 +44,17 @@ def startup_event():
     try:
         print("🔍 Verifying database schema...")
         models.Base.metadata.create_all(bind=database.engine)
+        
+        # Add work_type column if missing
+        from sqlalchemy import text
+        with database.engine.connect() as conn:
+            try:
+                conn.execute(text("ALTER TABLE borescope_inspections ADD COLUMN work_type VARCHAR DEFAULT 'All Engine' NOT NULL"))
+                conn.commit()
+                print("✅ Added work_type column")
+            except:
+                pass  # Column already exists
+        
         print("✅ Schema verification complete")
     except Exception as e:
         print(f"⚠️ Schema verification warning: {e}")
@@ -100,6 +111,27 @@ def startup_event():
                         ) THEN
                             ALTER TABLE action_logs ADD COLUMN remarks_removal TEXT;
                         END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='action_logs' AND column_name='supplier'
+                        ) THEN
+                            ALTER TABLE action_logs ADD COLUMN supplier VARCHAR(255);
+                        END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='utilization_parameters' AND column_name='position'
+                        ) THEN
+                            ALTER TABLE utilization_parameters ADD COLUMN position INTEGER;
+                        END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='utilization_parameters' AND column_name='engine_id'
+                        ) THEN
+                            ALTER TABLE utilization_parameters ADD COLUMN engine_id INTEGER;
+                        END IF;
                     END $$;
                 """))
                 db.commit()
@@ -135,6 +167,9 @@ def startup_event():
     ensure_sqlite_column("action_logs", "hyd_2 FLOAT DEFAULT 0")
     ensure_sqlite_column("action_logs", "hyd_3 FLOAT DEFAULT 0")
     ensure_sqlite_column("action_logs", "hyd_4 FLOAT DEFAULT 0")
+    ensure_sqlite_column("action_logs", "supplier TEXT")
+    ensure_sqlite_column("utilization_parameters", "position INTEGER")
+    ensure_sqlite_column("utilization_parameters", "engine_id INTEGER")
     ensure_sqlite_column("purchase_orders", "part_number TEXT")
     ensure_sqlite_column("purchase_orders", "serial_number TEXT")
     ensure_sqlite_column("purchase_orders", "price FLOAT DEFAULT 0")
@@ -485,6 +520,7 @@ class InstallSchema(BaseModel):
     ac_ttsn: Optional[float] = None
     ac_tcsn: Optional[int] = None
     remarks: Optional[str] = ""
+    supplier: Optional[str] = None  # Поставщик
 
 
 class ShipmentSchema(BaseModel):
@@ -612,6 +648,7 @@ class BoroscopeSchema(BaseModel):
     aircraft: str
     serial_number: str
     position: str
+    work_type: str = 'All Engine'
     gss_id: Optional[str] = ""
     inspector: str
     link: Optional[str] = ""
@@ -689,6 +726,7 @@ class UtilizationParameterSchema(BaseModel):
     """Schema for Utilization Parameters"""
     date: str
     aircraft: str
+    position: Optional[int] = None  # Позиция двигателя (1-4) или NULL
     ttsn: float
     tcsn: int
     period: bool = False
@@ -1251,6 +1289,13 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                     ).order_by(models.ActionLog.date.desc()).first()
                     
                     last_update = last_atlb.date.strftime("%Y-%m-%d %H:%M") if last_atlb else "N/A"
+                    # Находим последнюю запись INSTALL для этого двигателя (там supplier)
+                    last_install = db.query(models.ActionLog).filter(
+                        models.ActionLog.engine_id == eng.id,
+                        models.ActionLog.action_type == "INSTALL"
+                    ).order_by(models.ActionLog.date.desc()).first()
+                    
+                    supplier = last_install.supplier if last_install and last_install.supplier else None
                     
                     positions[eng.position] = {
                         "engine_id": eng.id,
@@ -1270,6 +1315,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                         "egt_cruise": eng.egt_cruise,
                         "install_date": eng.install_date.strftime("%Y-%m-%d") if eng.install_date else "N/A",
                         "last_update": last_update,
+                        "supplier": supplier,
                         "param_date": eng.last_param_update.strftime("%d.%m.%Y") if eng.last_param_update else None
                     }
             
@@ -1298,6 +1344,59 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
     except Exception as e:
         print(f"❌ Error in get_aircraft_dashboard_details: {e}")
         return []
+
+
+@app.get("/api/aircraft/{tail_number}")
+def get_aircraft_by_tail_number(tail_number: str, db: Session = Depends(get_db)):
+    """Get aircraft details with engines for a specific aircraft"""
+    try:
+        ac = db.query(models.Aircraft).filter(
+            models.Aircraft.tail_number == tail_number
+        ).first()
+        
+        if not ac:
+            return {"error": "Aircraft not found"}, 404
+        
+        # Get all installed engines
+        engines_on_wing = db.query(models.Engine).filter(
+            models.Engine.aircraft_id == ac.id,
+            models.Engine.status == "INSTALLED"
+        ).all()
+        
+        # Create 4 positions (1, 2, 3, 4)
+        positions = {}
+        for pos in [1, 2, 3, 4]:
+            positions[pos] = None
+        
+        # Fill with real engines
+        for eng in engines_on_wing:
+            if eng.position and 1 <= eng.position <= 4:
+                positions[eng.position] = {
+                    "engine_id": eng.id,
+                    "position": eng.position,
+                    "original_sn": eng.original_sn,
+                    "gss_sn": eng.gss_sn or eng.original_sn,
+                    "current_sn": eng.current_sn,
+                    "model": eng.model,
+                    "total_time": round(eng.total_time, 1) if eng.total_time else 0.0,
+                    "total_cycles": eng.total_cycles or 0,
+                    "status": eng.status
+                }
+        
+        return {
+            "aircraft_id": ac.id,
+            "tail_number": ac.tail_number,
+            "model": ac.model,
+            "engines": [
+                positions[1],
+                positions[2],
+                positions[3],
+                positions[4]
+            ]
+        }
+    except Exception as e:
+        print(f"❌ Error in get_aircraft_by_tail_number: {e}")
+        return {"error": str(e)}, 500
 
 # --- ВОТ ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОКАЗЫВАЕТ ВСЕ ДВИГАТЕЛИ) ---
 @app.get("/api/engines")
@@ -1358,6 +1457,7 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
                 "position": eng.position,
                 "photo_url": eng.photo_url,
                 "remarks": eng.remarks or "",
+                "from_location": eng.location.name if eng.location else "",
                 "removed_from": eng.removed_from or "",
                 "install_date": display_date.strftime('%Y-%m-%d') if display_date else None,
                 "ac_ttsn": ac_ttsn,
@@ -1656,6 +1756,7 @@ class ActionLogUpdateSchema(BaseModel):
     snapshot_tt: Optional[float] = None
     snapshot_tc: Optional[int] = None
     comments: Optional[str] = None
+    supplier: Optional[str] = None
     file_url: Optional[str] = None
 
 class ActionLogCreateSchema(BaseModel):
@@ -1802,6 +1903,9 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
         if data.comments is not None:
             log.comments = data.comments
 
+        if data.supplier is not None:
+            log.supplier = data.supplier
+
         if data.file_url is not None:
             log.file_url = data.file_url
 
@@ -1838,6 +1942,8 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
         log.snapshot_tc = data.snapshot_tc
     if data.comments is not None:
         log.comments = data.comments
+    if data.supplier is not None:
+        log.supplier = data.supplier
     if data.file_url is not None:
         log.file_url = data.file_url
     
@@ -1894,13 +2000,18 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
             if not param:
                 raise HTTPException(404, f"Engine parameter record not found (ID: {log_id})")
             
+            # Get engine and aircraft info
+            engine_info = f"двигатель {param.engine.current_sn}" if param.engine else "Unknown engine"
+            aircraft_info = f"борт {param.engine.aircraft.tail_number}" if param.engine and param.engine.aircraft else "N/A"
+            date_info = param.date.strftime("%Y-%m-%d") if param.date else "Unknown date"
+            
             # Create notification
             create_notification(
                 db,
                 action_type="deleted",
-                entity_type="utilization_parameter",
+                entity_type="engine_parameter",
                 entity_id=log_id,
-                message=f"Обычный параметры для самолета {param.aircraft} за период {param.date_from or param.date} - {param.date_to or param.date}",
+                message=f"Engine Parameters: {engine_info}, {aircraft_info}, дата {date_info}",
                 performed_by=deleted_by
             )
             
@@ -2046,6 +2157,7 @@ def get_install_history(db: Session = Depends(get_db)):
                 "tc": l.snapshot_tc,
                 "ac_ttsn": _safe_float(getattr(l, "block_time_str", None)),
                 "ac_tcsn": _safe_int(getattr(l, "block_in_str", None)),
+                "supplier": getattr(l, "supplier", None),
                 "remarks": l.comments
             })
         return res
@@ -2113,6 +2225,7 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
         block_time_str=str(data.ac_ttsn) if data.ac_ttsn is not None else None,
         block_in_str=str(data.ac_tcsn) if data.ac_tcsn is not None else None,
         comments=data.remarks,
+        supplier=data.supplier,
         date=install_dt or datetime.now()
     )
     db.add(new_log)
@@ -3227,6 +3340,12 @@ def get_parameter_history(engine_id: int = None, db: Session = Depends(get_db)):
         print(f"❌ Error in get_parameter_history: {e}")
         return []
 
+
+# Alias endpoint to avoid conflicts with dynamic engine routes
+@app.get("/api/engine-parameters/history")
+def get_parameter_history_alias(engine_id: int = None, db: Session = Depends(get_db)):
+    return get_parameter_history(engine_id=engine_id, db=db)
+
 # --- BORESCOPE INSPECTIONS API ---
 
 @app.get("/api/history/BORESCOPE")
@@ -3252,18 +3371,27 @@ def get_borescope_history(db: Session = Depends(get_db)):
 
 @app.post("/api/history/BORESCOPE")
 def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get_db)):
-    new_inspection = models.BoroscopeInspection(
-        date=data.date,
-        aircraft=data.aircraft,
-        serial_number=data.serial_number,
-        position=data.position,
-        gss_id=data.gss_id,
-        inspector=data.inspector,
-        link=data.link
-    )
-    db.add(new_inspection)
-    db.commit()
-    db.refresh(new_inspection)
+    try:
+        print(f"📝 Creating borescope inspection: {data.dict()}")
+        new_inspection = models.BoroscopeInspection(
+            date=data.date,
+            aircraft=data.aircraft,
+            serial_number=data.serial_number,
+            position=data.position,
+            work_type=data.work_type,
+            gss_id=data.gss_id,
+            inspector=data.inspector,
+            link=data.link
+        )
+        db.add(new_inspection)
+        db.commit()
+        db.refresh(new_inspection)
+    except Exception as e:
+        print(f"❌ Error creating borescope inspection: {e}")
+        import traceback
+        traceback.print_exc()
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create inspection: {str(e)}")
 
     # Log action
     create_notification(
@@ -3842,10 +3970,22 @@ def get_utilization_parameters(db: Session = Depends(get_db)):
         
         result = []
         for p in params:
+            # Получаем Orig SN и GSS ID если указана позиция
+            orig_sn = None
+            gss_sn = None
+            if p.position and p.engine_id:
+                eng = db.query(models.Engine).filter(models.Engine.id == p.engine_id).first()
+                if eng:
+                    orig_sn = eng.original_sn
+                    gss_sn = eng.gss_sn or eng.original_sn
+            
             result.append({
                 "id": p.id,
                 "date": p.date.strftime("%Y-%m-%d") if p.date else None,
                 "aircraft": p.aircraft,
+                "position": p.position,
+                "orig_sn": orig_sn,
+                "gss_sn": gss_sn,
                 "ttsn": p.ttsn,
                 "tcsn": p.tcsn,
                 "period": p.period,
@@ -3870,9 +4010,25 @@ def create_utilization_parameter(data: UtilizationParameterSchema, db: Session =
     parsed_date_from = parse_input_date(data.date_from) if data.date_from else None
     parsed_date_to = parse_input_date(data.date_to) if data.date_to else None
     
+    # Если указана позиция - ищем двигатель на этой позиции
+    engine_id = None
+    if data.position:
+        engine = db.query(models.Engine).filter(
+            models.Engine.aircraft_id == db.query(models.Aircraft).filter(
+                models.Aircraft.tail_number == data.aircraft
+            ).first().id if db.query(models.Aircraft).filter(
+                models.Aircraft.tail_number == data.aircraft
+            ).first() else None,
+            models.Engine.position == data.position,
+            models.Engine.status == "INSTALLED"
+        ).first()
+        engine_id = engine.id if engine else None
+    
     new_param = models.UtilizationParameter(
         date=parsed_date,
         aircraft=data.aircraft,
+        position=data.position,
+        engine_id=engine_id,
         ttsn=data.ttsn,
         tcsn=data.tcsn,
         period=data.period,
@@ -3883,6 +4039,18 @@ def create_utilization_parameter(data: UtilizationParameterSchema, db: Session =
     db.add(new_param)
     db.commit()
     db.refresh(new_param)
+
+    # Если привязали к конкретному двигателю, обновляем его текущие TT/TC и дату обновления параметров
+    if engine_id:
+        eng = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
+        if eng:
+            if data.ttsn is not None:
+                eng.total_time = data.ttsn
+            if data.tcsn is not None:
+                eng.total_cycles = data.tcsn
+            eng.last_param_update = datetime.utcnow()
+            db.commit()
+            db.refresh(eng)
     
     # Log action
     period_text = "Период" if data.period else "Обычный"
@@ -3918,8 +4086,22 @@ def update_utilization_parameter(param_id: int, data: UtilizationParameterSchema
     parsed_date_from = parse_input_date(data.date_from) if data.date_from else None
     parsed_date_to = parse_input_date(data.date_to) if data.date_to else None
     
+    # Если указана позиция - ищем двигатель на этой позиции
+    engine_id = None
+    if data.position:
+        ac = db.query(models.Aircraft).filter(models.Aircraft.tail_number == data.aircraft).first()
+        if ac:
+            engine = db.query(models.Engine).filter(
+                models.Engine.aircraft_id == ac.id,
+                models.Engine.position == data.position,
+                models.Engine.status == "INSTALLED"
+            ).first()
+            engine_id = engine.id if engine else None
+    
     param.date = parsed_date
     param.aircraft = data.aircraft
+    param.position = data.position
+    param.engine_id = engine_id
     param.ttsn = data.ttsn
     param.tcsn = data.tcsn
     param.period = data.period
@@ -3928,6 +4110,18 @@ def update_utilization_parameter(param_id: int, data: UtilizationParameterSchema
     
     db.commit()
     db.refresh(param)
+
+    # Если привязали к конкретному двигателю, обновляем его текущие TT/TC и дату обновления параметров
+    if engine_id:
+        eng = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
+        if eng:
+            if data.ttsn is not None:
+                eng.total_time = data.ttsn
+            if data.tcsn is not None:
+                eng.total_cycles = data.tcsn
+            eng.last_param_update = datetime.utcnow()
+            db.commit()
+            db.refresh(eng)
     
     # Log action
     period_text = "Период" if data.period else "Обычный"

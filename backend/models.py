@@ -163,6 +163,7 @@ class ActionLog(Base):
     ttsn_ac = Column(Float, nullable=True)  # TTSN (Aircraft) при снятии
     tcsn_ac = Column(Integer, nullable=True)  # TCSN (Aircraft) при снятии
     remarks_removal = Column(String, nullable=True)  # Дополнительные замечания при снятии
+    supplier = Column(String, nullable=True)  # Поставщик (для Installation)
     
     engine = relationship("Engine", back_populates="logs")
 
@@ -245,6 +246,8 @@ class UtilizationParameter(Base):
     id = Column(Integer, primary_key=True, index=True)
     date = Column(DateTime(timezone=True), nullable=False)
     aircraft = Column(String, nullable=False)
+    position = Column(Integer, nullable=True)  # Позиция двигателя (1-4) или NULL для общей записи
+    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)  # FK на двигатель
     ttsn = Column(Float, nullable=False)  # Total Time Since New
     tcsn = Column(Integer, nullable=False)  # Total Cycles Since New
     period = Column(Boolean, default=False)  # Флаг периода

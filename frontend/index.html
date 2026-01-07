@@ -2644,7 +2644,7 @@
                     <i class="bi bi-database-add"></i> Add Engine
                 </a>
                 <a href="#" class="btn btn-neon w-100 text-start" onclick="openSchedulesModal(); return false;">
-                    <i class="bi bi-calendar-check"></i> Add Schedule
+                    <i class="bi bi-calendar-check"></i> Open Schedules
                 </a>
             </div>
             <!-- REPORTS GROUP (COLLAPSIBLE) -->
@@ -3205,6 +3205,7 @@
                                         <th>TC (Engine)</th>
                                         <th>TTSN (Aircraft)</th>
                                         <th>TCSN (Aircraft)</th>
+                                        <th>Supplier</th>
                                         <th>Remarks</th>
                                     </tr>
                                 </thead>
@@ -3293,6 +3294,11 @@
                                                 <label class="form-label small fw-bold">TCSN (Aircraft)</label>
                                                 <input type="number" class="form-control" id="in-ac-tcsn" placeholder="Optional">
                                             </div>
+                                        </div>
+
+                                        <div class="mb-4">
+                                            <label class="form-label small fw-bold">Supplier</label>
+                                            <input type="text" class="form-control" id="in-supplier" placeholder="Enter Supplier">
                                         </div>
 
                                         <div class="mb-4">
@@ -3648,11 +3654,15 @@
                                 <div class="card-body">
                                     <form id="form-borescope">
                                         <div class="row mb-3">
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label class="form-label small fw-bold">Дата <span class="text-danger">*</span></label>
                                                 <input type="date" class="form-control" id="bore-date" required>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-2">
+                                                <label class="form-label small fw-bold">Время</label>
+                                                <input type="time" class="form-control" id="bore-time" placeholder="HH:MM">
+                                            </div>
+                                            <div class="col-md-3">
                                                 <label class="form-label small fw-bold">Самолет <span class="text-danger">*</span></label>
                                                 <select class="form-select" id="bore-aircraft" required>
                                                     <option value="">Выберите...</option>
@@ -5049,20 +5059,40 @@
                         <div class="card-body">
                             <form id="form-util-param">
                                 <div class="row mb-4">
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="small fw-bold">Дата *</label>
                                         <input type="date" class="form-control" id="util-param-date" required>
                                         <small class="text-muted">По умолчанию сегодняшняя дата</small>
                                     </div>
-                                    <div class="col-md-3">
+                                    <div class="col-md-2">
                                         <label class="small fw-bold">Самолет *</label>
-                                        <select class="form-select" id="util-param-ac" required>
+                                        <select class="form-select" id="util-param-ac" required onchange="onUtilAircraftChange()">
                                             <option value="">Выберите самолет...</option>
                                             <option value="ER-BAT">ER-BAT</option>
                                             <option value="ER-BAR">ER-BAR</option>
                                             <option value="ER-BAQ">ER-BAQ</option>
                                         </select>
                                     </div>
+                                    <div class="col-md-2">
+                                        <label class="small fw-bold">Позиция *</label>
+                                        <select class="form-select" id="util-param-position" required onchange="onUtilPositionChange()">
+                                            <option value="">Выберите позицию...</option>
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="small fw-bold">Orig SN</label>
+                                        <input type="text" class="form-control" id="util-param-orig-sn" readonly style="background-color: #f5f5f5;">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="small fw-bold">GSS ID</label>
+                                        <input type="text" class="form-control" id="util-param-gss-sn" readonly style="background-color: #f5f5f5;">
+                                    </div>
+                                </div>
+                                <div class="row mb-4">
                                     <div class="col-md-2">
                                         <label class="small fw-bold">TTSN *</label>
                                         <input type="number" step="0.1" class="form-control" id="util-param-ttsn" required placeholder="Введите TTSN">
@@ -5119,6 +5149,9 @@
                                         <th class="delete-col-util-param" style="display: none;"><i class="bi bi-trash"></i></th>
                                         <th>Дата</th>
                                         <th>Самолет</th>
+                                        <th>Позиция</th>
+                                        <th>Orig SN</th>
+                                        <th>GSS ID</th>
                                         <th>TTSN</th>
                                         <th>TCSN</th>
                                         <th>Period</th>
@@ -5128,7 +5161,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="util-param-history-body">
-                                    <tr><td colspan="9" class="text-muted">Нет данных</td></tr>
+                                    <tr><td colspan="12" class="text-muted">Нет данных</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -6192,6 +6225,10 @@ function restoreView(viewName) {
                                 <div class="engine-data-item">
                                     <div class="engine-data-label"><strong>GSS ID</strong></div>
                                     <div class="engine-data-value" style="color: #0066cc; font-weight: bold;">${pos.gss_sn}</div>
+                                </div>
+                                <div class="engine-data-item">
+                                    <div class="engine-data-label"><strong>Supplier</strong></div>
+                                    <div class="engine-data-value" style="color: #ff9800; font-weight: bold;">${pos.supplier || '-'}</div>
                                 </div>
                             </div>
                             <div class="engine-data">
@@ -7854,14 +7891,14 @@ function restoreView(viewName) {
     async function loadInstallHistory() {
         const tbody = document.getElementById('install-history-body');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">Loading…</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-3">Loading…</td></tr>';
 
         let res = await safeFetch('/api/history/INSTALL' + noCache());
         if (!res || !res.ok) res = await safeFetch('/api/history/INSTALL');
 
         if (!res || !res.ok) {
             console.error('Error loading installation history', res && res.status);
-            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger py-3">Unable to load installations</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="13" class="text-center text-danger py-3">Unable to load installations</td></tr>';
             return;
         }
 
@@ -7870,10 +7907,11 @@ function restoreView(viewName) {
 
         tbody.innerHTML = '';
         if (!Array.isArray(serverData) || serverData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted">No installations found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted">No installations found</td></tr>';
             return;
         }
 
+        serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
         serverData.forEach(row => {
             tbody.innerHTML += `
                 <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
@@ -7892,6 +7930,7 @@ function restoreView(viewName) {
                     <td>${row.tc}</td>
                     <td>${row.ac_ttsn ?? '-'}</td>
                     <td>${row.ac_tcsn ?? '-'}</td>
+                    <td>${row.supplier || '-'}</td>
                     <td><small>${row.remarks||'-'}</small></td>
                 </tr>
             `;
@@ -8032,7 +8071,8 @@ function restoreView(viewName) {
             tc: parseInt(document.getElementById('in-tc').value),
             ac_ttsn: document.getElementById('in-ac-ttsn').value !== '' ? parseFloat(document.getElementById('in-ac-ttsn').value) : null,
             ac_tcsn: document.getElementById('in-ac-tcsn').value !== '' ? parseInt(document.getElementById('in-ac-tcsn').value, 10) : null,
-            remarks: document.getElementById('in-rem').value
+            remarks: document.getElementById('in-rem').value,
+            supplier: document.getElementById('in-supplier').value || null
         };
         
         try {
@@ -8183,6 +8223,7 @@ function restoreView(viewName) {
             return;
         }
 
+        engines.sort((a, b) => (b.id || 0) - (a.id || 0));
         tbody.innerHTML = '';
         engines.forEach((eng, idx) => {
             const statusClass = {
@@ -8949,23 +8990,32 @@ function restoreView(viewName) {
             return;
         }
 
+        serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
         serverData.forEach(row => {
             const linkHtml = row.link ? `<a href="${row.link}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-link-45deg"></i></a>` : '-';
+            
+            // Format date with time if available
+            let dateDisplay = row.date;
+            if (row.date && row.date.includes(' ')) {
+                const [datePart, timePart] = row.date.split(' ');
+                dateDisplay = `${datePart}<br><small class="text-muted">${timePart}</small>`;
+            }
+            
             tbody.innerHTML += `
-                <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || row.inspector || ''}">
+                <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || row.inspector || ''}" data-link="${row.link || ''}">
                     <td class="delete-col-borescope" style="display: none;">
                         <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('BORESCOPE', ${row.id || 0}, '')" title="Delete">
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
-                    <td>${row.date}</td>
+                    <td>${dateDisplay}</td>
                     <td>${row.aircraft || '-'}</td>
                     <td>${row.serial_number || '-'}</td>
                     <td>${row.position || '-'}</td>
                     <td>${row.work_type || 'All Engine'}</td>
                     <td>${row.gss_id || '-'}</td>
                     <td>${row.inspector || '-'}</td>
-                    <td>${linkHtml}</td>
+                    <td data-key="link">${linkHtml}</td>
                 </tr>
             `;
         });
@@ -9001,6 +9051,7 @@ function restoreView(viewName) {
 
     async function submitBoroscopeForm() {
         const date = document.getElementById('bore-date').value;
+        const time = document.getElementById('bore-time').value;
         const aircraft = document.getElementById('bore-aircraft').value;
         const serial = document.getElementById('bore-serial').value;
         const position = document.getElementById('bore-position').value;
@@ -9015,8 +9066,11 @@ function restoreView(viewName) {
             return;
         }
         
+        // Combine date and time if time is provided
+        const dateTimeValue = time ? `${date} ${time}` : date;
+        
         const payload = {
-            date: date,
+            date: dateTimeValue,
             aircraft: aircraft,
             serial_number: serial,
             position: position,
@@ -9130,6 +9184,7 @@ function restoreView(viewName) {
             return;
         }
 
+        serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
         serverData.forEach(row => {
             const linkHtml = row.link ? `<a href="${row.link}" target="_blank" class="btn btn-sm btn-outline-success"><i class="bi bi-link-45deg"></i></a>` : '-';
             const priceText = row.price !== null && row.price !== undefined ? row.price : '-';
@@ -9584,6 +9639,7 @@ function restoreView(viewName) {
             return;
         }
 
+        data.sort((a, b) => (b.id || 0) - (a.id || 0));
         data.forEach(row => {
             const identifier = `${row.current_sn || row.original_sn || 'Engine'}`;
             const safeIdentifier = escapeHtml(identifier);
@@ -9755,6 +9811,7 @@ function restoreView(viewName) {
             return;
         }
         
+        allData.sort((a, b) => (b.id || 0) - (a.id || 0));
         allData.forEach(row => {
             const isTest = row.isTest ? 'table-warning' : '';
             const ttsnText = row.ttsn !== null && row.ttsn !== undefined ? `${row.ttsn}` : '-';
@@ -10243,6 +10300,7 @@ function restoreView(viewName) {
             const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank"><i class="bi bi-image"></i></a>` : '-';
             const model = eng.model || '-';
             const location = eng.location || '-';
+            const movedFrom = eng.from_location || '-';
             const remarks = eng.remarks || '-';
             const removedFrom = eng.removed_from || '-';
             const installDate = eng.install_date || '-';
@@ -10264,6 +10322,7 @@ function restoreView(viewName) {
                     data-tc="${tc}"
                     data-price="${price}"
                     data-location="${location}"
+                    data-moved-from="${movedFrom}"
                     data-remarks="${remarks}"
                     data-removed-from="${removedFrom}"
                     data-photo="${eng.photo_url || ''}"
@@ -10286,7 +10345,7 @@ function restoreView(viewName) {
                     <td data-key="tt">${tt}</td>
                     <td data-key="tc">${tc}</td>
                     <td data-key="location" data-location-id="${eng.location_id || ''}">${location}</td>
-                    <td data-key="moved">${remarks}</td>
+                    <td data-key="moved">${movedFrom}</td>
                     <td data-key="removed">${removedFrom}</td>
                     <td data-key="rem">${remarks}</td>
                     <td data-key="photo">${photo}</td>
@@ -10331,6 +10390,7 @@ function restoreView(viewName) {
                 tc: tr.getAttribute('data-tc') || '0',
                 price: tr.getAttribute('data-price') || '0',
                 location: tr.getAttribute('data-location') || 'SHJ',
+                movedFrom: tr.getAttribute('data-moved-from') || '',
                 remarks: tr.getAttribute('data-remarks') || '',
                 removedFrom: tr.getAttribute('data-removed-from') || '',
                 photo: tr.getAttribute('data-photo') || ''
@@ -10368,6 +10428,9 @@ function restoreView(viewName) {
                 } else if (key === 'location') {
                     const locationId = td.getAttribute('data-location-id') || '';
                     inputHTML = `<select class="editing-input location-select" data-location-id="${locationId}"></select>`;
+                } else if (key === 'moved') {
+                    const value = rowData.movedFrom || tr.getAttribute('data-moved-from') || '';
+                    inputHTML = `<input type="text" class="editing-input" value="${value}">`;
                 } else if (key === 'removed') {
                     inputHTML = `<input type="text" class="editing-input" value="${rowData.removedFrom}">`;
                 } else if (key === 'rem') {
@@ -10429,9 +10492,10 @@ function restoreView(viewName) {
             <td><input type="number" class="editing-input" value="0"></td>
             <td><input type="number" class="editing-input" value="0"></td>
             <td><select class="editing-input location-select"></select></td>
-            <td><input type="text" class="editing-input" placeholder="Removed From"></td>
-            <td><input type="text" class="editing-input" placeholder="Remarks"></td>
-            <td><input type="text" class="editing-input" placeholder="Photo URL"></td>
+            <td><input type="text" class="editing-input"></td>
+            <td><input type="text" class="editing-input"></td>
+            <td><input type="text" class="editing-input"></td>
+            <td><input type="text" class="editing-input"></td>
         `;
         tb.appendChild(newRow);
         loadLocationSelectsInTable();
@@ -10444,29 +10508,47 @@ function restoreView(viewName) {
         const createPromises = [];
         
         for (const tr of rows) {
-            const inputs = tr.querySelectorAll('.editing-input');
-            if(inputs.length === 0) continue;
+            const cells = tr.querySelectorAll('td');
+            if(cells.length === 0) continue;
             
             const engineId = tr.getAttribute('data-engine-id');
-            const currentSN = inputs[2].value.trim(); // Current SN
-            const originalSN = inputs[3].value.trim(); // Orig ESN
+            
+            // Берем значения по data-key вместо жестких индексов
+            const dateInput = tr.querySelector('td[data-key="date"] .editing-input');
+            const modelInput = tr.querySelector('td[data-key="model"] .editing-input');
+            const csnInput = tr.querySelector('td[data-key="csn"] .editing-input');
+            const esnInput = tr.querySelector('td[data-key="esn"] .editing-input');
+            const gssInput = tr.querySelector('td[data-key="gss"] .editing-input');
+            const priceInput = tr.querySelector('td[data-key="price"] .editing-input');
+            const statusInput = tr.querySelector('td[data-key="status"] .editing-input');
+            const ttInput = tr.querySelector('td[data-key="tt"] .editing-input');
+            const tcInput = tr.querySelector('td[data-key="tc"] .editing-input');
+            const locationInput = tr.querySelector('td[data-key="location"] .editing-input');
+            const movedInput = tr.querySelector('td[data-key="moved"] .editing-input');
+            const removedInput = tr.querySelector('td[data-key="removed"] .editing-input');
+            const remarksInput = tr.querySelector('td[data-key="rem"] .editing-input');
+            const photoInput = tr.querySelector('td[data-key="photo"] .editing-input');
+            
+            const originalSN = esnInput ? esnInput.value.trim() : '';
+            const currentSN = csnInput ? csnInput.value.trim() : '';
             
             if (!originalSN) continue; // Пропускаем пустые строки
             
             const engineData = {
-                date: inputs[0].value,
-                model: inputs[1].value,
+                date: dateInput ? dateInput.value : '',
+                model: modelInput ? modelInput.value : '',
                 current_sn: currentSN || originalSN,
                 original_sn: originalSN,
-                gss_sn: inputs[4].value || originalSN,
-                price: parseFloat(inputs[5].value) || null,
-                status: inputs[6].value,
-                total_time: parseFloat(inputs[7].value) || 0,
-                total_cycles: parseInt(inputs[8].value) || 0,
-                location_id: parseInt(inputs[9].value) || null,
-                removed_from: inputs[10].value || null,
-                remarks: inputs[11].value,
-                photo_url: inputs[12].value
+                gss_sn: gssInput ? gssInput.value || originalSN : originalSN,
+                price: priceInput ? parseFloat(priceInput.value) || null : null,
+                status: statusInput ? statusInput.value : 'SV',
+                total_time: ttInput ? parseFloat(ttInput.value) || 0 : 0,
+                total_cycles: tcInput ? parseInt(tcInput.value) || 0 : 0,
+                location_id: locationInput ? parseInt(locationInput.value) || null : null,
+                from_location: movedInput ? movedInput.value || null : null,
+                removed_from: removedInput ? removedInput.value || null : null,
+                remarks: remarksInput ? remarksInput.value : '',
+                photo_url: photoInput ? photoInput.value : ''
             };
             
             console.log('Saving engine:', engineId, engineData);
@@ -10828,7 +10910,7 @@ function restoreView(viewName) {
     const tableConfigs = {
         'install': {
             bodyId: 'install-history-body',
-            columns: ['date', 'original_sn', 'current_sn', 'install_to', 'position', 'location_from', 'tt', 'tc', 'remarks'],
+            columns: ['date', 'original_sn', 'current_sn', 'install_to', 'position', 'location_from', 'tt', 'tc', 'supplier', 'remarks'],
             columnTypes: {
                 date: 'date',
                 position: 'number',
@@ -10895,7 +10977,7 @@ function restoreView(viewName) {
         },
         'borescope': {
             bodyId: 'borescope-history-body',
-            columns: ['date', 'aircraft', 'serial_number', 'position', 'gss_id', 'inspector', 'link'],
+            columns: ['date', 'aircraft', 'serial_number', 'position', 'work_type', 'gss_id', 'inspector', 'link'],
             columnTypes: {
                 date: 'date'
             },
@@ -10944,7 +11026,7 @@ function restoreView(viewName) {
         },
         'util-param': {
             bodyId: 'util-param-history-body',
-            columns: ['date', 'aircraft', 'ttsn', 'tcsn', 'period', 'date_from', 'date_to', 'created_at'],
+            columns: ['date', 'aircraft', 'position', 'orig_sn', 'gss_sn', 'ttsn', 'tcsn', 'period', 'date_from', 'date_to', 'created_at'],
             columnTypes: {
                 date: 'date',
                 ttsn: 'number',
@@ -11213,14 +11295,24 @@ function restoreView(viewName) {
                 
                 const columnType = config.columnTypes[columnName] || 'text';
                 
-                // Извлекаем только текст, без HTML (например, для badges)
-                const cleanValue = cell.textContent.trim();
+                // Для числовых полей берем data-атрибут, для остальных - текст без форматирования
+                let cleanValue = cell.textContent.trim();
                 
-                if (columnType === 'date') {
+                // Для столбца Link извлекаем URL из data-link или href
+                if (cell.hasAttribute('data-key') && cell.getAttribute('data-key') === 'link') {
+                    const linkValue = row.getAttribute('data-link') || '';
+                    cell.innerHTML = `<input type="text" class="editing-input" value="${linkValue}" placeholder="https://...">`;
+                    dataColumnIndex++;
+                    return;
+                }
+                
+                // Убираем форматирование для числовых полей (%, °C, hrs, cyc и т.д.)
+                if (columnType === 'number') {
+                    cleanValue = cleanValue.replace(/[%°C\shrs\scyc\s-]/g, '').trim();
+                    cell.innerHTML = `<input type="number" class="editing-input" value="${cleanValue}" step="0.01">`;
+                } else if (columnType === 'date') {
                     const isoDate = convertToISODate(cleanValue);
                     cell.innerHTML = `<input type="date" class="editing-input" value="${isoDate}">`;
-                } else if (columnType === 'number') {
-                    cell.innerHTML = `<input type="number" class="editing-input" value="${cleanValue}" step="0.01">`;
                 } else if (columnType === 'select' && config.selectOptions && config.selectOptions[columnName]) {
                     const options = config.selectOptions[columnName];
                     let selectHtml = `<select class="editing-input">`;
@@ -11542,7 +11634,8 @@ function restoreView(viewName) {
                     position: rowData.position ? parseInt(rowData.position) : null,
                     snapshot_tt: rowData.tt ? parseFloat(rowData.tt) : null,
                     snapshot_tc: rowData.tc ? parseInt(rowData.tc) : null,
-                    comments: rowData.remarks || null
+                    comments: rowData.remarks || null,
+                    supplier: rowData.supplier || null
                 };
             } else if (tableName === 'borescope') {
                 // Специальный маппинг для Borescope
@@ -12120,6 +12213,7 @@ function restoreView(viewName) {
             return;
         }
         
+        sData.sort((a, b) => (b.id || 0) - (a.id || 0));
         sData.forEach(r => {
             const photoLink = r.photo ? `<a href="${r.photo}" target="_blank"><i class="bi bi-image"></i></a>` : '-';
             
@@ -12282,6 +12376,7 @@ function restoreView(viewName) {
                 return;
             }
 
+            data.sort((a, b) => (b.id || 0) - (a.id || 0));
             data.forEach(item => {
                 const identifier = `${item.part_name || 'Item'} (${item.part_number || '-'})`;
                 const safeIdentifier = escapeHtml(identifier);
@@ -12814,7 +12909,8 @@ function restoreView(viewName) {
     
     async function loadParameterHistory() {
         try {
-            const res = await fetch('/api/engines/parameters/history');
+            // Используем алиас, чтобы избежать конфликтов роутов FastAPI
+            const res = await fetch('/api/engine-parameters/history');
             const history = await res.json();
             
             const tbody = document.getElementById('param-history-body');
@@ -12825,6 +12921,7 @@ function restoreView(viewName) {
                 return;
             }
             
+            history.sort((a, b) => (b.id || 0) - (a.id || 0));
             history.forEach(h => {
                 const dateStr = h.date ? new Date(h.date).toLocaleDateString('ru-RU') : 'N/A';
                 const createdStr = h.created_at ? new Date(h.created_at).toLocaleString('ru-RU') : 'N/A';
@@ -13673,6 +13770,53 @@ function restoreView(viewName) {
         if (tab === 'history') loadUtilParamHistory();
     }
 
+    async function onUtilAircraftChange() {
+        // Clear engine details when aircraft changes
+        document.getElementById('util-param-orig-sn').value = '';
+        document.getElementById('util-param-gss-sn').value = '';
+        // Auto-fetch when position is also selected
+        if (document.getElementById('util-param-position').value) {
+            await onUtilPositionChange();
+        }
+    }
+
+    async function onUtilPositionChange() {
+        const aircraft = document.getElementById('util-param-ac').value;
+        const position = parseInt(document.getElementById('util-param-position').value);
+        
+        // Clear if no aircraft or position selected
+        if (!aircraft || !position) {
+            document.getElementById('util-param-orig-sn').value = '';
+            document.getElementById('util-param-gss-sn').value = '';
+            return;
+        }
+        
+        try {
+            // Fetch aircraft details to get engine at this position
+            const response = await fetch(`/api/aircraft/${aircraft}`);
+            if (!response.ok) {
+                throw new Error('Failed to load aircraft');
+            }
+            
+            const aircraft_data = await response.json();
+            
+            // Find engine at the selected position
+            const engine = aircraft_data.engines && aircraft_data.engines.find(e => e.position === position);
+            
+            if (engine) {
+                document.getElementById('util-param-orig-sn').value = engine.original_sn || '';
+                document.getElementById('util-param-gss-sn').value = engine.gss_sn || engine.original_sn || '';
+            } else {
+                document.getElementById('util-param-orig-sn').value = '';
+                document.getElementById('util-param-gss-sn').value = '';
+            }
+        } catch (err) {
+            console.error('Error fetching engine details:', err);
+            document.getElementById('util-param-orig-sn').value = '';
+            document.getElementById('util-param-gss-sn').value = '';
+        }
+    }
+
     function togglePeriodFields() {
         const checkbox = document.getElementById('util-param-period');
         const dateFrom = document.getElementById('util-param-date-from');
@@ -13697,14 +13841,15 @@ function restoreView(viewName) {
         if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         const date = document.getElementById('util-param-date').value;
         const aircraft = document.getElementById('util-param-ac').value;
+        const position = document.getElementById('util-param-position').value;
         const ttsn = document.getElementById('util-param-ttsn').value;
         const tcsn = document.getElementById('util-param-tcsn').value;
         const periodChecked = document.getElementById('util-param-period').checked;
         const dateFrom = document.getElementById('util-param-date-from').value;
         const dateTo = document.getElementById('util-param-date-to').value;
 
-        if (!date || !aircraft || !ttsn || !tcsn) {
-            showErrorNotification('Пожалуйста, заполните все обязательные поля: Дата, Самолет, TTSN и TCSN');
+        if (!date || !aircraft || !position || !ttsn || !tcsn) {
+            showErrorNotification('Пожалуйста, заполните все обязательные поля: Дата, Самолет, Позиция, TTSN и TCSN');
             return;
         }
 
@@ -13716,6 +13861,7 @@ function restoreView(viewName) {
         const data = {
             date: date,
             aircraft: aircraft,
+            position: parseInt(position),
             ttsn: parseFloat(ttsn),
             tcsn: parseInt(tcsn),
             period: periodChecked,
@@ -13759,7 +13905,7 @@ function restoreView(viewName) {
 
     async function loadUtilParamHistory() {
         const tbody = document.getElementById('util-param-history-body');
-        tbody.innerHTML = '<tr><td colspan="9" class="text-muted">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="text-muted">Loading...</td></tr>';
         
         try {
             const response = await fetch('/api/utilization-parameters');
@@ -13771,14 +13917,18 @@ function restoreView(viewName) {
             tbody.innerHTML = '';
             
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" class="text-muted">Нет данных</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" class="text-muted">Нет данных</td></tr>';
                 return;
             }
 
+        data.sort((a, b) => (b.id || 0) - (a.id || 0));
         data.forEach((item, index) => {
             const dateStr = new Date(item.date).toLocaleDateString('ru-RU');
             const createdStr = new Date(item.created_at).toLocaleString('ru-RU');
             const periodStr = item.period ? 'Да' : 'Нет';
+            const positionStr = item.position ? item.position : '-';
+            const origSnStr = item.orig_sn ? item.orig_sn : '-';
+            const gssSnStr = item.gss_sn ? item.gss_sn : '-';
             const dateFromStr = item.date_from ? new Date(item.date_from).toLocaleDateString('ru-RU') : '-';
             const dateToStr = item.date_to ? new Date(item.date_to).toLocaleDateString('ru-RU') : '-';
 
@@ -13793,6 +13943,9 @@ function restoreView(viewName) {
                 </td>
                 <td>${dateStr}</td>
                 <td>${item.aircraft}</td>
+                <td>${positionStr}</td>
+                <td>${origSnStr}</td>
+                <td>${gssSnStr}</td>
                 <td>${item.ttsn}</td>
                 <td>${item.tcsn}</td>
                 <td>${periodStr}</td>
@@ -13804,7 +13957,7 @@ function restoreView(viewName) {
         });
         } catch (err) {
             console.error('Error loading utilization parameters:', err);
-            tbody.innerHTML = '<tr><td colspan="9" class="text-danger">Loading error данных</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="text-danger">Loading error данных</td></tr>';
         }
         attachAllTableResizers();
     }
@@ -14046,6 +14199,7 @@ function renderAtlbTable(data) {
         return;
     }
 
+    data.sort((a, b) => (b.id || 0) - (a.id || 0));
     data.forEach(r => {
         const maintenanceLabel = toCellValue(r.maintenance || (r.maintenance_only ? 'Maintenance' : ''), true);
         tb.innerHTML += `
@@ -16039,6 +16193,7 @@ async function openPartsLogisticsModal() {
             return;
         }
         
+        data.sort((a, b) => (b.id || 0) - (a.id || 0));
         data.forEach(item => {
             const fmt = (v) => v || '-';
             tbody.innerHTML += `
@@ -16222,6 +16377,7 @@ async function loadFakeInstalled() {
         }
         
         tbody.innerHTML = '';
+        data.sort((a, b) => (b.id || 0) - (a.id || 0));
         data.forEach((r, idx) => {
             tbody.innerHTML += `
                 <tr>
@@ -16494,6 +16650,7 @@ async function loadNameplateTracker() {
         }
         
         tbody.innerHTML = '';
+        data.sort((a, b) => (b.id || 0) - (a.id || 0));
         data.forEach((r, idx) => {
             tbody.innerHTML += `
                 <tr>
@@ -17366,6 +17523,9 @@ async function updateDashboardStats() {
         setTextIfExists('schedule-planned', stats.on_order || 0);
         setTextIfExists('schedule-transit', stats.in_transit || 0);
         setTextIfExists('schedule-arriving', stats.arriving_soon || 0);
+        
+        // Update Schedule Status card count (total active shipments)
+        setTextIfExists('schedule-status-count', stats.total_active || 0);
         
         console.log('✅ Dashboard stats updated successfully');
     } catch (error) {
