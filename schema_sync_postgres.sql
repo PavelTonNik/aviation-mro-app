@@ -1,7 +1,7 @@
 -- Run this on Render Postgres to align schema with current models
 -- Safe to re-run: uses IF NOT EXISTS and column-exists checks
 
--- Add price column to engines
+-- Add price and from_location columns to engines
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -9,6 +9,13 @@ BEGIN
         WHERE table_name = 'engines' AND column_name = 'price'
     ) THEN
         ALTER TABLE engines ADD COLUMN price double precision;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'engines' AND column_name = 'from_location'
+    ) THEN
+        ALTER TABLE engines ADD COLUMN from_location varchar;
     END IF;
 END$$;
 
@@ -222,6 +229,17 @@ CREATE TABLE IF NOT EXISTS condition_statuses (
 );
 
 CREATE INDEX IF NOT EXISTS idx_condition_statuses_name ON condition_statuses(name);
+
+-- Populate from_location with existing location data for backward compatibility
+DO $$
+BEGIN
+    -- Copy current location names to from_location where from_location is NULL
+    UPDATE engines
+    SET from_location = l.name
+    FROM locations l
+    WHERE engines.location_id = l.id 
+    AND engines.from_location IS NULL;
+END$$;
 
 -- Update enginestatus enum to remove AS and ensure REMOVED is present
 DO $$

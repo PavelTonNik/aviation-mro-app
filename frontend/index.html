@@ -10560,7 +10560,7 @@ function restoreView(viewName) {
                         <select class="editing-input">
                             <option value="SV" ${rowData.status === 'SV' ? 'selected' : ''}>SV</option>
                             <option value="US" ${rowData.status === 'US' ? 'selected' : ''}>US</option>
-                            <option value="AS" ${rowData.status === 'AS' ? 'selected' : ''}>AS</option>
+                            <option value="REMOVED" ${rowData.status === 'REMOVED' ? 'selected' : ''}>REMOVED</option>
                         </select>`;
                 } else if (key === 'tt') {
                     inputHTML = `<input type="number" class="editing-input" value="${rowData.tt}">`;
@@ -12249,6 +12249,7 @@ function restoreView(viewName) {
         const price = document.getElementById('m-price').value;
         const photoUrl = document.getElementById('m-photo').value.trim();
         const remarks = document.getElementById('m-rem').value.trim();
+        const movedFrom = document.getElementById('m-moved').value.trim();
         const removedFrom = document.getElementById('m-removed').value.trim();
         
         const payload = {
@@ -12264,6 +12265,7 @@ function restoreView(viewName) {
             price: price ? parseFloat(price) : null,
             photo_url: photoUrl || null,
             remarks: remarks || null,
+            from_location: movedFrom || null,
             removed_from: removedFrom || null
         };
 

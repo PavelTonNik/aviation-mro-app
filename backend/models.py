@@ -78,6 +78,7 @@ class Engine(Base):
     position = Column(Integer, nullable=True) # 1 (Left) или 2 (Right), если на самолете
     
     # Дополнительные поля
+    from_location = Column(String, nullable=True) # Откуда перемещен (лок/шоп)
     price = Column(Float, nullable=True)  # Цена двигателя
     photo_url = Column(String, nullable=True) # Ссылка на фото
     remarks = Column(String, nullable=True) # Примечания/комментарии

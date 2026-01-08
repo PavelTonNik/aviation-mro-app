@@ -1665,6 +1665,7 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
                 "model": eng.model or "-",
                 "status": eng.status,
                 "location": loc_name,
+                "location_id": eng.location_id,
                 "tt": eng.total_time if eng.total_time is not None else 0,
                 "tc": eng.total_cycles if eng.total_cycles is not None else 0,
                 "price": getattr(eng, "price", None),
@@ -1673,7 +1674,8 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
                 "position": eng.position,
                 "photo_url": eng.photo_url,
                 "remarks": eng.remarks or "",
-                "from_location": eng.location.name if eng.location else "",
+                # Separate: current location vs moved-from vs removed-from
+                "from_location": eng.from_location or "",
                 "removed_from": eng.removed_from or "",
                 "install_date": display_date.strftime('%Y-%m-%d') if display_date else None,
                 "ac_ttsn": ac_ttsn,
@@ -1701,6 +1703,7 @@ class EngineCreateSchema(BaseModel):
     price: Optional[float] = None
     photo_url: Optional[str] = None
     remarks: Optional[str] = None
+    from_location: Optional[str] = None
     removed_from: Optional[str] = None
 
 @app.post("/api/engines")
@@ -1744,6 +1747,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             price=data.price,
             photo_url=data.photo_url,
             remarks=data.remarks,
+            from_location=data.from_location,
             removed_from=data.removed_from,
             install_date=install_date
         )
@@ -1837,6 +1841,7 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
     engine.price = data.price
     engine.photo_url = data.photo_url
     engine.remarks = data.remarks
+    engine.from_location = data.from_location
     engine.removed_from = data.removed_from
     engine.install_date = install_date
     
@@ -1870,6 +1875,7 @@ def get_engine_by_id(engine_id: int, db: Session = Depends(get_db)):
         "model": engine.model or "-",
         "status": engine.status,
         "location": loc_name,
+        "location_id": engine.location_id,
         "tt": engine.total_time if engine.total_time is not None else 0,
         "tc": engine.total_cycles if engine.total_cycles is not None else 0,
         "aircraft_id": engine.aircraft_id,
@@ -1877,6 +1883,7 @@ def get_engine_by_id(engine_id: int, db: Session = Depends(get_db)):
         "position": engine.position,
         "photo_url": engine.photo_url,
         "remarks": engine.remarks or "",
+        "from_location": engine.from_location or "",
         "removed_from": engine.removed_from or "",
         "install_date": engine.install_date.strftime('%Y-%m-%d') if engine.install_date else None
     }
