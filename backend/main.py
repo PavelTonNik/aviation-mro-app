@@ -1716,10 +1716,6 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
         if existing:
             raise HTTPException(400, f"Engine with ESN {data.original_sn} already exists")
         
-        # location_id обязателен для создания
-        if not data.location_id:
-            raise HTTPException(400, "location_id is required for creating new engine")
-        
         # Парсим дату если передана
         install_date = None
         if data.date and data.date.strip():
@@ -1732,6 +1728,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
                     install_date = datetime.strptime(date_str, '%Y-%m-%d')
             except Exception as e:
                 print(f"[create_engine] date parse error for '{data.date}': {e}")
+                print(f"[create_engine] Skipping date, will use None")
                 install_date = None
         
         # Создаем новый двигатель
@@ -1772,8 +1769,11 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
         raise
     except Exception as e:
         db.rollback()
+        import traceback
         print(f"❌ Error in create_engine: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create engine")
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        print(f"❌ Data received: original_sn={data.original_sn}, location_id={data.location_id}, status={data.status}")
+        raise HTTPException(status_code=500, detail=f"Failed to create engine: {str(e)}")
 
 # УДАЛЕНИЕ ДВИГАТЕЛЯ
 @app.delete("/api/engines/{engine_id}")
@@ -3654,13 +3654,13 @@ def get_purchase_orders_history(db: Session = Depends(get_db)):
                 "id": order.id,
                 "date": order.date,
                 "name": order.name,
-                "part_number": order.part_number or "",
-                "serial_number": order.serial_number or "",
-                "price": order.price if order.price is not None else 0,
+                "part_number": order.part_number,
+                "serial_number": order.serial_number,
+                "price": order.price,
                 "purpose": order.purpose,
                 "aircraft": order.aircraft,
                 "ro_number": order.ro_number,
-                "link": order.link or ""
+                "link": order.link
             }
             
             # Добавляем данные для пользовательских колонок
@@ -3686,7 +3686,7 @@ def get_purchase_orders_history(db: Session = Depends(get_db)):
         print(f"❌ Error in get_purchase_orders_history: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to fetch purchase orders: {str(e)}")
+        return []
 
 @app.post("/api/history/PURCHASE_ORDER")
 def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_db)):
@@ -3739,7 +3739,7 @@ def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_d
         import traceback
         traceback.print_exc()
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Failed to create purchase order: {str(e)}")
+        return {"status": "error", "detail": f"Failed to create purchase order: {str(e)}"}
 
 
 # --- SCHEDULED EVENTS API (Calendar) ---
