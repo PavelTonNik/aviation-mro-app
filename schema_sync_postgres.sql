@@ -223,4 +223,26 @@ CREATE TABLE IF NOT EXISTS condition_statuses (
 
 CREATE INDEX IF NOT EXISTS idx_condition_statuses_name ON condition_statuses(name);
 
+-- Update enginestatus enum to remove AS and ensure REMOVED is present
+DO $$
+DECLARE
+    v_old_enum_name TEXT := 'enginestatus_old';
+BEGIN
+    -- Check if enginestatus enum exists
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enginestatus') THEN
+        -- Rename old enum
+        ALTER TYPE enginestatus RENAME TO enginestatus_old;
+        
+        -- Create new enum with correct values (no AS, only SV, US, INSTALLED, REMOVED)
+        CREATE TYPE enginestatus AS ENUM ('SV', 'US', 'INSTALLED', 'REMOVED');
+        
+        -- Update the column to use new enum type
+        ALTER TABLE engines 
+            ALTER COLUMN status TYPE enginestatus USING status::text::enginestatus;
+        
+        -- Drop old enum
+        DROP TYPE enginestatus_old;
+    END IF;
+END$$;
+
 
