@@ -135,6 +135,25 @@ def startup_event():
                         
                         IF NOT EXISTS (
                             SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='purchase_orders' AND column_name='part_number'
+                        ) THEN
+                            ALTER TABLE purchase_orders ADD COLUMN part_number VARCHAR;
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='purchase_orders' AND column_name='serial_number'
+                        ) THEN
+                            ALTER TABLE purchase_orders ADD COLUMN serial_number VARCHAR;
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='purchase_orders' AND column_name='price'
+                        ) THEN
+                            ALTER TABLE purchase_orders ADD COLUMN price DOUBLE PRECISION;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
                             WHERE table_name='utilization_parameters' AND column_name='position'
                         ) THEN
                             ALTER TABLE utilization_parameters ADD COLUMN position INTEGER;
