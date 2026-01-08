@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 import hashlib
 import secrets
+import os
 
 try:
     from . import models, database
@@ -118,6 +119,19 @@ def startup_event():
                         ) THEN
                             ALTER TABLE action_logs ADD COLUMN supplier VARCHAR(255);
                         END IF;
+                        -- Ensure new Shipment columns exist
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='shipments' AND column_name='engine_model'
+                        ) THEN
+                            ALTER TABLE shipments ADD COLUMN engine_model VARCHAR(100);
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='shipments' AND column_name='gss_id'
+                        ) THEN
+                            ALTER TABLE shipments ADD COLUMN gss_id VARCHAR(100);
+                        END IF;
                         
                         IF NOT EXISTS (
                             SELECT 1 FROM information_schema.columns 
@@ -212,6 +226,11 @@ def startup_event():
                 admin_user.role = "admin"
                 changed = True
             if not getattr(admin_user, "password_hash", None) or len(admin_user.password_hash) != 64:
+                admin_user.password_hash = hashlib.sha256("admin123".encode()).hexdigest()
+                changed = True
+            # Optional forced reset via environment for Render deployments
+            reset_env = (os.getenv("RESET_ADMIN_PASSWORD", "0") or "0").lower()
+            if reset_env in ("1", "true", "yes"):
                 admin_user.password_hash = hashlib.sha256("admin123".encode()).hexdigest()
                 changed = True
             if not admin_user.first_name:
