@@ -3654,13 +3654,13 @@ def get_purchase_orders_history(db: Session = Depends(get_db)):
                 "id": order.id,
                 "date": order.date,
                 "name": order.name,
-                "part_number": order.part_number,
-                "serial_number": order.serial_number,
-                "price": order.price,
+                "part_number": order.part_number or "",
+                "serial_number": order.serial_number or "",
+                "price": order.price if order.price is not None else 0,
                 "purpose": order.purpose,
                 "aircraft": order.aircraft,
                 "ro_number": order.ro_number,
-                "link": order.link
+                "link": order.link or ""
             }
             
             # Добавляем данные для пользовательских колонок
@@ -3686,7 +3686,7 @@ def get_purchase_orders_history(db: Session = Depends(get_db)):
         print(f"❌ Error in get_purchase_orders_history: {e}")
         import traceback
         traceback.print_exc()
-        return []
+        raise HTTPException(status_code=500, detail=f"Failed to fetch purchase orders: {str(e)}")
 
 @app.post("/api/history/PURCHASE_ORDER")
 def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_db)):
@@ -3739,7 +3739,7 @@ def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_d
         import traceback
         traceback.print_exc()
         db.rollback()
-        return {"status": "error", "detail": f"Failed to create purchase order: {str(e)}"}
+        raise HTTPException(status_code=400, detail=f"Failed to create purchase order: {str(e)}")
 
 
 # --- SCHEDULED EVENTS API (Calendar) ---
