@@ -378,6 +378,27 @@ def ensure_from_location_column():
                 
                 # Обнуляем aircraft_id для двигателей со статусом REMOVED
                 conn.execute(text("UPDATE engines SET aircraft_id = NULL, position = NULL WHERE status = 'REMOVED'"))
+
+                                # Если последняя операция по двигателю REMOVE, снимаем его с борта (для старых данных)
+                                conn.execute(text("""
+                                        WITH last_action AS (
+                                                SELECT engine_id, MAX(date) AS maxd
+                                                FROM action_logs
+                                                GROUP BY engine_id
+                                        )
+                                        UPDATE engines
+                                        SET aircraft_id = NULL,
+                                                position = NULL,
+                                                status = 'REMOVED'
+                                        WHERE aircraft_id IS NOT NULL
+                                            AND id IN (
+                                                SELECT la.engine_id
+                                                FROM last_action la
+                                                JOIN action_logs a
+                                                    ON a.engine_id = la.engine_id AND a.date = la.maxd
+                                                WHERE a.action_type = 'REMOVE'
+                                            );
+                                """))
             else:
                 # Check from_location
                 res = conn.execute(text("SELECT 1 FROM information_schema.columns WHERE table_name = 'engines' AND column_name = 'from_location'"))
@@ -403,6 +424,27 @@ def ensure_from_location_column():
                 
                 # Обнуляем aircraft_id для двигателей со статусом REMOVED
                 conn.execute(text("UPDATE engines SET aircraft_id = NULL, position = NULL WHERE status = 'REMOVED'"))
+
+                # Если последняя операция по двигателю REMOVE, снимаем его с борта (для старых данных)
+                conn.execute(text("""
+                    WITH last_action AS (
+                        SELECT engine_id, MAX(date) AS maxd
+                        FROM action_logs
+                        GROUP BY engine_id
+                    )
+                    UPDATE engines
+                    SET aircraft_id = NULL,
+                        position = NULL,
+                        status = 'REMOVED'
+                    WHERE aircraft_id IS NOT NULL
+                      AND id IN (
+                        SELECT la.engine_id
+                        FROM last_action la
+                        JOIN action_logs a
+                          ON a.engine_id = la.engine_id AND a.date = la.maxd
+                        WHERE a.action_type = 'REMOVE'
+                      );
+                """))
             conn.commit()
         _column_checked = True
     except Exception as e:
