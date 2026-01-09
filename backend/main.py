@@ -623,6 +623,7 @@ class InstallSchema(BaseModel):
     ac_tcsn: Optional[int] = None
     remarks: Optional[str] = ""
     supplier: Optional[str] = None  # Поставщик
+    current_sn: Optional[str] = None  # Current SN при установке
 
 
 class ShipmentSchema(BaseModel):
@@ -2501,6 +2502,10 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
     eng.position = data.position
     eng.total_time = data.tt
     eng.total_cycles = data.tc
+    
+    # Обновляем Current SN если передан при установке
+    if data.current_sn and data.current_sn.strip():
+        eng.current_sn = data.current_sn.strip()
 
     # НЕ обновляем aircraft.total_time/cycles здесь - только через Utilization Parameters
     
