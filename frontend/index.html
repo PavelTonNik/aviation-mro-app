@@ -3646,6 +3646,7 @@
                                         <th>Work Type</th>
                                         <th>GSS ID</th>
                                         <th>Кем выполнен</th>
+                                        <th>Comment</th>
                                         <th>Документ Link</th>
                                     </tr>
                                 </thead>
@@ -3714,6 +3715,11 @@
                                                 <label class="form-label small fw-bold">Кем выполнен <span class="text-danger">*</span></label>
                                                 <input type="text" class="form-control" id="bore-inspector" placeholder="Inspector name" required>
                                             </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label small fw-bold">Comment</label>
+                                            <textarea class="form-control" id="bore-comment" rows="2" placeholder="Notes, findings, etc."></textarea>
                                         </div>
 
                                         <div class="mb-4">
@@ -9115,6 +9121,7 @@ function restoreView(viewName) {
                     <td>${row.work_type || 'All Engine'}</td>
                     <td>${row.gss_id || '-'}</td>
                     <td>${row.inspector || '-'}</td>
+                    <td>${row.comment || '-'}</td>
                     <td data-key="link">${linkHtml}</td>
                 </tr>
             `;
@@ -9158,6 +9165,7 @@ function restoreView(viewName) {
         const workType = document.getElementById('bore-work-type').value;
         const gss = document.getElementById('bore-gss').value;
         const inspector = document.getElementById('bore-inspector').value;
+        const comment = document.getElementById('bore-comment').value;
         const link = document.getElementById('bore-link').value;
         
         // Валидация обязательных полей
@@ -9177,6 +9185,7 @@ function restoreView(viewName) {
             work_type: workType,
             gss_id: gss || '',
             inspector: inspector,
+            comment: comment || '',
             link: link || ''
         };
         

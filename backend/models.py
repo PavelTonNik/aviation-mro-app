@@ -213,6 +213,7 @@ class BoroscopeInspection(Base):
     gss_id = Column(String, nullable=True)
     inspector = Column(String, nullable=False)
     link = Column(String, nullable=True)
+    comment = Column(String, nullable=True)
     work_type = Column(String, nullable=False, default='All Engine')  # HPT, LPT, All Engine
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

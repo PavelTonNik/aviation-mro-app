@@ -55,6 +55,14 @@ def startup_event():
                 print("✅ Added work_type column")
             except:
                 pass  # Column already exists
+
+            # Add comment column if missing
+            try:
+                conn.execute(text("ALTER TABLE borescope_inspections ADD COLUMN comment TEXT"))
+                conn.commit()
+                print("✅ Added borescope comment column")
+            except:
+                pass  # Column already exists
         
         print("✅ Schema verification complete")
     except Exception as e:
@@ -150,6 +158,13 @@ def startup_event():
                             WHERE table_name='purchase_orders' AND column_name='price'
                         ) THEN
                             ALTER TABLE purchase_orders ADD COLUMN price DOUBLE PRECISION;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='borescope_inspections' AND column_name='comment'
+                        ) THEN
+                            ALTER TABLE borescope_inspections ADD COLUMN comment TEXT;
                         END IF;
 
                         IF NOT EXISTS (
@@ -808,6 +823,7 @@ class BoroscopeSchema(BaseModel):
     work_type: str = 'All Engine'
     gss_id: Optional[str] = ""
     inspector: str
+    comment: Optional[str] = ""
     link: Optional[str] = ""
 
 class PurchaseOrderSchema(BaseModel):
@@ -3740,6 +3756,7 @@ def get_borescope_history(db: Session = Depends(get_db)):
                 "work_type": insp.work_type,
                 "gss_id": insp.gss_id,
                 "inspector": insp.inspector,
+                "comment": insp.comment,
                 "link": insp.link
             })
         return result
@@ -3759,6 +3776,7 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
             work_type=data.work_type,
             gss_id=data.gss_id,
             inspector=data.inspector,
+            comment=data.comment,
             link=data.link
         )
         db.add(new_inspection)
