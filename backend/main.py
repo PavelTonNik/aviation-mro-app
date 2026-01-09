@@ -352,18 +352,55 @@ def ensure_from_location_column():
     try:
         with database.engine.connect() as conn:
             if database.IS_SQLITE:
+                # Check from_location
                 rows = conn.execute(text("PRAGMA table_info(engines);"))
                 has_col = any(r[1] == 'from_location' for r in rows)
                 if not has_col:
                     conn.execute(text("ALTER TABLE engines ADD COLUMN from_location VARCHAR"))
+                
+                # Check is_active in action_logs
+                rows2 = conn.execute(text("PRAGMA table_info(action_logs);"))
+                has_active = any(r[1] == 'is_active' for r in rows2)
+                if not has_active:
+                    conn.execute(text("ALTER TABLE action_logs ADD COLUMN is_active BOOLEAN DEFAULT 1"))
+                    # Умная логика: если есть REMOVE после INSTALL - помечаем INSTALL как неактивный
+                    conn.execute(text("""
+                        UPDATE action_logs SET is_active = 0 
+                        WHERE action_type = 'INSTALL' 
+                        AND EXISTS (
+                            SELECT 1 FROM action_logs AS remove_log
+                            WHERE remove_log.engine_id = action_logs.engine_id
+                            AND remove_log.action_type = 'REMOVE'
+                            AND remove_log.date > action_logs.date
+                        )
+                    """))
+                    conn.execute(text("UPDATE action_logs SET is_active = 0 WHERE action_type != 'INSTALL'"))
             else:
+                # Check from_location
                 res = conn.execute(text("SELECT 1 FROM information_schema.columns WHERE table_name = 'engines' AND column_name = 'from_location'"))
                 if res.scalar() is None:
                     conn.execute(text("ALTER TABLE engines ADD COLUMN from_location VARCHAR"))
+                
+                # Check is_active
+                res2 = conn.execute(text("SELECT 1 FROM information_schema.columns WHERE table_name = 'action_logs' AND column_name = 'is_active'"))
+                if res2.scalar() is None:
+                    conn.execute(text("ALTER TABLE action_logs ADD COLUMN is_active BOOLEAN DEFAULT TRUE"))
+                    # Умная логика: если есть REMOVE после INSTALL - помечаем INSTALL как неактивный
+                    conn.execute(text("""
+                        UPDATE action_logs SET is_active = FALSE 
+                        WHERE action_type = 'INSTALL' 
+                        AND EXISTS (
+                            SELECT 1 FROM action_logs AS remove_log
+                            WHERE remove_log.engine_id = action_logs.engine_id
+                            AND remove_log.action_type = 'REMOVE'
+                            AND remove_log.date > action_logs.date
+                        )
+                    """))
+                    conn.execute(text("UPDATE action_logs SET is_active = FALSE WHERE action_type != 'INSTALL'"))
             conn.commit()
         _column_checked = True
     except Exception as e:
-        print(f"⚠️ Failed to ensure from_location column: {e}")
+        print(f"⚠️ Failed to ensure columns: {e}")
 
 # Dependency (получение сессии БД)
 def get_db():
@@ -2404,6 +2441,9 @@ def get_install_history(db: Session = Depends(get_db)):
             orig_sn = l.engine.original_sn if l.engine else "Deleted"
             curr_sn = l.engine.current_sn if l.engine else "-"
             
+            # Определяем статус установки
+            install_status = "INSTALLED" if l.is_active else "REMOVED"
+            
             res.append({
                 "id": l.id,
                 "date": l.date.strftime("%Y-%m-%d"),
@@ -2412,6 +2452,7 @@ def get_install_history(db: Session = Depends(get_db)):
                 "install_to": l.to_aircraft, 
                 "position": l.position,
                 "location_from": l.from_location,
+                "status": install_status,
                 "tt": l.snapshot_tt,
                 "tc": l.snapshot_tc,
                 "ac_ttsn": _safe_float(getattr(l, "block_time_str", None)),
@@ -2690,6 +2731,16 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     eng.position = None
     eng.location_id = dest_loc.id
     eng.status = "REMOVED" # Меняем статус
+
+    # Закрываем активную установку (is_active = False) для этого двигателя
+    active_install = db.query(models.ActionLog).filter(
+        models.ActionLog.engine_id == eng.id,
+        models.ActionLog.action_type == "INSTALL",
+        models.ActionLog.is_active == True
+    ).order_by(models.ActionLog.date.desc()).first()
+    
+    if active_install:
+        active_install.is_active = False
 
     # Пишем лог (с полными данными для истории)
     new_log = models.ActionLog(

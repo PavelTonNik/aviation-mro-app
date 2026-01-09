@@ -165,6 +165,7 @@ class ActionLog(Base):
     tcsn_ac = Column(Integer, nullable=True)  # TCSN (Aircraft) при снятии
     remarks_removal = Column(String, nullable=True)  # Дополнительные замечания при снятии
     supplier = Column(String, nullable=True)  # Поставщик (для Installation)
+    is_active = Column(Boolean, default=True)  # Для INSTALL: активна ли установка (False если двигатель снят)
     engine = relationship("Engine", back_populates="logs")
 
 class AircraftUtilizationHistory(Base):
