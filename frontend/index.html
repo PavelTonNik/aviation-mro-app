@@ -11145,7 +11145,7 @@ function restoreView(viewName) {
         },
         'borescope': {
             bodyId: 'borescope-history-body',
-            columns: ['date', 'aircraft', 'serial_number', 'position', 'work_type', 'gss_id', 'inspector', 'link'],
+            columns: ['date', 'aircraft', 'serial_number', 'position', 'work_type', 'gss_id', 'inspector', 'comment', 'link'],
             columnTypes: {
                 date: 'date'
             },
@@ -11819,7 +11819,9 @@ function restoreView(viewName) {
                     from_location: rowData.serial_number || null,  // serial_number
                     position: rowData.position ? parseInt(rowData.position) : null,
                     to_location: rowData.gss_id || null,  // gss_id
-                    comments: rowData.inspector || null,   // inspector
+                    work_type: rowData.work_type || null,
+                    inspector: rowData.inspector || null,
+                    comment: rowData.comment || null,
                     file_url: rowData.link || null
                 };
             } else {
@@ -11867,7 +11869,7 @@ function restoreView(viewName) {
                     // Валидация обязательных полей
                     if (!rowData.date || !rowData.aircraft || !rowData.serial_number || !rowData.position || !rowData.inspector) {
                         console.error('Missing required fields for Borescope:', rowData);
-                        validationErrors.push('❌ Borescope row: Required fields are date, aircraft, serial_number, position, inspector (gss_id and link are optional)');
+                        validationErrors.push('❌ Borescope row: Required fields are date, aircraft, serial_number, position, inspector (gss_id/link/comment/work_type are optional)');
                         continue;
                     }
                     createData = {
@@ -11875,8 +11877,10 @@ function restoreView(viewName) {
                         aircraft: rowData.aircraft,
                         serial_number: rowData.serial_number,
                         position: String(rowData.position),
+                        work_type: rowData.work_type || 'All Engine',
                         gss_id: rowData.gss_id || '',
                         inspector: rowData.inspector,
+                        comment: rowData.comment || '',
                         link: rowData.link || ''
                     };
                 } else if (tableName === 'install') {

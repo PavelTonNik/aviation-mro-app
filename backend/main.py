@@ -2111,6 +2111,9 @@ class ActionLogUpdateSchema(BaseModel):
     supplier: Optional[str] = None
     file_url: Optional[str] = None
     current_sn: Optional[str] = None
+    work_type: Optional[str] = None
+    inspector: Optional[str] = None
+    comment: Optional[str] = None
 
 class ActionLogCreateSchema(BaseModel):
     date: Optional[str] = None
@@ -2140,15 +2143,19 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
             if parsed:
                 inspection.date = parsed.strftime("%Y-%m-%d")
         if data.to_aircraft:
-            inspection.aircraft_tail = data.to_aircraft
+            inspection.aircraft = data.to_aircraft
         if data.from_location:  # serial_number
             inspection.serial_number = data.from_location
         if data.position:
             inspection.position = data.position
         if data.to_location:  # gss_id
             inspection.gss_id = data.to_location
-        if data.comments:  # inspector
-            inspection.inspector = data.comments
+        if data.work_type:
+            inspection.work_type = data.work_type
+        if data.inspector:
+            inspection.inspector = data.inspector
+        if data.comment is not None:
+            inspection.comment = data.comment
         if data.file_url:
             inspection.link = data.file_url
             
