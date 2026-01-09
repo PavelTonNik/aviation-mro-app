@@ -2045,6 +2045,7 @@ class ActionLogUpdateSchema(BaseModel):
     comments: Optional[str] = None
     supplier: Optional[str] = None
     file_url: Optional[str] = None
+    current_sn: Optional[str] = None
 
 class ActionLogCreateSchema(BaseModel):
     date: Optional[str] = None
@@ -2203,6 +2204,11 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
 
         if data.file_url is not None:
             log.file_url = data.file_url
+
+        if data.current_sn is not None:
+            engine.current_sn = data.current_sn
+            # Дублируем в логе, чтобы сразу отображалось в истории
+            log.engine_current_sn = data.current_sn
 
         db.commit()
         db.refresh(log)
@@ -2514,6 +2520,9 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
     eng.csn_at_install = data.tc
     eng.install_date = install_dt or datetime.utcnow()
     
+    db.commit()
+    db.refresh(eng)  # Обновляем объект двигателя после commit
+    
     # Пишем историю
     new_log = models.ActionLog(
         action_type="INSTALL",
@@ -2529,6 +2538,7 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
         supplier=data.supplier,
         date=install_dt or datetime.now()
     )
+    new_log.is_active = True  # Помечаем установку как активную
     db.add(new_log)
     db.commit()
 
