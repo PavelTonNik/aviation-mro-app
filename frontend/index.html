@@ -8009,16 +8009,8 @@ function restoreView(viewName) {
 
         serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
         serverData.forEach(row => {
-            // Определяем статус установки (INSTALLED/REMOVED)
-            const isRemoved = row.status === 'REMOVED';
-            const rowStyle = isRemoved ? 'background-color: #fff3cd; opacity: 0.85;' : '';
-            const tooltip = isRemoved ? 'title="This engine was removed. Check Master Engine List for current location."' : '';
-            
-            // Крестик для снятых двигателей
-            const badgeHTML = isRemoved ? ' <span style="color: #dc3545; font-weight: bold; margin-left: 5px;" title="Engine removed">✕</span>' : '';
-            
             tbody.innerHTML += `
-                <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}" style="${rowStyle}" ${tooltip}>
+                <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
                     <td class="delete-col-install" style="display: none;">
                         <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('INSTALL', ${row.id || 0}, '${row.original_sn}')" title="Delete">
                             <i class="bi bi-trash"></i>
@@ -8026,7 +8018,7 @@ function restoreView(viewName) {
                     </td>
                     <td>${row.date}</td>
                     <td>${row.original_sn}</td>
-                    <td>${row.current_sn}${badgeHTML}</td>
+                    <td>${row.current_sn}</td>
                     <td><span class="badge bg-primary">${row.install_to}</span></td>
                     <td>${row.position}</td>
                     <td>${row.location_from}</td>
