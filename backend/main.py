@@ -6063,3 +6063,57 @@ def delete_condition_status(status_id: int, db: Session = Depends(get_db)):
         print(f"❌ Error in delete_condition_status: {e}")
         db.rollback()
         return {"status": "error", "message": str(e)}
+
+# ========================================
+# WORK TYPES (Borescope)
+# ========================================
+
+@app.get("/api/work-types")
+def get_work_types(db: Session = Depends(get_db)):
+    """Получить все типы работ для Borescope"""
+    try:
+        work_types = db.query(models.WorkType).all()
+        return [{"id": wt.id, "name": wt.name} for wt in work_types]
+    except Exception as e:
+        print(f"❌ Error in get_work_types: {e}")
+        return []
+
+@app.post("/api/work-types")
+def create_work_type(data: dict, db: Session = Depends(get_db)):
+    """Создать новый тип работы"""
+    try:
+        name = data.get("name", "").strip()
+        
+        if not name:
+            return {"status": "error", "message": "Name is required"}
+        
+        # Проверка на дубликат
+        existing = db.query(models.WorkType).filter(models.WorkType.name == name).first()
+        if existing:
+            return {"status": "error", "message": "Work Type already exists"}
+        
+        new_work_type = models.WorkType(name=name)
+        db.add(new_work_type)
+        db.commit()
+        db.refresh(new_work_type)
+        return {"status": "success", "id": new_work_type.id, "name": new_work_type.name}
+    except Exception as e:
+        print(f"❌ Error in create_work_type: {e}")
+        db.rollback()
+        return {"status": "error", "message": str(e)}
+
+@app.delete("/api/work-types/{work_type_id}")
+def delete_work_type(work_type_id: int, db: Session = Depends(get_db)):
+    """Удалить тип работы"""
+    try:
+        work_type = db.query(models.WorkType).filter(models.WorkType.id == work_type_id).first()
+        if not work_type:
+            return {"status": "error", "message": "Work Type not found"}
+        
+        db.delete(work_type)
+        db.commit()
+        return {"status": "success"}
+    except Exception as e:
+        print(f"❌ Error in delete_work_type: {e}")
+        db.rollback()
+        return {"status": "error", "message": str(e)}

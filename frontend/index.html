@@ -3697,11 +3697,14 @@
                                             </div>
                                             <div class="col-md-3">
                                                 <label class="form-label small fw-bold">Work Type <span class="text-danger">*</span></label>
-                                                <select class="form-select" id="bore-work-type" required>
-                                                    <option value="HPT">HPT</option>
-                                                    <option value="LPT">LPT</option>
-                                                    <option value="All Engine">All Engine</option>
-                                                </select>
+                                                <div class="d-flex gap-1">
+                                                    <select class="form-select" id="bore-work-type" required style="flex: 1;">
+                                                        <option value="">-- Select --</option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="openAddWorkTypeModal()" title="Add new work type" style="padding: 0.25rem 0.5rem;">
+                                                        <i class="bi bi-plus-lg"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div class="col-md-3">
                                                 <label class="form-label small fw-bold">GSS ID</label>
@@ -18785,9 +18788,129 @@ async function viewShipmentDetails(shipmentId) {
             }
         }
 
+        // === WORK TYPES MANAGEMENT ===
+        window.workTypes = [];
+
+        async function loadWorkTypes() {
+            try {
+                const res = await fetch('/api/work-types' + noCache());
+                if (!res.ok) throw new Error('Failed to fetch work types');
+                
+                const data = await res.json();
+                window.workTypes = data;
+                
+                // Update select in Borescope form
+                const select = document.getElementById('bore-work-type');
+                if (select) {
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">-- Select --</option>';
+                    window.workTypes.forEach(wt => {
+                        const opt = document.createElement('option');
+                        opt.value = wt.name;
+                        opt.textContent = wt.name;
+                        opt.dataset.workTypeId = wt.id;
+                        select.appendChild(opt);
+                    });
+                    if (currentValue) select.value = currentValue;
+                }
+                
+                // Update work type list in modal
+                updateWorkTypeList();
+            } catch (error) {
+                console.error('Error loading work types:', error);
+            }
+        }
+
+        function updateWorkTypeList() {
+            const listContainer = document.getElementById('work-type-list');
+            if (!listContainer) return;
+            
+            listContainer.innerHTML = '';
+            
+            if (window.workTypes.length === 0) {
+                listContainer.innerHTML = '<div class="text-muted small">No work types yet. Add HPT, LPT, NGV, CC, etc.</div>';
+                return;
+            }
+            
+            window.workTypes.forEach(wt => {
+                const item = document.createElement('div');
+                item.className = 'd-flex align-items-center justify-content-between mb-2 p-2 border rounded';
+                item.innerHTML = `
+                    <span>${wt.name}</span>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="deleteWorkType(${wt.id})" style="padding: 2px 6px; font-size: 0.75rem;">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        async function deleteWorkType(workTypeId) {
+            if (!confirm('Delete this work type?')) return;
+            
+            try {
+                const res = await fetch(`/api/work-types/${workTypeId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await res.json();
+                
+                if (data.status === 'error') {
+                    showErrorNotification(data.message || 'Failed to delete work type');
+                    return;
+                }
+                
+                showSuccessNotification('Work type deleted successfully!');
+                await loadWorkTypes();
+            } catch (error) {
+                console.error('Error deleting work type:', error);
+                showErrorNotification('Failed to delete work type');
+            }
+        }
+
+        function openAddWorkTypeModal() {
+            const modal = new bootstrap.Modal(document.getElementById('addWorkTypeModal'));
+            document.getElementById('new-work-type-name').value = '';
+            
+            updateWorkTypeList();
+            modal.show();
+        }
+
+        async function saveWorkType() {
+            const name = document.getElementById('new-work-type-name').value.trim();
+            
+            if (!name) {
+                showErrorNotification('Please enter work type name');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/work-types', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name})
+                });
+                
+                const data = await res.json();
+                
+                if (data.status === 'error') {
+                    showErrorNotification(data.message || 'Failed to add work type');
+                    return;
+                }
+                
+                showSuccessNotification(`Work type "${name}" added successfully!`);
+                document.getElementById('new-work-type-name').value = '';
+                await loadWorkTypes();
+            } catch (error) {
+                console.error('Error saving work type:', error);
+                showErrorNotification('Failed to save work type');
+            }
+        }
+
         // Load statuses on page load
         document.addEventListener('DOMContentLoaded', () => {
             loadConditionStatuses();
+            loadWorkTypes();
         });
     </script>
 
@@ -18818,6 +18941,39 @@ async function viewShipmentDetails(shipmentId) {
                     <div>
                         <label class="form-label small fw-bold">Existing Statuses</label>
                         <div id="condition-status-list" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Work Type Modal -->
+    <div class="modal fade" id="addWorkTypeModal" tabindex="-1">
+        <div class="modal-dialog modal-md">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Manage Work Types</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Add New Work Type</label>
+                        <div class="row g-2">
+                            <div class="col-10">
+                                <input type="text" class="form-control form-control-sm" id="new-work-type-name" placeholder="e.g. HPT, LPT, NGV, CC">
+                            </div>
+                            <div class="col-2">
+                                <button type="button" class="btn btn-sm btn-success w-100" onclick="saveWorkType()">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div>
+                        <label class="form-label small fw-bold">Existing Work Types</label>
+                        <div id="work-type-list" style="max-height: 300px; overflow-y: auto;"></div>
                     </div>
                 </div>
                 <div class="modal-footer">

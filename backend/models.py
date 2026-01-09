@@ -482,3 +482,11 @@ class ConditionStatus(Base):
     name = Column(String(100), nullable=False, unique=True)
     color = Column(String(20), nullable=False, default="#6c757d")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class WorkType(Base):
+    """Справочник типов работ для Borescope Inspection"""
+    __tablename__ = "work_types"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, unique=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
