@@ -342,8 +342,32 @@ app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 def read_index():
     return FileResponse(FRONTEND_DIR / "index.html")
 
+# Ensure 'from_location' column exists (auto-migrate lightweight for Render)
+_column_checked = False
+
+def ensure_from_location_column():
+    global _column_checked
+    if _column_checked:
+        return
+    try:
+        with database.engine.connect() as conn:
+            if database.IS_SQLITE:
+                rows = conn.execute(text("PRAGMA table_info(engines);"))
+                has_col = any(r[1] == 'from_location' for r in rows)
+                if not has_col:
+                    conn.execute(text("ALTER TABLE engines ADD COLUMN from_location VARCHAR"))
+            else:
+                res = conn.execute(text("SELECT 1 FROM information_schema.columns WHERE table_name = 'engines' AND column_name = 'from_location'"))
+                if res.scalar() is None:
+                    conn.execute(text("ALTER TABLE engines ADD COLUMN from_location VARCHAR"))
+            conn.commit()
+        _column_checked = True
+    except Exception as e:
+        print(f"⚠️ Failed to ensure from_location column: {e}")
+
 # Dependency (получение сессии БД)
 def get_db():
+    ensure_from_location_column()
     db = database.SessionLocal()
     try:
         yield db
