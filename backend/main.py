@@ -375,6 +375,9 @@ def ensure_from_location_column():
                         )
                     """))
                     conn.execute(text("UPDATE action_logs SET is_active = 0 WHERE action_type != 'INSTALL'"))
+                
+                # Обнуляем aircraft_id для двигателей со статусом REMOVED
+                conn.execute(text("UPDATE engines SET aircraft_id = NULL, position = NULL WHERE status = 'REMOVED'"))
             else:
                 # Check from_location
                 res = conn.execute(text("SELECT 1 FROM information_schema.columns WHERE table_name = 'engines' AND column_name = 'from_location'"))
@@ -397,6 +400,9 @@ def ensure_from_location_column():
                         )
                     """))
                     conn.execute(text("UPDATE action_logs SET is_active = FALSE WHERE action_type != 'INSTALL'"))
+                
+                # Обнуляем aircraft_id для двигателей со статусом REMOVED
+                conn.execute(text("UPDATE engines SET aircraft_id = NULL, position = NULL WHERE status = 'REMOVED'"))
             conn.commit()
         _column_checked = True
     except Exception as e:
@@ -1380,6 +1386,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
             # Все двигатели на самолете
             engines_on_wing = db.query(models.Engine).filter(
                 models.Engine.aircraft_id == ac.id,
+                models.Engine.aircraft_id != None,
                 models.Engine.status == "INSTALLED"
             ).all()
             
@@ -2775,6 +2782,7 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     )
     db.add(new_log)
     db.commit()
+    db.refresh(eng)  # Обновляем объект двигателя после commit
 
     # Log action
     create_notification(
