@@ -5419,7 +5419,7 @@
                     <div class="card shadow-sm">
                         <div class="card-body">
                             <!-- Кнопки управления -->
-                            <div class="d-flex justify-content-end mb-2 gap-2">
+                            <div class="d-flex justify-content-end mb-2 gap-2" style="overflow-x: auto; flex-wrap: nowrap;">
                                 <button class="btn btn-sm btn-primary" onclick="loadMainTable()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                                 <button class="btn btn-sm btn-warning" id="btn-main-edit" onclick="toggleEditMode()"><i class="bi bi-pencil-square"></i> Edit Table</button>
                                 <button class="btn btn-sm btn-info" id="btn-main-filter" onclick="toggleEngineFilter()" title="Filter"><i class="bi bi-funnel"></i> Filter</button>
@@ -5428,19 +5428,30 @@
                                 <button class="btn btn-sm btn-secondary d-none" id="btn-main-cancel" onclick="cancelEditMode()"><i class="bi bi-x-lg"></i> Cancel</button>
                             </div>
                             
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-hover table-sm text-center align-middle" style="font-size: 0.85rem;">
-                                    <thead class="table-dark">
+                            <div class="table-responsive" style="max-height: 80vh; overflow: auto;">
+                                <table class="table table-bordered table-hover table-sm text-center align-middle" style="font-size: 0.85rem; min-width: 100%; white-space: nowrap;">
+                                    <thead class="table-dark" style="position: sticky; top: 0; z-index: 10;">
                                         <tr>
-                                            <th class="delete-col" style="width: 64px; display: none; white-space: nowrap;">
+                                            <th class="delete-col" style="width: 50px; min-width: 50px; display: none;">
                                                 <div class="bulk-controls">
                                                     <input type="checkbox" id="select-all-delete" class="form-check-input select-all" onchange="toggleSelectAllRows(this)">
                                                     <i class="bi bi-trash text-danger" title="Delete / Select"></i>
                                                 </div>
                                             </th>
-                                            <th>Date</th><th>Model</th><th>Current SN</th><th>Orig. ESN</th><th>GSS ID</th><th>Price</th><th>Status</th>
-                                            <th>TT</th><th>TC</th><th>Current Location</th><th>Moved From</th><th>Removed From</th>
-                                            <th>Remarks</th><th>Links/Photo</th>
+                                            <th style="min-width: 90px;">Date</th>
+                                            <th style="min-width: 80px;">Model</th>
+                                            <th style="min-width: 100px;">Current SN</th>
+                                            <th style="min-width: 100px;">Orig. ESN</th>
+                                            <th style="min-width: 80px;">GSS ID</th>
+                                            <th style="min-width: 70px;">Price</th>
+                                            <th style="min-width: 90px;">Status</th>
+                                            <th style="min-width: 50px;">TT</th>
+                                            <th style="min-width: 50px;">TC</th>
+                                            <th style="min-width: 120px;">Current Location</th>
+                                            <th style="min-width: 100px;">Moved From</th>
+                                            <th style="min-width: 100px;">Removed From</th>
+                                            <th style="min-width: 150px;">Remarks</th>
+                                            <th style="min-width: 70px;">Links/Photo</th>
                                         </tr>
                                     </thead>
                                     <tbody id="main-engine-body"></tbody>
