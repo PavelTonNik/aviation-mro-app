@@ -11804,7 +11804,8 @@ function restoreView(viewName) {
                     ac_ttsn: rowData.ac_ttsn ? parseFloat(rowData.ac_ttsn) : null,
                     ac_tcsn: rowData.ac_tcsn ? parseInt(rowData.ac_tcsn) : null,
                     comments: rowData.remarks || null,
-                    supplier: rowData.supplier || null
+                    supplier: rowData.supplier || null,
+                    current_sn: rowData.current_sn || null
                 };
             } else if (tableName === 'borescope') {
                 // Специальный маппинг для Borescope
