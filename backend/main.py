@@ -1896,12 +1896,12 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             gss_sn=data.gss_sn or data.original_sn,
             current_sn=data.current_sn,
             model=data.model,
-            status=data.status,
-            condition_1=data.condition_1,
-            condition_2=data.condition_2,
+            status=data.status or "SV",
+            condition_1=data.condition_1 if data.condition_1 else "SV",
+            condition_2=data.condition_2 if data.condition_2 else "New",
             location_id=data.location_id,
-            total_time=data.total_time,
-            total_cycles=data.total_cycles,
+            total_time=data.total_time or 0.0,
+            total_cycles=data.total_cycles or 0,
             price=data.price,
             photo_url=data.photo_url,
             remarks=data.remarks,
@@ -1964,51 +1964,60 @@ def delete_engine(engine_id: int, db: Session = Depends(get_db)):
 # ОБНОВЛЕНИЕ ДВИГАТЕЛЯ
 @app.put("/api/engines/{engine_id}")
 def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depends(get_db)):
-    # Находим двигатель
-    engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
-    if not engine:
-        raise HTTPException(404, "Engine not found")
-    
-    # Парсим дату если передана
-    install_date = None
-    if data.date and data.date.strip():
-        try:
-            # Пробуем разные форматы
-            date_str = data.date.strip()
-            if 'T' in date_str:  # ISO формат с временем
-                install_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            else:  # Простой формат YYYY-MM-DD
-                install_date = datetime.strptime(date_str, '%Y-%m-%d')
-        except Exception as e:
-            print(f"[update_engine] date parse error for '{data.date}': {e}")
-            install_date = None
-    
-    # Обновляем поля
-    engine.original_sn = data.original_sn
-    engine.model = data.model
-    engine.gss_sn = data.gss_sn or data.original_sn
-    engine.current_sn = data.current_sn
-    engine.condition_1 = data.condition_1
-    engine.condition_2 = data.condition_2
-    # НЕ меняем status и location если двигатель в "системном" статусе (INSTALLED, REMOVED, REPAIRED)
-    protected_statuses = ["INSTALLED", "REMOVED", "REPAIRED"]
-    if engine.status not in protected_statuses:
-        engine.status = data.status
-        if data.location_id:
-            engine.location_id = data.location_id
-    engine.total_time = data.total_time
-    engine.total_cycles = data.total_cycles
-    engine.price = data.price
-    engine.photo_url = data.photo_url
-    engine.remarks = data.remarks
-    engine.from_location = data.from_location
-    engine.removed_from = data.removed_from
-    engine.install_date = install_date
-    
-    db.commit()
-    db.refresh(engine)
-    
-    return {"message": "Engine updated successfully", "id": engine.id}
+    try:
+        # Находим двигатель
+        engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
+        if not engine:
+            raise HTTPException(404, "Engine not found")
+        
+        # Парсим дату если передана
+        install_date = None
+        if data.date and data.date.strip():
+            try:
+                # Пробуем разные форматы
+                date_str = data.date.strip()
+                if 'T' in date_str:  # ISO формат с временем
+                    install_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                else:  # Простой формат YYYY-MM-DD
+                    install_date = datetime.strptime(date_str, '%Y-%m-%d')
+            except Exception as e:
+                print(f"[update_engine] date parse error for '{data.date}': {e}")
+                install_date = None
+        
+        # Обновляем поля
+        engine.original_sn = data.original_sn
+        engine.model = data.model
+        engine.gss_sn = data.gss_sn or data.original_sn
+        engine.current_sn = data.current_sn
+        engine.condition_1 = data.condition_1 if data.condition_1 else "SV"
+        engine.condition_2 = data.condition_2 if data.condition_2 else "New"
+        # НЕ меняем status и location если двигатель в "системном" статусе (INSTALLED, REMOVED, REPAIRED)
+        protected_statuses = ["INSTALLED", "REMOVED", "REPAIRED"]
+        if engine.status not in protected_statuses:
+            engine.status = data.status
+            if data.location_id:
+                engine.location_id = data.location_id
+        engine.total_time = data.total_time
+        engine.total_cycles = data.total_cycles
+        engine.price = data.price
+        engine.photo_url = data.photo_url
+        engine.remarks = data.remarks
+        engine.from_location = data.from_location
+        engine.removed_from = data.removed_from
+        engine.install_date = install_date
+        
+        db.commit()
+        db.refresh(engine)
+        
+        return {"message": "Engine updated successfully", "id": engine.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error updating engine {engine_id}: {e}")
+        import traceback
+        print(traceback.format_exc())
+        raise HTTPException(500, f"Failed to update engine: {str(e)}")
 
 # ПОЛУЧЕНИЕ ОДНОГО ДВИГАТЕЛЯ ПО ID
 @app.get("/api/engines/{engine_id}")
