@@ -1989,12 +1989,13 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         engine.model = data.model
         engine.gss_sn = data.gss_sn or data.original_sn
         engine.current_sn = data.current_sn
-        engine.condition_1 = data.condition_1 if data.condition_1 and data.condition_1.strip() else "SV"
-        engine.condition_2 = data.condition_2 if data.condition_2 and data.condition_2.strip() else "New"
+        engine.condition_1 = data.condition_1 if data.condition_1 and data.condition_1.strip() and data.condition_1 != '-' else "SV"
+        engine.condition_2 = data.condition_2 if data.condition_2 and data.condition_2.strip() and data.condition_2 != '-' else "New"
         # НЕ меняем status и location если двигатель в "системном" статусе (INSTALLED, REMOVED, REPAIRED)
         protected_statuses = ["INSTALLED", "REMOVED", "REPAIRED"]
         if engine.status not in protected_statuses:
-            engine.status = data.status if data.status and data.status.strip() else "SV"
+            # Разрешаем любое значение, включая "-"
+            engine.status = data.status if data.status and data.status.strip() else "-"
             if data.location_id:
                 engine.location_id = data.location_id
         engine.total_time = data.total_time
