@@ -2685,6 +2685,9 @@
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openAtlbView(); return false;"><i class="bi bi-journal-richtext"></i> Utilization (ATLB)</a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openEngParamView(); return false;"><i class="bi bi-sliders"></i> ENG Parameters</a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openUtilizationParamView(); return false;"><i class="bi bi-bar-chart-line"></i> Utilization Parameters</a>
+                <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openPartsView(); return false;">
+                    <i class="bi bi-box-seam"></i> <span data-parts-title="logistics">Parts Removal/Installation</span>
+                </a>
             </div>
             
             <!-- LOGISTICS GROUP (COLLAPSIBLE) -->
@@ -2697,9 +2700,6 @@
             <div id="logistics-submenu" style="display: none;">
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openShipmentView(); return false;">
                     <i class="bi bi-truck"></i> Engine Shipment
-                </a>
-                <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openPartsView(); return false;">
-                    <i class="bi bi-box-seam"></i> <span data-parts-title="logistics">Parts Logistics</span>
                 </a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openStoreBalanceView(); return false;">
                     <i class="bi bi-collection"></i> <span data-parts-title="store">Store Balance</span>
@@ -4431,7 +4431,7 @@
                 <h4 class="mb-3 text-secondary"><i class="bi bi-box-seam"></i> Parts Management</h4>
                 
                 <ul class="nav nav-tabs mb-4">
-                    <li class="nav-item"><button class="nav-link active" id="tab-parts-list-btn" onclick="switchPartsTab('list')"><span data-parts-title="logistics">Parts Logistics</span></button></li>
+                    <li class="nav-item"><button class="nav-link active" id="tab-parts-list-btn" onclick="switchPartsTab('list')"><span data-parts-title="logistics">Parts Removal/Installation</span></button></li>
                     <li class="nav-item"><button class="nav-link" id="tab-parts-add-btn" onclick="switchPartsTab('add')">Внести данные (Action)</button></li>
                 </ul>
 
@@ -5879,7 +5879,7 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="small fw-bold">Card title: Logistics</label>
-                                        <input type="text" class="form-control" id="parts-logistics-title-input" placeholder="Parts Logistics">
+                                        <input type="text" class="form-control" id="parts-logistics-title-input" placeholder="Parts Removal/Installation">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="small fw-bold">Card title: Store Balance</label>
@@ -5925,9 +5925,9 @@
                                     <div class="col-md-3">
                                         <label class="small fw-bold">Target</label>
                                         <select class="form-select" id="parts-custom-target">
-                                            <option value="parts-modal">Parts Logistics modal</option>
-                                            <option value="parts-view">Parts Logistics table</option>
-                                            <option value="parts-add">Parts Logistics – Add tab</option>
+                                            <option value="parts-modal">Parts Removal/Installation modal</option>
+                                            <option value="parts-view">Parts Removal/Installation table</option>
+                                            <option value="parts-add">Parts Removal/Installation – Add tab</option>
                                             <option value="store-modal">Store Balance modal</option>
                                             <option value="store-view">Store Balance table</option>
                                             <option value="store-add">Store Balance – Add tab</option>
@@ -6069,7 +6069,7 @@ function openDashboardView() {
     // Делаем функцию доступной в консоли браузера
     window.clearDeletedEngineIds = clearDeletedEngineIds;
     
-    const noCache = () => `?t=${new Date().getTime()}`;
+    window.noCache = () => `?t=${new Date().getTime()}`;
     window.onload = async function() {
         await loadDashboardData();
     };
@@ -6882,7 +6882,7 @@ function restoreView(viewName) {
                 let data = []; try { data = await res.json(); } catch { data = []; }
                 if (!Array.isArray(data) || data.length === 0) { container.innerHTML = '<div class="text-muted">No parts records</div>'; return; }
                 container.innerHTML = `
-                    <h5 class="mb-3"><span data-parts-title="logistics">Parts Logistics</span></h5>
+                    <h5 class="mb-3"><span data-parts-title="logistics">Parts Removal/Installation</span></h5>
                         <div class="table-responsive" style="max-height:60vh;">
                             <table class="table table-sm align-middle mb-0">
                                 <thead><tr><th>Date</th><th>Part</th><th>From</th><th>To</th><th>Qty</th><th>Remarks</th></tr></thead>
@@ -11164,20 +11164,14 @@ function restoreView(viewName) {
         },
         'store-balance': {
             bodyId: 'store-balance-body',
-            columns: ['received_date', 'part_name', 'part_number', 'serial_number', 'condition', 'quantity', 'ro_number', 'location', 'status', 'owner', 'remarks'],
+            columns: ['received_date', 'part_name', 'part_number', 'serial_number', 'condition', 'quantity', 'unit', 'location', 'shelf', 'owner', 'remarks'],
             columnTypes: {
                 received_date: 'date',
                 quantity: 'number',
                 condition: 'select'
             },
             selectOptions: {
-                condition: [
-                    { value: 'SV - NGV (SENT)', label: 'SV - NGV (SENT)', color: '#28a745' },
-                    { value: 'UNDER REPAIRING', label: 'UNDER REPAIRING', color: '#0056b3' },
-                    { value: 'Delivered in Roma Italy', label: 'Delivered in Roma Italy', color: '#90ee90' },
-                    { value: 'NO CAPABILITY', label: 'NO CAPABILITY', color: '#dc3545' },
-                    { value: 'US - SHJ', label: 'US - SHJ', color: '#ffc107' }
-                ]
+                condition: [] // Будет заполняться динамически из API
             },
             reloadFunction: loadStoreBalance,
             hasDeleteCol: true
@@ -11399,6 +11393,26 @@ function restoreView(viewName) {
         const config = tableConfigs[tableName];
         if (!config) return;
 
+        // Для store-balance загружаем динамические condition'ы перед редактированием
+        if (tableName === 'store-balance') {
+            loadConditionStatuses().then(() => {
+                if (window.conditionStatuses && window.conditionStatuses.length > 0) {
+                    tableConfigs['store-balance'].selectOptions.condition = window.conditionStatuses.map(status => ({
+                        value: status.name,
+                        label: status.name,
+                        color: status.color
+                    }));
+                }
+                performEditModeToggle(tableName);
+            });
+        } else {
+            performEditModeToggle(tableName);
+        }
+    }
+
+    function performEditModeToggle(tableName) {
+        const config = tableConfigs[tableName];
+
         const editBtn = document.getElementById(`btn-${tableName}-edit`);
         const saveBtn = document.getElementById(`btn-${tableName}-save`);
         const cancelBtn = document.getElementById(`btn-${tableName}-cancel`);
@@ -11464,7 +11478,18 @@ function restoreView(viewName) {
                 const columnType = config.columnTypes[columnName] || 'text';
                 
                 // Для числовых полей берем data-атрибут, для остальных - текст без форматирования
-                let cleanValue = cell.textContent.trim();
+                // Для select полей: проверяем data-value атрибут (для condition с span)
+                let cleanValue = '';
+                if (columnType === 'select') {
+                    const span = cell.querySelector('[data-value]');
+                    if (span) {
+                        cleanValue = span.getAttribute('data-value');
+                    } else {
+                        cleanValue = cell.innerText.trim();
+                    }
+                } else {
+                    cleanValue = cell.textContent.trim();
+                }
                 
                 // Для столбца Link извлекаем URL из data-link или href
                 if (cell.hasAttribute('data-key') && cell.getAttribute('data-key') === 'link') {
@@ -11680,9 +11705,9 @@ function restoreView(viewName) {
                     serial_number: sanitize(rowData.serial_number),
                     condition: sanitize(rowData.condition),
                     quantity: quantityVal,
-                    unit: sanitize(rowData.ro_number || rowData.unit),
+                    unit: sanitize(rowData.unit),
                     location: sanitize(rowData.location),
-                    shelf: sanitize(rowData.status || rowData.shelf),
+                    shelf: sanitize(rowData.shelf),
                     owner: sanitize(rowData.owner),
                     remarks: sanitize(rowData.remarks)
                 };
@@ -12577,7 +12602,7 @@ function restoreView(viewName) {
                 const condText = (item.condition || '').trim();
                 const condStatus = window.conditionStatuses?.find(s => s.name === condText);
                 const condColor = condStatus ? condStatus.color : '#6c757d';
-                const condHtml = condText ? `<span class="cond-badge" style="background-color: ${condColor}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">${escapeHtml(condText)}</span>` : '-';
+                const condHtml = condText ? `<span class="cond-badge" style="background-color: ${condColor}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;" data-value="${escapeHtml(condText)}">${escapeHtml(condText)}</span>` : `<span data-value=""></span>`;
 
                 tbody.innerHTML += `
                     <tr data-log-id="${item.id}">
@@ -14907,7 +14932,7 @@ document.getElementById('settings-modal')?.addEventListener('hidden.bs.modal', (
 
 const partsSettingsDefaults = {
     storeTitle: 'Store Balance',
-    logisticsTitle: 'Parts Logistics',
+    logisticsTitle: 'Parts Removal/Installation',
     cardHeight: 200,
     cardWidth: 50,
     customCards: []
@@ -14916,17 +14941,17 @@ let partsSettings = { ...partsSettingsDefaults };
 
 const partsCardTargets = {
     'parts-modal': {
-        label: 'Parts Logistics modal',
+        label: 'Parts Removal/Installation modal',
         icon: 'bi-arrow-left-right',
         run: () => openPartsLogisticsModal()
     },
     'parts-view': {
-        label: 'Parts Logistics table',
+        label: 'Parts Removal/Installation table',
         icon: 'bi-arrow-left-right',
         run: () => { openPartsView(); switchPartsTab('list'); }
     },
     'parts-add': {
-        label: 'Parts Logistics – Add tab',
+        label: 'Parts Removal/Installation – Add tab',
         icon: 'bi-plus-circle',
         run: () => { openPartsView(); switchPartsTab('add'); }
     },
@@ -16652,7 +16677,7 @@ async function updatePartsCardCounts() {
 <div id="parts-logistics-modal" class="parts-modal-overlay" onclick="if(event.target === this) closePartsLogisticsModal()">
     <div class="parts-modal-content">
         <div class="parts-modal-header green">
-            <h4><i class="bi bi-arrow-left-right me-2"></i><span data-parts-title="logistics">Parts Logistics</span> - All Movements</h4>
+            <h4><i class="bi bi-arrow-left-right me-2"></i><span data-parts-title="logistics">Parts Removal/Installation</span> - All Movements</h4>
             <button class="parts-modal-close" onclick="closePartsLogisticsModal()">×</button>
         </div>
         <div class="parts-modal-body">
