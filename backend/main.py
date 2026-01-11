@@ -1896,9 +1896,9 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             gss_sn=data.gss_sn or data.original_sn,
             current_sn=data.current_sn,
             model=data.model,
-            status=data.status or "SV",
-            condition_1=data.condition_1 if data.condition_1 else "SV",
-            condition_2=data.condition_2 if data.condition_2 else "New",
+            status=data.status if data.status and data.status.strip() else "SV",
+            condition_1=data.condition_1 if data.condition_1 and data.condition_1.strip() else "SV",
+            condition_2=data.condition_2 if data.condition_2 and data.condition_2.strip() else "New",
             location_id=data.location_id,
             total_time=data.total_time or 0.0,
             total_cycles=data.total_cycles or 0,
@@ -1989,12 +1989,12 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         engine.model = data.model
         engine.gss_sn = data.gss_sn or data.original_sn
         engine.current_sn = data.current_sn
-        engine.condition_1 = data.condition_1 if data.condition_1 else "SV"
-        engine.condition_2 = data.condition_2 if data.condition_2 else "New"
+        engine.condition_1 = data.condition_1 if data.condition_1 and data.condition_1.strip() else "SV"
+        engine.condition_2 = data.condition_2 if data.condition_2 and data.condition_2.strip() else "New"
         # НЕ меняем status и location если двигатель в "системном" статусе (INSTALLED, REMOVED, REPAIRED)
         protected_statuses = ["INSTALLED", "REMOVED", "REPAIRED"]
         if engine.status not in protected_statuses:
-            engine.status = data.status
+            engine.status = data.status if data.status and data.status.strip() else "SV"
             if data.location_id:
                 engine.location_id = data.location_id
         engine.total_time = data.total_time

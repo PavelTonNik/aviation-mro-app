@@ -19,6 +19,31 @@ BEGIN
     END IF;
 END$$;
 
+-- Add is_active column to action_logs for tracking installation status
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'action_logs' AND column_name = 'is_active'
+    ) THEN
+        ALTER TABLE action_logs ADD COLUMN is_active boolean DEFAULT TRUE;
+        
+        -- Умная логика для старых записей:
+        -- Если INSTALL, проверяем: есть ли REMOVE после него для того же двигателя
+        UPDATE action_logs SET is_active = FALSE 
+        WHERE action_type = 'INSTALL' 
+        AND EXISTS (
+            SELECT 1 FROM action_logs AS remove_log
+            WHERE remove_log.engine_id = action_logs.engine_id
+            AND remove_log.action_type = 'REMOVE'
+            AND remove_log.date > action_logs.date
+        );
+        
+        -- Все не-INSTALL записи помечаем как неактивные
+        UPDATE action_logs SET is_active = FALSE WHERE action_type != 'INSTALL';
+    END IF;
+END$$;
+
 -- Fake Installed main table
 CREATE TABLE IF NOT EXISTS fake_installed (
     id SERIAL PRIMARY KEY,
@@ -243,8 +268,6 @@ END$$;
 
 -- Update enginestatus enum to remove AS and ensure REMOVED is present
 DO $$
-DECLARE
-    v_old_enum_name TEXT := 'enginestatus_old';
 BEGIN
     -- Check if enginestatus enum exists
     IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enginestatus') THEN
@@ -252,14 +275,48 @@ BEGIN
         ALTER TYPE enginestatus RENAME TO enginestatus_old;
         
         -- Create new enum with correct values (no AS, only SV, US, INSTALLED, REMOVED)
-        CREATE TYPE enginestatus AS ENUM ('SV', 'US', 'INSTALLED', 'REMOVED');
+        CREATE TYPE enginestatus AS ENUM ('SV', 'US', 'INSTALLED', 'REMOVED', '-');
         
-        -- Update the column to use new enum type
+        -- Cast old values to new
         ALTER TABLE engines 
-            ALTER COLUMN status TYPE enginestatus USING status::text::enginestatus;
+            ALTER COLUMN status TYPE enginestatus USING 
+                CASE 
+                    WHEN status::text IN ('SV', 'US', 'INSTALLED', 'REMOVED') THEN status::text::enginestatus
+                    ELSE 'SV'::enginestatus
+                END;
         
         -- Drop old enum
         DROP TYPE enginestatus_old;
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;  -- Ignore errors if enum doesn't exist
+END$$;
+
+-- Ensure condition_1 and condition_2 columns exist and are set to NOT NULL with defaults
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'engines' AND column_name = 'condition_1'
+    ) THEN
+        ALTER TABLE engines ADD COLUMN condition_1 VARCHAR DEFAULT 'SV' NOT NULL;
+    ELSE
+        -- Update nullable to NOT NULL with default
+        ALTER TABLE engines ALTER COLUMN condition_1 SET DEFAULT 'SV';
+        UPDATE engines SET condition_1 = 'SV' WHERE condition_1 IS NULL OR condition_1 = '';
+        ALTER TABLE engines ALTER COLUMN condition_1 SET NOT NULL;
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'engines' AND column_name = 'condition_2'
+    ) THEN
+        ALTER TABLE engines ADD COLUMN condition_2 VARCHAR DEFAULT 'New' NOT NULL;
+    ELSE
+        -- Update nullable to NOT NULL with default
+        ALTER TABLE engines ALTER COLUMN condition_2 SET DEFAULT 'New';
+        UPDATE engines SET condition_2 = 'New' WHERE condition_2 IS NULL OR condition_2 = '';
+        ALTER TABLE engines ALTER COLUMN condition_2 SET NOT NULL;
     END IF;
 END$$;
 
