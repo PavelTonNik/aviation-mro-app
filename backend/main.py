@@ -180,6 +180,27 @@ def startup_event():
                         ) THEN
                             ALTER TABLE utilization_parameters ADD COLUMN engine_id INTEGER;
                         END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='engines' AND column_name='condition_1'
+                        ) THEN
+                            ALTER TABLE engines ADD COLUMN condition_1 VARCHAR DEFAULT 'SV';
+                        END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='engines' AND column_name='condition_2'
+                        ) THEN
+                            ALTER TABLE engines ADD COLUMN condition_2 VARCHAR DEFAULT 'New';
+                        END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='action_logs' AND column_name='condition_1_at_removal'
+                        ) THEN
+                            ALTER TABLE action_logs ADD COLUMN condition_1_at_removal VARCHAR;
+                        END IF;
                     END $$;
                 """))
                 db.commit()
@@ -198,6 +219,9 @@ def startup_event():
     ensure_sqlite_column("action_logs", "is_maintenance BOOLEAN DEFAULT 0")
     ensure_sqlite_column("action_logs", "atlb_ref TEXT")
     ensure_sqlite_column("action_logs", "maintenance_type TEXT")
+    ensure_sqlite_column("engines", "condition_1 TEXT DEFAULT 'SV'")
+    ensure_sqlite_column("engines", "condition_2 TEXT DEFAULT 'New'")
+    ensure_sqlite_column("action_logs", "condition_1_at_removal TEXT")
     ensure_sqlite_column("action_logs", "block_time_str TEXT")
     ensure_sqlite_column("action_logs", "flight_time_str TEXT")
     ensure_sqlite_column("action_logs", "block_out_str TEXT")
@@ -702,6 +726,7 @@ class RemoveSchema(BaseModel):
     date: str
     engine_id: int
     to_location_id: int # Куда положили снятый двигатель
+    condition_1: Optional[str] = "SV"  # Техсостояние при снятии
     reason: Optional[str] = ""
     ttsn: Optional[float] = None
     tcsn: Optional[int] = None
@@ -1806,7 +1831,9 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
                 "removed_from": eng.removed_from or "",
                 "install_date": display_date.strftime('%Y-%m-%d') if display_date else None,
                 "ac_ttsn": ac_ttsn,
-                "ac_tcsn": ac_tcsn
+                "ac_tcsn": ac_tcsn,
+                "condition_1": eng.condition_1 or "SV",
+                "condition_2": eng.condition_2 or "New"
             })
         
         return result
@@ -1823,7 +1850,9 @@ class EngineCreateSchema(BaseModel):
     gss_sn: Optional[str] = None
     current_sn: str
     model: Optional[str] = None
-    status: str = "SV"
+    status: Optional[str] = ""
+    condition_1: str = "SV"
+    condition_2: str = "New"
     location_id: Optional[int] = None
     total_time: float = 0.0
     total_cycles: int = 0
@@ -1868,6 +1897,8 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             current_sn=data.current_sn,
             model=data.model,
             status=data.status,
+            condition_1=data.condition_1,
+            condition_2=data.condition_2,
             location_id=data.location_id,
             total_time=data.total_time,
             total_cycles=data.total_cycles,
@@ -1957,6 +1988,8 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
     engine.model = data.model
     engine.gss_sn = data.gss_sn or data.original_sn
     engine.current_sn = data.current_sn
+    engine.condition_1 = data.condition_1
+    engine.condition_2 = data.condition_2
     # НЕ меняем status и location если двигатель в "системном" статусе (INSTALLED, REMOVED, REPAIRED)
     protected_statuses = ["INSTALLED", "REMOVED", "REPAIRED"]
     if engine.status not in protected_statuses:
@@ -2012,7 +2045,9 @@ def get_engine_by_id(engine_id: int, db: Session = Depends(get_db)):
         "remarks": engine.remarks or "",
         "from_location": engine.from_location or "",
         "removed_from": engine.removed_from or "",
-        "install_date": engine.install_date.strftime('%Y-%m-%d') if engine.install_date else None
+        "install_date": engine.install_date.strftime('%Y-%m-%d') if engine.install_date else None,
+        "condition_1": engine.condition_1 or "SV",
+        "condition_2": engine.condition_2 or "New"
     }
 
 # ПОЛУЧЕНИЕ ПОЛНОЙ ИСТОРИИ ДВИГАТЕЛЯ
@@ -2818,6 +2853,7 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     eng.position = None
     eng.location_id = dest_loc.id
     eng.status = "REMOVED" # Меняем статус
+    eng.condition_1 = data.condition_1  # Обновляем техсостояние
 
     # Закрываем активную установку (is_active = False) для этого двигателя
     active_install = db.query(models.ActionLog).filter(
@@ -2835,6 +2871,7 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         engine_id=eng.id,
         from_location=from_txt,
         to_location=dest_loc.name,
+        condition_1_at_removal=data.condition_1,
         comments=data.reason,
         date=datetime.now(),
         snapshot_tt=eng.total_time,

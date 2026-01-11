@@ -62,6 +62,8 @@ class Engine(Base):
     model = Column(String, nullable=True) # Модель двигателя (CF6-80, CFM56 и т.д.)
     
     status = Column(String, default="SV")
+    condition_1 = Column(String, default="SV")  # Техсостояние: SV/US/Scrap
+    condition_2 = Column(String, default="New")  # Физсостояние: New/Overhauled/Repaired/Inspected tested/AS
     
     # Наработка
     total_time = Column(Float, default=0.0)   # TT
@@ -135,6 +137,9 @@ class ActionLog(Base):
     # Снапшот наработки на момент действия (ВАЖНО для истории!)
     snapshot_tt = Column(Float, nullable=True)
     snapshot_tc = Column(Integer, nullable=True)
+    
+    # Для REMOVE: техсостояние при снятии
+    condition_1_at_removal = Column(String, nullable=True)
     
     comments = Column(Text, nullable=True)
     file_url = Column(String, nullable=True) # Ссылка на Google Drive / S3

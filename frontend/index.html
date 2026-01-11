@@ -3709,6 +3709,17 @@
 
                                         <div class="row mb-3">
                                             <div class="col-md-12">
+                                                <label class="form-label small fw-bold">Condition 1 at Removal</label>
+                                                <select class="form-select" id="rem-condition-1">
+                                                    <option value="SV">SV (Serviceable)</option>
+                                                    <option value="US">US (Unserviceable)</option>
+                                                    <option value="Scrap">Scrap</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-12">
                                                 <label class="form-label small fw-bold">Reason</label>
                                                 <input type="text" class="form-control" id="rem-reason" placeholder="e.g. End of Lease, Repair...">
                                             </div>
@@ -5618,6 +5629,8 @@
                                             <th style="min-width: 80px;">GSS ID</th>
                                             <th style="min-width: 70px;">Price</th>
                                             <th style="min-width: 90px;">Status</th>
+                                            <th style="min-width: 100px;">Condition 1</th>
+                                            <th style="min-width: 120px;">Condition 2</th>
                                             <th style="min-width: 50px;">TT</th>
                                             <th style="min-width: 50px;">TC</th>
                                             <th style="min-width: 120px;">Current Location</th>
@@ -5744,11 +5757,11 @@
                                 </div>
                                 <div class="row mb-3">
                                     <div class="col-md-3">
-                                        <label class="small fw-bold">Status</label>
-                                        <select class="form-select" id="m-status">
-                                            <option value="SV">SV (Serviceable)</option>
-                                            <option value="US">US (Unserviceable)</option>
-                                            <option value="REMOVED">REMOVED (Removed from Aircraft)</option>
+                                        <label class="small fw-bold">Status <small class="text-muted">(auto-assigned)</small></label>
+                                        <select class="form-select" id="m-status" disabled>
+                                            <option value="">- (Not Active)</option>
+                                            <option value="INSTALLED">INSTALLED</option>
+                                            <option value="REMOVED">REMOVED</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3">
@@ -5767,6 +5780,28 @@
                                 <div class="row mb-3">
                                     <div class="col-md-6"><label class="small fw-bold">Moved From (Loc/Shop)</label><input type="text" class="form-control" id="m-moved"></div>
                                     <div class="col-md-6"><label class="small fw-bold">Removed From (AC)</label><input type="text" class="form-control" id="m-removed"></div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-3">
+                                        <label class="small fw-bold">Condition 1 (Operational)</label>
+                                        <select class="form-select" id="m-condition-1">
+                                            <option value="-">- (Unknown)</option>
+                                            <option value="SV" selected>SV (Serviceable)</option>
+                                            <option value="US">US (Unserviceable)</option>
+                                            <option value="Scrap">Scrap</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small fw-bold">Condition 2 (Physical)</label>
+                                        <select class="form-select" id="m-condition-2">
+                                            <option value="-">- (Unknown)</option>
+                                            <option value="New" selected>New</option>
+                                            <option value="Overhauled">Overhauled</option>
+                                            <option value="Repaired">Repaired</option>
+                                            <option value="Inspected tested">Inspected tested</option>
+                                            <option value="As removed">As removed</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div class="mb-3"><label class="small fw-bold">Remarks</label><textarea class="form-control" id="m-rem" rows="2"></textarea></div>
                                 
@@ -10346,7 +10381,8 @@ function restoreView(viewName) {
             tcsn: parseInt(document.getElementById('rem-tcsn').value) || null,
             ttsn_ac: parseFloat(document.getElementById('rem-ttsn-ac').value) || null,
             tcsn_ac: parseInt(document.getElementById('rem-tcsn-ac').value) || null,
-            remarks: document.getElementById('rem-remarks').value
+            remarks: document.getElementById('rem-remarks').value,
+            condition_1: document.getElementById('rem-condition-1').value
         };
 
         try {
@@ -10557,7 +10593,7 @@ function restoreView(viewName) {
     
     async function loadMainTable() {
         const tb = document.getElementById('main-engine-body');
-        tb.innerHTML = '<tr><td colspan="15" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
+        tb.innerHTML = '<tr><td colspan="17" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
         
         try {
             console.log('Fetching engines from API...');
@@ -10594,8 +10630,31 @@ function restoreView(viewName) {
             renderEngineTable(filteredEngines);
         } catch(e) {
             console.error('Loading error двигателей:', e);
-            tb.innerHTML = '<tr><td colspan="15" class="text-center text-danger">Error loading engines: ' + e.message + '</td></tr>';
+            tb.innerHTML = '<tr><td colspan="17" class="text-center text-danger">Error loading engines: ' + e.message + '</td></tr>';
         }
+    }
+    
+    function getCondition1BadgeColor(condition) {
+        const colorMap = {
+            'SV': 'bg-success',
+            'US': 'bg-danger',
+            'Scrap': 'bg-dark',
+            '-': 'bg-light text-dark'
+        };
+        return colorMap[condition] || 'bg-light text-dark';
+    }
+    
+    function getCondition2BadgeColor(condition) {
+        const colorMap = {
+            'New': 'bg-success',
+            'Overhauled': 'bg-primary',
+            'Repaired': 'bg-warning text-dark',
+            'Inspected tested': 'bg-info text-dark',
+            'As removed': 'bg-secondary',
+            'AS': 'bg-secondary',
+            '-': 'bg-light text-dark'
+        };
+        return colorMap[condition] || 'bg-light text-dark';
     }
     
     function renderEngineTable(engines) {
@@ -10607,7 +10666,7 @@ function restoreView(viewName) {
         tb.innerHTML = '';
         
         if(engines.length === 0) {
-            tb.innerHTML = '<tr><td colspan="15" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
+            tb.innerHTML = '<tr><td colspan="17" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
             console.log('No engines, displaying empty message');
             return;
         }
@@ -10621,10 +10680,12 @@ function restoreView(viewName) {
             console.log(`Processing engine ${idx + 1}:`, eng);
             
             let badge = 'bg-secondary';
+            let statusText = eng.status || '-';
             if(eng.status === 'SV') badge = 'bg-success';
             if(eng.status === 'US') badge = 'bg-danger';
             if(eng.status === 'INSTALLED') badge = 'bg-primary';
             if(eng.status === 'REMOVED') badge = 'bg-warning';
+            if(!eng.status || eng.status === '') { badge = 'bg-light text-dark'; statusText = '-'; }
 
             const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank"><i class="bi bi-image"></i></a>` : '-';
             const model = eng.model || '-';
@@ -10639,6 +10700,8 @@ function restoreView(viewName) {
             const tt = eng.tt || 0;
             const tc = eng.tc || 0;
             const price = eng.price || '-';
+            const condition1 = eng.condition_1 || '-';
+            const condition2 = eng.condition_2 || '-';
 
             rowsHTML += `
                 <tr data-engine-id="${eng.id}" 
@@ -10647,6 +10710,8 @@ function restoreView(viewName) {
                     data-gss-sn="${gssSN}" 
                     data-model="${model}" 
                     data-status="${eng.status}"
+                    data-condition-1="${condition1}"
+                    data-condition-2="${condition2}"
                     data-tt="${tt}"
                     data-tc="${tc}"
                     data-price="${price}"
@@ -10670,7 +10735,9 @@ function restoreView(viewName) {
                     <td data-key="esn">${originalSN}</td>
                     <td data-key="gss">${gssSN}</td>
                     <td data-key="price">${price}</td>
-                    <td data-key="status"><span class="badge ${badge}">${eng.status}</span></td>
+                    <td data-key="status"><span class="badge ${badge}">${statusText}</span></td>
+                    <td data-key="condition-1"><span class="badge ${getCondition1BadgeColor(condition1)}">${condition1}</span></td>
+                    <td data-key="condition-2"><span class="badge ${getCondition2BadgeColor(condition2)}">${condition2}</span></td>
                     <td data-key="tt">${tt}</td>
                     <td data-key="tc">${tc}</td>
                     <td data-key="location" data-location-id="${eng.location_id || ''}">${location}</td>
@@ -10715,6 +10782,8 @@ function restoreView(viewName) {
                 originalSN: tr.getAttribute('data-original-sn') || '',
                 gssSN: tr.getAttribute('data-gss-sn') || '',
                 status: tr.getAttribute('data-status') || 'SV',
+                condition1: tr.getAttribute('data-condition-1') || '-',
+                condition2: tr.getAttribute('data-condition-2') || '-',
                 tt: tr.getAttribute('data-tt') || '0',
                 tc: tr.getAttribute('data-tc') || '0',
                 price: tr.getAttribute('data-price') || '0',
@@ -10746,9 +10815,27 @@ function restoreView(viewName) {
                 } else if (key === 'status') {
                     inputHTML = `
                         <select class="editing-input">
-                            <option value="SV" ${rowData.status === 'SV' ? 'selected' : ''}>SV</option>
-                            <option value="US" ${rowData.status === 'US' ? 'selected' : ''}>US</option>
+                            <option value="" ${!rowData.status || rowData.status === '-' ? 'selected' : ''}>-</option>
+                            <option value="INSTALLED" ${rowData.status === 'INSTALLED' ? 'selected' : ''}>INSTALLED</option>
                             <option value="REMOVED" ${rowData.status === 'REMOVED' ? 'selected' : ''}>REMOVED</option>
+                        </select>`;
+                } else if (key === 'condition-1') {
+                    inputHTML = `
+                        <select class="editing-input">
+                            <option value="-" ${rowData.condition1 === '-' || !rowData.condition1 ? 'selected' : ''}>-</option>
+                            <option value="SV" ${rowData.condition1 === 'SV' ? 'selected' : ''}>SV</option>
+                            <option value="US" ${rowData.condition1 === 'US' ? 'selected' : ''}>US</option>
+                            <option value="Scrap" ${rowData.condition1 === 'Scrap' ? 'selected' : ''}>Scrap</option>
+                        </select>`;
+                } else if (key === 'condition-2') {
+                    inputHTML = `
+                        <select class="editing-input">
+                            <option value="-" ${rowData.condition2 === '-' || !rowData.condition2 ? 'selected' : ''}>-</option>
+                            <option value="New" ${rowData.condition2 === 'New' ? 'selected' : ''}>New</option>
+                            <option value="Overhauled" ${rowData.condition2 === 'Overhauled' ? 'selected' : ''}>Overhauled</option>
+                            <option value="Repaired" ${rowData.condition2 === 'Repaired' ? 'selected' : ''}>Repaired</option>
+                            <option value="Inspected tested" ${rowData.condition2 === 'Inspected tested' ? 'selected' : ''}>Inspected tested</option>
+                            <option value="As removed" ${rowData.condition2 === 'As removed' || rowData.condition2 === 'AS' ? 'selected' : ''}>As removed</option>
                         </select>`;
                 } else if (key === 'tt') {
                     inputHTML = `<input type="number" class="editing-input" value="${rowData.tt}">`;
@@ -10811,20 +10898,22 @@ function restoreView(viewName) {
                     <i class="bi bi-trash"></i>
                 </button>
             </td>
-            <td><input type="date" class="editing-input"></td>
-            <td><input type="text" class="editing-input"></td>
-            <td><input type="text" class="editing-input" placeholder="Current SN"></td>
-            <td><input type="text" class="editing-input" placeholder="Orig. SN"></td>
-            <td><input type="text" class="editing-input" placeholder="GSS ID"></td>
-            <td><input type="number" class="editing-input" step="0.01" value=""></td>
-            <td><select class="editing-input"><option>SV</option><option>US</option><option>AS</option></select></td>
-            <td><input type="number" class="editing-input" value="0"></td>
-            <td><input type="number" class="editing-input" value="0"></td>
-            <td><select class="editing-input location-select"></select></td>
-            <td><input type="text" class="editing-input"></td>
-            <td><input type="text" class="editing-input"></td>
-            <td><input type="text" class="editing-input"></td>
-            <td><input type="text" class="editing-input"></td>
+            <td data-key="date"><input type="date" class="editing-input"></td>
+            <td data-key="model"><input type="text" class="editing-input"></td>
+            <td data-key="csn"><input type="text" class="editing-input" placeholder="Current SN"></td>
+            <td data-key="esn"><input type="text" class="editing-input" placeholder="Orig. SN"></td>
+            <td data-key="gss"><input type="text" class="editing-input" placeholder="GSS ID"></td>
+            <td data-key="price"><input type="number" class="editing-input" step="0.01" value=""></td>
+            <td data-key="status"><select class="editing-input"><option value="">-</option><option>INSTALLED</option><option>REMOVED</option></select></td>
+            <td data-key="condition-1"><select class="editing-input"><option>-</option><option>SV</option><option>US</option><option>Scrap</option></select></td>
+            <td data-key="condition-2"><select class="editing-input"><option>-</option><option>New</option><option>Overhauled</option><option>Repaired</option><option>Inspected tested</option><option>As removed</option></select></td>
+            <td data-key="tt"><input type="number" class="editing-input" value="0"></td>
+            <td data-key="tc"><input type="number" class="editing-input" value="0"></td>
+            <td data-key="location"><select class="editing-input location-select"></select></td>
+            <td data-key="moved"><input type="text" class="editing-input"></td>
+            <td data-key="removed"><input type="text" class="editing-input"></td>
+            <td data-key="rem"><input type="text" class="editing-input"></td>
+            <td data-key="photo"><input type="text" class="editing-input"></td>
         `;
         tb.appendChild(newRow);
         loadLocationSelectsInTable();
@@ -10850,6 +10939,8 @@ function restoreView(viewName) {
             const gssInput = tr.querySelector('td[data-key="gss"] .editing-input');
             const priceInput = tr.querySelector('td[data-key="price"] .editing-input');
             const statusInput = tr.querySelector('td[data-key="status"] .editing-input');
+            const condition1Input = tr.querySelector('td[data-key="condition-1"] .editing-input');
+            const condition2Input = tr.querySelector('td[data-key="condition-2"] .editing-input');
             const ttInput = tr.querySelector('td[data-key="tt"] .editing-input');
             const tcInput = tr.querySelector('td[data-key="tc"] .editing-input');
             const locationInput = tr.querySelector('td[data-key="location"] .editing-input');
@@ -10871,6 +10962,8 @@ function restoreView(viewName) {
                 gss_sn: gssInput ? gssInput.value || originalSN : originalSN,
                 price: priceInput ? parseFloat(priceInput.value) || null : null,
                 status: statusInput ? statusInput.value : 'SV',
+                condition_1: condition1Input ? condition1Input.value : 'SV',
+                condition_2: condition2Input ? condition2Input.value : 'New',
                 total_time: ttInput ? parseFloat(ttInput.value) || 0 : 0,
                 total_cycles: tcInput ? parseInt(tcInput.value) || 0 : 0,
                 location_id: locationInput ? parseInt(locationInput.value) || null : null,
@@ -12461,7 +12554,7 @@ function restoreView(viewName) {
         const currentSN = document.getElementById('m-current-sn').value.trim();
         const model = document.getElementById('m-model').value.trim();
         const gssId = document.getElementById('m-gssid').value.trim();
-        const status = document.getElementById('m-status').value;
+        const status = document.getElementById('m-status').value || '';
         const tt = document.getElementById('m-tt').value;
         const tc = document.getElementById('m-tc').value;
         const price = document.getElementById('m-price').value;
@@ -12469,6 +12562,8 @@ function restoreView(viewName) {
         const remarks = document.getElementById('m-rem').value.trim();
         const movedFrom = document.getElementById('m-moved').value.trim();
         const removedFrom = document.getElementById('m-removed').value.trim();
+        const condition1 = document.getElementById('m-condition-1').value;
+        const condition2 = document.getElementById('m-condition-2').value;
         
         const payload = {
             date: date || null,
@@ -12484,7 +12579,9 @@ function restoreView(viewName) {
             photo_url: photoUrl || null,
             remarks: remarks || null,
             from_location: movedFrom || null,
-            removed_from: removedFrom || null
+            removed_from: removedFrom || null,
+            condition_1: condition1,
+            condition_2: condition2
         };
 
         try {
