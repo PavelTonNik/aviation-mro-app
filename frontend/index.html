@@ -16794,16 +16794,12 @@ async function openStoreBalanceModal() {
         
         data.forEach(item => {
             const fmt = (v) => v || '-';
+            
+            // Get condition color from loaded statuses
             const condText = (item.condition || '').trim();
-            const condClassMap = {
-                'SV - NGV (SENT)': 'cond-sv',
-                'UNDER REPAIRING': 'cond-under',
-                'Delivered in Roma Italy': 'cond-delivered',
-                'NO CAPABILITY': 'cond-nocap',
-                'US - SHJ': 'cond-us'
-            };
-            const condClass = condClassMap[condText] || 'cond-default';
-            const condHtml = condText ? `<span class="cond-badge ${condClass}">${escapeHtml(condText)}</span>` : '-';
+            const condStatus = window.conditionStatuses?.find(s => s.name === condText);
+            const condColor = condStatus ? condStatus.color : '#6c757d';
+            const condHtml = condText ? `<span class="cond-badge" style="background-color: ${condColor}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">${escapeHtml(condText)}</span>` : '-';
             
             tbody.innerHTML += `
                 <tr>
