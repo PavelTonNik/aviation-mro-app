@@ -266,30 +266,25 @@ BEGIN
     AND engines.from_location IS NULL;
 END$$;
 
--- Update enginestatus enum to remove AS and ensure REMOVED is present
+-- Update enginestatus enum to include all required values
 DO $$
 BEGIN
-    -- Check if enginestatus enum exists
     IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enginestatus') THEN
-        -- Rename old enum
         ALTER TYPE enginestatus RENAME TO enginestatus_old;
-        
-        -- Create new enum with correct values (no AS, only SV, US, INSTALLED, REMOVED)
         CREATE TYPE enginestatus AS ENUM ('SV', 'US', 'INSTALLED', 'REMOVED', '-');
-        
-        -- Cast old values to new
-        ALTER TABLE engines 
-            ALTER COLUMN status TYPE enginestatus USING 
-                CASE 
-                    WHEN status::text IN ('SV', 'US', 'INSTALLED', 'REMOVED') THEN status::text::enginestatus
-                    ELSE 'SV'::enginestatus
-                END;
-        
-        -- Drop old enum
+        ALTER TABLE engines ALTER COLUMN status TYPE VARCHAR USING status::text;
+        ALTER TABLE engines ALTER COLUMN status TYPE enginestatus USING 
+            CASE 
+                WHEN status = 'AS' THEN '-'::enginestatus
+                WHEN status IN ('SV', 'US', 'INSTALLED', 'REMOVED', '-') THEN status::enginestatus
+                ELSE '-'::enginestatus
+            END;
         DROP TYPE enginestatus_old;
+    ELSE
+        CREATE TYPE enginestatus AS ENUM ('SV', 'US', 'INSTALLED', 'REMOVED', '-');
     END IF;
 EXCEPTION WHEN OTHERS THEN
-    NULL;  -- Ignore errors if enum doesn't exist
+    NULL;
 END$$;
 
 -- Ensure condition_1 and condition_2 columns exist and are set to NOT NULL with defaults
