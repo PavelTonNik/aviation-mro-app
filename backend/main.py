@@ -1025,6 +1025,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         return {
             "SV": db.query(models.Engine).filter(models.Engine.condition_1 == "SV").count(),
             "US": db.query(models.Engine).filter(models.Engine.condition_1 == "US").count(),
+            "SCRAP": db.query(models.Engine).filter(models.Engine.condition_1 == "Scrap").count(),
             "INSTALLED": db.query(models.Engine).filter(models.Engine.status == "INSTALLED").count(),
             "REMOVED": db.query(models.Engine).filter(models.Engine.status == "REMOVED").count()
         }
@@ -1033,9 +1034,32 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         return {
             "SV": 0,
             "US": 0,
+            "SCRAP": 0,
             "INSTALLED": 0,
             "REMOVED": 0
         }
+
+# Condition 2 breakdown for US/REMOVED cards
+@app.get("/api/dashboard/condition2")
+def get_condition2_breakdown(base: str, db: Session = Depends(get_db)):
+    try:
+        if base == "US":
+            q = db.query(models.Engine).filter(models.Engine.condition_1 == "US")
+        elif base == "REMOVED":
+            q = db.query(models.Engine).filter(models.Engine.status == "REMOVED")
+        elif base == "SCRAP":
+            q = db.query(models.Engine).filter(models.Engine.condition_1 == "Scrap")
+        else:
+            return {}
+        engines = q.all()
+        stats = {}
+        for e in engines:
+            key = (e.condition_2 or "-")
+            stats[key] = stats.get(key, 0) + 1
+        return stats
+    except Exception as e:
+        print(f"❌ Error in get_condition2_breakdown: {e}")
+        return {}
 
 @app.get("/api/locations")
 def get_locations_overview(db: Session = Depends(get_db)):
@@ -1768,16 +1792,19 @@ def get_aircraft_utilization_history(aircraft: str = None, db: Session = Depends
 
 # --- ВОТ ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОКАЗЫВАЕТ ВСЕ ДВИГАТЕЛИ) ---
 @app.get("/api/engines")
-def get_all_engines(status: str = None, db: Session = Depends(get_db)):
+def get_all_engines(status: str = None, condition2: str = None, db: Session = Depends(get_db)):
     try:
         # 1. Запрашиваем ВСЕ двигатели из базы
         query = db.query(models.Engine)
         if status:
-            # SV и US фильтруем по condition_1, остальные по status
-            if status in ["SV", "US"]:
-                query = query.filter(models.Engine.condition_1 == status)
+            # SV/US/SCRAP фильтруем по condition_1, остальные по status
+            if status in ["SV", "US", "SCRAP", "Scrap"]:
+                normalized = "Scrap" if status in ("SCRAP", "Scrap") else status
+                query = query.filter(models.Engine.condition_1 == normalized)
             else:
                 query = query.filter(models.Engine.status == status)
+        if condition2:
+            query = query.filter(models.Engine.condition_2 == condition2)
         
         engines = query.all()
         result = []

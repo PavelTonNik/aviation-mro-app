@@ -130,6 +130,67 @@
             background: linear-gradient(135deg, #0d4f9a 0%, #2c8dfb 100%);
             box-shadow: 0 16px 40px rgba(44, 141, 251, 0.35);
         }
+        .btn-status-scrap {
+            background: linear-gradient(135deg, #343a40 0%, #6c757d 100%);
+            box-shadow: 0 16px 40px rgba(108, 117, 125, 0.35);
+            color: #fff;
+        }
+
+        /* Subcards: full size matching main dashboard cards */
+        .btn-dashboard-sub {
+            padding: 20px;
+            font-size: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            position: relative;
+            min-height: 140px;
+            transition: transform 0.25s ease, opacity 0.25s ease;
+        }
+        .btn-dashboard-sub:hover {
+            transform: translateY(-4px);
+            filter: brightness(1.05);
+        }
+        .btn-dashboard-sub .label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        .btn-dashboard-sub .count {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .btn-dashboard-sub i {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            font-size: 2.5rem;
+            opacity: 0.2;
+        }
+        .btn-cond-new {
+            background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+            box-shadow: 0 12px 28px rgba(13, 110, 253, 0.35);
+            color: #fff;
+        }
+        .btn-cond-overhauled {
+            background: linear-gradient(135deg, #fd7e14 0%, #e96a00 100%);
+            box-shadow: 0 12px 28px rgba(253, 126, 20, 0.35);
+            color: #fff;
+        }
+        .btn-cond-inspected {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            box-shadow: 0 12px 28px rgba(23, 162, 184, 0.35);
+            color: #fff;
+        }
+        .btn-cond-as {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+            box-shadow: 0 12px 28px rgba(108, 117, 125, 0.35);
+            color: #fff;
+        }
 
         #locations-container .btn-dashboard {
             background: linear-gradient(135deg, #1f2738 0%, #202b3a 100%);
@@ -2863,23 +2924,23 @@
             function shouldShowPreloader() {
                 const lastTime = localStorage.getItem(PRELOADER_STORAGE_KEY);
                 
-                // First visit - always show
+                // First visit - always show (with flag)
                 if (!lastTime) {
-                    return true;
+                    return { show: true, isFirstVisit: true };
                 }
                 
                 // Check if more than 10 minutes have passed
                 const now = Date.now();
                 const elapsed = now - parseInt(lastTime);
                 
-                return elapsed > PRELOADER_TIMEOUT;
+                return { show: elapsed > PRELOADER_TIMEOUT, isFirstVisit: false };
             }
             
             function recordPreloaderTime() {
                 localStorage.setItem(PRELOADER_STORAGE_KEY, Date.now().toString());
             }
             
-            function showPreloader() {
+            function showPreloader(isFirstVisit = true) {
                 const preloader = document.getElementById('aviation-preloader');
                 const loginModal = document.getElementById('login-modal');
                 const progressBar = document.getElementById('preloader-progress');
@@ -2894,7 +2955,8 @@
                 loginModal.classList.remove('show');
                 
                 let progress = 0;
-                const duration = 5500; // 5.5 seconds
+                // Different durations: 4.5 seconds for first visit, 2 seconds for refresh
+                const duration = isFirstVisit ? 4500 : 2000;
                 const interval = 40; // Update every 40ms
                 const increment = (100 / duration) * interval;
                 
@@ -2920,8 +2982,11 @@
                             preloader.style.opacity = '0';
                             preloader.style.transition = 'opacity 0.6s ease';
                             setTimeout(() => {
-                                // Show login modal after preloader fades
-                                loginModal.classList.add('show');
+                                // Only show login modal if user is not already logged in
+                                const savedUser = sessionStorage.getItem('currentUser');
+                                if (!savedUser) {
+                                    loginModal.classList.add('show');
+                                }
                                 recordPreloaderTime();
                             }, 300);
                         }, 300);
@@ -2933,15 +2998,21 @@
                 const preloader = document.getElementById('aviation-preloader');
                 const loginModal = document.getElementById('login-modal');
                 
-                // Hide preloader, show login immediately
+                // Hide preloader immediately
                 preloader.style.display = 'none';
-                loginModal.classList.add('show');
+                
+                // Only show login modal if user is not already logged in
+                const savedUser = sessionStorage.getItem('currentUser');
+                if (!savedUser) {
+                    loginModal.classList.add('show');
+                }
             }
             
             // Initialize on page load
             window.addEventListener('DOMContentLoaded', function() {
-                if (shouldShowPreloader()) {
-                    showPreloader();
+                const preloaderCheck = shouldShowPreloader();
+                if (preloaderCheck.show) {
+                    showPreloader(preloaderCheck.isFirstVisit);
                 } else {
                     skipPreloader();
                 }
@@ -3545,6 +3616,18 @@
                     </button>
                 </div>
             </div>
+            
+            <!-- Central chevron button -->
+            <div class="row justify-content-center mb-3">
+                <div class="col-auto">
+                    <button class="btn btn-link p-0" title="Показать детализацию" onclick="toggleCondition2Breakdown()" style="font-size: 1.2rem; color: rgba(108, 117, 125, 0.5); transition: all 0.3s;">
+                        <i id="chev-condition2" class="bi bi-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Condition 2 breakdown cards (5 cards) -->
+            <div class="row g-3 mb-4" id="subcards-condition2" style="display:none"></div>
         </div>
         <div id="view-install" style="display: none;">
                 <h4 class="mb-3 text-primary"><i class="bi bi-arrow-up-circle"></i> Installation Action</h4>
@@ -8274,6 +8357,91 @@ function restoreView(viewName) {
                 `)
             );
         }
+    }
+
+    async function openCondition2Modal(base, cond2) {
+        // If base is 'ALL', don't filter by status, only by condition_2
+        let url = '/api/engines';
+        const params = new URLSearchParams();
+        if (base !== 'ALL') {
+            params.append('status', base);
+        }
+        if (cond2) {
+            params.append('condition2', cond2);
+        }
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
+        
+        const res = await fetch(url);
+        const engines = await res.json();
+        setupModal(`${base} - ${cond2}`,
+            ['GSS SN','Orig SN','Current SN','Location','TT','TC'],
+            engines.length ? engines.map(e => `
+                <tr>
+                    <td>${e.gss_sn || '-'}</td>
+                    <td>${e.original_sn}</td>
+                    <td><strong>${e.current_sn}</strong></td>
+                    <td>${e.location}</td>
+                    <td>${e.tt}</td>
+                    <td>${e.tc}</td>
+                </tr>
+            `) : '<tr><td colspan="6" class="text-center text-muted">No engines</td></tr>'
+        );
+    }
+
+    async function toggleCondition2Breakdown() {
+        const container = document.getElementById('subcards-condition2');
+        const chev = document.getElementById('chev-condition2');
+        const isHidden = container.style.display === 'none' || !container.style.display;
+        if (isHidden) {
+            chev.classList.remove('bi-chevron-down');
+            chev.classList.add('bi-chevron-up');
+            container.style.display = 'flex';
+            await loadCondition2Breakdown();
+        } else {
+            chev.classList.remove('bi-chevron-up');
+            chev.classList.add('bi-chevron-down');
+            container.style.display = 'none';
+        }
+    }
+
+    async function loadCondition2Breakdown() {
+        // Load stats for all condition_2 types across all engines
+        const res = await fetch('/api/engines');
+        const engines = await res.json();
+        const stats = {};
+        engines.forEach(e => {
+            const key = e.condition_2 || 'New';
+            stats[key] = (stats[key] || 0) + 1;
+        });
+        // Count Scraped separately from condition_1
+        const scrapRes = await fetch('/api/engines?status=SCRAP');
+        const scrapEngines = await scrapRes.json();
+        stats['Scrap'] = scrapEngines.length;
+        
+        const container = document.getElementById('subcards-condition2');
+        const types = [
+            { key: 'Scrap', label: 'Scrapped', cls: 'btn-status-scrap', icon: 'bi-trash-fill', clickBase: 'SCRAP' },
+            { key: 'New', label: 'New', cls: 'btn-cond-new', icon: 'bi-stars', clickBase: 'ALL' },
+            { key: 'Overhauled', label: 'Overhauled', cls: 'btn-cond-overhauled', icon: 'bi-tools', clickBase: 'ALL' },
+            { key: 'Inspected tested', label: 'Inspected Tested', cls: 'btn-cond-inspected', icon: 'bi-search', clickBase: 'ALL' },
+            { key: 'AS', label: 'AS (removed)', cls: 'btn-cond-as', icon: 'bi-tag', clickBase: 'ALL' }
+        ];
+        container.innerHTML = types.map(t => {
+            const clickHandler = t.key === 'Scrap' 
+                ? `openTableModal('SCRAP')` 
+                : `openCondition2Modal('ALL','${t.key}')`;
+            return `
+                <div class="col">
+                    <button class="btn-dashboard btn-dashboard-sub ${t.cls} w-100" onclick="${clickHandler}">
+                        <span class="label">${t.label}</span>
+                        <span class="count">${stats[t.key] || 0}</span>
+                        <i class="bi ${t.icon}"></i>
+                    </button>
+                </div>
+            `;
+        }).join('');
     }
 
     // B. Open Location Table (FRU, SHJ...)
@@ -14085,7 +14253,7 @@ function restoreView(viewName) {
             }
         } else if (action === 'manuals') {
             // Open Google Drive link
-            window.open('https://drive.google.com/drive/folders/1bbJWHMuKwmkOccrHHq6uioA_Re4pukBM?usp=drive_link', '_blank');
+            window.open('https://drive.google.com/drive/folders/1bbJWHMuKwmkOccrHHq6uioA_Re4pukBM?usp=sharing', '_blank');
         } else if (action === 'folders') {
             showSuccessNotification('Folders shortcut activated.');
         }
@@ -16955,12 +17123,14 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('📝 User session found');
         currentUser = JSON.parse(savedUser);
         const modal = document.getElementById('login-modal');
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+        }
         initializeUserInterface();
     } else {
-        console.log('🔓 No session - showing login modal');
-        const modal = document.getElementById('login-modal');
-        if (modal) modal.style.display = 'flex';
+        console.log('🔓 No session - login modal should be visible');
+        // Don't manually show modal here - preloader already handles it
     }
     const form = document.getElementById('login-form');
     console.log('🎯 Login form element:', form);
