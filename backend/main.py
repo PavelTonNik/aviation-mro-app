@@ -2195,6 +2195,7 @@ class ActionLogUpdateSchema(BaseModel):
     comments: Optional[str] = None
     supplier: Optional[str] = None
     file_url: Optional[str] = None
+    original_sn: Optional[str] = None
     current_sn: Optional[str] = None
     work_type: Optional[str] = None
     inspector: Optional[str] = None
@@ -2361,6 +2362,11 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
 
         if data.file_url is not None:
             log.file_url = data.file_url
+
+        if data.original_sn is not None:
+            engine.original_sn = data.original_sn
+            # Дублируем в логе для отображения в истории
+            log.engine_original_sn = data.original_sn
 
         if data.current_sn is not None:
             engine.current_sn = data.current_sn

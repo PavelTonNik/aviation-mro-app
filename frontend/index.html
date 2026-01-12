@@ -2814,7 +2814,7 @@
                 transform: perspective(1000px) rotateX(0deg);
                 animation: gss-float 3s ease-in-out infinite;
                 line-height: 1;
-            ">GSS</div>
+            ">GSS Engine Shop</div>
             
             <!-- Welcome text (hidden initially) -->
             <div id="preloader-title-welcome" style="
@@ -2919,7 +2919,7 @@
         // Modern GSS Preloader with Smart Logic
         (function() {
             const PRELOADER_STORAGE_KEY = 'gss_preloader_timestamp';
-            const PRELOADER_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
+            const PRELOADER_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours (1 day)
             
             function shouldShowPreloader() {
                 const lastTime = localStorage.getItem(PRELOADER_STORAGE_KEY);
@@ -2929,7 +2929,7 @@
                     return { show: true, isFirstVisit: true };
                 }
                 
-                // Check if more than 10 minutes have passed
+                // Check if more than 24 hours have passed
                 const now = Date.now();
                 const elapsed = now - parseInt(lastTime);
                 
@@ -2982,13 +2982,17 @@
                             preloader.style.opacity = '0';
                             preloader.style.transition = 'opacity 0.6s ease';
                             setTimeout(() => {
+                                // Полностью удаляем preloader из потока
+                                preloader.style.display = 'none';
+                                preloader.style.pointerEvents = 'none';
+                                
                                 // Only show login modal if user is not already logged in
                                 const savedUser = sessionStorage.getItem('currentUser');
                                 if (!savedUser) {
                                     loginModal.classList.add('show');
                                 }
                                 recordPreloaderTime();
-                            }, 300);
+                            }, 600);
                         }, 300);
                     }
                 }, interval);
@@ -2998,8 +3002,9 @@
                 const preloader = document.getElementById('aviation-preloader');
                 const loginModal = document.getElementById('login-modal');
                 
-                // Hide preloader immediately
+                // Hide preloader completely
                 preloader.style.display = 'none';
+                preloader.style.pointerEvents = 'none';
                 
                 // Only show login modal if user is not already logged in
                 const savedUser = sessionStorage.getItem('currentUser');
@@ -12501,6 +12506,7 @@ function restoreView(viewName) {
                     ac_tcsn: rowData.ac_tcsn ? parseInt(rowData.ac_tcsn) : null,
                     comments: rowData.remarks || null,
                     supplier: rowData.supplier || null,
+                    original_sn: rowData.original_sn || null,
                     current_sn: rowData.current_sn || null
                 };
             } else if (tableName === 'borescope') {
@@ -15461,6 +15467,7 @@ async function handleLogin(event) {
         const modal = document.getElementById('login-modal');
         if (modal) {
             modal.style.display = 'none';
+            modal.classList.remove('show');
             console.log('🚪 Modal hidden');
         }
         initializeUserInterface();
@@ -15470,7 +15477,7 @@ async function handleLogin(event) {
         }
         if (typeof loadDashboardData === 'function') {
             console.log('📈 Loading dashboard data');
-            loadDashboardData();
+            await loadDashboardData();
         }
     } catch (error) {
         console.error('❌ Login error:', error.message);
@@ -15539,7 +15546,11 @@ function applyRolePermissions() {
         scope.querySelectorAll('input, select, textarea, button').forEach(el => {
             const allowIds = ['menu-toggle','notifications-btn','user-profile-btn','settings-btn','engine-toggle-btn'];
             const allowClasses = ['btn-dashboard','engine-menu-item'];
-            const isAllowed = allowIds.includes(el.id) || allowClasses.some(cls => el.classList.contains(cls));
+            
+            // Проверяем родительский элемент стрелки breakdown
+            const isBreakdownChevron = el.querySelector('#chev-condition2') !== null;
+            
+            const isAllowed = allowIds.includes(el.id) || allowClasses.some(cls => el.classList.contains(cls)) || isBreakdownChevron;
             if (isAllowed) return; // allow viewer to open status tables and engine quick menu
             if (el.closest('#login-modal')) return;
             el.disabled = true;
@@ -17127,7 +17138,22 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.style.display = 'none';
             modal.classList.remove('show');
         }
+        const preloader = document.getElementById('aviation-preloader');
+        if (preloader) {
+            preloader.style.display = 'none';
+            preloader.style.pointerEvents = 'none';
+        }
         initializeUserInterface();
+        
+        // Открываем дашборд и загружаем данные
+        setTimeout(() => {
+            if (typeof openDashboardView === 'function') {
+                openDashboardView();
+            }
+            if (typeof loadDashboardData === 'function') {
+                loadDashboardData();
+            }
+        }, 100);
     } else {
         console.log('🔓 No session - login modal should be visible');
         // Don't manually show modal here - preloader already handles it
