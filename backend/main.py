@@ -1023,8 +1023,8 @@ def create_notification(db: Session, action_type: str, entity_type: str,
 def get_dashboard_stats(db: Session = Depends(get_db)):
     try:
         return {
-            "SV": db.query(models.Engine).filter(models.Engine.status == "SV").count(),
-            "US": db.query(models.Engine).filter(models.Engine.status == "US").count(),
+            "SV": db.query(models.Engine).filter(models.Engine.condition_1 == "SV").count(),
+            "US": db.query(models.Engine).filter(models.Engine.condition_1 == "US").count(),
             "INSTALLED": db.query(models.Engine).filter(models.Engine.status == "INSTALLED").count(),
             "REMOVED": db.query(models.Engine).filter(models.Engine.status == "REMOVED").count()
         }
@@ -1773,7 +1773,11 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
         # 1. Запрашиваем ВСЕ двигатели из базы
         query = db.query(models.Engine)
         if status:
-            query = query.filter(models.Engine.status == status)
+            # SV и US фильтруем по condition_1, остальные по status
+            if status in ["SV", "US"]:
+                query = query.filter(models.Engine.condition_1 == status)
+            else:
+                query = query.filter(models.Engine.status == status)
         
         engines = query.all()
         result = []
