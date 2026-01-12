@@ -1490,11 +1490,14 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
             ).first()
             last_data_date = last_entry.created_at.strftime("%d-%m-%Y") if last_entry and last_entry.created_at else None
 
-            # Все двигатели на самолете
+            # Все двигатели на самолете (берем самый свежий на позицию, чтобы не показывать старый)
             engines_on_wing = db.query(models.Engine).filter(
                 models.Engine.aircraft_id == ac.id,
                 models.Engine.aircraft_id != None,
                 models.Engine.status == "INSTALLED"
+            ).order_by(
+                models.Engine.install_date.desc().nullslast(),
+                models.Engine.id.desc()
             ).all()
             
             # Создаем 4 позиции (1, 2, 3, 4)
@@ -1505,6 +1508,9 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
             # Заполняем реальными двигателями
             for eng in engines_on_wing:
                 if eng.position and 1 <= eng.position <= 4:
+                    # Если на позицию уже поставили более свежий двигатель, пропускаем старые записи
+                    if positions.get(eng.position):
+                        continue
                     # Вычисляем налет на конкретном самолете по согласованной логике
                     tsn_on_aircraft = 0.0
                     csn_on_aircraft = 0
