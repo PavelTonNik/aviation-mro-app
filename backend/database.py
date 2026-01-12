@@ -53,6 +53,69 @@ else:
         engine_kwargs["connect_args"] = {"check_same_thread": False}
     engine = create_engine(DATABASE_URL, **engine_kwargs)
 
+def _ensure_postgres_enums(current_engine):
+    """Ensure PostgreSQL enum types contain expected values.
+
+    Specifically validates/patches `enginestatus` to include '-' which is used
+    in the UI to represent "no status/unspecified". On some Render deployments
+    older migrations may have created the enum without this value, causing
+    psycopg2 InvalidTextRepresentation errors when saving.
+    """
+    try:
+        # Only relevant for Postgres
+        url = str(current_engine.url)
+        if not url.startswith("postgresql://"):
+            return
+
+        # Run in AUTOCOMMIT because ADD VALUE cannot run inside a transaction block
+        with current_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
+            conn.execute(text(
+                """
+                DO $$
+                DECLARE
+                    have_type boolean := EXISTS (
+                        SELECT 1 FROM pg_type WHERE typname = 'enginestatus'
+                    );
+                BEGIN
+                    IF have_type THEN
+                        -- Ensure '-' value exists
+                        IF NOT EXISTS (
+                            SELECT 1
+                            FROM pg_enum e
+                            JOIN pg_type t ON t.oid = e.enumtypid
+                            WHERE t.typname = 'enginestatus' AND e.enumlabel = '-'::text
+                        ) THEN
+                            ALTER TYPE enginestatus ADD VALUE '-';
+                        END IF;
+                        -- Ensure core values exist (idempotent checks)
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+                            WHERE t.typname = 'enginestatus' AND e.enumlabel = 'SV'
+                        ) THEN ALTER TYPE enginestatus ADD VALUE 'SV'; END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+                            WHERE t.typname = 'enginestatus' AND e.enumlabel = 'US'
+                        ) THEN ALTER TYPE enginestatus ADD VALUE 'US'; END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+                            WHERE t.typname = 'enginestatus' AND e.enumlabel = 'INSTALLED'
+                        ) THEN ALTER TYPE enginestatus ADD VALUE 'INSTALLED'; END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+                            WHERE t.typname = 'enginestatus' AND e.enumlabel = 'REMOVED'
+                        ) THEN ALTER TYPE enginestatus ADD VALUE 'REMOVED'; END IF;
+                    END IF;
+                END $$;
+                """
+            ))
+            print("✅ Verified/updated PostgreSQL enum 'enginestatus' values")
+    except Exception as e:
+        # Non-fatal: app can still run; log for visibility
+        print(f"⚠️  Enum check failed ({type(e).__name__}): {e}")
+
+
+_ensure_postgres_enums(engine)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

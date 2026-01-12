@@ -1896,7 +1896,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             gss_sn=data.gss_sn or data.original_sn,
             current_sn=data.current_sn,
             model=data.model,
-            status=data.status if data.status and data.status.strip() and data.status in ["SV", "US", "INSTALLED", "REMOVED", "-"] else "SV",
+            status=(data.status if data.status and data.status.strip() and data.status in ["INSTALLED", "REMOVED", "-"] else "-"),
             condition_1=data.condition_1 if data.condition_1 and data.condition_1.strip() and data.condition_1 != '-' else "SV",
             condition_2=data.condition_2 if data.condition_2 and data.condition_2.strip() and data.condition_2 != '-' else "New",
             location_id=data.location_id,
@@ -1995,9 +1995,9 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         # НЕ меняем status и location если двигатель в "системном" статусе (INSTALLED, REMOVED, REPAIRED)
         protected_statuses = ["INSTALLED", "REMOVED", "REPAIRED"]
         if engine.status not in protected_statuses:
-            # Разрешаем: SV, US, -, но гарантируем что это допустимое значение для enum
+            # Разрешаем только INSTALLED/REMOVED/'-'. Любые другие значения маппим на '-'.
             status_value = data.status if data.status and data.status.strip() else "-"
-            allowed_statuses = ["SV", "US", "INSTALLED", "REMOVED", "-"]
+            allowed_statuses = ["INSTALLED", "REMOVED", "-"]
             engine.status = status_value if status_value in allowed_statuses else "-"
             if data.location_id:
                 engine.location_id = data.location_id
@@ -2450,10 +2450,10 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
         if not log:
             raise HTTPException(404, f"History record not found (ID: {log_id}, Type: {action_type})")
         
-        # Если это INSTALL, отменяем установку: возвращаем двигатель в статус SV
+        # Если это INSTALL, отменяем установку: возвращаем двигатель в статус '-'
         if action_type == "INSTALL" and log.engine:
             engine = log.engine
-            engine.status = models.EngineStatus.SV  # Возвращаем статус "Serviceable"
+            engine.status = models.EngineStatus.UNASSIGNED  # Возвращаем статус '-'
             engine.aircraft_id = None
             engine.position = None
             engine.tsn_at_install = None
@@ -2482,8 +2482,8 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
                     engine.total_time = last_install.snapshot_tt if last_install.snapshot_tt else engine.total_time
                     engine.total_cycles = last_install.snapshot_tc if last_install.snapshot_tc else engine.total_cycles
             else:
-                # Если нет предыдущей установки, просто меняем статус на SV
-                engine.status = models.EngineStatus.SV
+                # Если нет предыдущей установки, просто меняем статус на '-'
+                engine.status = models.EngineStatus.UNASSIGNED
                 engine.aircraft_id = None
                 engine.position = None
         

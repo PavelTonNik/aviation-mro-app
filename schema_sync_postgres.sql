@@ -276,13 +276,19 @@ BEGIN
         ALTER TABLE engines ALTER COLUMN status TYPE enginestatus USING 
             CASE 
                 WHEN status = 'AS' THEN '-'::enginestatus
-                WHEN status IN ('SV', 'US', 'INSTALLED', 'REMOVED', '-') THEN status::enginestatus
+                WHEN status IN ('INSTALLED', 'REMOVED', '-') THEN status::enginestatus
                 ELSE '-'::enginestatus
             END;
         DROP TYPE enginestatus_old;
     ELSE
         CREATE TYPE enginestatus AS ENUM ('SV', 'US', 'INSTALLED', 'REMOVED', '-');
     END IF;
+-- Normalize existing statuses: map anything not INSTALLED/REMOVED to '-'
+DO $$
+BEGIN
+    UPDATE engines SET status='-' WHERE status NOT IN ('INSTALLED','REMOVED','-');
+    ALTER TABLE engines ALTER COLUMN status SET DEFAULT '-';
+END$$;
 EXCEPTION WHEN OTHERS THEN
     NULL;
 END$$;

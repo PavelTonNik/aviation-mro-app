@@ -14,6 +14,7 @@ class EngineStatus(str, enum.Enum):
     US = "US"               # Unserviceable (Неисправен)
     INSTALLED = "INSTALLED" # Установлен на самолет
     REMOVED = "REMOVED"     # Снят (обычно требует инспекции)
+    UNASSIGNED = "-"        # Unassigned (Не назначен)
 
 class ActionType(str, enum.Enum):
     INSTALL = "INSTALL"
@@ -61,7 +62,9 @@ class Engine(Base):
     current_sn = Column(String, nullable=True) # Текущий серийный номер (может отличаться от original)
     model = Column(String, nullable=True) # Модель двигателя (CF6-80, CFM56 и т.д.)
     
-    status = Column(String, default="SV")
+    # В бизнес-логике статус отражает установку/снятие.
+    # Значения: INSTALLED, REMOVED, '-'.
+    status = Column(String, default="-")
     condition_1 = Column(String, default="SV")  # Техсостояние: SV/US/Scrap
     condition_2 = Column(String, default="New")  # Физсостояние: New/Overhauled/Repaired/Inspected tested/AS
     
