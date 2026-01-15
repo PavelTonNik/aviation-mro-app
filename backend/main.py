@@ -6,7 +6,7 @@ from sqlalchemy import func, or_, text
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date as DateType
 import json
 from pathlib import Path
 import hashlib
@@ -850,6 +850,40 @@ class BoroscopeSchema(BaseModel):
     inspector: str
     comment: Optional[str] = ""
     link: Optional[str] = ""
+
+class BoroscopeScheduleCreateSchema(BaseModel):
+    """Schema для создания запланированного боroскопа"""
+    date: str  # YYYY-MM-DD format
+    aircraft_tail_number: str  # ER-BAT, ER-BAR, ER-BAQ
+    position: int  # 1, 2, 3, 4
+    inspector: str
+    remarks: Optional[str] = None
+    location: Optional[str] = None
+
+class BoroscopeScheduleUpdateSchema(BaseModel):
+    """Schema для обновления запланированного боroскопа"""
+    date: Optional[str] = None
+    position: Optional[int] = None
+    inspector: Optional[str] = None
+    remarks: Optional[str] = None
+    location: Optional[str] = None
+    status: Optional[str] = None  # Scheduled, Completed, Cancelled
+
+class BoroscopeScheduleResponseSchema(BaseModel):
+    """Schema для возврата запланированного боroскопа"""
+    id: int
+    date: str
+    aircraft_tail_number: str
+    position: int
+    inspector: str
+    remarks: Optional[str] = None
+    location: Optional[str] = None
+    status: str
+    created_at: str
+    completed_at: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
 
 class PurchaseOrderSchema(BaseModel):
     date: str
@@ -3899,6 +3933,232 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
         performed_by="User"
     )
     return {"status": "ok", "id": new_inspection.id}
+
+# --- BOROSCOPE SCHEDULE API ---
+
+@app.post("/api/boroscope/schedule")
+def create_boroscope_schedule(data: BoroscopeScheduleCreateSchema, db: Session = Depends(get_db)):
+    """Создать новый запланированный боroскоп"""
+    try:
+        from datetime import datetime
+        
+        # Парсим дату
+        schedule_date = datetime.strptime(data.date, "%Y-%m-%d").date()
+        
+        # Проверяем, существует ли уже запись на эту дату/самолет/позицию
+        existing = db.query(models.BoroscopeSchedule).filter(
+            models.BoroscopeSchedule.date == schedule_date,
+            models.BoroscopeSchedule.aircraft_tail_number == data.aircraft_tail_number,
+            models.BoroscopeSchedule.position == data.position
+        ).first()
+        
+        if existing:
+            return {
+                "status": "warning",
+                "message": f"Boroscope already scheduled for {data.aircraft_tail_number} Position {data.position} on {data.date}"
+            }
+        
+        # Создаем новую запись
+        new_schedule = models.BoroscopeSchedule(
+            date=schedule_date,
+            aircraft_tail_number=data.aircraft_tail_number,
+            position=data.position,
+            inspector=data.inspector,
+            remarks=data.remarks,
+            location=data.location,
+            status="Scheduled"
+        )
+        
+        db.add(new_schedule)
+        db.commit()
+        db.refresh(new_schedule)
+        
+        create_notification(
+            db,
+            action_type="created",
+            entity_type="boroscope_schedule",
+            entity_id=new_schedule.id,
+            message=f"Boroscope scheduled for {data.aircraft_tail_number} Position {data.position} on {data.date}",
+            performed_by="User"
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Boroscope scheduled successfully for {data.aircraft_tail_number} Position {data.position}",
+            "data": {"id": new_schedule.id}
+        }
+    except Exception as e:
+        print(f"❌ Error creating boroscope schedule: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/boroscope/schedule")
+def get_boroscope_schedules(
+    aircraft: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Получить список запланированных боroскопов с фильтрацией"""
+    try:
+        from datetime import datetime
+        
+        query = db.query(models.BoroscopeSchedule)
+        
+        # Фильтры
+        if aircraft:
+            query = query.filter(models.BoroscopeSchedule.aircraft_tail_number == aircraft)
+        
+        if date_from:
+            start_date = datetime.strptime(date_from, "%Y-%m-%d").date()
+            query = query.filter(models.BoroscopeSchedule.date >= start_date)
+        
+        if date_to:
+            end_date = datetime.strptime(date_to, "%Y-%m-%d").date()
+            query = query.filter(models.BoroscopeSchedule.date <= end_date)
+        
+        if status:
+            query = query.filter(models.BoroscopeSchedule.status == status)
+        
+        schedules = query.order_by(models.BoroscopeSchedule.date.asc()).all()
+        
+        result = []
+        for schedule in schedules:
+            result.append({
+                "id": schedule.id,
+                "date": schedule.date.strftime("%Y-%m-%d") if schedule.date else None,
+                "aircraft_tail_number": schedule.aircraft_tail_number,
+                "position": schedule.position,
+                "inspector": schedule.inspector,
+                "remarks": schedule.remarks,
+                "location": schedule.location,
+                "status": schedule.status,
+                "created_at": schedule.created_at.isoformat() if schedule.created_at else None,
+                "completed_at": schedule.completed_at.isoformat() if schedule.completed_at else None
+            })
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error fetching boroscope schedules: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/boroscope/schedule/{schedule_id}")
+def get_boroscope_schedule(schedule_id: int, db: Session = Depends(get_db)):
+    """Получить одну запись о запланированном боroскопе"""
+    schedule = db.query(models.BoroscopeSchedule).filter(models.BoroscopeSchedule.id == schedule_id).first()
+    
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Boroscope schedule not found")
+    
+    return {
+        "id": schedule.id,
+        "date": schedule.date.strftime("%Y-%m-%d") if schedule.date else None,
+        "aircraft_tail_number": schedule.aircraft_tail_number,
+        "position": schedule.position,
+        "inspector": schedule.inspector,
+        "remarks": schedule.remarks,
+        "location": schedule.location,
+        "status": schedule.status,
+        "created_at": schedule.created_at.isoformat() if schedule.created_at else None,
+        "completed_at": schedule.completed_at.isoformat() if schedule.completed_at else None
+    }
+
+@app.put("/api/boroscope/schedule/{schedule_id}")
+def update_boroscope_schedule(
+    schedule_id: int,
+    data: BoroscopeScheduleUpdateSchema,
+    db: Session = Depends(get_db)
+):
+    """Обновить запланированный боroскоп"""
+    try:
+        from datetime import datetime
+        
+        schedule = db.query(models.BoroscopeSchedule).filter(models.BoroscopeSchedule.id == schedule_id).first()
+        
+        if not schedule:
+            raise HTTPException(status_code=404, detail="Boroscope schedule not found")
+        
+        # Обновляем поля
+        if data.date:
+            schedule.date = datetime.strptime(data.date, "%Y-%m-%d").date()
+        if data.position:
+            schedule.position = data.position
+        if data.inspector:
+            schedule.inspector = data.inspector
+        if data.remarks is not None:
+            schedule.remarks = data.remarks
+        if data.location is not None:
+            schedule.location = data.location
+        if data.status:
+            schedule.status = data.status
+            if data.status == "Completed":
+                schedule.completed_at = datetime.now()
+        
+        db.commit()
+        db.refresh(schedule)
+        
+        return {
+            "status": "success",
+            "message": "Boroscope schedule updated successfully"
+        }
+    except Exception as e:
+        print(f"❌ Error updating boroscope schedule: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/boroscope/schedule/{schedule_id}")
+def delete_boroscope_schedule(schedule_id: int, db: Session = Depends(get_db)):
+    """Удалить запланированный боroскоп"""
+    try:
+        schedule = db.query(models.BoroscopeSchedule).filter(models.BoroscopeSchedule.id == schedule_id).first()
+        
+        if not schedule:
+            raise HTTPException(status_code=404, detail="Boroscope schedule not found")
+        
+        db.delete(schedule)
+        db.commit()
+        
+        return {"status": "success", "message": "Boroscope schedule deleted successfully"}
+    except Exception as e:
+        print(f"❌ Error deleting boroscope schedule: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/boroscope/schedule/upcoming/reminders")
+def get_boroscope_reminders(db: Session = Depends(get_db)):
+    """Получить напоминания о боroскопах на сегодня/завтра"""
+    try:
+        from datetime import datetime, timedelta
+        
+        today = datetime.now().date()
+        tomorrow = today + timedelta(days=1)
+        
+        # Запланированные на сегодня и завтра со статусом Scheduled
+        reminders = db.query(models.BoroscopeSchedule).filter(
+            models.BoroscopeSchedule.date.in_([today, tomorrow]),
+            models.BoroscopeSchedule.status == "Scheduled"
+        ).order_by(models.BoroscopeSchedule.date.asc()).all()
+        
+        result = []
+        for reminder in reminders:
+            days_until = (reminder.date - today).days
+            reminder_type = "Today" if days_until == 0 else "Tomorrow"
+            
+            result.append({
+                "id": reminder.id,
+                "reminder_type": reminder_type,
+                "date": reminder.date.strftime("%Y-%m-%d"),
+                "aircraft": reminder.aircraft_tail_number,
+                "position": reminder.position,
+                "inspector": reminder.inspector,
+                "location": reminder.location
+            })
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error getting boroscope reminders: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- PURCHASE ORDERS API ---
 

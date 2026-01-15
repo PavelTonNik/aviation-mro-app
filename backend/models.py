@@ -1,5 +1,5 @@
 # backend/models.py
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -224,6 +224,24 @@ class BoroscopeInspection(Base):
     comment = Column(String, nullable=True)
     work_type = Column(String, nullable=False, default='All Engine')  # HPT, LPT, All Engine
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class BoroscopeSchedule(Base):
+    """Запланированные боroскопические инспекции"""
+    __tablename__ = "boroscope_schedule"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, nullable=False)
+    aircraft_tail_number = Column(String, ForeignKey('aircrafts.tail_number'), nullable=False)
+    position = Column(Integer, nullable=False)  # 1, 2, 3, 4
+    inspector = Column(String, nullable=False)
+    remarks = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    status = Column(String, default='Scheduled', nullable=False)  # Scheduled, Completed, Cancelled
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    aircraft = relationship("Aircraft", backref="boroscope_schedules")
 
 class PurchaseOrder(Base):
     """Purchase Orders - заказы на закупку"""

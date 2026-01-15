@@ -2091,6 +2091,7 @@
         .calendar-event-badge.event-inspection { background: linear-gradient(135deg, #f39c12, #e67e22); }
         .calendar-event-badge.event-maintenance { background: linear-gradient(135deg, #ee0979, #ff6a00); }
         .calendar-event-badge.event-deadline { background: linear-gradient(135deg, #fa709a, #fee140); }
+        .calendar-event-badge.event-boroscope { background: linear-gradient(135deg, #1fa2ff, #12d8fa); }
         .calendar-event-badge.event-other { background: linear-gradient(135deg, #667eea, #764ba2); }
 
         .calendar-event-badge.event-completed {
@@ -2618,6 +2619,98 @@
             color: #41464b;
         }
 
+        /* ========================= */
+        /* BOROSCOPE SCHEDULE MODAL */
+        /* ========================= */
+        #boroscope-schedule-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #boroscope-schedule-modal.active {
+            display: flex;
+        }
+
+        #boroscope-schedule-modal .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            cursor: pointer;
+        }
+
+        .boroscope-modal-content {
+            position: relative;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .boroscope-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 2px solid #dee2e6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .boroscope-modal-header h3 {
+            margin: 0;
+            color: white;
+            font-weight: 600;
+            font-size: 1.3em;
+        }
+
+        #boroscope-schedule-modal .btn-close-modal {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        #boroscope-schedule-modal .btn-close-modal:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        #boroscope-schedule-form .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        #boroscope-schedule-form .form-control,
+        #boroscope-schedule-form .form-select {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.95em;
+        }
+
+        #boroscope-schedule-form .form-control:focus,
+        #boroscope-schedule-form .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
     </style>
     <style>
         /* Extra spacing to avoid overlap for Nameplate tracker blocks */
@@ -3107,8 +3200,11 @@
                 <a href="#" class="btn btn-neon w-100 text-start mb-2" onclick="openMainEngineView(); return false;">
                     <i class="bi bi-database-add"></i> Add Engine
                 </a>
-                <a href="#" class="btn btn-neon w-100 text-start" onclick="openSchedulesModal(); return false;">
+                <a href="#" class="btn btn-neon w-100 text-start mb-2" onclick="openSchedulesModal(); return false;">
                     <i class="bi bi-calendar-check"></i> Open Schedules
+                </a>
+                <a href="#" class="btn btn-neon w-100 text-start" onclick="openBoroscopeScheduleModal(); return false;">
+                    <i class="bi bi-calendar2-check"></i> Schedule Boroscope
                 </a>
             </div>
             <!-- REPORTS GROUP (COLLAPSIBLE) -->
@@ -6523,15 +6619,31 @@ function openDashboardView() {
 }
     // --- Notification Functions ---
     function showSuccessNotification(message) {
-        document.getElementById('successMessage').textContent = message;
-        const modal = new bootstrap.Modal(document.getElementById('successModal'));
-        modal.show();
+        const toast = document.createElement('div');
+        toast.className = 'toast align-items-center text-white bg-success border-0';
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+        const container = document.getElementById('toastContainer') || document.body;
+        container.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        setTimeout(() => toast.remove(), 5000);
     }
 
     function showErrorNotification(message) {
-        document.getElementById('errorMessage').textContent = message;
-        const modal = new bootstrap.Modal(document.getElementById('errorModal'));
-        modal.show();
+        const toast = document.createElement('div');
+        toast.className = 'toast align-items-center text-white bg-danger border-0';
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+        const container = document.getElementById('toastContainer') || document.body;
+        container.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        setTimeout(() => toast.remove(), 5000);
     }
 
     // --- 2. Data Loading & Initialization ---
@@ -6692,7 +6804,14 @@ function restoreView(viewName) {
 
 
 
+    let _dashboardLoading = false;
     async function loadDashboardData() {
+    if (_dashboardLoading) {
+        console.log('Dashboard already loading, skipping duplicate call');
+        return;
+    }
+    _dashboardLoading = true;
+    
     try {
         // 2.1 Load Stats
         const statsRes = await fetch('/api/dashboard/stats');
@@ -6713,6 +6832,7 @@ function restoreView(viewName) {
         }
         const locations = await locRes.json();
         console.log('Locations:', locations); // Для отладки
+        window.globalLocations = locations; // Сохраняем в глобальную переменную для модалов
         const locContainer = document.getElementById('locations-container');
         locContainer.innerHTML = '';
         
@@ -6774,6 +6894,22 @@ function restoreView(viewName) {
         const fleetContainer = document.getElementById('fleet-container');
         fleetContainer.innerHTML = '';
         
+        // Загружаем Remove И Install actions для правильной фильтрации
+        let removeData = [];
+        let installData = [];
+        try {
+            const removeRes = await safeFetch('/api/history/REMOVE' + noCache());
+            if (removeRes && removeRes.ok) {
+                removeData = await removeRes.json();
+            }
+            const installRes = await safeFetch('/api/history/INSTALL' + noCache());
+            if (installRes && installRes.ok) {
+                installData = await installRes.json();
+            }
+        } catch (e) {
+            console.warn('Could not load history for filtering', e);
+        }
+        
         // Теперь всегда показываем карточки, даже с нулевыми данными
         if (aircraftDetails.length === 0) {
             console.warn('No aircraft data from API, but cards will still be displayed');
@@ -6790,6 +6926,33 @@ function restoreView(viewName) {
             // Создаем 4 отдельные карточки для каждой позиции (без SVG анимации)
             positions.forEach((pos, index) => {
                 const posNum = index + 1;
+                
+                // ФИЛЬТР: Проверяем, снят ли двигатель БЕЗ последующей установки
+                if (pos !== null) {
+                    const wasRemovedFinally = removeData.some(rem => {
+                        const remSN = rem.current_sn || rem.original_sn;
+                        const posSN = pos.current_sn;
+                        const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
+                        
+                        if (remSN !== posSN || remFrom !== ac.tail_number) return false;
+                        
+                        // Проверяем: есть ли более поздняя установка с той же табличкой на этот самолет
+                        const laterInstall = installData.find(inst => {
+                            return inst.current_sn === posSN &&
+                                   inst.install_to === ac.tail_number &&
+                                   new Date(inst.date) > new Date(rem.date);
+                        });
+                        
+                        // Считаем снятым только если НЕТ более поздней установки
+                        return !laterInstall;
+                    });
+                    
+                    // Если окончательно снят - показываем пустую позицию
+                    if (wasRemovedFinally) {
+                        pos = null;
+                    }
+                }
+                
                 if (pos === null) {
                     positionsHTML += `
                         <div class="engine-position-card">
@@ -6953,9 +7116,14 @@ function restoreView(viewName) {
         // Update Parts Cards Counts
         await updatePartsCardCounts();
         
+        // Load and display boroscope schedule reminders
+        displayBoroscopeReminders();
+        
     } catch (error) {
         console.error('Error loading dashboard data:', error);
         alert('Failed to load dashboard data. Check console for details.');
+    } finally {
+        _dashboardLoading = false;
     }
 }
 
@@ -8604,6 +8772,18 @@ function restoreView(viewName) {
         let serverData = [];
         try { serverData = await res.json(); } catch { serverData = []; }
 
+        // Загружаем Remove actions для проверки
+        let removeData = [];
+        try {
+            const removeRes = await safeFetch('/api/history/REMOVE' + noCache());
+            if (removeRes && removeRes.ok) {
+                removeData = await removeRes.json();
+                console.log('Remove data loaded:', removeData);
+            }
+        } catch (e) {
+            console.warn('Could not load remove history for marking', e);
+        }
+
         tbody.innerHTML = '';
         if (!Array.isArray(serverData) || serverData.length === 0) {
             tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted">No installations found</td></tr>';
@@ -8612,6 +8792,33 @@ function restoreView(viewName) {
 
         serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
         serverData.forEach(row => {
+            // Проверяем: был ли этот двигатель снят ПОСЛЕ этой установки
+            const wasRemoved = removeData.some(rem => {
+                const remSN = rem.current_sn || rem.original_sn;
+                const installCurrentSN = row.current_sn;
+                
+                // Извлекаем AC название из "AC: ER-BAR (Pos 4)" -> "ER-BAR"
+                const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
+                
+                // Проверяем совпадение current_sn, самолета и даты
+                if (remSN !== installCurrentSN) return false;
+                if (remFrom !== row.install_to) return false;
+                if (new Date(rem.date) < new Date(row.date)) return false;
+                
+                // ВАЖНО: Проверяем, нет ли более поздней установки с той же табличкой на тот же самолет
+                const laterInstall = serverData.find(inst => {
+                    return inst.current_sn === installCurrentSN &&
+                           inst.install_to === row.install_to &&
+                           new Date(inst.date) > new Date(rem.date);
+                });
+                
+                // Зачеркиваем только если НЕТ более поздней установки
+                return !laterInstall;
+            });
+            
+            // Стили для снятого двигателя
+            const badgeClass = wasRemoved ? 'bg-secondary text-decoration-line-through opacity-50' : 'bg-primary';
+            
             tbody.innerHTML += `
                 <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
                     <td class="delete-col-install" style="display: none;">
@@ -8622,7 +8829,7 @@ function restoreView(viewName) {
                     <td>${row.date}</td>
                     <td>${row.original_sn}</td>
                     <td>${row.current_sn}</td>
-                    <td><span class="badge bg-primary">${row.install_to}</span></td>
+                    <td><span class="badge ${badgeClass}">${row.install_to}</span></td>
                     <td>${row.position}</td>
                     <td>${row.location_from}</td>
                     <td>${row.tt}</td>
@@ -8672,13 +8879,15 @@ function restoreView(viewName) {
 // 4. Подготовка формы (Загрузка SV двигателей)
     async function prepareInstallForm() {
         // Всегда грузим свежие данные без кеша, чтобы список был актуальным
-        let res = await safeFetch('/api/engines?status=SV' + noCache().replace('?', '&')); 
-        if (!res || !res.ok) res = await safeFetch('/api/engines' + noCache());
+        let res = await safeFetch('/api/engines' + noCache());
         
         let engines = [];
         try { engines = res && res.ok ? await res.json() : []; } catch { engines = []; }
         const deletedIds = getDeletedEngineIds();
-        engines = Array.isArray(engines) ? engines.filter(e => !deletedIds.includes(e.id)) : [];
+        // Отбираем только не удалённые и пригодные по condition_1
+        engines = Array.isArray(engines)
+            ? engines.filter(e => !deletedIds.includes(e.id) && e.condition_1 === 'SV')
+            : [];
         
         installableEngines = engines; // <--- ВАЖНО: Сохраняем данные в глобальную переменную
         
@@ -8709,9 +8918,9 @@ function restoreView(viewName) {
                     document.getElementById('in-cur-sn').value = '';
                     return;
                 }
-                // Проверяем статус двигателя
-                if (selectedEngine.status !== 'SV') {
-                    showErrorNotification(`❌ Engine ${selectedEngine.original_sn} cannot be installed! Status is ${selectedEngine.status}, must be SV (Serviceable).`);
+                // Проверяем пригодность по condition_1 (SV / US / SCRAPED)
+                if (selectedEngine.condition_1 !== 'SV') {
+                    showErrorNotification(`❌ Engine ${selectedEngine.original_sn} cannot be installed! condition_1 is ${selectedEngine.condition_1}, must be SV (Serviceable).`);
                     this.value = '';
                     document.getElementById('in-engine-id').value = '';
                     document.getElementById('in-cur-sn').value = '';
@@ -8727,16 +8936,14 @@ function restoreView(viewName) {
     // 5. Отправка формы (Save)
     async function submitInstallForm() {
         if (_installSubmitting) { return; }
-        _installSubmitting = true;
-        const saveBtn = document.querySelector('#tab-inst-entry .btn.btn-success');
-        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
+        
         const date = document.getElementById('in-date').value;
         const engInputVal = document.getElementById('in-engine-input').value;
         const engId = document.getElementById('in-engine-id').value;
         const acId = document.getElementById('in-ac').value;
         const acText = document.getElementById('in-ac').options[document.getElementById('in-ac').selectedIndex]?.text;
         
-        // Валидация обязательных полей
+        // Валидация обязательных полей ДО установки флага
         if(!date || !acId || document.getElementById('in-tt').value === "" || document.getElementById('in-tc').value === "") { 
             showErrorNotification("Please fill in all required fields (*)");
             return; 
@@ -8755,11 +8962,16 @@ function restoreView(viewName) {
             return;
         }
         
-        // Проверка статуса двигателя
-        if (selectedEngine.status !== 'SV') {
-            showErrorNotification(`Engine ${selectedEngine.original_sn} cannot be installed! Current status: ${selectedEngine.status}. Only engines with status SV (Serviceable) can be installed.`);
+        // Проверка пригодности двигателя по condition_1
+        if (selectedEngine.condition_1 !== 'SV') {
+            showErrorNotification(`Engine ${selectedEngine.original_sn} cannot be installed! condition_1 is ${selectedEngine.condition_1}. Only engines with condition_1 SV (Serviceable) can be installed.`);
             return;
         }
+        
+        // ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - устанавливаем флаг и показываем загрузку
+        _installSubmitting = true;
+        const saveBtn = document.querySelector('#tab-inst-entry .btn.btn-success');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         
         const payload = {
             date: date, 
@@ -17927,8 +18139,8 @@ async function saveNameplateAction() {
     const plate1_sn = document.getElementById('np-plate1-sn').value.trim();
     const plate1_gss = document.getElementById('np-plate1-gss').value.trim();
     
-    if (!plate1_sn || !plate1_gss) {
-        alert('Plate 1 SN and GSS ID required');
+    if (!plate1_sn) {
+        alert('Plate 1 SN required');
         return;
     }
     
@@ -17942,8 +18154,8 @@ async function saveNameplateAction() {
         const plate2_sn = document.getElementById('np-plate2-sn').value.trim();
         const plate2_gss = document.getElementById('np-plate2-gss').value.trim();
         
-        if (!plate2_sn || !plate2_gss) {
-            alert('Plate 2 SN and GSS ID required for swap');
+        if (!plate2_sn) {
+            alert('Plate 2 SN required for swap');
             return;
         }
         
@@ -18150,6 +18362,33 @@ async function loadCalendarMonth(year, month) {
         const res = await fetch(`/api/events/calendar/${year}/${month}`);
         if (!res.ok) throw new Error('Failed to load events');
         allCalendarEvents = await res.json();
+
+        // Also pull boroscope schedules for this month and merge into calendar events
+        const lastDay = new Date(year, month, 0).getDate();
+        const dateFrom = `${year}-${String(month).padStart(2, '0')}-01`;
+        const dateTo = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        try {
+            const boroRes = await fetch(`/api/boroscope/schedule?date_from=${dateFrom}&date_to=${dateTo}`);
+            if (boroRes.ok) {
+                const schedules = await boroRes.json();
+                const mapped = schedules.map((s, idx) => ({
+                    id: -(idx + 1), // synthetic id to avoid collision with real events
+                    event_date: s.date,
+                    event_time: '',
+                    event_type: 'BOROSCOPE',
+                    status: (s.status || '').toUpperCase(),
+                    title: `Boroscope ${s.aircraft_tail_number} Pos ${s.position}`,
+                    priority: 'Normal',
+                    description: s.remarks || '',
+                    serial_number: s.aircraft_tail_number,
+                    location: s.location || '',
+                    created_by: s.inspector || 'Inspector'
+                }));
+                allCalendarEvents = allCalendarEvents.concat(mapped);
+            }
+        } catch (boroErr) {
+            console.warn('Failed to load boroscope schedules for calendar:', boroErr);
+        }
         
         renderCalendar(year, month);
     } catch (err) {
@@ -18209,6 +18448,8 @@ function renderCalendar(year, month) {
             // Check if event is completed: COMPLETED status OR shipment with DELIVERED/CANCELLED status
             const isCompleted = event.status === 'COMPLETED' || event.status === 'DELIVERED' || event.status === 'CANCELLED';
             const completedClass = isCompleted ? ' event-completed' : '';
+
+            const isSynthetic = event.id < 0; // Boroscope synthetic events shouldn't open edit modal
             
             // Calculate days until event (only for non-completed events)
             let urgencyClass = '';
@@ -18223,7 +18464,8 @@ function renderCalendar(year, month) {
             
             const timeStr = event.event_time ? `<span class="calendar-event-time">${event.event_time}</span>` : '';
             const icon = isCompleted ? 'bi-check-circle-fill' : 'bi-circle-fill';
-            html += `<div class="calendar-event-badge event-${eventType}${completedClass}${urgencyClass}" onclick="event.stopPropagation(); openEditEventModal(${event.id})" onmouseenter="showEventTooltip(event, ${event.id})" onmouseleave="hideEventTooltip()">`;
+            const clickAttr = isSynthetic ? '' : ` onclick="event.stopPropagation(); openEditEventModal(${event.id})"`;
+            html += `<div class="calendar-event-badge event-${eventType}${completedClass}${urgencyClass}"${clickAttr} onmouseenter="showEventTooltip(event, ${event.id})" onmouseleave="hideEventTooltip()">`;
             html += `<i class="bi ${icon}"></i>${timeStr} ${event.title}`;
             html += `</div>`;
         });
@@ -19188,6 +19430,242 @@ async function viewShipmentDetails(shipmentId) {
     }
 }
 
+// =========================================
+// BOROSCOPE SCHEDULE MODAL FUNCTIONS
+// =========================================
+
+// Open Boroscope Schedule Modal
+// Populate Location datalist with locations from dashboard
+function populateBoroscopeLocationsList() {
+    const datalist = document.getElementById('boroscope-location-list');
+    if (!datalist) return;
+    
+    // Очищаем текущие опции
+    datalist.innerHTML = '';
+    
+    // Используем глобальные locations если есть, иначе берем из API
+    if (window.globalLocations && window.globalLocations.length > 0) {
+        window.globalLocations.forEach(loc => {
+            const option = document.createElement('option');
+            option.value = loc.city;
+            datalist.appendChild(option);
+        });
+    } else {
+        // Fallback: если глобальные locations еще не загружены
+        const defaultLocations = ['Shop', 'Hangar', 'Warehouse', 'Field'];
+        defaultLocations.forEach(loc => {
+            const option = document.createElement('option');
+            option.value = loc;
+            datalist.appendChild(option);
+        });
+    }
+}
+
+function openBoroscopeScheduleModal() {
+    const modal = document.getElementById('boroscope-schedule-modal');
+    modal.classList.add('active');
+    loadBoroscopeAircraftList();
+    populateBoroscopeLocationsList();
+    // Reset form
+    document.getElementById('boroscope-schedule-form').reset();
+    document.getElementById('boroscope-form-message').style.display = 'none';
+}
+
+// Close Boroscope Schedule Modal
+function closeBoroscopeScheduleModal() {
+    const modal = document.getElementById('boroscope-schedule-modal');
+    modal.classList.remove('active');
+}
+
+// Close on overlay click
+document.addEventListener('DOMContentLoaded', function() {
+    const boroscopeModal = document.getElementById('boroscope-schedule-modal');
+    if (boroscopeModal) {
+        const overlay = boroscopeModal.querySelector('.modal-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', closeBoroscopeScheduleModal);
+        }
+    }
+});
+
+// Load aircraft list for dropdown
+async function loadBoroscopeAircraftList() {
+    try {
+        const res = await fetch('/api/dashboard/aircraft-details');
+        if (!res.ok) throw new Error('Failed to fetch aircraft');
+        
+        const aircrafts = await res.json();
+        const select = document.getElementById('boroscope-aircraft');
+        
+        // Keep placeholder
+        select.innerHTML = '<option value="">Select Aircraft...</option>';
+        
+        // Add aircraft options
+        aircrafts.forEach(ac => {
+            const option = document.createElement('option');
+            option.value = ac.tail_number;
+            option.textContent = `${ac.tail_number} (${ac.model || 'Unknown'})`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to load aircraft list:', error);
+        showErrorNotification('Failed to load aircraft list');
+    }
+}
+
+// Handle form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('boroscope-schedule-form');
+    if (form) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await submitBoroscopeSchedule();
+        });
+    }
+});
+
+// Submit boroscope schedule
+async function submitBoroscopeSchedule() {
+    try {
+        const date = document.getElementById('boroscope-date').value;
+        const aircraft = document.getElementById('boroscope-aircraft').value;
+        const position = document.getElementById('boroscope-position').value;
+        const inspector = document.getElementById('boroscope-inspector').value;
+        const location = document.getElementById('boroscope-location').value;
+        const remarks = document.getElementById('boroscope-remarks').value;
+        
+        // Validation
+        if (!date || !aircraft || !position || !inspector) {
+            showErrorNotification('Please fill in all required fields');
+            return;
+        }
+        
+        const payload = {
+            date: date,
+            aircraft_tail_number: aircraft,
+            position: parseInt(position),
+            inspector: inspector,
+            location: location || null,
+            remarks: remarks || null
+        };
+        
+        console.log('📅 Submitting boroscope schedule:', payload);
+        
+        const res = await fetch('/api/boroscope/schedule', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await res.json();
+        
+        if (!res.ok) {
+            if (result.status === 'warning') {
+                showWarningNotification(result.message || 'Boroscope already scheduled');
+            } else {
+                throw new Error(result.detail || 'Failed to schedule boroscope');
+            }
+            return;
+        }
+        
+        // Success
+        showSuccessNotification('✓ Boroscope inspection scheduled successfully!');
+        closeBoroscopeScheduleModal();
+        
+        // Refresh relevant data
+        await updateDashboardStats();
+        loadBoroscopeScheduleList();
+        await loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+        
+    } catch (error) {
+        console.error('Error submitting boroscope schedule:', error);
+        showErrorNotification('Failed to schedule inspection: ' + error.message);
+    }
+}
+
+// Load boroscope schedules list (for display/calendar)
+async function loadBoroscopeScheduleList(aircraft = null, dateFrom = null, dateTo = null) {
+    try {
+        let url = '/api/boroscope/schedule';
+        const params = new URLSearchParams();
+        
+        if (aircraft) params.append('aircraft', aircraft);
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo);
+        
+        if (params.toString()) url += '?' + params.toString();
+        
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch boroscope schedules');
+        
+        const schedules = await res.json();
+        console.log('📅 Boroscope schedules loaded:', schedules);
+        
+        return schedules;
+    } catch (error) {
+        console.error('Failed to load boroscope schedules:', error);
+        return [];
+    }
+}
+
+// Get upcoming boroscope reminders
+async function getBoroscopeReminders() {
+    try {
+        const res = await fetch('/api/boroscope/schedule/upcoming/reminders');
+        if (!res.ok) throw new Error('Failed to fetch reminders');
+        
+        const reminders = await res.json();
+        console.log('📅 Boroscope reminders:', reminders);
+        
+        return reminders;
+    } catch (error) {
+        console.error('Failed to get boroscope reminders:', error);
+        return [];
+    }
+}
+
+// Add boroscope reminders to notifications panel (once per day)
+async function displayBoroscopeReminders() {
+    try {
+        const today = new Date().toDateString();
+        const lastShown = localStorage.getItem('boroscope-reminder-date');
+        
+        if (lastShown === today) {
+            return; // Already shown today
+        }
+        
+        const reminders = await getBoroscopeReminders();
+        
+        if (reminders.length > 0) {
+            // Add to notifications list
+            const list = document.getElementById('notifications-list');
+            const reminderHTML = reminders.map(r => `
+                <div class="notification-item unread" style="border-left: 4px solid #17a2b8;">
+                    <div class="d-flex justify-content-between">
+                        <strong>📅 Boroscope</strong>
+                        <span class="badge bg-info">reminder</span>
+                    </div>
+                    <div>${r.aircraft} Position ${r.position} - Inspector: ${r.inspector}</div>
+                    <div class="notification-time">${r.reminder_type} • ${formatNotificationTime(new Date())}</div>
+                </div>
+            `).join('');
+            
+            if (list.textContent.includes('No notifications')) {
+                list.innerHTML = reminderHTML;
+            } else {
+                list.insertAdjacentHTML('afterbegin', reminderHTML);
+            }
+            
+            localStorage.setItem('boroscope-reminder-date', today);
+            updateNotificationCount();
+        }
+    } catch (error) {
+        console.error('Error displaying boroscope reminders:', error);
+    }
+}
+
 </script>
 
 <!-- ============================================================
@@ -19217,7 +19695,7 @@ async function viewShipmentDetails(shipmentId) {
                 <button class="btn-type-selector" onclick="createEngineShipment()">
                     <span class="icon">🛫</span>
                     <div class="text-container">
-                        <span class="title">ENGINE IN TRANSIT</span>
+                        <span class="title">Engine</span>
                         <span class="subtitle">Track engines in transit to destinations</span>
                     </div>
                 </button>
@@ -19225,8 +19703,16 @@ async function viewShipmentDetails(shipmentId) {
                 <button class="btn-type-selector" onclick="createPartsShipment()">
                     <span class="icon">📦</span>
                     <div class="text-container">
-                        <span class="title">PARTS ON ORDER</span>
+                        <span class="title">Parts</span>
                         <span class="subtitle">Track parts shipments (including pre-orders)</span>
+                    </div>
+                </button>
+                
+                <button class="btn-type-selector" onclick="openBoroscopeScheduleModal()">
+                    <span class="icon">📅</span>
+                    <div class="text-container">
+                        <span class="title">Boroscope Inspection</span>
+                        <span class="subtitle">Schedule engine boroscope inspections</span>
                     </div>
                 </button>
             </div>
@@ -19263,6 +19749,74 @@ async function viewShipmentDetails(shipmentId) {
                 </tbody>
             </table>
         </div>
+    </div>
+</div>
+
+<!-- BOROSCOPE SCHEDULE MODAL -->
+<div id="boroscope-schedule-modal" class="custom-modal">
+    <div class="modal-overlay" onclick="closeBoroscopeScheduleModal()"></div>
+    <div class="boroscope-modal-content">
+        <div class="boroscope-modal-header">
+            <h3>📅 Schedule Boroscope Inspection</h3>
+            <button class="btn-close-modal" onclick="closeBoroscopeScheduleModal()">✕ Close</button>
+        </div>
+
+        <form id="boroscope-schedule-form" class="p-4">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Date <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control" id="boroscope-date" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Aircraft <span class="text-danger">*</span></label>
+                    <select class="form-select" id="boroscope-aircraft" required>
+                        <option value="">Select Aircraft...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Position <span class="text-danger">*</span></label>
+                    <select class="form-select" id="boroscope-position" required>
+                        <option value="">Select Position...</option>
+                        <option value="1">Position 1</option>
+                        <option value="2">Position 2</option>
+                        <option value="3">Position 3</option>
+                        <option value="4">Position 4</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Inspector <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="boroscope-inspector" placeholder="Inspector name" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Location</label>
+                    <input type="text" class="form-control" id="boroscope-location" placeholder="Select or enter location" list="boroscope-location-list">
+                    <datalist id="boroscope-location-list">
+                        <option value="Shop"></option>
+                        <option value="Hangar"></option>
+                        <option value="Warehouse"></option>
+                        <option value="Field"></option>
+                    </datalist>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Remarks</label>
+                    <textarea class="form-control" id="boroscope-remarks" rows="2" placeholder="Additional notes..."></textarea>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 justify-content-end mt-4">
+                <button type="button" class="btn btn-secondary" onclick="closeBoroscopeScheduleModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Schedule Inspection</button>
+            </div>
+        </form>
+
+        <!-- Status message -->
+        <div id="boroscope-form-message" class="alert alert-info m-4" style="display: none;"></div>
     </div>
 </div>
 
