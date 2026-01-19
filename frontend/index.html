@@ -3209,9 +3209,6 @@
                 <a href="#" class="btn btn-neon w-100 text-start mb-2" onclick="openSchedulesModal(); return false;">
                     <i class="bi bi-calendar-check"></i> Open Schedules
                 </a>
-                <a href="#" class="btn btn-neon w-100 text-start" onclick="openBoroscopeScheduleModal(); return false;">
-                    <i class="bi bi-calendar2-check"></i> Schedule Boroscope
-                </a>
             </div>
             <!-- REPORTS GROUP (COLLAPSIBLE) -->
             <div class="text-uppercase text-muted small mt-4 mb-2 px-3">
@@ -5378,33 +5375,16 @@
 
                 <!-- History Table -->
                 <div class="card shadow mt-4">
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center mb-0 pb-0">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="bi bi-clock-history"></i> GSS Assignment History</h5>
                         <button class="btn btn-sm btn-outline-light" onclick="loadGSSHistory()">
                             <i class="bi bi-arrow-clockwise"></i> Refresh
                         </button>
                     </div>
-                    <!-- Заголовки столбцов СРАЗУ после заголовка -->
-                    <div class="table-responsive" style="margin-top: 0;">
-                        <table class="table table-striped table-hover mb-0" style="margin-top: 0;">
-                            <thead class="table-dark" style="border-top: none;">
-                                <tr>
-                                    <th>GSS ID</th>
-                                    <th>Photo</th>
-                                    <th>Original SN</th>
-                                    <th>Current SN</th>
-                                    <th>Model</th>
-                                    <th>Location</th>
-                                    <th>Assigned By</th>
-                                    <th>Date</th>
-                                    <th>Remarks</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="gss-history-tbody">
-                                <tr><td colspan="10" class="text-center text-muted">No assignments yet</td></tr>
-                            </tbody>
-                        </table>
+                    <div class="card-body p-0" id="gss-table-container" style="min-height: 200px;">
+                        <div id="gss-history-list" style="padding: 15px;">
+                            <div class="text-center text-muted">Loading...</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -20920,69 +20900,91 @@ async function displayBoroscopeReminders() {
         }
 
         async function loadGSSHistory() {
+            console.log('🔄 loadGSSHistory called');
             try {
                 const response = await fetch('/api/gss/history');
+                console.log('📡 API response status:', response.status);
 
                 if (!response.ok) throw new Error('Failed to load GSS history');
 
                 const history = await response.json();
+                console.log('✅ Received data:', history);
+                console.log('📊 Data length:', history.length);
                 renderGSSHistoryTable(history);
             } catch (error) {
-                console.error('Error loading GSS history:', error);
+                console.error('❌ Error loading GSS history:', error);
+                const tbody = document.getElementById('gss-history-tbody');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Error loading history</td></tr>';
+                }
             }
         }
 
         function renderGSSHistoryTable(data) {
-            const tbody = document.getElementById('gss-history-tbody');
+            console.log('🎨 renderGSSHistoryTable called');
+            console.log('📋 Input data:', data);
             
-            // Полная очистка tbody - удаляем все до последнего элемента
-            tbody.innerHTML = '';
+            const tbody = document.getElementById('gss-history-tbody');
+            const container = document.getElementById('gss-history-list');
+            
+            if (!container) {
+                console.error('❌ Container element not found!');
+                return;
+            }
             
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted"><i class="fas fa-inbox fa-2x mb-2"></i><p>No GSS assignments yet</p></td></tr>';
+                console.log('⚠️ No data to display');
+                container.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-inbox fa-2x mb-2"></i><p>No GSS assignments yet</p></div>';
                 return;
             }
 
-            // Только после очистки начинаем добавлять новые данные
+            console.log('✏️ Building cards for', data.length, 'items');
             let rowsHTML = '';
             data.forEach(item => {
-                let photoHtml = '-';
-                if (item.photo_filename) {
-                    photoHtml = `<img src="/uploads/gss_photos/${item.photo_filename}" class="gss-photo-thumb" onclick="viewPhoto('/uploads/gss_photos/${item.photo_filename}')" alt="GSS Photo">`;
-                } else if (item.photo_url) {
-                    photoHtml = `<img src="${item.photo_url}" class="gss-photo-thumb" onclick="viewPhoto('${item.photo_url}')" alt="GSS Photo">`;
-                }
-
-                let remarksHtml = '-';
-                if (item.remarks) {
-                    remarksHtml = `<i class="fas fa-eye remarks-btn" onclick="viewRemarks(${item.gss_id}, \`${item.remarks.replace(/`/g, '\\`')}\`)" title="View remarks"></i>`;
-                }
-
+                const photoHtml = item.photo_filename 
+                    ? `<img src="/uploads/gss_photos/${item.photo_filename}" style="max-width:50px; border-radius:4px; cursor:pointer;" onclick="viewPhoto('/uploads/gss_photos/${item.photo_filename}')" alt="Photo">`
+                    : (item.photo_url ? `<img src="${item.photo_url}" style="max-width:50px; border-radius:4px; cursor:pointer;" onclick="viewPhoto('${item.photo_url}')" alt="Photo">` : '—');
+                
+                const remarksBtn = item.remarks 
+                    ? `<i class="fas fa-comment-dots" style="cursor:pointer; color:#0d6efd;" onclick="viewRemarks(${item.gss_id}, \`${item.remarks.replace(/`/g, '\\`')}\`)" title="View remarks"></i>`
+                    : '—';
+                
                 rowsHTML += `
-                    <tr>
-                        <td><strong class="badge bg-primary">${item.gss_id}</strong></td>
-                        <td>${photoHtml}</td>
-                        <td>${item.original_sn}</td>
-                        <td>${item.current_sn || '-'}</td>
-                        <td>${item.engine_model || '-'}</td>
-                        <td>${item.engine_location || '-'}</td>
-                        <td>${item.assigned_by_name}</td>
-                        <td>${new Date(item.assigned_date).toLocaleDateString()}</td>
-                        <td class="text-center">${remarksHtml}</td>
-                        <td>
-                            <button class="btn btn-sm btn-warning me-1" onclick="editGSS(${item.gss_id})">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteGSS(${item.gss_id})">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
+                    <div style="display:grid; grid-template-columns: 0.6fr 0.8fr 1.2fr 1fr 1fr 1fr 1fr 0.9fr 0.6fr 0.8fr; gap:10px; align-items:center; padding:12px; border-bottom:1px solid #e0e0e0; background:#fff; width:100%;">
+                        <div><span class="badge bg-primary">${item.gss_id}</span></div>
+                        <div style="text-align:center;">${photoHtml}</div>
+                        <div><small>${item.original_sn || '—'}</small></div>
+                        <div><small>${item.current_sn || '—'}</small></div>
+                        <div><small>${item.engine_model || '—'}</small></div>
+                        <div><small>${item.engine_location || '—'}</small></div>
+                        <div><small>${item.assigned_by_name || '—'}</small></div>
+                        <div><small>${new Date(item.assigned_date).toLocaleDateString()}</small></div>
+                        <div style="text-align:center;">${remarksBtn}</div>
+                        <div>
+                            <button class="btn btn-sm btn-warning me-1" onclick="editGSS(${item.gss_id})" title="Edit"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteGSS(${item.gss_id})" title="Delete"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
                 `;
             });
 
-            tbody.innerHTML = rowsHTML;
-            console.log('Rendered', data.length, 'rows in GSS history');
+            const header = `
+                <div style="display:grid; grid-template-columns: 0.6fr 0.8fr 1.2fr 1fr 1fr 1fr 1fr 0.9fr 0.6fr 0.8fr; gap:10px; align-items:center; padding:12px; background:#212529; color:white; font-weight:bold; width:100%;">
+                    <div>GSS ID</div>
+                    <div style="text-align:center;">Photo</div>
+                    <div>Original SN</div>
+                    <div>Current SN</div>
+                    <div>Model</div>
+                    <div>Location</div>
+                    <div>Assigned By</div>
+                    <div>Date</div>
+                    <div style="text-align:center;">Remarks</div>
+                    <div>Actions</div>
+                </div>
+            `;
+            
+            container.innerHTML = header + rowsHTML;
+            console.log('✅ Cards rendered:', data.length, 'items');
         }
 
         function viewPhoto(photoUrl) {
