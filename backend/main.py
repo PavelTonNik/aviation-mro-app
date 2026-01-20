@@ -6,7 +6,7 @@ from sqlalchemy import func, or_, text
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date as DateType
 import json
 from pathlib import Path
 import hashlib
@@ -18,6 +18,117 @@ try:
 except ImportError:  # fallback when running as a standalone script
     import models
     import database
+
+def _sync_engine_status_from_history(db):
+    """
+    Синхронизирует физическое состояние двигателей (aircraft_id, position, status, condition_1)
+    на основе истории Installation/Removal в action_logs.
+    
+    Логика:
+    - Для каждого двигателя находит все INSTALL/REMOVE операции
+    - Определяет последнюю операцию по дате
+    - Если последняя = INSTALL: устанавливает aircraft_id, position, status=INSTALLED
+    - Если последняя = REMOVE: очищает aircraft_id, position, устанавливает status и condition_1
+                               используя значение из condition_1_at_removal (что выбрал пользователь)
+    
+    Возвращает словарь с результатами синхронизации.
+    """
+    try:
+        from sqlalchemy import desc
+        engines_to_sync = []
+        changes_log = []
+        
+        # Получаем все двигатели
+        all_engines = db.query(models.Engine).all()
+        
+        for engine in all_engines:
+            # Получаем все INSTALL/REMOVE операции для этого двигателя, сортированные по дате (новые в конце)
+            actions = db.query(models.ActionLog).filter(
+                models.ActionLog.engine_id == engine.id,
+                models.ActionLog.action_type.in_(["INSTALL", "REMOVE"])
+            ).order_by(models.ActionLog.date.asc()).all()
+            
+            if not actions:
+                # Нет истории - пропускаем
+                continue
+            
+            # Последняя операция по дате (в конце списка, так как сортировали по asc)
+            last_action = actions[-1]
+            
+            # Проверяем, нужна ли синхронизация
+            current_state_matches = False
+            
+            if last_action.action_type == "INSTALL":
+                # После INSTALL двигатель должен быть на борту
+                # Получаем aircraft_id из to_aircraft (tail number)
+                to_aircraft_str = last_action.to_aircraft  # например "ER-BAT"
+                aircraft_obj = db.query(models.Aircraft).filter(
+                    models.Aircraft.tail_number == to_aircraft_str
+                ).first() if to_aircraft_str else None
+                
+                target_aircraft_id = aircraft_obj.id if aircraft_obj else None
+                target_position = last_action.position
+                
+                if (engine.status == "INSTALLED" and 
+                    engine.aircraft_id == target_aircraft_id and
+                    engine.position == target_position):
+                    current_state_matches = True
+                else:
+                    # Нужна синхронизация - двигатель должен быть на борту
+                    old_state = f"status={engine.status}, aircraft_id={engine.aircraft_id}, pos={engine.position}"
+                    
+                    engine.status = "INSTALLED"
+                    engine.aircraft_id = target_aircraft_id
+                    engine.position = target_position
+                    # Не меняем condition_1 для INSTALL
+                    
+                    new_state = f"status=INSTALLED, aircraft_id={target_aircraft_id}, pos={target_position}"
+                    changes_log.append(f"Engine {engine.gss_sn or engine.id}: INSTALL - {old_state} → {new_state}")
+                    engines_to_sync.append(engine)
+                    
+            elif last_action.action_type == "REMOVE":
+                # После REMOVE двигатель должен быть снят с борта
+                new_status = last_action.condition_1_at_removal or "SV"
+                
+                if (engine.status == new_status and 
+                    engine.aircraft_id is None and
+                    engine.position is None and
+                    engine.condition_1 == new_status):
+                    current_state_matches = True
+                else:
+                    # Нужна синхронизация - двигатель должен быть снят с борта
+                    old_state = f"status={engine.status}, aircraft_id={engine.aircraft_id}, pos={engine.position}, cond_1={engine.condition_1}"
+                    
+                    engine.status = new_status
+                    engine.condition_1 = new_status
+                    engine.aircraft_id = None
+                    engine.position = None
+                    
+                    new_state = f"status={new_status}, aircraft_id=None, pos=None, cond_1={new_status}"
+                    changes_log.append(f"Engine {engine.gss_sn or engine.id}: REMOVE - {old_state} → {new_state}")
+                    engines_to_sync.append(engine)
+        
+        # Если есть изменения - сохраняем их
+        if engines_to_sync:
+            db.commit()
+            return {
+                "synced_count": len(engines_to_sync),
+                "changes": changes_log
+            }
+        else:
+            return {
+                "synced_count": 0,
+                "changes": []
+            }
+            
+    except Exception as e:
+        print(f"❌ Ошибка при синхронизации: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "synced_count": 0,
+            "changes": [f"Error: {e}"]
+        }
 
 # Создаем таблицы в БД (если их нет)
 try:
@@ -43,8 +154,10 @@ app.add_middleware(
 def startup_event():
     # Ensure all tables exist first (from models.py)
     try:
-        print("🔍 Verifying database schema...")
+        print("� Creating/verifying all database tables...")
+        print(f"🔗 Database: {database.DATABASE_URL[:50]}...")
         models.Base.metadata.create_all(bind=database.engine)
+        print("✅ All tables created/verified successfully")
         
         # Add work_type column if missing
         from sqlalchemy import text
@@ -301,6 +414,23 @@ def startup_event():
                 db.commit()
                 print("🔧 Admin user normalized (role/active/password).")
         
+        # Create default test user Maxim
+        maxim_user = db.query(models.User).filter(models.User.username == "Maxim").first()
+        if not maxim_user:
+            print("🚀 Creating default user: Maxim...")
+            hashed_password = hashlib.sha256("123456".encode()).hexdigest()
+            maxim_user = models.User(
+                username="Maxim",
+                password_hash=hashed_password,
+                first_name="Maxim",
+                last_name="User",
+                role="user",
+                is_active=True
+            )
+            db.add(maxim_user)
+            db.commit()
+            print("✅ User created: Maxim / 123456")
+        
         # 1. Если нет Локаций -> Создаем базовые (SHJ, FRU, DXB, MIAMI, ROME)
         if not db.query(models.Location).first():
             print("База пуста. Создаем пустые окна Локаций...")
@@ -364,6 +494,21 @@ def startup_event():
                 ac.msn = baseline.get("msn")
 
         db.commit()
+        
+        # ⚡ Синхронизация статусов двигателей на основе Installation/Removal истории
+        # Автоматически исправляет физическое состояние двигателя (aircraft_id, position, status)
+        # в соответствии с последней операцией (Installation или Removal)
+        try:
+            print("🔄 Синхронизация статусов двигателей...")
+            sync_result = _sync_engine_status_from_history(db)
+            if sync_result["synced_count"] > 0:
+                print(f"✅ Синхронизировано {sync_result['synced_count']} двигателей")
+                for item in sync_result["changes"][:5]:  # Show first 5 changes
+                    print(f"   • {item}")
+            else:
+                print("ℹ️  Все двигатели уже синхронизированы")
+        except Exception as sync_e:
+            print(f"⚠️ Ошибка синхронизации статусов: {sync_e}")
             
     except Exception as e:
         print(f"Ошибка при создании структуры: {e}")
@@ -850,6 +995,78 @@ class BoroscopeSchema(BaseModel):
     inspector: str
     comment: Optional[str] = ""
     link: Optional[str] = ""
+
+# ============================================
+# GSS ASSIGNMENT SCHEMAS
+# ============================================
+class GSSAssignmentCreate(BaseModel):
+    gss_id: int
+    engine_id: int
+    current_sn: Optional[str] = None
+    photo_url: Optional[str] = None
+    remarks: Optional[str] = None
+
+class GSSAssignmentUpdate(BaseModel):
+    current_sn: Optional[str] = None
+    photo_url: Optional[str] = None
+    remarks: Optional[str] = None
+
+class GSSAssignmentResponse(BaseModel):
+    id: int
+    gss_id: int
+    engine_id: int
+    original_sn: str
+    current_sn: Optional[str]
+    photo_url: Optional[str]
+    photo_filename: Optional[str]
+    remarks: Optional[str]
+    assigned_by: int
+    assigned_by_name: str
+    assigned_date: datetime
+    engine_model: Optional[str]
+    engine_location: Optional[str]
+    
+    class Config:
+        from_attributes = True
+
+class GSSRangeItem(BaseModel):
+    gss_id: int
+    is_assigned: bool
+    engine_info: Optional[dict] = None
+
+class BoroscopeScheduleCreateSchema(BaseModel):
+    """Schema для создания запланированного боroскопа"""
+    date: str  # YYYY-MM-DD format
+    aircraft_tail_number: str  # ER-BAT, ER-BAR, ER-BAQ
+    position: int  # 1, 2, 3, 4
+    inspector: str
+    remarks: Optional[str] = None
+    location: Optional[str] = None
+
+class BoroscopeScheduleUpdateSchema(BaseModel):
+    """Schema для обновления запланированного боroскопа"""
+    date: Optional[str] = None
+    position: Optional[int] = None
+    inspector: Optional[str] = None
+    remarks: Optional[str] = None
+    location: Optional[str] = None
+    status: Optional[str] = None  # Scheduled, Completed, Cancelled
+
+class BoroscopeScheduleResponseSchema(BaseModel):
+    """Schema для возврата запланированного боroскопа"""
+    id: int
+    date: str
+    aircraft_tail_number: str
+    position: int
+    inspector: str
+    remarks: Optional[str] = None
+    location: Optional[str] = None
+    status: str
+    created_at: str
+    completed_at: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
 
 class PurchaseOrderSchema(BaseModel):
     date: str
@@ -1849,8 +2066,8 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
             result.append({
                 "id": eng.id,
                 "original_sn": eng.original_sn or "Нет данных",
-                "gss_sn": eng.gss_sn or eng.original_sn,
-                "current_sn": eng.current_sn or eng.original_sn,
+                "gss_sn": eng.gss_sn if eng.gss_sn else "-",
+                "current_sn": eng.current_sn if eng.current_sn else "-",
                 "model": eng.model or "-",
                 "status": eng.status,
                 "location": loc_name,
@@ -1876,7 +2093,9 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
         return result
     except Exception as e:
         print(f"❌ Error in get_all_engines: {e}")
-        return []
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Error loading engines: {str(e)}")
 
 # --- API (ACTIONS & HISTORY) ---
 
@@ -2659,6 +2878,33 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
             "hint": "Пожалуйста, сначала добавьте самолет в Fleet",
             "action": "create_aircraft"
         }
+    
+    # Проверяем нет ли уже двигателя на этой позиции
+    existing_engine = db.query(models.Engine).filter(
+        models.Engine.aircraft_id == data.aircraft_id,
+        models.Engine.position == data.position,
+        models.Engine.status == "INSTALLED"
+    ).first()
+    
+    if existing_engine:
+        # УМНАЯ ПРОВЕРКА: Проверяем есть ли removal для этого двигателя с датой >= новой installation
+        install_date = parse_input_date(data.date) or datetime.now()
+        
+        removal_after = db.query(models.ActionLog).filter(
+            models.ActionLog.action_type == "REMOVE",
+            models.ActionLog.engine_id == existing_engine.id,
+            models.ActionLog.to_aircraft == ac.tail_number,
+            models.ActionLog.date >= install_date
+        ).first()
+        
+        if not removal_after:
+            return {
+                "status": "warning",
+                "code": "POSITION_OCCUPIED",
+                "message": f"⚠️ Позиция {data.position} на {ac.tail_number} уже занята",
+                "hint": f"Двигатель {existing_engine.current_sn or existing_engine.original_sn} установлен на этой позиции. Сначала снимите его.",
+                "action": "remove_engine_first"
+            }
     
     # Запоминаем откуда взяли
     from_loc = eng.location.name if eng.location else "Unknown"
@@ -3899,6 +4145,232 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
         performed_by="User"
     )
     return {"status": "ok", "id": new_inspection.id}
+
+# --- BOROSCOPE SCHEDULE API ---
+
+@app.post("/api/boroscope/schedule")
+def create_boroscope_schedule(data: BoroscopeScheduleCreateSchema, db: Session = Depends(get_db)):
+    """Создать новый запланированный боroскоп"""
+    try:
+        from datetime import datetime
+        
+        # Парсим дату
+        schedule_date = datetime.strptime(data.date, "%Y-%m-%d").date()
+        
+        # Проверяем, существует ли уже запись на эту дату/самолет/позицию
+        existing = db.query(models.BoroscopeSchedule).filter(
+            models.BoroscopeSchedule.date == schedule_date,
+            models.BoroscopeSchedule.aircraft_tail_number == data.aircraft_tail_number,
+            models.BoroscopeSchedule.position == data.position
+        ).first()
+        
+        if existing:
+            return {
+                "status": "warning",
+                "message": f"Boroscope already scheduled for {data.aircraft_tail_number} Position {data.position} on {data.date}"
+            }
+        
+        # Создаем новую запись
+        new_schedule = models.BoroscopeSchedule(
+            date=schedule_date,
+            aircraft_tail_number=data.aircraft_tail_number,
+            position=data.position,
+            inspector=data.inspector,
+            remarks=data.remarks,
+            location=data.location,
+            status="Scheduled"
+        )
+        
+        db.add(new_schedule)
+        db.commit()
+        db.refresh(new_schedule)
+        
+        create_notification(
+            db,
+            action_type="created",
+            entity_type="boroscope_schedule",
+            entity_id=new_schedule.id,
+            message=f"Boroscope scheduled for {data.aircraft_tail_number} Position {data.position} on {data.date}",
+            performed_by="User"
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Boroscope scheduled successfully for {data.aircraft_tail_number} Position {data.position}",
+            "data": {"id": new_schedule.id}
+        }
+    except Exception as e:
+        print(f"❌ Error creating boroscope schedule: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/boroscope/schedule")
+def get_boroscope_schedules(
+    aircraft: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Получить список запланированных боroскопов с фильтрацией"""
+    try:
+        from datetime import datetime
+        
+        query = db.query(models.BoroscopeSchedule)
+        
+        # Фильтры
+        if aircraft:
+            query = query.filter(models.BoroscopeSchedule.aircraft_tail_number == aircraft)
+        
+        if date_from:
+            start_date = datetime.strptime(date_from, "%Y-%m-%d").date()
+            query = query.filter(models.BoroscopeSchedule.date >= start_date)
+        
+        if date_to:
+            end_date = datetime.strptime(date_to, "%Y-%m-%d").date()
+            query = query.filter(models.BoroscopeSchedule.date <= end_date)
+        
+        if status:
+            query = query.filter(models.BoroscopeSchedule.status == status)
+        
+        schedules = query.order_by(models.BoroscopeSchedule.date.asc()).all()
+        
+        result = []
+        for schedule in schedules:
+            result.append({
+                "id": schedule.id,
+                "date": schedule.date.strftime("%Y-%m-%d") if schedule.date else None,
+                "aircraft_tail_number": schedule.aircraft_tail_number,
+                "position": schedule.position,
+                "inspector": schedule.inspector,
+                "remarks": schedule.remarks,
+                "location": schedule.location,
+                "status": schedule.status,
+                "created_at": schedule.created_at.isoformat() if schedule.created_at else None,
+                "completed_at": schedule.completed_at.isoformat() if schedule.completed_at else None
+            })
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error fetching boroscope schedules: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/boroscope/schedule/{schedule_id}")
+def get_boroscope_schedule(schedule_id: int, db: Session = Depends(get_db)):
+    """Получить одну запись о запланированном боroскопе"""
+    schedule = db.query(models.BoroscopeSchedule).filter(models.BoroscopeSchedule.id == schedule_id).first()
+    
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Boroscope schedule not found")
+    
+    return {
+        "id": schedule.id,
+        "date": schedule.date.strftime("%Y-%m-%d") if schedule.date else None,
+        "aircraft_tail_number": schedule.aircraft_tail_number,
+        "position": schedule.position,
+        "inspector": schedule.inspector,
+        "remarks": schedule.remarks,
+        "location": schedule.location,
+        "status": schedule.status,
+        "created_at": schedule.created_at.isoformat() if schedule.created_at else None,
+        "completed_at": schedule.completed_at.isoformat() if schedule.completed_at else None
+    }
+
+@app.put("/api/boroscope/schedule/{schedule_id}")
+def update_boroscope_schedule(
+    schedule_id: int,
+    data: BoroscopeScheduleUpdateSchema,
+    db: Session = Depends(get_db)
+):
+    """Обновить запланированный боroскоп"""
+    try:
+        from datetime import datetime
+        
+        schedule = db.query(models.BoroscopeSchedule).filter(models.BoroscopeSchedule.id == schedule_id).first()
+        
+        if not schedule:
+            raise HTTPException(status_code=404, detail="Boroscope schedule not found")
+        
+        # Обновляем поля
+        if data.date:
+            schedule.date = datetime.strptime(data.date, "%Y-%m-%d").date()
+        if data.position:
+            schedule.position = data.position
+        if data.inspector:
+            schedule.inspector = data.inspector
+        if data.remarks is not None:
+            schedule.remarks = data.remarks
+        if data.location is not None:
+            schedule.location = data.location
+        if data.status:
+            schedule.status = data.status
+            if data.status == "Completed":
+                schedule.completed_at = datetime.now()
+        
+        db.commit()
+        db.refresh(schedule)
+        
+        return {
+            "status": "success",
+            "message": "Boroscope schedule updated successfully"
+        }
+    except Exception as e:
+        print(f"❌ Error updating boroscope schedule: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/boroscope/schedule/{schedule_id}")
+def delete_boroscope_schedule(schedule_id: int, db: Session = Depends(get_db)):
+    """Удалить запланированный боroскоп"""
+    try:
+        schedule = db.query(models.BoroscopeSchedule).filter(models.BoroscopeSchedule.id == schedule_id).first()
+        
+        if not schedule:
+            raise HTTPException(status_code=404, detail="Boroscope schedule not found")
+        
+        db.delete(schedule)
+        db.commit()
+        
+        return {"status": "success", "message": "Boroscope schedule deleted successfully"}
+    except Exception as e:
+        print(f"❌ Error deleting boroscope schedule: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/boroscope/schedule/upcoming/reminders")
+def get_boroscope_reminders(db: Session = Depends(get_db)):
+    """Получить напоминания о боroскопах на сегодня/завтра"""
+    try:
+        from datetime import datetime, timedelta
+        
+        today = datetime.now().date()
+        tomorrow = today + timedelta(days=1)
+        
+        # Запланированные на сегодня и завтра со статусом Scheduled
+        reminders = db.query(models.BoroscopeSchedule).filter(
+            models.BoroscopeSchedule.date.in_([today, tomorrow]),
+            models.BoroscopeSchedule.status == "Scheduled"
+        ).order_by(models.BoroscopeSchedule.date.asc()).all()
+        
+        result = []
+        for reminder in reminders:
+            days_until = (reminder.date - today).days
+            reminder_type = "Today" if days_until == 0 else "Tomorrow"
+            
+            result.append({
+                "id": reminder.id,
+                "reminder_type": reminder_type,
+                "date": reminder.date.strftime("%Y-%m-%d"),
+                "aircraft": reminder.aircraft_tail_number,
+                "position": reminder.position,
+                "inspector": reminder.inspector,
+                "location": reminder.location
+            })
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error getting boroscope reminders: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- PURCHASE ORDERS API ---
 
@@ -6235,3 +6707,268 @@ def delete_work_type(work_type_id: int, db: Session = Depends(get_db)):
         print(f"❌ Error in delete_work_type: {e}")
         db.rollback()
         return {"status": "error", "message": str(e)}
+
+# ============================================
+# GSS ASSIGNMENT ENDPOINTS
+# ============================================
+UPLOAD_DIR = Path("uploads/gss_photos")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+MAX_GSS_RANGE = 30
+
+@app.get("/api/gss/range")
+def get_gss_range(
+    from_id: int = Query(..., ge=1),
+    to_id: int = Query(..., ge=1),
+    show_assigned: bool = Query(default=False),
+    db: Session = Depends(get_db)
+):
+    """Получить диапазон GSS ID с информацией о доступности"""
+    try:
+        # Проверка ограничения
+        if to_id - from_id + 1 > MAX_GSS_RANGE:
+            raise HTTPException(400, f"Range too large! Maximum {MAX_GSS_RANGE} numbers at once")
+        
+        if from_id > to_id:
+            raise HTTPException(400, "Invalid range: from_id > to_id")
+        
+        # Получаем занятые GSS ID в диапазоне
+        assigned = db.query(models.GSSAssignment).filter(
+            models.GSSAssignment.gss_id.between(from_id, to_id)
+        ).all()
+        
+        assigned_map = {a.gss_id: a for a in assigned}
+        
+        result = []
+        for gss_id in range(from_id, to_id + 1):
+            is_assigned = gss_id in assigned_map
+            
+            # Если show_assigned=False, пропускаем занятые
+            if not show_assigned and is_assigned:
+                continue
+            
+            item = {
+                "gss_id": gss_id,
+                "is_assigned": is_assigned,
+                "engine_info": None
+            }
+            
+            if is_assigned:
+                a = assigned_map[gss_id]
+                item["engine_info"] = {
+                    "original_sn": a.original_sn,
+                    "current_sn": a.current_sn,
+                    "model": a.engine.model if a.engine else None,
+                    "assigned_by": a.user.username if a.user else "Unknown"
+                }
+            
+            result.append(item)
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in get_gss_range: {e}")
+        raise HTTPException(500, f"Server error: {str(e)}")
+
+@app.post("/api/gss/assign")
+def assign_gss_id(
+    data: GSSAssignmentCreate,
+    current_user_id: int = Query(..., alias="user_id"),
+    db: Session = Depends(get_db)
+):
+    """Присвоить GSS ID к двигателю"""
+    try:
+        # Проверка: GSS ID уже занят?
+        existing = db.query(models.GSSAssignment).filter(
+            models.GSSAssignment.gss_id == data.gss_id
+        ).first()
+        
+        if existing:
+            raise HTTPException(400, f"GSS ID {data.gss_id} already assigned to engine {existing.original_sn}")
+        
+        # Получаем двигатель
+        engine = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
+        if not engine:
+            raise HTTPException(404, "Engine not found")
+        
+        # Создаем присвоение
+        assignment = models.GSSAssignment(
+            gss_id=data.gss_id,
+            engine_id=engine.id,
+            original_sn=engine.original_sn,
+            current_sn=data.current_sn or engine.current_sn,
+            photo_url=data.photo_url,
+            remarks=data.remarks,
+            assigned_by=current_user_id
+        )
+        
+        # Обновляем gss_sn в Engine
+        engine.gss_sn = str(data.gss_id)
+        
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+        
+        return {"message": "GSS ID assigned successfully", "gss_id": data.gss_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in assign_gss_id: {e}")
+        db.rollback()
+        raise HTTPException(500, f"Server error: {str(e)}")
+
+@app.put("/api/gss/edit/{gss_id}")
+def edit_gss_assignment(
+    gss_id: int,
+    data: GSSAssignmentUpdate,
+    db: Session = Depends(get_db)
+):
+    """Редактировать присвоение GSS ID"""
+    try:
+        assignment = db.query(models.GSSAssignment).filter(
+            models.GSSAssignment.gss_id == gss_id
+        ).first()
+        
+        if not assignment:
+            raise HTTPException(404, "GSS assignment not found")
+        
+        # Обновляем поля
+        if data.current_sn is not None:
+            assignment.current_sn = data.current_sn
+        if data.photo_url is not None:
+            assignment.photo_url = data.photo_url
+        if data.remarks is not None:
+            assignment.remarks = data.remarks
+        
+        db.commit()
+        db.refresh(assignment)
+        
+        return {"message": "GSS assignment updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in edit_gss_assignment: {e}")
+        db.rollback()
+        raise HTTPException(500, f"Server error: {str(e)}")
+
+@app.post("/api/gss/upload-photo/{gss_id}")
+async def upload_gss_photo(
+    gss_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Загрузка фото для GSS ID"""
+    try:
+        from fastapi import UploadFile, File, Form
+        form = await request.form()
+        file = form.get("file")
+        
+        if not file:
+            raise HTTPException(400, "No file provided")
+        
+        # Проверка расширения
+        allowed_ext = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+        file_ext = Path(file.filename).suffix.lower()
+        
+        if file_ext not in allowed_ext:
+            raise HTTPException(400, "Invalid file type")
+        
+        # Сохраняем файл
+        filename = f"gss_{gss_id}_{int(datetime.now().timestamp())}{file_ext}"
+        file_path = UPLOAD_DIR / filename
+        
+        content = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        # Обновляем БД
+        assignment = db.query(models.GSSAssignment).filter(
+            models.GSSAssignment.gss_id == gss_id
+        ).first()
+        
+        if assignment:
+            assignment.photo_filename = filename
+            db.commit()
+        
+        return {
+            "message": "Photo uploaded successfully",
+            "filename": filename,
+            "url": f"/uploads/gss_photos/{filename}"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in upload_gss_photo: {e}")
+        raise HTTPException(500, f"Server error: {str(e)}")
+
+@app.get("/api/gss/history")
+def get_gss_history(
+    gss_id: Optional[int] = None,
+    engine_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Получить историю присвоений GSS ID"""
+    try:
+        query = db.query(models.GSSAssignment)
+        
+        if gss_id:
+            query = query.filter(models.GSSAssignment.gss_id == gss_id)
+        
+        if engine_id:
+            query = query.filter(models.GSSAssignment.engine_id == engine_id)
+        
+        # Сортировка: старые внизу, новые вверху
+        assignments = query.order_by(models.GSSAssignment.assigned_date.asc()).all()
+        
+        result = []
+        for a in assignments:
+            result.append({
+                "id": a.id,
+                "gss_id": a.gss_id,
+                "engine_id": a.engine_id,
+                "original_sn": a.original_sn,
+                "current_sn": a.current_sn,
+                "photo_url": a.photo_url,
+                "photo_filename": a.photo_filename,
+                "remarks": a.remarks,
+                "assigned_by": a.assigned_by,
+                "assigned_by_name": a.user.username if a.user else "Unknown",
+                "assigned_date": a.assigned_date.isoformat() if a.assigned_date else None,
+                "engine_model": a.engine.model if a.engine else None,
+                "engine_location": a.engine.location.name if a.engine and a.engine.location else None
+            })
+        
+        return result
+    except Exception as e:
+        print(f"❌ Error in get_gss_history: {e}")
+        raise HTTPException(500, f"Server error: {str(e)}")
+
+@app.delete("/api/gss/delete/{gss_id}")
+def delete_gss_assignment(
+    gss_id: int,
+    db: Session = Depends(get_db)
+):
+    """Удалить присвоение GSS ID (освобождает номер)"""
+    try:
+        assignment = db.query(models.GSSAssignment).filter(
+            models.GSSAssignment.gss_id == gss_id
+        ).first()
+        
+        if not assignment:
+            raise HTTPException(404, "GSS assignment not found")
+        
+        # Очищаем gss_sn в Engine
+        if assignment.engine:
+            assignment.engine.gss_sn = None
+        
+        # Удаляем запись
+        db.delete(assignment)
+        db.commit()
+        
+        return {"message": f"GSS ID {gss_id} deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in delete_gss_assignment: {e}")
+        db.rollback()
+        raise HTTPException(500, f"Server error: {str(e)}")

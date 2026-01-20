@@ -17,6 +17,21 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     print(f"🔧 Fixed DATABASE_URL: postgres:// -> postgresql://")
 
+# Ensure SSL for Render/PostgreSQL if not explicitly provided
+def _ensure_sslmode(url: str) -> str:
+    try:
+        if not url.startswith("postgresql://"):
+            return url
+        if "sslmode=" in url:
+            return url
+        # If a query string already exists, append with & otherwise start with ?
+        separator = "&" if "?" in url else "?"
+        return f"{url}{separator}sslmode=require"
+    except Exception:
+        return url
+
+DATABASE_URL = _ensure_sslmode(DATABASE_URL)
+
 # Try to detect if we're in local development mode
 IS_LOCAL_DEV = os.environ.get("LOCAL_DEV", "").lower() in ("1", "true", "yes")
 
@@ -30,21 +45,49 @@ engine_kwargs = {
 if IS_SQLITE:
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 
-# For PostgreSQL, try to connect; if it fails, fall back to SQLite
+# For PostgreSQL, try to connect; optionally allow fallback via env flag
+ALLOW_SQLITE_FALLBACK = os.environ.get("ALLOW_SQLITE_FALLBACK", "0").lower() in ("1", "true", "yes")
+
 if not IS_SQLITE and not IS_LOCAL_DEV:
     try:
-        # PostgreSQL doesn't accept 'timeout' in connect_args
-        engine = create_engine(DATABASE_URL, **engine_kwargs)
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        print(f"✅ Connected to PostgreSQL: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'database'}")
+        # PostgreSQL needs SSL; add connect_args explicitly
+        pg_connect_args = {}
+        try:
+            if DATABASE_URL.startswith("postgresql://"):
+                pg_connect_args["sslmode"] = "require"
+        except Exception:
+            pass
+        engine = create_engine(DATABASE_URL, connect_args=pg_connect_args, **engine_kwargs)
+
+        # Robust retry on cold starts
+        import time
+        max_attempts = int(os.environ.get("DB_CONNECT_RETRIES", "8"))
+        last_err = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                print(f"✅ Connected to PostgreSQL (attempt {attempt}/{max_attempts})")
+                last_err = None
+                break
+            except Exception as e_conn:  # noqa: BLE001
+                last_err = e_conn
+                sleep_s = min(1 + attempt, 6)
+                print(f"⏳ DB connect attempt {attempt}/{max_attempts} failed: {type(e_conn).__name__}: {e_conn}")
+                time.sleep(sleep_s)
+        if last_err is not None:
+            raise last_err
     except Exception as e:
-        print(f"⚠️  PostgreSQL unavailable ({type(e).__name__}: {e}), falling back to local SQLite")
-        print(f"   Path: {DEFAULT_SQLITE_PATH}")
-        DATABASE_URL = DEFAULT_SQLITE_URL
-        IS_SQLITE = True
-        engine_kwargs["connect_args"] = {"check_same_thread": False}
-        engine = create_engine(DATABASE_URL, **engine_kwargs)
+        if ALLOW_SQLITE_FALLBACK:
+            print(f"⚠️  PostgreSQL unavailable ({type(e).__name__}: {e}), falling back to local SQLite (explicitly allowed by ALLOW_SQLITE_FALLBACK=1)")
+            print(f"   Path: {DEFAULT_SQLITE_PATH}")
+            DATABASE_URL = DEFAULT_SQLITE_URL
+            IS_SQLITE = True
+            engine_kwargs["connect_args"] = {"check_same_thread": False}
+            engine = create_engine(DATABASE_URL, **engine_kwargs)
+        else:
+            # Do NOT silently fall back in production; surface the error
+            raise
 else:
     if IS_LOCAL_DEV:
         print(f"🔧 LOCAL_DEV=1 detected, using local SQLite: {DEFAULT_SQLITE_PATH}")

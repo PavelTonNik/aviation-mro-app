@@ -10,11 +10,17 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     
     <style>
-        html { overflow-y: scroll; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9eaee; overflow-x: hidden; padding-top: 0; }
+        html { overflow-y: scroll; overflow-x: hidden; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9eaee; overflow-x: hidden; padding-top: 0; max-width: 100vw; }
         
+        /* Prevent horizontal overflow on main content */
+        #wrapper { display: flex; width: 100%; max-width: 100vw; align-items: stretch; transition: all 0.3s; padding-top: 0; overflow-x: hidden; }
+        #page-content-wrapper { flex: 1 1 auto; width: auto !important; min-width: 0; max-width: 100%; overflow-x: hidden; }
+        .container-fluid { max-width: 100%; overflow-x: hidden; }
+        .dashboard-content { width: 100%; max-width: 100%; overflow-x: hidden; }
+        #fleet-section, .parts-dashboard-grid, #calendar-grid-container { max-width: 100%; overflow-x: hidden; }
+
         /* --- SIDEBAR --- */
-        #wrapper { display: flex; width: 100%; align-items: stretch; transition: all 0.3s; padding-top: 0; }
         #sidebar-wrapper {
             min-width: 260px; 
             max-width: 260px;
@@ -2091,6 +2097,7 @@
         .calendar-event-badge.event-inspection { background: linear-gradient(135deg, #f39c12, #e67e22); }
         .calendar-event-badge.event-maintenance { background: linear-gradient(135deg, #ee0979, #ff6a00); }
         .calendar-event-badge.event-deadline { background: linear-gradient(135deg, #fa709a, #fee140); }
+        .calendar-event-badge.event-boroscope { background: linear-gradient(135deg, #1fa2ff, #12d8fa); }
         .calendar-event-badge.event-other { background: linear-gradient(135deg, #667eea, #764ba2); }
 
         .calendar-event-badge.event-completed {
@@ -2618,6 +2625,98 @@
             color: #41464b;
         }
 
+        /* ========================= */
+        /* BOROSCOPE SCHEDULE MODAL */
+        /* ========================= */
+        #boroscope-schedule-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #boroscope-schedule-modal.active {
+            display: flex;
+        }
+
+        #boroscope-schedule-modal .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            cursor: pointer;
+        }
+
+        .boroscope-modal-content {
+            position: relative;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .boroscope-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 2px solid #dee2e6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .boroscope-modal-header h3 {
+            margin: 0;
+            color: white;
+            font-weight: 600;
+            font-size: 1.3em;
+        }
+
+        #boroscope-schedule-modal .btn-close-modal {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        #boroscope-schedule-modal .btn-close-modal:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        #boroscope-schedule-form .form-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        #boroscope-schedule-form .form-control,
+        #boroscope-schedule-form .form-select {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.95em;
+        }
+
+        #boroscope-schedule-form .form-control:focus,
+        #boroscope-schedule-form .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
     </style>
     <style>
         /* Extra spacing to avoid overlap for Nameplate tracker blocks */
@@ -3107,7 +3206,7 @@
                 <a href="#" class="btn btn-neon w-100 text-start mb-2" onclick="openMainEngineView(); return false;">
                     <i class="bi bi-database-add"></i> Add Engine
                 </a>
-                <a href="#" class="btn btn-neon w-100 text-start" onclick="openSchedulesModal(); return false;">
+                <a href="#" class="btn btn-neon w-100 text-start mb-2" onclick="openSchedulesModal(); return false;">
                     <i class="bi bi-calendar-check"></i> Open Schedules
                 </a>
             </div>
@@ -3151,6 +3250,9 @@
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openUtilizationParamView(); return false;"><i class="bi bi-bar-chart-line"></i> Utilization Parameters</a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openPartsView(); return false;">
                     <i class="bi bi-box-seam"></i> <span data-parts-title="logistics">Parts Removal/Installation</span>
+                </a>
+                <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openGSSModal(); return false;">
+                    <i class="bi bi-123"></i> GSS Registry
                 </a>
             </div>
             
@@ -4570,12 +4672,16 @@
                                             <h6 class="mb-2 text-primary">Plate 1</h6>
                                             <div class="mb-2">
                                                 <label class="form-label form-label-sm">Model</label>
-                                                <input type="text" class="form-control form-control-sm" id="np-plate1-model">
+                                                <input type="text" class="form-control form-control-sm" id="np-plate1-model" readonly>
                                             </div>
                                             <div class="mb-2">
-                                                <label class="form-label form-label-sm">SN *</label>
-                                                <input type="text" class="form-control form-control-sm" id="np-plate1-sn" list="engine-sn-list" onblur="lookupEngineSN('plate1')" placeholder="Start typing...">
-                                                <small class="text-danger" id="np-plate1-warning" style="display: none;">⚠️ SN not found in database</small>
+                                                <label class="form-label form-label-sm">Current SN *</label>
+                                                <input type="text" class="form-control form-control-sm" id="np-plate1-sn" onchange="loadPlate1Engines()" placeholder="Select engine on this aircraft...">
+                                                <small class="text-danger" id="np-plate1-warning" style="display: none;">⚠️ SN not found</small>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label form-label-sm">Original SN</label>
+                                                <input type="text" class="form-control form-control-sm" id="np-plate1-orig-sn" readonly>
                                             </div>
                                             <div class="mb-2">
                                                 <label class="form-label form-label-sm">GSS ID</label>
@@ -4603,12 +4709,16 @@
                                                 <h6 class="mb-2 text-primary">Plate 2</h6>
                                                 <div class="mb-2">
                                                     <label class="form-label form-label-sm">Model</label>
-                                                    <input type="text" class="form-control form-control-sm" id="np-plate2-model">
+                                                    <input type="text" class="form-control form-control-sm" id="np-plate2-model" readonly>
                                                 </div>
                                                 <div class="mb-2">
-                                                    <label class="form-label form-label-sm">SN *</label>
-                                                    <input type="text" class="form-control form-control-sm" id="np-plate2-sn" list="engine-sn-list" onblur="lookupEngineSN('plate2')" placeholder="Start typing...">
-                                                    <small class="text-danger" id="np-plate2-warning" style="display: none;">⚠️ SN not found in database</small>
+                                                    <label class="form-label form-label-sm">Current SN *</label>
+                                                    <input type="text" class="form-control form-control-sm" id="np-plate2-sn" onchange="loadPlate2Engines()" placeholder="Select engine on other aircraft...">
+                                                    <small class="text-danger" id="np-plate2-warning" style="display: none;">⚠️ SN not found</small>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label form-label-sm">Original SN</label>
+                                                    <input type="text" class="form-control form-control-sm" id="np-plate2-orig-sn" readonly>
                                                 </div>
                                                 <div class="mb-2">
                                                     <label class="form-label form-label-sm">GSS ID</label>
@@ -5146,6 +5256,139 @@
                     </div>
                 </div>
             </div>
+
+            <!-- GSS REGISTRY VIEW -->
+            <div id="view-gss" style="display: none;">
+                <h4 class="mb-3 text-primary"><i class="bi bi-123"></i> GSS ID Registry</h4>
+                <p class="text-muted">Internal Company ID Management</p>
+
+                <div class="row">
+                    <!-- LEFT: Range Generator -->
+                    <div class="col-md-7 mb-4">
+                        <div class="card shadow">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="bi bi-sliders"></i> GSS ID Range</h5>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="show-assigned-toggle" onchange="toggleShowAssigned()">
+                                    <label class="form-check-label text-white">Show assigned</label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">From:</label>
+                                        <input type="number" id="gss-from" class="form-control" value="200" min="1">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-bold">To:</label>
+                                        <input type="number" id="gss-to" class="form-control" value="229" min="1">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">&nbsp;</label>
+                                        <button class="btn btn-primary w-100" onclick="generateGSSRange()">
+                                            <i class="bi bi-arrow-clockwise"></i> Generate (max 30)
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-info mb-3">
+                                    <i class="bi bi-info-circle"></i> 
+                                    <strong>Legend:</strong>
+                                    <span class="ms-2">🔴 Red = Available</span>
+                                    <span class="ms-2">🟢 Green = Assigned</span>
+                                    <span class="ms-2">🔵 Blue = Selected</span>
+                                </div>
+
+                                <div id="gss-grid-container" class="gss-grid">
+                                    <div class="text-muted text-center w-100">Click "Generate" to load GSS IDs</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Assignment Form -->
+                    <div class="col-md-5 mb-4">
+                        <div class="card shadow">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Assign GSS ID</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="alert alert-info mb-3" id="selected-gss-display">
+                                    <strong>Selected GSS ID:</strong> 
+                                    <span id="selected-gss-number" class="fs-4">-</span>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Original SN <span class="text-danger">*</span></label>
+                                    <select id="gss-original-sn" class="form-control" required>
+                                        <option value="">-- Select Engine --</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Current SN (optional)</label>
+                                    <select id="gss-current-sn" class="form-control">
+                                        <option value="">-- Same as Original --</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold"><i class="bi bi-camera"></i> Photo</label>
+                                    <div class="btn-group w-100 mb-2">
+                                        <button type="button" class="btn btn-outline-primary" onclick="showPhotoOption('upload')">
+                                            <i class="bi bi-upload"></i> Upload File
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary" onclick="showPhotoOption('url')">
+                                            <i class="bi bi-link"></i> Paste URL
+                                        </button>
+                                    </div>
+
+                                    <div id="photo-upload-option" style="display:none;">
+                                        <input type="file" id="gss-photo-file" class="form-control" accept="image/*" onchange="previewPhoto()">
+                                    </div>
+
+                                    <div id="photo-url-option" style="display:none;">
+                                        <input type="url" id="gss-photo-url" class="form-control" placeholder="https://example.com/photo.jpg" onchange="previewPhotoURL()">
+                                    </div>
+
+                                    <div id="photo-preview" class="mt-2" style="display:none;">
+                                        <img id="photo-preview-img" src="" alt="Preview" style="max-width:100%; max-height:200px; border-radius:8px;">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold"><i class="bi bi-chat-left-text"></i> Remarks</label>
+                                    <textarea id="gss-remarks" class="form-control" rows="3" placeholder="Any additional notes..."></textarea>
+                                </div>
+
+                                <button class="btn btn-success w-100 mb-2" onclick="assignGSSID()">
+                                    <i class="bi bi-check-lg"></i> Assign GSS ID
+                                </button>
+
+                                <button class="btn btn-secondary w-100" onclick="clearGSSForm()">
+                                    <i class="bi bi-x-lg"></i> Clear Form
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="card shadow mt-4">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-clock-history"></i> GSS Assignment History</h5>
+                        <button class="btn btn-sm btn-outline-light" onclick="loadGSSHistory()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body p-0" id="gss-table-container" style="min-height: 200px;">
+                        <div id="gss-history-list" style="padding: 15px;">
+                            <div class="text-center text-muted">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 11. ATLB VIEW (UTILIZATION) -->
             <div id="view-atlb" style="display: none;">
                 <h4 class="mb-3 text-info"><i class="bi bi-journal-richtext"></i> Aircraft Technical Log Book</h4>
@@ -6168,6 +6411,7 @@
                                     <div id="schedule-status-count" class="parts-card-count">0</div>
                                 </div>
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -6523,15 +6767,31 @@ function openDashboardView() {
 }
     // --- Notification Functions ---
     function showSuccessNotification(message) {
-        document.getElementById('successMessage').textContent = message;
-        const modal = new bootstrap.Modal(document.getElementById('successModal'));
-        modal.show();
+        const toast = document.createElement('div');
+        toast.className = 'toast align-items-center text-white bg-success border-0';
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+        const container = document.getElementById('toastContainer') || document.body;
+        container.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        setTimeout(() => toast.remove(), 5000);
     }
 
     function showErrorNotification(message) {
-        document.getElementById('errorMessage').textContent = message;
-        const modal = new bootstrap.Modal(document.getElementById('errorModal'));
-        modal.show();
+        const toast = document.createElement('div');
+        toast.className = 'toast align-items-center text-white bg-danger border-0';
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+        const container = document.getElementById('toastContainer') || document.body;
+        container.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        setTimeout(() => toast.remove(), 5000);
     }
 
     // --- 2. Data Loading & Initialization ---
@@ -6606,7 +6866,8 @@ function openDashboardView() {
             'view-engine-reports',
             'view-purchase-orders',
             'view-fake-installed',
-            'view-nameplate-tracker'
+            'view-nameplate-tracker',
+            'view-gss'
         ];
         
         views.forEach(id => {
@@ -6686,13 +6947,22 @@ function restoreView(viewName) {
         switchAtlbTab('entry');;
     } else if (viewName === 'eng-param') { // Добавляем новое окно в историю
         openEngParamView();
+    } else if (viewName === 'gss') {
+        openGSSModal();
     }
 }
 
 
 
 
+    let _dashboardLoading = false;
     async function loadDashboardData() {
+    if (_dashboardLoading) {
+        console.log('Dashboard already loading, skipping duplicate call');
+        return;
+    }
+    _dashboardLoading = true;
+    
     try {
         // 2.1 Load Stats
         const statsRes = await fetch('/api/dashboard/stats');
@@ -6713,6 +6983,7 @@ function restoreView(viewName) {
         }
         const locations = await locRes.json();
         console.log('Locations:', locations); // Для отладки
+        window.globalLocations = locations; // Сохраняем в глобальную переменную для модалов
         const locContainer = document.getElementById('locations-container');
         locContainer.innerHTML = '';
         
@@ -6774,6 +7045,22 @@ function restoreView(viewName) {
         const fleetContainer = document.getElementById('fleet-container');
         fleetContainer.innerHTML = '';
         
+        // Загружаем Remove И Install actions для правильной фильтрации
+        let removeData = [];
+        let installData = [];
+        try {
+            const removeRes = await safeFetch('/api/history/REMOVE' + noCache());
+            if (removeRes && removeRes.ok) {
+                removeData = await removeRes.json();
+            }
+            const installRes = await safeFetch('/api/history/INSTALL' + noCache());
+            if (installRes && installRes.ok) {
+                installData = await installRes.json();
+            }
+        } catch (e) {
+            console.warn('Could not load history for filtering', e);
+        }
+        
         // Теперь всегда показываем карточки, даже с нулевыми данными
         if (aircraftDetails.length === 0) {
             console.warn('No aircraft data from API, but cards will still be displayed');
@@ -6790,6 +7077,33 @@ function restoreView(viewName) {
             // Создаем 4 отдельные карточки для каждой позиции (без SVG анимации)
             positions.forEach((pos, index) => {
                 const posNum = index + 1;
+                
+                // ФИЛЬТР: Проверяем, снят ли двигатель БЕЗ последующей установки
+                if (pos !== null) {
+                    const wasRemovedFinally = removeData.some(rem => {
+                        const remSN = rem.current_sn || rem.original_sn;
+                        const posSN = pos.current_sn;
+                        const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
+                        
+                        if (remSN !== posSN || remFrom !== ac.tail_number) return false;
+                        
+                        // Проверяем: есть ли более поздняя установка с той же табличкой на этот самолет
+                        const laterInstall = installData.find(inst => {
+                            return inst.current_sn === posSN &&
+                                   inst.install_to === ac.tail_number &&
+                                   new Date(inst.date) > new Date(rem.date);
+                        });
+                        
+                        // Считаем снятым только если НЕТ более поздней установки
+                        return !laterInstall;
+                    });
+                    
+                    // Если окончательно снят - показываем пустую позицию
+                    if (wasRemovedFinally) {
+                        pos = null;
+                    }
+                }
+                
                 if (pos === null) {
                     positionsHTML += `
                         <div class="engine-position-card">
@@ -6953,9 +7267,14 @@ function restoreView(viewName) {
         // Update Parts Cards Counts
         await updatePartsCardCounts();
         
+        // Load and display boroscope schedule reminders
+        displayBoroscopeReminders();
+        
     } catch (error) {
         console.error('Error loading dashboard data:', error);
         alert('Failed to load dashboard data. Check console for details.');
+    } finally {
+        _dashboardLoading = false;
     }
 }
 
@@ -8604,6 +8923,18 @@ function restoreView(viewName) {
         let serverData = [];
         try { serverData = await res.json(); } catch { serverData = []; }
 
+        // Загружаем Remove actions для проверки
+        let removeData = [];
+        try {
+            const removeRes = await safeFetch('/api/history/REMOVE' + noCache());
+            if (removeRes && removeRes.ok) {
+                removeData = await removeRes.json();
+                console.log('Remove data loaded:', removeData);
+            }
+        } catch (e) {
+            console.warn('Could not load remove history for marking', e);
+        }
+
         tbody.innerHTML = '';
         if (!Array.isArray(serverData) || serverData.length === 0) {
             tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted">No installations found</td></tr>';
@@ -8612,6 +8943,33 @@ function restoreView(viewName) {
 
         serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
         serverData.forEach(row => {
+            // Проверяем: был ли этот двигатель снят ПОСЛЕ этой установки
+            const wasRemoved = removeData.some(rem => {
+                const remSN = rem.current_sn || rem.original_sn;
+                const installCurrentSN = row.current_sn;
+                
+                // Извлекаем AC название из "AC: ER-BAR (Pos 4)" -> "ER-BAR"
+                const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
+                
+                // Проверяем совпадение current_sn, самолета и даты
+                if (remSN !== installCurrentSN) return false;
+                if (remFrom !== row.install_to) return false;
+                if (new Date(rem.date) < new Date(row.date)) return false;
+                
+                // ВАЖНО: Проверяем, нет ли более поздней установки с той же табличкой на тот же самолет
+                const laterInstall = serverData.find(inst => {
+                    return inst.current_sn === installCurrentSN &&
+                           inst.install_to === row.install_to &&
+                           new Date(inst.date) > new Date(rem.date);
+                });
+                
+                // Зачеркиваем только если НЕТ более поздней установки
+                return !laterInstall;
+            });
+            
+            // Стили для снятого двигателя
+            const badgeClass = wasRemoved ? 'bg-secondary text-decoration-line-through opacity-50' : 'bg-primary';
+            
             tbody.innerHTML += `
                 <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
                     <td class="delete-col-install" style="display: none;">
@@ -8622,7 +8980,7 @@ function restoreView(viewName) {
                     <td>${row.date}</td>
                     <td>${row.original_sn}</td>
                     <td>${row.current_sn}</td>
-                    <td><span class="badge bg-primary">${row.install_to}</span></td>
+                    <td><span class="badge ${badgeClass}">${row.install_to}</span></td>
                     <td>${row.position}</td>
                     <td>${row.location_from}</td>
                     <td>${row.tt}</td>
@@ -8672,13 +9030,15 @@ function restoreView(viewName) {
 // 4. Подготовка формы (Загрузка SV двигателей)
     async function prepareInstallForm() {
         // Всегда грузим свежие данные без кеша, чтобы список был актуальным
-        let res = await safeFetch('/api/engines?status=SV' + noCache().replace('?', '&')); 
-        if (!res || !res.ok) res = await safeFetch('/api/engines' + noCache());
+        let res = await safeFetch('/api/engines' + noCache());
         
         let engines = [];
         try { engines = res && res.ok ? await res.json() : []; } catch { engines = []; }
         const deletedIds = getDeletedEngineIds();
-        engines = Array.isArray(engines) ? engines.filter(e => !deletedIds.includes(e.id)) : [];
+        // Отбираем только не удалённые и пригодные по condition_1
+        engines = Array.isArray(engines)
+            ? engines.filter(e => !deletedIds.includes(e.id) && e.condition_1 === 'SV')
+            : [];
         
         installableEngines = engines; // <--- ВАЖНО: Сохраняем данные в глобальную переменную
         
@@ -8709,9 +9069,9 @@ function restoreView(viewName) {
                     document.getElementById('in-cur-sn').value = '';
                     return;
                 }
-                // Проверяем статус двигателя
-                if (selectedEngine.status !== 'SV') {
-                    showErrorNotification(`❌ Engine ${selectedEngine.original_sn} cannot be installed! Status is ${selectedEngine.status}, must be SV (Serviceable).`);
+                // Проверяем пригодность по condition_1 (SV / US / SCRAPED)
+                if (selectedEngine.condition_1 !== 'SV') {
+                    showErrorNotification(`❌ Engine ${selectedEngine.original_sn} cannot be installed! condition_1 is ${selectedEngine.condition_1}, must be SV (Serviceable).`);
                     this.value = '';
                     document.getElementById('in-engine-id').value = '';
                     document.getElementById('in-cur-sn').value = '';
@@ -8727,16 +9087,14 @@ function restoreView(viewName) {
     // 5. Отправка формы (Save)
     async function submitInstallForm() {
         if (_installSubmitting) { return; }
-        _installSubmitting = true;
-        const saveBtn = document.querySelector('#tab-inst-entry .btn.btn-success');
-        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
+        
         const date = document.getElementById('in-date').value;
         const engInputVal = document.getElementById('in-engine-input').value;
         const engId = document.getElementById('in-engine-id').value;
         const acId = document.getElementById('in-ac').value;
         const acText = document.getElementById('in-ac').options[document.getElementById('in-ac').selectedIndex]?.text;
         
-        // Валидация обязательных полей
+        // Валидация обязательных полей ДО установки флага
         if(!date || !acId || document.getElementById('in-tt').value === "" || document.getElementById('in-tc').value === "") { 
             showErrorNotification("Please fill in all required fields (*)");
             return; 
@@ -8755,11 +9113,16 @@ function restoreView(viewName) {
             return;
         }
         
-        // Проверка статуса двигателя
-        if (selectedEngine.status !== 'SV') {
-            showErrorNotification(`Engine ${selectedEngine.original_sn} cannot be installed! Current status: ${selectedEngine.status}. Only engines with status SV (Serviceable) can be installed.`);
+        // Проверка пригодности двигателя по condition_1
+        if (selectedEngine.condition_1 !== 'SV') {
+            showErrorNotification(`Engine ${selectedEngine.original_sn} cannot be installed! condition_1 is ${selectedEngine.condition_1}. Only engines with condition_1 SV (Serviceable) can be installed.`);
             return;
         }
+        
+        // ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - устанавливаем флаг и показываем загрузку
+        _installSubmitting = true;
+        const saveBtn = document.querySelector('#tab-inst-entry .btn.btn-success');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         
         const payload = {
             date: date, 
@@ -11128,7 +11491,10 @@ function restoreView(viewName) {
                     <td data-key="model">${model}</td>
                     <td data-key="csn" class="fw-bold text-primary">${currentSN}</td>
                     <td data-key="esn">${originalSN}</td>
-                    <td data-key="gss">${gssSN}</td>
+                    <td data-key="gss" style="cursor: pointer;" 
+                        onmouseover="showGSSTooltip(event, '${gssSN}')" 
+                        onmouseleave="hideGSSTooltip()"
+                        onmousemove="if(gssTooltip) { gssTooltip.style.left = (event.clientX + 15) + 'px'; gssTooltip.style.top = (event.clientY + 15) + 'px'; }">${gssSN}</td>
                     <td data-key="price">${price}</td>
                     <td data-key="status"><span class="badge ${badge}">${statusText}</span></td>
                     <td data-key="condition-1"><span class="badge ${getCondition1BadgeColor(condition1)}">${condition1}</span></td>
@@ -17783,9 +18149,11 @@ function openNpActionModal() {
     document.getElementById('np-aircraft').value = '';
     document.getElementById('np-plate1-model').value = '';
     document.getElementById('np-plate1-sn').value = '';
+    document.getElementById('np-plate1-orig-sn').value = '';
     document.getElementById('np-plate1-gss').value = '';
     document.getElementById('np-plate2-model').value = '';
     document.getElementById('np-plate2-sn').value = '';
+    document.getElementById('np-plate2-orig-sn').value = '';
     document.getElementById('np-plate2-gss').value = '';
     document.getElementById('np-action-type').value = 'swap';
     document.getElementById('np-remove-reason').value = '';
@@ -17808,6 +18176,52 @@ function openNpActionModal() {
     switchActionUI();
     const modal = new bootstrap.Modal(document.getElementById('npActionsModal'));
     modal.show();
+    
+    // Add event listener for aircraft selection
+    setTimeout(() => {
+        const aircraftSelect = document.getElementById('np-aircraft');
+        if (aircraftSelect) {
+            aircraftSelect.addEventListener('change', loadPlate1EnginesForAircraft);
+        }
+    }, 100);
+}
+
+// Load list of INSTALLED engines on selected aircraft for Plate 1 dropdown
+async function loadPlate1EnginesForAircraft() {
+    const aircraft = document.getElementById('np-aircraft').value;
+    if (!aircraft) {
+        document.getElementById('np-plate1-sn').value = '';
+        return;
+    }
+    
+    try {
+        // Load all engines on this aircraft that are INSTALLED
+        const res = await fetch(`/api/engines?aircraft=${encodeURIComponent(aircraft)}&status=INSTALLED`);
+        if (!res.ok) return;
+        
+        const engines = await res.json();
+        const snInput = document.getElementById('np-plate1-sn');
+        
+        // Remove old datalist if exists
+        const oldList = document.getElementById('plate1-sn-list');
+        if (oldList) oldList.remove();
+        
+        // Create new datalist
+        const datalist = document.createElement('datalist');
+        datalist.id = 'plate1-sn-list';
+        
+        engines.forEach(eng => {
+            const opt = document.createElement('option');
+            opt.value = eng.current_sn || eng.original_sn || '';
+            opt.textContent = `${opt.value} (Pos ${eng.position || 'N/A'}) - GSS: ${eng.gss_sn || 'N/A'}`;
+            datalist.appendChild(opt);
+        });
+        
+        document.body.appendChild(datalist);
+        snInput.setAttribute('list', 'plate1-sn-list');
+    } catch (err) {
+        console.error('Failed to load Plate 1 engines:', err);
+    }
 }
 
 function switchActionUI() {
@@ -17825,11 +18239,11 @@ function switchActionUI() {
 
 function updateSwapPreview() {
     const plate1_sn = document.getElementById('np-plate1-sn').value.trim();
-    const plate1_model = document.getElementById('np-plate1-model').value.trim();
+    const plate1_orig_sn = document.getElementById('np-plate1-orig-sn').value.trim();
     const plate1_gss = document.getElementById('np-plate1-gss').value.trim();
     
     const plate2_sn = document.getElementById('np-plate2-sn').value.trim();
-    const plate2_model = document.getElementById('np-plate2-model').value.trim();
+    const plate2_orig_sn = document.getElementById('np-plate2-orig-sn').value.trim();
     const plate2_gss = document.getElementById('np-plate2-gss').value.trim();
     
     const preview = document.getElementById('np-swap-preview');
@@ -17844,18 +18258,107 @@ function updateSwapPreview() {
     // SWAP GSS IDs - show what will happen AFTER swap
     let html = '<div style="background: rgba(255,255,255,0.15); padding: 10px; border-radius: 6px; margin-bottom: 8px;">';
     html += `<strong>🔄 Plate 1:</strong> SN <span style="background: rgba(255,255,255,0.3); padding: 2px 8px; border-radius: 3px; font-weight: bold;">${plate1_sn}</span>`;
-    if (plate1_model) html += ` (${plate1_model})`;
+    if (plate1_orig_sn) html += ` (Orig: ${plate1_orig_sn})`;
     html += ` → will have GSS ID: <span style="background: #4ade80; color: #000; padding: 2px 8px; border-radius: 3px; font-weight: bold;">${plate2_gss}</span>`;
     html += '</div>';
     
     html += '<div style="background: rgba(255,255,255,0.15); padding: 10px; border-radius: 6px;">';
     html += `<strong>🔄 Plate 2:</strong> SN <span style="background: rgba(255,255,255,0.3); padding: 2px 8px; border-radius: 3px; font-weight: bold;">${plate2_sn}</span>`;
-    if (plate2_model) html += ` (${plate2_model})`;
+    if (plate2_orig_sn) html += ` (Orig: ${plate2_orig_sn})`;
     html += ` → will have GSS ID: <span style="background: #4ade80; color: #000; padding: 2px 8px; border-radius: 3px; font-weight: bold;">${plate1_gss}</span>`;
     html += '</div>';
     
     content.innerHTML = html;
     preview.style.display = 'block';
+}
+
+
+// Load engines for Plate 1 (currently on selected aircraft) - from datalist when aircraft selected
+async function loadPlate1Engines() {
+    const aircraft = document.getElementById('np-aircraft').value;
+    const sn = document.getElementById('np-plate1-sn').value.trim();
+    
+    if (!sn) {
+        document.getElementById('np-plate1-model').value = '';
+        document.getElementById('np-plate1-orig-sn').value = '';
+        document.getElementById('np-plate1-gss').value = '';
+        return;
+    }
+    
+    try {
+        // Fetch engine by current SN
+        const res = await fetch(`/api/engine-by-sn/${encodeURIComponent(sn)}`);
+        if (!res.ok) throw new Error('Engine not found');
+        
+        const eng = await res.json();
+        
+        // Populate fields
+        document.getElementById('np-plate1-model').value = eng.model || '';
+        document.getElementById('np-plate1-orig-sn').value = eng.original_sn || '';
+        document.getElementById('np-plate1-gss').value = eng.gss_id || '';
+        document.getElementById('np-plate1-warning').style.display = 'none';
+        
+        // For remove: populate from aircraft/position
+        if (document.getElementById('np-action-type').value === 'remove') {
+            document.getElementById('np-remove-ac').value = eng.aircraft_tail || '';
+            document.getElementById('np-remove-pos').value = eng.position || '';
+        }
+        
+        // Update swap preview
+        updateSwapPreview();
+    } catch (err) {
+        console.error('Lookup error:', err);
+        document.getElementById('np-plate1-model').value = '';
+        document.getElementById('np-plate1-orig-sn').value = '';
+        document.getElementById('np-plate1-gss').value = '';
+        document.getElementById('np-plate1-warning').style.display = 'block';
+    }
+}
+
+// Load engines for Plate 2 (on OTHER aircraft for swap)
+async function loadPlate2Engines() {
+    const sn = document.getElementById('np-plate2-sn').value.trim();
+    const aircraft1 = document.getElementById('np-aircraft').value;
+    
+    if (!sn) {
+        document.getElementById('np-plate2-model').value = '';
+        document.getElementById('np-plate2-orig-sn').value = '';
+        document.getElementById('np-plate2-gss').value = '';
+        return;
+    }
+    
+    try {
+        // Fetch engine by current SN
+        const res = await fetch(`/api/engine-by-sn/${encodeURIComponent(sn)}`);
+        if (!res.ok) throw new Error('Engine not found');
+        
+        const eng = await res.json();
+        
+        // For SWAP: Plate 2 engine should be on DIFFERENT aircraft than Plate 1
+        if (aircraft1 && eng.aircraft_tail === aircraft1) {
+            throw new Error('Plate 2 engine must be on different aircraft');
+        }
+        
+        // Validate that engine is INSTALLED
+        if (eng.status !== 'INSTALLED' || !eng.aircraft_tail) {
+            throw new Error('Engine must be INSTALLED on an aircraft');
+        }
+        
+        // Populate fields
+        document.getElementById('np-plate2-model').value = eng.model || '';
+        document.getElementById('np-plate2-orig-sn').value = eng.original_sn || '';
+        document.getElementById('np-plate2-gss').value = eng.gss_id || '';
+        document.getElementById('np-plate2-warning').style.display = 'none';
+        
+        // Update swap preview
+        updateSwapPreview();
+    } catch (err) {
+        console.error('Lookup error:', err);
+        document.getElementById('np-plate2-model').value = '';
+        document.getElementById('np-plate2-orig-sn').value = '';
+        document.getElementById('np-plate2-gss').value = '';
+        document.getElementById('np-plate2-warning').style.display = 'block';
+    }
 }
 
 async function lookupEngineSN(plate) {
@@ -17927,8 +18430,8 @@ async function saveNameplateAction() {
     const plate1_sn = document.getElementById('np-plate1-sn').value.trim();
     const plate1_gss = document.getElementById('np-plate1-gss').value.trim();
     
-    if (!plate1_sn || !plate1_gss) {
-        alert('Plate 1 SN and GSS ID required');
+    if (!plate1_sn) {
+        alert('Plate 1 SN required');
         return;
     }
     
@@ -17942,8 +18445,8 @@ async function saveNameplateAction() {
         const plate2_sn = document.getElementById('np-plate2-sn').value.trim();
         const plate2_gss = document.getElementById('np-plate2-gss').value.trim();
         
-        if (!plate2_sn || !plate2_gss) {
-            alert('Plate 2 SN and GSS ID required for swap');
+        if (!plate2_sn) {
+            alert('Plate 2 SN required for swap');
             return;
         }
         
@@ -18150,6 +18653,33 @@ async function loadCalendarMonth(year, month) {
         const res = await fetch(`/api/events/calendar/${year}/${month}`);
         if (!res.ok) throw new Error('Failed to load events');
         allCalendarEvents = await res.json();
+
+        // Also pull boroscope schedules for this month and merge into calendar events
+        const lastDay = new Date(year, month, 0).getDate();
+        const dateFrom = `${year}-${String(month).padStart(2, '0')}-01`;
+        const dateTo = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+        try {
+            const boroRes = await fetch(`/api/boroscope/schedule?date_from=${dateFrom}&date_to=${dateTo}`);
+            if (boroRes.ok) {
+                const schedules = await boroRes.json();
+                const mapped = schedules.map((s, idx) => ({
+                    id: -(idx + 1), // synthetic id to avoid collision with real events
+                    event_date: s.date,
+                    event_time: '',
+                    event_type: 'BOROSCOPE',
+                    status: (s.status || '').toUpperCase(),
+                    title: `Boroscope ${s.aircraft_tail_number} Pos ${s.position}`,
+                    priority: 'Normal',
+                    description: s.remarks || '',
+                    serial_number: s.aircraft_tail_number,
+                    location: s.location || '',
+                    created_by: s.inspector || 'Inspector'
+                }));
+                allCalendarEvents = allCalendarEvents.concat(mapped);
+            }
+        } catch (boroErr) {
+            console.warn('Failed to load boroscope schedules for calendar:', boroErr);
+        }
         
         renderCalendar(year, month);
     } catch (err) {
@@ -18209,6 +18739,8 @@ function renderCalendar(year, month) {
             // Check if event is completed: COMPLETED status OR shipment with DELIVERED/CANCELLED status
             const isCompleted = event.status === 'COMPLETED' || event.status === 'DELIVERED' || event.status === 'CANCELLED';
             const completedClass = isCompleted ? ' event-completed' : '';
+
+            const isSynthetic = event.id < 0; // Boroscope synthetic events shouldn't open edit modal
             
             // Calculate days until event (only for non-completed events)
             let urgencyClass = '';
@@ -18223,7 +18755,8 @@ function renderCalendar(year, month) {
             
             const timeStr = event.event_time ? `<span class="calendar-event-time">${event.event_time}</span>` : '';
             const icon = isCompleted ? 'bi-check-circle-fill' : 'bi-circle-fill';
-            html += `<div class="calendar-event-badge event-${eventType}${completedClass}${urgencyClass}" onclick="event.stopPropagation(); openEditEventModal(${event.id})" onmouseenter="showEventTooltip(event, ${event.id})" onmouseleave="hideEventTooltip()">`;
+            const clickAttr = isSynthetic ? '' : ` onclick="event.stopPropagation(); openEditEventModal(${event.id})"`;
+            html += `<div class="calendar-event-badge event-${eventType}${completedClass}${urgencyClass}"${clickAttr} onmouseenter="showEventTooltip(event, ${event.id})" onmouseleave="hideEventTooltip()">`;
             html += `<i class="bi ${icon}"></i>${timeStr} ${event.title}`;
             html += `</div>`;
         });
@@ -18647,6 +19180,26 @@ function openBoroscopeModal() {
     }
     modal.classList.add('active');
     loadBoroscopeModalData();
+}
+
+// Open GSS Registry View
+function openGSSModal() {
+    hideAllViews();
+    document.getElementById('view-gss').style.display = 'block';
+    updateHistory('gss');
+    loadEnginesForGSSDropdown();
+    loadGSSHistory();
+    // Восстанавливаем сохраненный диапазон GSS с небольшой задержкой
+    setTimeout(() => {
+        restoreSavedGSSRange();
+    }, 100);
+}
+
+// Close GSS Registry Modal
+function closeGSSModal() {
+    document.getElementById('view-gss').style.display = 'none';
+    document.getElementById('dashboard-widgets').style.display = 'block';
+    clearGSSForm();
 }
 
 // Close Boroscope Modal
@@ -19188,6 +19741,242 @@ async function viewShipmentDetails(shipmentId) {
     }
 }
 
+// =========================================
+// BOROSCOPE SCHEDULE MODAL FUNCTIONS
+// =========================================
+
+// Open Boroscope Schedule Modal
+// Populate Location datalist with locations from dashboard
+function populateBoroscopeLocationsList() {
+    const datalist = document.getElementById('boroscope-location-list');
+    if (!datalist) return;
+    
+    // Очищаем текущие опции
+    datalist.innerHTML = '';
+    
+    // Используем глобальные locations если есть, иначе берем из API
+    if (window.globalLocations && window.globalLocations.length > 0) {
+        window.globalLocations.forEach(loc => {
+            const option = document.createElement('option');
+            option.value = loc.city;
+            datalist.appendChild(option);
+        });
+    } else {
+        // Fallback: если глобальные locations еще не загружены
+        const defaultLocations = ['Shop', 'Hangar', 'Warehouse', 'Field'];
+        defaultLocations.forEach(loc => {
+            const option = document.createElement('option');
+            option.value = loc;
+            datalist.appendChild(option);
+        });
+    }
+}
+
+function openBoroscopeScheduleModal() {
+    const modal = document.getElementById('boroscope-schedule-modal');
+    modal.classList.add('active');
+    loadBoroscopeAircraftList();
+    populateBoroscopeLocationsList();
+    // Reset form
+    document.getElementById('boroscope-schedule-form').reset();
+    document.getElementById('boroscope-form-message').style.display = 'none';
+}
+
+// Close Boroscope Schedule Modal
+function closeBoroscopeScheduleModal() {
+    const modal = document.getElementById('boroscope-schedule-modal');
+    modal.classList.remove('active');
+}
+
+// Close on overlay click
+document.addEventListener('DOMContentLoaded', function() {
+    const boroscopeModal = document.getElementById('boroscope-schedule-modal');
+    if (boroscopeModal) {
+        const overlay = boroscopeModal.querySelector('.modal-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', closeBoroscopeScheduleModal);
+        }
+    }
+});
+
+// Load aircraft list for dropdown
+async function loadBoroscopeAircraftList() {
+    try {
+        const res = await fetch('/api/dashboard/aircraft-details');
+        if (!res.ok) throw new Error('Failed to fetch aircraft');
+        
+        const aircrafts = await res.json();
+        const select = document.getElementById('boroscope-aircraft');
+        
+        // Keep placeholder
+        select.innerHTML = '<option value="">Select Aircraft...</option>';
+        
+        // Add aircraft options
+        aircrafts.forEach(ac => {
+            const option = document.createElement('option');
+            option.value = ac.tail_number;
+            option.textContent = `${ac.tail_number} (${ac.model || 'Unknown'})`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to load aircraft list:', error);
+        showErrorNotification('Failed to load aircraft list');
+    }
+}
+
+// Handle form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('boroscope-schedule-form');
+    if (form) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await submitBoroscopeSchedule();
+        });
+    }
+});
+
+// Submit boroscope schedule
+async function submitBoroscopeSchedule() {
+    try {
+        const date = document.getElementById('boroscope-date').value;
+        const aircraft = document.getElementById('boroscope-aircraft').value;
+        const position = document.getElementById('boroscope-position').value;
+        const inspector = document.getElementById('boroscope-inspector').value;
+        const location = document.getElementById('boroscope-location').value;
+        const remarks = document.getElementById('boroscope-remarks').value;
+        
+        // Validation
+        if (!date || !aircraft || !position || !inspector) {
+            showErrorNotification('Please fill in all required fields');
+            return;
+        }
+        
+        const payload = {
+            date: date,
+            aircraft_tail_number: aircraft,
+            position: parseInt(position),
+            inspector: inspector,
+            location: location || null,
+            remarks: remarks || null
+        };
+        
+        console.log('📅 Submitting boroscope schedule:', payload);
+        
+        const res = await fetch('/api/boroscope/schedule', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await res.json();
+        
+        if (!res.ok) {
+            if (result.status === 'warning') {
+                showWarningNotification(result.message || 'Boroscope already scheduled');
+            } else {
+                throw new Error(result.detail || 'Failed to schedule boroscope');
+            }
+            return;
+        }
+        
+        // Success
+        showSuccessNotification('✓ Boroscope inspection scheduled successfully!');
+        closeBoroscopeScheduleModal();
+        
+        // Refresh relevant data
+        await updateDashboardStats();
+        loadBoroscopeScheduleList();
+        await loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+        
+    } catch (error) {
+        console.error('Error submitting boroscope schedule:', error);
+        showErrorNotification('Failed to schedule inspection: ' + error.message);
+    }
+}
+
+// Load boroscope schedules list (for display/calendar)
+async function loadBoroscopeScheduleList(aircraft = null, dateFrom = null, dateTo = null) {
+    try {
+        let url = '/api/boroscope/schedule';
+        const params = new URLSearchParams();
+        
+        if (aircraft) params.append('aircraft', aircraft);
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo);
+        
+        if (params.toString()) url += '?' + params.toString();
+        
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch boroscope schedules');
+        
+        const schedules = await res.json();
+        console.log('📅 Boroscope schedules loaded:', schedules);
+        
+        return schedules;
+    } catch (error) {
+        console.error('Failed to load boroscope schedules:', error);
+        return [];
+    }
+}
+
+// Get upcoming boroscope reminders
+async function getBoroscopeReminders() {
+    try {
+        const res = await fetch('/api/boroscope/schedule/upcoming/reminders');
+        if (!res.ok) throw new Error('Failed to fetch reminders');
+        
+        const reminders = await res.json();
+        console.log('📅 Boroscope reminders:', reminders);
+        
+        return reminders;
+    } catch (error) {
+        console.error('Failed to get boroscope reminders:', error);
+        return [];
+    }
+}
+
+// Add boroscope reminders to notifications panel (once per day)
+async function displayBoroscopeReminders() {
+    try {
+        const today = new Date().toDateString();
+        const lastShown = localStorage.getItem('boroscope-reminder-date');
+        
+        if (lastShown === today) {
+            return; // Already shown today
+        }
+        
+        const reminders = await getBoroscopeReminders();
+        
+        if (reminders.length > 0) {
+            // Add to notifications list
+            const list = document.getElementById('notifications-list');
+            const reminderHTML = reminders.map(r => `
+                <div class="notification-item unread" style="border-left: 4px solid #17a2b8;">
+                    <div class="d-flex justify-content-between">
+                        <strong>📅 Boroscope</strong>
+                        <span class="badge bg-info">reminder</span>
+                    </div>
+                    <div>${r.aircraft} Position ${r.position} - Inspector: ${r.inspector}</div>
+                    <div class="notification-time">${r.reminder_type} • ${formatNotificationTime(new Date())}</div>
+                </div>
+            `).join('');
+            
+            if (list.textContent.includes('No notifications')) {
+                list.innerHTML = reminderHTML;
+            } else {
+                list.insertAdjacentHTML('afterbegin', reminderHTML);
+            }
+            
+            localStorage.setItem('boroscope-reminder-date', today);
+            updateNotificationCount();
+        }
+    } catch (error) {
+        console.error('Error displaying boroscope reminders:', error);
+    }
+}
+
 </script>
 
 <!-- ============================================================
@@ -19217,7 +20006,7 @@ async function viewShipmentDetails(shipmentId) {
                 <button class="btn-type-selector" onclick="createEngineShipment()">
                     <span class="icon">🛫</span>
                     <div class="text-container">
-                        <span class="title">ENGINE IN TRANSIT</span>
+                        <span class="title">Engine</span>
                         <span class="subtitle">Track engines in transit to destinations</span>
                     </div>
                 </button>
@@ -19225,8 +20014,16 @@ async function viewShipmentDetails(shipmentId) {
                 <button class="btn-type-selector" onclick="createPartsShipment()">
                     <span class="icon">📦</span>
                     <div class="text-container">
-                        <span class="title">PARTS ON ORDER</span>
+                        <span class="title">Parts</span>
                         <span class="subtitle">Track parts shipments (including pre-orders)</span>
+                    </div>
+                </button>
+                
+                <button class="btn-type-selector" onclick="openBoroscopeScheduleModal()">
+                    <span class="icon">📅</span>
+                    <div class="text-container">
+                        <span class="title">Boroscope Inspection</span>
+                        <span class="subtitle">Schedule engine boroscope inspections</span>
                     </div>
                 </button>
             </div>
@@ -19263,6 +20060,74 @@ async function viewShipmentDetails(shipmentId) {
                 </tbody>
             </table>
         </div>
+    </div>
+</div>
+
+<!-- BOROSCOPE SCHEDULE MODAL -->
+<div id="boroscope-schedule-modal" class="custom-modal">
+    <div class="modal-overlay" onclick="closeBoroscopeScheduleModal()"></div>
+    <div class="boroscope-modal-content">
+        <div class="boroscope-modal-header">
+            <h3>📅 Schedule Boroscope Inspection</h3>
+            <button class="btn-close-modal" onclick="closeBoroscopeScheduleModal()">✕ Close</button>
+        </div>
+
+        <form id="boroscope-schedule-form" class="p-4">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Date <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control" id="boroscope-date" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Aircraft <span class="text-danger">*</span></label>
+                    <select class="form-select" id="boroscope-aircraft" required>
+                        <option value="">Select Aircraft...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Position <span class="text-danger">*</span></label>
+                    <select class="form-select" id="boroscope-position" required>
+                        <option value="">Select Position...</option>
+                        <option value="1">Position 1</option>
+                        <option value="2">Position 2</option>
+                        <option value="3">Position 3</option>
+                        <option value="4">Position 4</option>
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Inspector <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="boroscope-inspector" placeholder="Inspector name" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Location</label>
+                    <input type="text" class="form-control" id="boroscope-location" placeholder="Select or enter location" list="boroscope-location-list">
+                    <datalist id="boroscope-location-list">
+                        <option value="Shop"></option>
+                        <option value="Hangar"></option>
+                        <option value="Warehouse"></option>
+                        <option value="Field"></option>
+                    </datalist>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Remarks</label>
+                    <textarea class="form-control" id="boroscope-remarks" rows="2" placeholder="Additional notes..."></textarea>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 justify-content-end mt-4">
+                <button type="button" class="btn btn-secondary" onclick="closeBoroscopeScheduleModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Schedule Inspection</button>
+            </div>
+        </form>
+
+        <!-- Status message -->
+        <div id="boroscope-form-message" class="alert alert-info m-4" style="display: none;"></div>
     </div>
 </div>
 
@@ -19738,11 +20603,586 @@ async function viewShipmentDetails(shipmentId) {
                 }
                 
                 showSuccessNotification(`Work type "${name}" added successfully!`);
-                document.getElementById('new-work-type-name').value = '';
+                
+                // Close modal and reload
                 await loadWorkTypes();
+                document.getElementById('new-work-type-name').value = '';
+                bootstrap.Modal.getInstance(document.getElementById('addWorkTypeModal')).hide();
             } catch (error) {
-                console.error('Error saving work type:', error);
-                showErrorNotification('Failed to save work type');
+                console.error('Error adding work type:', error);
+                showErrorNotification('Failed to add work type');
+            }
+        }
+
+        // Load statuses on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConditionStatuses();
+            loadWorkTypes();
+        });
+    </script>
+
+    <script>
+        // ============================================
+        // GSS REGISTRY FUNCTIONS (GLOBAL SCOPE)
+        // ============================================
+        let selectedGSSID = null;
+        let gssRangeData = [];
+        let showAssigned = false;
+        const MAX_GSS_RANGE = 30;
+
+        function toggleShowAssigned() {
+            showAssigned = document.getElementById('show-assigned-toggle').checked;
+            if (gssRangeData.length > 0) {
+                generateGSSRange();
+            }
+        }
+
+        async function generateGSSRange() {
+            const from = parseInt(document.getElementById('gss-from').value);
+            const to = parseInt(document.getElementById('gss-to').value);
+
+            if (isNaN(from) || isNaN(to)) {
+                alert('Please enter valid numbers');
+                return;
+            }
+
+            if (from > to) {
+                alert('Invalid range: FROM must be less than TO');
+                return;
+            }
+
+            const rangeSize = to - from + 1;
+            if (rangeSize > MAX_GSS_RANGE) {
+                alert(`Range too large! Maximum ${MAX_GSS_RANGE} numbers at once`);
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/gss/range?from_id=${from}&to_id=${to}&show_assigned=${showAssigned}&_t=${Date.now()}`);
+
+                if (!response.ok) throw new Error('Failed to fetch GSS range');
+
+                gssRangeData = await response.json();
+                
+                // Сохраняем диапазон в localStorage
+                localStorage.setItem('gss_range_from', from.toString());
+                localStorage.setItem('gss_range_to', to.toString());
+                
+                renderGSSGrid(gssRangeData);
+            } catch (error) {
+                console.error('Error fetching GSS range:', error);
+                alert('Failed to load GSS range');
+            }
+        }
+
+        // Функция для восстановления сохраненного диапазона
+        function restoreSavedGSSRange() {
+            const savedFrom = localStorage.getItem('gss_range_from');
+            const savedTo = localStorage.getItem('gss_range_to');
+            
+            const fromInput = document.getElementById('gss-from');
+            const toInput = document.getElementById('gss-to');
+            
+            if (savedFrom && savedTo && fromInput && toInput) {
+                fromInput.value = savedFrom;
+                toInput.value = savedTo;
+                // Автоматически генерируем сохраненный диапазон
+                console.log('Restoring GSS range:', savedFrom, '-', savedTo);
+                generateGSSRange();
+            } else {
+                console.log('No saved GSS range found or elements not ready');
+            }
+        }
+
+        function renderGSSGrid(data) {
+            const container = document.getElementById('gss-grid-container');
+            container.innerHTML = '';
+
+            if (data.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted w-100"><i class="fas fa-check-circle fa-2x mb-2"></i><p>All GSS IDs in this range are assigned!</p></div>';
+                return;
+            }
+
+            data.forEach(item => {
+                const button = document.createElement('button');
+                button.textContent = item.gss_id;
+                button.className = 'gss-button';
+                button.dataset.gssId = item.gss_id;
+
+                if (item.is_assigned) {
+                    button.classList.add('assigned');
+                    const info = item.engine_info;
+                    button.title = `Assigned to:\nOriginal SN: ${info?.original_sn || 'N/A'}\nCurrent SN: ${info?.current_sn || 'Same'}\nModel: ${info?.model || 'N/A'}\nBy: ${info?.assigned_by || 'Unknown'}`;
+                    button.disabled = true;
+                } else {
+                    button.classList.add('available');
+                    button.onclick = () => selectGSSID(item.gss_id, button);
+                }
+
+                container.appendChild(button);
+            });
+        }
+
+        function selectGSSID(gssId, buttonElement) {
+            selectedGSSID = gssId;
+
+            document.querySelectorAll('.gss-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+
+            buttonElement.classList.add('selected');
+            document.getElementById('selected-gss-number').textContent = gssId;
+
+            buttonElement.style.animation = 'pulse 0.5s';
+            setTimeout(() => { buttonElement.style.animation = ''; }, 500);
+        }
+
+        async function loadEnginesForGSSDropdown() {
+            try {
+                const response = await fetch('/api/engines');
+                const engines = await response.json();
+
+                // Сохраняем engines глобально для использования в onchange
+                window.gssEngines = engines;
+
+                const originalSelect = document.getElementById('gss-original-sn');
+                const currentSelect = document.getElementById('gss-current-sn');
+                const editCurrentSelect = document.getElementById('edit-current-sn');
+
+                originalSelect.innerHTML = '<option value="">-- Select Engine --</option>';
+                currentSelect.innerHTML = '<option value="">-- Same as Original --</option>';
+                editCurrentSelect.innerHTML = '<option value="">-- Same as Original --</option>';
+
+                engines.forEach(eng => {
+                    // Original SN dropdown показывает original_sn
+                    const option1 = new Option(`${eng.original_sn} (${eng.model || 'Unknown'})`, eng.id);
+                    
+                    // Current SN dropdown показывает current_sn (или original_sn если пусто)
+                    const currentSnDisplay = (eng.current_sn && eng.current_sn !== '-') ? eng.current_sn : eng.original_sn;
+                    const option2 = new Option(`${currentSnDisplay} (${eng.model || 'Unknown'})`, eng.id);
+                    const option3 = new Option(`${currentSnDisplay} (${eng.model || 'Unknown'})`, eng.id);
+
+                    originalSelect.add(option1);
+                    currentSelect.add(option2);
+                    editCurrentSelect.add(option3);
+                });
+
+                // Auto-select current SN when original SN is selected
+                // Current SN dropdown показывает current_sn выбранного двигателя как текст
+                originalSelect.onchange = function() {
+                    const selectedEngineId = this.value;
+                    if (selectedEngineId && window.gssEngines) {
+                        const engine = window.gssEngines.find(e => e.id == selectedEngineId);
+                        if (engine && engine.current_sn && engine.current_sn !== '-') {
+                            // Просто показываем current_sn в текстовом виде
+                            // Current SN dropdown тоже указывает на тот же двигатель
+                            currentSelect.value = selectedEngineId;
+                        } else {
+                            // Если current_sn пустой или "-", оставляем "Same as Original"
+                            currentSelect.value = '';
+                        }
+                    } else {
+                        currentSelect.value = '';
+                    }
+                };
+            } catch (error) {
+                console.error('Error loading engines:', error);
+            }
+        }
+
+        function showPhotoOption(type) {
+            const uploadDiv = document.getElementById('photo-upload-option');
+            const urlDiv = document.getElementById('photo-url-option');
+
+            if (type === 'upload') {
+                uploadDiv.style.display = 'block';
+                urlDiv.style.display = 'none';
+                document.getElementById('gss-photo-url').value = '';
+            } else {
+                uploadDiv.style.display = 'none';
+                urlDiv.style.display = 'block';
+                document.getElementById('gss-photo-file').value = '';
+            }
+
+            document.getElementById('photo-preview').style.display = 'none';
+        }
+
+        function previewPhoto() {
+            const file = document.getElementById('gss-photo-file').files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('photo-preview');
+                const img = document.getElementById('photo-preview-img');
+                img.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function previewPhotoURL() {
+            const url = document.getElementById('gss-photo-url').value;
+            if (!url) return;
+
+            const preview = document.getElementById('photo-preview');
+            const img = document.getElementById('photo-preview-img');
+            img.src = url;
+            preview.style.display = 'block';
+
+            img.onerror = function() {
+                alert('Invalid image URL');
+                preview.style.display = 'none';
+            };
+        }
+
+        async function assignGSSID() {
+            if (!selectedGSSID) {
+                alert('Please select a GSS ID first!');
+                return;
+            }
+
+            const engineId = document.getElementById('gss-original-sn').value;
+            if (!engineId) {
+                alert('Please select Original SN!');
+                return;
+            }
+
+            // Получаем реальный current_sn из данных двигателя
+            const selectedEngine = window.gssEngines.find(e => e.id == engineId);
+            const actualCurrentSn = selectedEngine ? (selectedEngine.current_sn !== '-' ? selectedEngine.current_sn : null) : null;
+
+            const remarks = document.getElementById('gss-remarks').value;
+            const photoUrl = document.getElementById('gss-photo-url').value;
+            const photoFile = document.getElementById('gss-photo-file').files[0];
+
+            try {
+                const userId = sessionStorage.getItem('user_id') || 1;
+                const assignData = {
+                    gss_id: selectedGSSID,
+                    engine_id: parseInt(engineId),
+                    current_sn: actualCurrentSn,
+                    photo_url: photoUrl || null,
+                    remarks: remarks || null
+                };
+
+                const response = await fetch(`/api/gss/assign?user_id=${userId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(assignData)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to assign GSS ID');
+                }
+
+                if (photoFile) {
+                    const formData = new FormData();
+                    formData.append('file', photoFile);
+
+                    await fetch(`/api/gss/upload-photo/${selectedGSSID}`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+
+                showSuccessNotification(`GSS ID ${selectedGSSID} successfully assigned!`);
+                clearGSSForm();
+                generateGSSRange();
+                loadGSSHistory();
+            } catch (error) {
+                console.error('Error assigning GSS ID:', error);
+                showErrorNotification(`Error: ${error.message}`);
+            }
+        }
+
+        async function loadGSSHistory() {
+            console.log('🔄 loadGSSHistory called');
+            try {
+                const response = await fetch('/api/gss/history');
+                console.log('📡 API response status:', response.status);
+
+                if (!response.ok) throw new Error('Failed to load GSS history');
+
+                const history = await response.json();
+                console.log('✅ Received data:', history);
+                console.log('📊 Data length:', history.length);
+                renderGSSHistoryTable(history);
+            } catch (error) {
+                console.error('❌ Error loading GSS history:', error);
+                const tbody = document.getElementById('gss-history-tbody');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Error loading history</td></tr>';
+                }
+            }
+        }
+
+        function renderGSSHistoryTable(data) {
+            console.log('🎨 renderGSSHistoryTable called');
+            console.log('📋 Input data:', data);
+            
+            const tbody = document.getElementById('gss-history-tbody');
+            const container = document.getElementById('gss-history-list');
+            
+            if (!container) {
+                console.error('❌ Container element not found!');
+                return;
+            }
+            
+            if (!data || data.length === 0) {
+                console.log('⚠️ No data to display');
+                container.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-inbox fa-2x mb-2"></i><p>No GSS assignments yet</p></div>';
+                return;
+            }
+
+            console.log('✏️ Building cards for', data.length, 'items');
+            let rowsHTML = '';
+            data.forEach(item => {
+                const photoHtml = item.photo_filename 
+                    ? `<img src="/uploads/gss_photos/${item.photo_filename}" style="max-width:50px; border-radius:4px; cursor:pointer;" onclick="viewPhoto('/uploads/gss_photos/${item.photo_filename}')" alt="Photo">`
+                    : (item.photo_url ? `<img src="${item.photo_url}" style="max-width:50px; border-radius:4px; cursor:pointer;" onclick="viewPhoto('${item.photo_url}')" alt="Photo">` : '—');
+                
+                const remarksBtn = item.remarks 
+                    ? `<i class="fas fa-comment-dots" style="cursor:pointer; color:#0d6efd;" onclick="viewRemarks(${item.gss_id}, \`${item.remarks.replace(/`/g, '\\`')}\`)" title="View remarks"></i>`
+                    : '—';
+                
+                rowsHTML += `
+                    <div style="display:grid; grid-template-columns: 0.6fr 0.8fr 1.2fr 1fr 1fr 1fr 1fr 0.9fr 0.6fr 0.8fr; gap:10px; align-items:center; padding:12px; border-bottom:1px solid #e0e0e0; background:#fff; width:100%;">
+                        <div><span class="badge bg-primary">${item.gss_id}</span></div>
+                        <div style="text-align:center;">${photoHtml}</div>
+                        <div><small>${item.original_sn || '—'}</small></div>
+                        <div><small>${item.current_sn || '—'}</small></div>
+                        <div><small>${item.engine_model || '—'}</small></div>
+                        <div><small>${item.engine_location || '—'}</small></div>
+                        <div><small>${item.assigned_by_name || '—'}</small></div>
+                        <div><small>${new Date(item.assigned_date).toLocaleDateString()}</small></div>
+                        <div style="text-align:center;">${remarksBtn}</div>
+                        <div>
+                            <button class="btn btn-sm btn-warning me-1" onclick="editGSS(${item.gss_id})" title="Edit"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteGSS(${item.gss_id})" title="Delete"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const header = `
+                <div style="display:grid; grid-template-columns: 0.6fr 0.8fr 1.2fr 1fr 1fr 1fr 1fr 0.9fr 0.6fr 0.8fr; gap:10px; align-items:center; padding:12px; background:#212529; color:white; font-weight:bold; width:100%;">
+                    <div>GSS ID</div>
+                    <div style="text-align:center;">Photo</div>
+                    <div>Original SN</div>
+                    <div>Current SN</div>
+                    <div>Model</div>
+                    <div>Location</div>
+                    <div>Assigned By</div>
+                    <div>Date</div>
+                    <div style="text-align:center;">Remarks</div>
+                    <div>Actions</div>
+                </div>
+            `;
+            
+            container.innerHTML = header + rowsHTML;
+            console.log('✅ Cards rendered:', data.length, 'items');
+        }
+
+        function viewPhoto(photoUrl) {
+            const modal = new bootstrap.Modal(document.getElementById('photoViewModal'));
+            document.getElementById('modal-photo-img').src = photoUrl;
+            modal.show();
+        }
+
+        function viewRemarks(gssId, remarks) {
+            const modal = new bootstrap.Modal(document.getElementById('remarksViewModal'));
+            document.getElementById('remarks-gss-id').textContent = gssId;
+            document.getElementById('remarks-content').textContent = remarks;
+            modal.show();
+        }
+
+        async function editGSS(gssId) {
+            try {
+                const response = await fetch(`/api/gss/history?gss_id=${gssId}`);
+
+                const data = await response.json();
+                if (data.length === 0) return;
+
+                const item = data[0];
+                document.getElementById('edit-gss-id').value = item.gss_id;
+                document.getElementById('edit-gss-display').value = item.gss_id;
+                document.getElementById('edit-original-sn').value = item.original_sn;
+                document.getElementById('edit-current-sn').value = item.engine_id || '';
+                document.getElementById('edit-photo-url').value = item.photo_url || '';
+                document.getElementById('edit-remarks').value = item.remarks || '';
+
+                const modal = new bootstrap.Modal(document.getElementById('editGSSModal'));
+                modal.show();
+            } catch (error) {
+                console.error('Error loading GSS for edit:', error);
+            }
+        }
+
+        async function saveGSSEdit() {
+            const gssId = parseInt(document.getElementById('edit-gss-id').value);
+            const currentSn = document.getElementById('edit-current-sn').value;
+            const photoUrl = document.getElementById('edit-photo-url').value;
+            const remarks = document.getElementById('edit-remarks').value;
+
+            try {
+                const response = await fetch(`/api/gss/edit/${gssId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        current_sn: currentSn || null,
+                        photo_url: photoUrl || null,
+                        remarks: remarks || null
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to update GSS');
+
+                showSuccessNotification('GSS assignment updated successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('editGSSModal')).hide();
+                generateGSSRange();
+                loadGSSHistory();
+            } catch (error) {
+                console.error('Error updating GSS:', error);
+                showErrorNotification('Failed to update GSS assignment');
+            }
+        }
+
+        async function deleteGSS(gssId) {
+            if (!confirm(`Are you sure you want to delete GSS ID ${gssId}? This will free up the number.`)) return;
+
+            try {
+                const response = await fetch(`/api/gss/delete/${gssId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) throw new Error('Failed to delete GSS');
+
+                showSuccessNotification(`GSS ID ${gssId} deleted successfully`);
+                generateGSSRange();
+                loadGSSHistory();
+            } catch (error) {
+                console.error('Error deleting GSS:', error);
+                showErrorNotification('Failed to delete GSS assignment');
+            }
+        }
+
+        function clearGSSForm() {
+            selectedGSSID = null;
+            document.getElementById('selected-gss-number').textContent = '-';
+            document.getElementById('gss-original-sn').value = '';
+            document.getElementById('gss-current-sn').value = '';
+            document.getElementById('gss-remarks').value = '';
+            document.getElementById('gss-photo-file').value = '';
+            document.getElementById('gss-photo-url').value = '';
+            document.getElementById('photo-preview').style.display = 'none';
+            document.getElementById('photo-upload-option').style.display = 'none';
+            document.getElementById('photo-url-option').style.display = 'none';
+
+            document.querySelectorAll('.gss-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+        }
+
+        // ============================================
+        // GSS TOOLTIP FUNCTIONS
+        // ============================================
+        let gssTooltip = null;
+
+        async function showGSSTooltip(event, gssId) {
+            if (gssId === '-' || !gssId) return;
+
+            try {
+                // Загружаем информацию о GSS
+                const response = await fetch(`/api/gss/history`);
+                if (!response.ok) return;
+
+                const history = await response.json();
+                const gssInfo = history.find(item => item.gss_id == gssId);
+
+                if (!gssInfo) return;
+
+                // Создаем tooltip
+                if (gssTooltip) {
+                    document.body.removeChild(gssTooltip);
+                }
+
+                gssTooltip = document.createElement('div');
+                gssTooltip.style.cssText = `
+                    position: fixed;
+                    background: white;
+                    border: 2px solid #0d6efd;
+                    border-radius: 8px;
+                    padding: 12px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    z-index: 10000;
+                    max-width: 350px;
+                    font-size: 13px;
+                    pointer-events: none;
+                `;
+
+                let photoHtml = '';
+                if (gssInfo.photo_filename) {
+                    photoHtml = `<img src="/uploads/gss_photos/${gssInfo.photo_filename}" style="width: 100%; max-height: 150px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;" alt="GSS Photo">`;
+                } else if (gssInfo.photo_url) {
+                    photoHtml = `<img src="${gssInfo.photo_url}" style="width: 100%; max-height: 150px; object-fit: cover; border-radius: 4px; margin-bottom: 8px;" alt="GSS Photo">`;
+                }
+
+                // Форматируем дату
+                const assignedDate = gssInfo.assigned_date ? new Date(gssInfo.assigned_date).toLocaleDateString('ru-RU', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }) : '-';
+
+                gssTooltip.innerHTML = `
+                    <div style="font-weight: bold; color: #0d6efd; margin-bottom: 8px; font-size: 14px;">
+                        <i class="bi bi-tag-fill"></i> GSS ID: ${gssInfo.gss_id}
+                    </div>
+                    ${photoHtml}
+                    <div style="line-height: 1.6;">
+                        <div><strong>Original SN:</strong> ${gssInfo.original_sn || '-'}</div>
+                        <div><strong>Current SN:</strong> ${gssInfo.current_sn || gssInfo.original_sn || '-'}</div>
+                        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #dee2e6;">
+                            <div><strong>Assigned by:</strong> ${gssInfo.assigned_by_name || 'Unknown'}</div>
+                            <div><strong>Date:</strong> ${assignedDate}</div>
+                        </div>
+                        ${gssInfo.remarks ? `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #dee2e6;"><strong>Remarks:</strong><br><div style="max-height: 100px; overflow-y: auto; padding: 4px; background: #f8f9fa; border-radius: 4px; margin-top: 4px;">${gssInfo.remarks}</div></div>` : ''}
+                    </div>
+                `;
+
+                document.body.appendChild(gssTooltip);
+
+                // Позиционируем tooltip рядом с курсором
+                const x = event.clientX + 15;
+                const y = event.clientY + 15;
+                
+                gssTooltip.style.left = x + 'px';
+                gssTooltip.style.top = y + 'px';
+
+                // Проверяем не выходит ли за границы экрана
+                const rect = gssTooltip.getBoundingClientRect();
+                if (rect.right > window.innerWidth) {
+                    gssTooltip.style.left = (event.clientX - rect.width - 15) + 'px';
+                }
+                if (rect.bottom > window.innerHeight) {
+                    gssTooltip.style.top = (event.clientY - rect.height - 15) + 'px';
+                }
+
+            } catch (error) {
+                console.error('Error loading GSS info:', error);
+            }
+        }
+
+        function hideGSSTooltip() {
+            if (gssTooltip && gssTooltip.parentNode) {
+                document.body.removeChild(gssTooltip);
+                gssTooltip = null;
             }
         }
 
@@ -19865,6 +21305,8 @@ async function viewShipmentDetails(shipmentId) {
     </div>
 </div>
 
+
+
 <style>
 #boroscope-modal.active {
     display: block !important;
@@ -19879,7 +21321,217 @@ async function viewShipmentDetails(shipmentId) {
     padding: 0.75rem 1rem;
     vertical-align: middle;
 }
+
+/* ============================================
+   GSS REGISTRY STYLES
+   ============================================ */
+.gss-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+    gap: 10px;
+    max-height: 450px;
+    overflow-y: auto;
+    padding: 20px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    border: 2px solid #dee2e6;
+}
+
+.gss-button {
+    padding: 14px 10px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.gss-button.available {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    border-color: #bd2130;
+}
+
+.gss-button.available:hover {
+    background: linear-gradient(135deg, #c82333 0%, #a71d2a 100%);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4);
+}
+
+.gss-button.assigned {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    color: white;
+    border-color: #1e7e34;
+    cursor: help;
+    opacity: 0.75;
+}
+
+.gss-button.assigned:hover {
+    opacity: 1;
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.gss-button.selected {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    border-color: #004085;
+    transform: scale(1.12);
+    box-shadow: 0 8px 16px rgba(0, 123, 255, 0.5);
+    z-index: 10;
+}
+
+#photo-preview {
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    text-align: center;
+}
+
+#photo-preview-img {
+    border: 2px solid #dee2e6;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.gss-photo-thumb {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    border: 2px solid #dee2e6;
+}
+
+.gss-photo-thumb:hover {
+    transform: scale(1.8);
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.remarks-btn {
+    cursor: pointer;
+    color: #007bff;
+    font-size: 18px;
+}
+
+.remarks-btn:hover {
+    color: #0056b3;
+    transform: scale(1.2);
+}
+
+#selected-gss-display {
+    border-left: 4px solid #007bff;
+}
+
+#selected-gss-number {
+    color: #007bff;
+    font-weight: bold;
+}
+
+.gss-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.gss-grid::-webkit-scrollbar-track {
+    background: #e9ecef;
+    border-radius: 10px;
+}
+
+.gss-grid::-webkit-scrollbar-thumb {
+    background: #6c757d;
+    border-radius: 10px;
+}
+
+.gss-grid::-webkit-scrollbar-thumb:hover {
+    background: #495057;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+}
 </style>
+
+</script>
+
+<!-- GSS Modals -->
+<div class="modal fade" id="photoViewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">GSS Photo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modal-photo-img" src="" alt="GSS Photo" style="max-width:100%;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="remarksViewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Remarks - GSS ID <span id="remarks-gss-id"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="remarks-content"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editGSSModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Edit GSS Assignment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-gss-id">
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">GSS ID</label>
+                    <input type="text" id="edit-gss-display" class="form-control" disabled>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Original SN</label>
+                    <input type="text" id="edit-original-sn" class="form-control" disabled>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Current SN</label>
+                    <select id="edit-current-sn" class="form-control">
+                        <option value="">-- Same as Original --</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Photo URL</label>
+                    <input type="url" id="edit-photo-url" class="form-control" placeholder="https://...">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Remarks</label>
+                    <textarea id="edit-remarks" class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="saveGSSEdit()">
+                    <i class="bi bi-check-lg"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
