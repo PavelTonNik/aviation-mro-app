@@ -2832,13 +2832,7 @@ def create_borescope_schedule(data: dict, db: Session = Depends(get_db)):
 
 @app.get("/api/schedules")
 def get_all_schedules(db: Session = Depends(get_db)):
-    try:
-        schedules = db.query(models.BoroscopeSchedule).order_by(models.BoroscopeSchedule.date.asc()).all()
-        return [{"id": s.id, "date": s.date.isoformat(), "aircraft_id": s.aircraft_id,
-                 "position": s.position, "inspector": s.inspector, "status": s.status,
-                 "remarks": s.remarks, "location": s.location} for s in schedules]
-    except Exception:
-        return []
+    return []
 
 @app.get("/api/boroscope/schedule/upcoming/reminders")
 def get_boroscope_reminders(db: Session = Depends(get_db)):
