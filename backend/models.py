@@ -57,7 +57,6 @@ class Engine(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     original_sn = Column(String, unique=True)
-    gss_sn = Column(String, nullable=True)
     current_sn = Column(String, nullable=False) # Основной идентификатор
     model = Column(String, nullable=True) # Модель двигателя (CF6-80, CFM56 и т.д.)
     

@@ -27,32 +27,8 @@ app = FastAPI(title="Aviation MRO System")
 def startup_event():
     """При старте приложения создаем все таблицы (включая новые)"""
     try:
-        # 1. Создаем новые таблицы (boroscope_schedule, gss_assignments)
         models.Base.metadata.create_all(bind=database.engine)
         print("✅ All database tables created/verified successfully")
-        
-        # 2. PostgreSQL миграция: добавляем gss_sn в существующую таблицу engines
-        if "postgres" in str(database.engine.url):
-            db = database.SessionLocal()
-            try:
-                # Проверяем существует ли колонка gss_sn
-                result = db.execute(text("""
-                    SELECT column_name FROM information_schema.columns 
-                    WHERE table_name='engines' AND column_name='gss_sn'
-                """))
-                if not result.fetchone():
-                    print("🔧 Adding gss_sn column to engines table...")
-                    db.execute(text("ALTER TABLE engines ADD COLUMN gss_sn VARCHAR"))
-                    db.commit()
-                    print("✅ gss_sn column added successfully")
-                else:
-                    print("✅ gss_sn column already exists")
-            except Exception as e:
-                db.rollback()
-                print(f"⚠️ Migration warning: {e}")
-            finally:
-                db.close()
-                
     except Exception as e:
         print(f"⚠️ Startup warning: {e}")
     
@@ -1043,7 +1019,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                     positions[eng.position] = {
                         "engine_id": eng.id,
                         "original_sn": eng.original_sn,
-                        "gss_sn": eng.gss_sn or eng.original_sn,
+                        "gss_sn": eng.original_sn,
                         "current_sn": eng.current_sn,
                         "model": eng.model,
                         "total_tsn": round(eng.total_time, 1),
@@ -1118,7 +1094,7 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
             result.append({
                 "id": eng.id,
                 "original_sn": eng.original_sn or "Нет данных",
-                "gss_sn": eng.gss_sn or eng.original_sn,
+                "gss_sn": eng.original_sn,
                 "current_sn": eng.current_sn or "Нет данных",
                 "model": eng.model or "-",
                 "status": eng.status,
@@ -1188,7 +1164,6 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
     # Создаем новый двигатель
     new_engine = models.Engine(
         original_sn=data.original_sn,
-        gss_sn=data.gss_sn or data.original_sn,
         current_sn=data.current_sn,
         model=data.model,
         status=data.status,
@@ -1268,7 +1243,6 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
     # Обновляем поля
     engine.original_sn = data.original_sn
     engine.model = data.model
-    engine.gss_sn = data.gss_sn or data.original_sn
     engine.current_sn = data.current_sn
     engine.status = data.status
     engine.total_time = data.total_time
@@ -1306,7 +1280,7 @@ def get_engine_by_id(engine_id: int, db: Session = Depends(get_db)):
     return {
         "id": engine.id,
         "original_sn": engine.original_sn or "N/A",
-        "gss_sn": engine.gss_sn or engine.original_sn,
+        "gss_sn": engine.original_sn,
         "current_sn": engine.current_sn or "N/A",
         "model": engine.model or "-",
         "status": engine.status,
