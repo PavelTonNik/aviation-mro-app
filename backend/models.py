@@ -293,35 +293,33 @@ class TableColumnConfig(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
-# ВРЕМЕННО ОТКЛЮЧЕНО - ВЫЗЫВАЕТ ОШИБКИ В PRODUCTION
-# class BoroscopeSchedule(Base):
-#     """Расписание borescope инспекций"""
-#     __tablename__ = "boroscope_schedule"
-#     
-#     id = Column(Integer, primary_key=True, index=True)
-#     date = Column(Date, nullable=False)
-#     aircraft_id = Column(Integer, ForeignKey('aircrafts.id', ondelete='CASCADE'), nullable=False)
-#     position = Column(Integer, nullable=False)  # 1-4
-#     inspector = Column(String(255), nullable=False)
-#     remarks = Column(Text, nullable=True)
-#     location = Column(String(255), nullable=True)
-#     status = Column(String(50), default='Scheduled', nullable=False)  # Scheduled, Completed, Cancelled
-#     created_at = Column(DateTime(timezone=True), server_default=func.now())
-#     completed_at = Column(DateTime(timezone=True), nullable=True)
+class BoroscopeSchedule(Base):
+    """Расписание borescope инспекций"""
+    __tablename__ = "boroscope_schedule"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, nullable=False)
+    aircraft_id = Column(Integer, ForeignKey('aircrafts.id', ondelete='CASCADE'), nullable=False)
+    position = Column(Integer, nullable=False)  # 1-4
+    inspector = Column(String(255), nullable=False)
+    remarks = Column(Text, nullable=True)
+    location = Column(String(255), nullable=True)
+    status = Column(String(50), default='Scheduled', nullable=False)  # Scheduled, Completed, Cancelled
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
 
-# ВРЕМЕННО ОТКЛЮЧЕНО - ВЫЗЫВАЕТ ОШИБКИ В PRODUCTION
-# class GssAssignment(Base):
-#     """GSS ID присвоения к двигателям (nameplate tracking)"""
-#     __tablename__ = "gss_assignments"
-#     
-#     id = Column(Integer, primary_key=True, index=True)
-#     gss_id = Column(Integer, unique=True, nullable=False, index=True)  # Уникальный GSS ID
-#     engine_id = Column(Integer, ForeignKey('engines.id', ondelete='CASCADE'), nullable=False)
-#     original_sn = Column(String, nullable=False)  # Snapshot Original SN
-#     current_sn = Column(String, nullable=True)  # Snapshot Current SN (если отличается)
-#     photo_url = Column(String, nullable=True)  # URL фото
-#     photo_filename = Column(String, nullable=True)  # Имя файла фото
-#     remarks = Column(Text, nullable=True)
-#     assigned_by = Column(Integer, ForeignKey('users.id'), nullable=False)
-#     assigned_date = Column(DateTime(timezone=True), server_default=func.now())
+class GssAssignment(Base):
+    """GSS ID присвоения к двигателям (nameplate tracking)"""
+    __tablename__ = "gss_assignments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    gss_id = Column(Integer, unique=True, nullable=False, index=True)  # Уникальный GSS ID
+    engine_id = Column(Integer, ForeignKey('engines.id', ondelete='CASCADE'), nullable=False)
+    original_sn = Column(String, nullable=False)  # Snapshot Original SN
+    current_sn = Column(String, nullable=True)  # Snapshot Current SN (если отличается)
+    photo_url = Column(String, nullable=True)  # URL фото
+    photo_filename = Column(String, nullable=True)  # Имя файла фото
+    remarks = Column(Text, nullable=True)
+    assigned_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    assigned_date = Column(DateTime(timezone=True), server_default=func.now())

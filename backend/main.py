@@ -22,10 +22,36 @@ except ImportError:  # fallback when running as a standalone script
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI(title="Aviation MRO System")
-# --- ВСТАВИТЬ ЭТО В backend/main.py ПОСЛЕ app = FastAPI(...) ---
 
 @app.on_event("startup")
 def startup_event():
+    """При старте приложения создаем все таблицы (включая новые)"""
+    try:
+        # Пересоздаем ВСЕ таблицы из models.py если их нет
+        models.Base.metadata.create_all(bind=database.engine)
+        print("✅ All database tables created/verified successfully")
+        
+        # PostgreSQL миграция: добавить gss_sn если его нет
+        if "postgres" in str(database.engine.url):
+            try:
+                with database.engine.connect() as conn:
+                    # Проверяем существует ли колонка gss_sn
+                    result = conn.execute(text("""
+                        SELECT column_name FROM information_schema.columns 
+                        WHERE table_name='engines' AND column_name='gss_sn'
+                    """))
+                    if not result.fetchone():
+                        print("🔧 Adding gss_sn column to engines table...")
+                        conn.execute(text("ALTER TABLE engines ADD COLUMN gss_sn VARCHAR"))
+                        conn.commit()
+                        print("✅ gss_sn column added successfully")
+            except Exception as e:
+                print(f"⚠️ gss_sn migration warning: {e}")
+                
+    except Exception as e:
+        print(f"⚠️ Database table creation warning: {e}")
+    
+    # SQLite-specific column additions (только для локальной БД)
     ensure_sqlite_column("aircrafts", "initial_total_time FLOAT DEFAULT 0")
     ensure_sqlite_column("aircrafts", "initial_total_cycles INTEGER DEFAULT 0")
     ensure_sqlite_column("aircrafts", "last_atlb_ref TEXT")
@@ -1084,7 +1110,7 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
             result.append({
                 "id": eng.id,
                 "original_sn": eng.original_sn or "Нет данных",
-                "gss_sn": eng.gss_sn or eng.original_sn,
+                "gss_sn": getattr(eng, 'gss_sn', None) or eng.original_sn,
                 "current_sn": eng.current_sn or "Нет данных",
                 "model": eng.model or "-",
                 "status": eng.status,
@@ -1101,6 +1127,7 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
             })
         return result
     except Exception as e:
+        print(f"ERROR in /api/engines: {e}")
         return []
 
 # --- API (ACTIONS & HISTORY) ---
