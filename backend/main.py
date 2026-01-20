@@ -1038,7 +1038,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                     positions[eng.position] = {
                         "engine_id": eng.id,
                         "original_sn": eng.original_sn,
-                        "gss_sn": eng.gss_sn or eng.original_sn,
+                        "gss_sn": getattr(eng, 'gss_sn', None) or eng.original_sn,
                         "current_sn": eng.current_sn,
                         "model": eng.model,
                         "total_tsn": round(eng.total_time, 1),
@@ -1079,6 +1079,9 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
         
         return result
     except Exception as e:
+        print(f"ERROR in /api/dashboard/aircraft-details: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 # --- ВОТ ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОКАЗЫВАЕТ ВСЕ ДВИГАТЕЛИ) ---
