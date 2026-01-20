@@ -12,9 +12,14 @@ DEFAULT_SQLITE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
 
 DATABASE_URL = os.environ.get("DATABASE_URL", DEFAULT_SQLITE_URL)
 
-# Fix for Render: postgres:// -> postgresql://
+# Render uses postgres://; psycopg2 expects postgresql://
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Force SSL for Render Postgres if not explicitly provided
+if DATABASE_URL.startswith("postgresql://") and "sslmode" not in DATABASE_URL:
+    sep = "&" if "?" in DATABASE_URL else "?"
+    DATABASE_URL = f"{DATABASE_URL}{sep}sslmode=require"
 
 IS_SQLITE = DATABASE_URL.startswith("sqlite://")
 
