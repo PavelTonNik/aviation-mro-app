@@ -50,11 +50,33 @@ ALLOW_SQLITE_FALLBACK = os.environ.get("ALLOW_SQLITE_FALLBACK", "0").lower() in 
 
 if not IS_SQLITE and not IS_LOCAL_DEV:
     try:
-        # PostgreSQL doesn't accept 'timeout' in connect_args
-        engine = create_engine(DATABASE_URL, **engine_kwargs)
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        print(f"✅ Connected to PostgreSQL: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'database'}")
+        # PostgreSQL needs SSL; add connect_args explicitly
+        pg_connect_args = {}
+        try:
+            if DATABASE_URL.startswith("postgresql://"):
+                pg_connect_args["sslmode"] = "require"
+        except Exception:
+            pass
+        engine = create_engine(DATABASE_URL, connect_args=pg_connect_args, **engine_kwargs)
+
+        # Robust retry on cold starts
+        import time
+        max_attempts = int(os.environ.get("DB_CONNECT_RETRIES", "8"))
+        last_err = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                print(f"✅ Connected to PostgreSQL (attempt {attempt}/{max_attempts})")
+                last_err = None
+                break
+            except Exception as e_conn:  # noqa: BLE001
+                last_err = e_conn
+                sleep_s = min(1 + attempt, 6)
+                print(f"⏳ DB connect attempt {attempt}/{max_attempts} failed: {type(e_conn).__name__}: {e_conn}")
+                time.sleep(sleep_s)
+        if last_err is not None:
+            raise last_err
     except Exception as e:
         if ALLOW_SQLITE_FALLBACK:
             print(f"⚠️  PostgreSQL unavailable ({type(e).__name__}: {e}), falling back to local SQLite (explicitly allowed by ALLOW_SQLITE_FALLBACK=1)")
