@@ -1,5 +1,5 @@
 # backend/database.py
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
@@ -42,6 +42,19 @@ else:
     }
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)
+
+# Retry a few times to avoid transient SSL close on Render before metadata.create_all
+import time
+for _ in range(5):
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        break
+    except Exception:
+        time.sleep(2)
+else:
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
