@@ -893,212 +893,215 @@ def delete_recent_actions(range_key: str = Query("all", alias="range"), db: Sess
 
 @app.get("/api/dashboard/aircraft-details")
 def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
+    """
+    Возвращает детальную информацию для дашборда:
+    - Общий налет самолета
+    - 4 позиции двигателей (даже если пустые)
+    - Для каждого двигателя: TSN/CSN с момента установки, N1/N2, дата обновления
+    """
     try:
-        """
-        Возвращает детальную информацию для дашборда:
-        - Общий налет самолета
-        - 4 позиции двигателей (даже если пустые)
-        - Для каждого двигателя: TSN/CSN с момента установки, N1/N2, дата обновления
-        """
         aircrafts = db.query(models.Aircraft).all()
     
-    # Если в базе нет самолетов - создаем пустые карточки для визуализации
-    if not aircrafts:
-        result = [
-            {
-                "aircraft_id": 1,
-                "tail_number": "ER-BAT",
-                "model": "Boeing 747-200",
-                "total_time": 0.0,
-                "total_cycles": 0,
-                "positions": [None, None, None, None]
-            },
-            {
-                "aircraft_id": 2,
-                "tail_number": "ER-BAR",
-                "model": "Boeing 747-200",
-                "total_time": 0.0,
-                "total_cycles": 0,
-                "positions": [None, None, None, None]
-            },
-            {
-                "aircraft_id": 3,
-                "tail_number": "ER-BAQ",
-                "model": "Boeing 747-200",
-                "total_time": 0.0,
-                "total_cycles": 0,
-                "positions": [None, None, None, None]
-            }
-        ]
-        return result
-    
-    result = []
-    
-    for ac in aircrafts:
-        # Последняя запись БЕЗ периода для заголовка (текущий налет)
-        latest_non_period = db.query(models.UtilizationParameter).filter(
-            models.UtilizationParameter.aircraft == ac.tail_number,
-            models.UtilizationParameter.period == False
-        ).order_by(
-            models.UtilizationParameter.created_at.desc(),
-            models.UtilizationParameter.date.desc(),
-            models.UtilizationParameter.id.desc()
-        ).first()
-
-        # Последняя ПЕРИОДНАЯ запись для сводки внутри раскрытия
-        latest_period = db.query(models.UtilizationParameter).filter(
-            models.UtilizationParameter.aircraft == ac.tail_number,
-            models.UtilizationParameter.period == True
-        ).order_by(
-            models.UtilizationParameter.created_at.desc(),
-            models.UtilizationParameter.date.desc(),
-            models.UtilizationParameter.id.desc()
-        ).first()
-
-        # Итог для заголовка: берем без периода, если есть, иначе поля самолета
-        util_ttsn = ac.total_time or 0.0
-        util_tcsn = ac.total_cycles or 0
-        util_date = None
-        if latest_non_period:
-            util_ttsn = latest_non_period.ttsn if latest_non_period.ttsn is not None else util_ttsn
-            util_tcsn = latest_non_period.tcsn if latest_non_period.tcsn is not None else util_tcsn
-            util_date = latest_non_period.date.strftime("%Y-%m-%d") if latest_non_period.date else None
-
-        # Сводка периода: берем последнюю периодную запись
-        util_period = bool(latest_period)
-        util_date_from = latest_period.date_from.strftime("%Y-%m-%d") if latest_period and latest_period.date_from else None
-        util_date_to = latest_period.date_to.strftime("%Y-%m-%d") if latest_period and latest_period.date_to else None
-        period_ttsn = latest_period.ttsn if latest_period else None
-        period_tcsn = latest_period.tcsn if latest_period else None
-
-        # Последняя дата ввода данных (любая запись - периодная или нет)
-        last_entry = db.query(models.UtilizationParameter).filter(
-            models.UtilizationParameter.aircraft == ac.tail_number
-        ).order_by(
-            models.UtilizationParameter.created_at.desc()
-        ).first()
-        last_data_date = last_entry.created_at.strftime("%d-%m-%Y") if last_entry and last_entry.created_at else None
-
-        # Все двигатели на самолете
-        engines_on_wing = db.query(models.Engine).filter(
-            models.Engine.aircraft_id == ac.id,
-            models.Engine.status == "INSTALLED"
-        ).all()
-        
-        # Создаем 4 позиции (1, 2, 3, 4)
-        positions = {}
-        for pos in [1, 2, 3, 4]:
-            positions[pos] = None
-            
-        # Заполняем реальными двигателями
-        for eng in engines_on_wing:
-            if eng.position and 1 <= eng.position <= 4:
-                # Вычисляем налет на конкретном самолете
-                tsn_on_aircraft = 0.0
-                csn_on_aircraft = 0
-                
-                if eng.tsn_at_install is not None and eng.csn_at_install is not None:
-                    # Налет = Текущий TSN - TSN при установке
-                    tsn_on_aircraft = eng.total_time - eng.tsn_at_install
-                    csn_on_aircraft = eng.total_cycles - eng.csn_at_install
-                
-                # Находим последнюю запись ATLB для определения даты обновления
-                last_atlb = db.query(models.ActionLog).filter(
-                    models.ActionLog.action_type == "FLIGHT"
-                ).order_by(models.ActionLog.date.desc()).first()
-                
-                last_update = last_atlb.date.strftime("%Y-%m-%d %H:%M") if last_atlb else "N/A"
-                
-                positions[eng.position] = {
-                    "engine_id": eng.id,
-                    "original_sn": eng.original_sn,
-                    "gss_sn": eng.gss_sn or eng.original_sn,
-                    "current_sn": eng.current_sn,
-                    "model": eng.model,
-                    "total_tsn": round(eng.total_time, 1),
-                    "total_csn": eng.total_cycles,
-                    "tsn_on_aircraft": round(tsn_on_aircraft, 1),
-                    "csn_on_aircraft": csn_on_aircraft,
-                    "n1_takeoff": eng.n1_takeoff,
-                    "n1_cruise": eng.n1_cruise,
-                    "n2_takeoff": eng.n2_takeoff,
-                    "n2_cruise": eng.n2_cruise,
-                    "egt_takeoff": eng.egt_takeoff,
-                    "egt_cruise": eng.egt_cruise,
-                    "install_date": eng.install_date.strftime("%Y-%m-%d") if eng.install_date else "N/A",
-                    "last_update": last_update,
-                    "param_date": eng.last_param_update.strftime("%d.%m.%Y") if eng.last_param_update else None
+        # Если в базе нет самолетов - создаем пустые карточки для визуализации
+        if not aircrafts:
+            result = [
+                {
+                    "aircraft_id": 1,
+                    "tail_number": "ER-BAT",
+                    "model": "Boeing 747-200",
+                    "total_time": 0.0,
+                    "total_cycles": 0,
+                    "positions": [None, None, None, None]
+                },
+                {
+                    "aircraft_id": 2,
+                    "tail_number": "ER-BAR",
+                    "model": "Boeing 747-200",
+                    "total_time": 0.0,
+                    "total_cycles": 0,
+                    "positions": [None, None, None, None]
+                },
+                {
+                    "aircraft_id": 3,
+                    "tail_number": "ER-BAQ",
+                    "model": "Boeing 747-200",
+                    "total_time": 0.0,
+                    "total_cycles": 0,
+                    "positions": [None, None, None, None]
                 }
-        
-        result.append({
-            "aircraft_id": ac.id,
-            "tail_number": ac.tail_number,
-            "model": ac.model,
-            "total_time": round(util_ttsn, 1) if util_ttsn else 0.0,
-            "total_cycles": util_tcsn if util_tcsn else 0,
-            "utilization_date": util_date,
-            "utilization_period": util_period,
-            "utilization_date_from": util_date_from,
-            "utilization_date_to": util_date_to,
-            "period_ttsn": period_ttsn,
-            "period_tcsn": period_tcsn,
-            "last_data_date": last_data_date,
-            "positions": [
-                positions[1],
-                positions[2],
-                positions[3],
-                positions[4]
             ]
-        })
-    
-    return result
+            return result
+        
+        result = []
+        
+        for ac in aircrafts:
+            # Последняя запись БЕЗ периода для заголовка (текущий налет)
+            latest_non_period = db.query(models.UtilizationParameter).filter(
+                models.UtilizationParameter.aircraft == ac.tail_number,
+                models.UtilizationParameter.period == False
+            ).order_by(
+                models.UtilizationParameter.created_at.desc(),
+                models.UtilizationParameter.date.desc(),
+                models.UtilizationParameter.id.desc()
+            ).first()
+
+            # Последняя ПЕРИОДНАЯ запись для сводки внутри раскрытия
+            latest_period = db.query(models.UtilizationParameter).filter(
+                models.UtilizationParameter.aircraft == ac.tail_number,
+                models.UtilizationParameter.period == True
+            ).order_by(
+                models.UtilizationParameter.created_at.desc(),
+                models.UtilizationParameter.date.desc(),
+                models.UtilizationParameter.id.desc()
+            ).first()
+
+            # Итог для заголовка: берем без периода, если есть, иначе поля самолета
+            util_ttsn = ac.total_time or 0.0
+            util_tcsn = ac.total_cycles or 0
+            util_date = None
+            if latest_non_period:
+                util_ttsn = latest_non_period.ttsn if latest_non_period.ttsn is not None else util_ttsn
+                util_tcsn = latest_non_period.tcsn if latest_non_period.tcsn is not None else util_tcsn
+                util_date = latest_non_period.date.strftime("%Y-%m-%d") if latest_non_period.date else None
+
+            # Сводка периода: берем последнюю периодную запись
+            util_period = bool(latest_period)
+            util_date_from = latest_period.date_from.strftime("%Y-%m-%d") if latest_period and latest_period.date_from else None
+            util_date_to = latest_period.date_to.strftime("%Y-%m-%d") if latest_period and latest_period.date_to else None
+            period_ttsn = latest_period.ttsn if latest_period else None
+            period_tcsn = latest_period.tcsn if latest_period else None
+
+            # Последняя дата ввода данных (любая запись - периодная или нет)
+            last_entry = db.query(models.UtilizationParameter).filter(
+                models.UtilizationParameter.aircraft == ac.tail_number
+            ).order_by(
+                models.UtilizationParameter.created_at.desc()
+            ).first()
+            last_data_date = last_entry.created_at.strftime("%d-%m-%Y") if last_entry and last_entry.created_at else None
+
+            # Все двигатели на самолете
+            engines_on_wing = db.query(models.Engine).filter(
+                models.Engine.aircraft_id == ac.id,
+                models.Engine.status == "INSTALLED"
+            ).all()
+            
+            # Создаем 4 позиции (1, 2, 3, 4)
+            positions = {}
+            for pos in [1, 2, 3, 4]:
+                positions[pos] = None
+                
+            # Заполняем реальными двигателями
+            for eng in engines_on_wing:
+                if eng.position and 1 <= eng.position <= 4:
+                    # Вычисляем налет на конкретном самолете
+                    tsn_on_aircraft = 0.0
+                    csn_on_aircraft = 0
+                    
+                    if eng.tsn_at_install is not None and eng.csn_at_install is not None:
+                        # Налет = Текущий TSN - TSN при установке
+                        tsn_on_aircraft = eng.total_time - eng.tsn_at_install
+                        csn_on_aircraft = eng.total_cycles - eng.csn_at_install
+                    
+                    # Находим последнюю запись ATLB для определения даты обновления
+                    last_atlb = db.query(models.ActionLog).filter(
+                        models.ActionLog.action_type == "FLIGHT"
+                    ).order_by(models.ActionLog.date.desc()).first()
+                    
+                    last_update = last_atlb.date.strftime("%Y-%m-%d %H:%M") if last_atlb else "N/A"
+                    
+                    positions[eng.position] = {
+                        "engine_id": eng.id,
+                        "original_sn": eng.original_sn,
+                        "gss_sn": eng.gss_sn or eng.original_sn,
+                        "current_sn": eng.current_sn,
+                        "model": eng.model,
+                        "total_tsn": round(eng.total_time, 1),
+                        "total_csn": eng.total_cycles,
+                        "tsn_on_aircraft": round(tsn_on_aircraft, 1),
+                        "csn_on_aircraft": csn_on_aircraft,
+                        "n1_takeoff": eng.n1_takeoff,
+                        "n1_cruise": eng.n1_cruise,
+                        "n2_takeoff": eng.n2_takeoff,
+                        "n2_cruise": eng.n2_cruise,
+                        "egt_takeoff": eng.egt_takeoff,
+                        "egt_cruise": eng.egt_cruise,
+                        "install_date": eng.install_date.strftime("%Y-%m-%d") if eng.install_date else "N/A",
+                        "last_update": last_update,
+                        "param_date": eng.last_param_update.strftime("%d.%m.%Y") if eng.last_param_update else None
+                    }
+            
+            result.append({
+                "aircraft_id": ac.id,
+                "tail_number": ac.tail_number,
+                "model": ac.model,
+                "total_time": round(util_ttsn, 1) if util_ttsn else 0.0,
+                "total_cycles": util_tcsn if util_tcsn else 0,
+                "utilization_date": util_date,
+                "utilization_period": util_period,
+                "utilization_date_from": util_date_from,
+                "utilization_date_to": util_date_to,
+                "period_ttsn": period_ttsn,
+                "period_tcsn": period_tcsn,
+                "last_data_date": last_data_date,
+                "positions": [
+                    positions[1],
+                    positions[2],
+                    positions[3],
+                    positions[4]
+                ]
+            })
+        
+        return result
     except Exception as e:
         return []
 
 # --- ВОТ ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОКАЗЫВАЕТ ВСЕ ДВИГАТЕЛИ) ---
 @app.get("/api/engines")
 def get_all_engines(status: str = None, db: Session = Depends(get_db)):
-    # 1. Запрашиваем ВСЕ двигатели из базы
-    query = db.query(models.Engine)
-    if status:
-        query = query.filter(models.Engine.status == status)
-    
-    engines = query.all()
-    result = []
-    
-    for eng in engines:
-        # 2. Безопасное определение локации (чтобы не было ошибок, если локация удалена)
-        loc_name = "Не указано" 
+    try:
+        # 1. Запрашиваем ВСЕ двигатели из базы
+        query = db.query(models.Engine)
+        if status:
+            query = query.filter(models.Engine.status == status)
         
-        try:
-            if eng.location:
-                loc_name = eng.location.name
-            elif eng.aircraft:
-                tail = eng.aircraft.tail_number if eng.aircraft.tail_number else "No Tail"
-                loc_name = f"{tail} (Pos {eng.position})"
-        except Exception:
-            loc_name = "Ошибка данных" # Если ссылка на удаленный объект
+        engines = query.all()
+        result = []
+        
+        for eng in engines:
+            # 2. Безопасное определение локации (чтобы не было ошибок, если локация удалена)
+            loc_name = "Не указано" 
+            
+            try:
+                if eng.location:
+                    loc_name = eng.location.name
+                elif eng.aircraft:
+                    tail = eng.aircraft.tail_number if eng.aircraft.tail_number else "No Tail"
+                    loc_name = f"{tail} (Pos {eng.position})"
+            except Exception:
+                loc_name = "Ошибка данных" # Если ссылка на удаленный объект
 
-        # 3. Собираем данные, заменяя пустые (None) на текст или нули
-        result.append({
-            "id": eng.id,
-            "original_sn": eng.original_sn or "Нет данных",
-            "gss_sn": eng.gss_sn or eng.original_sn,
-            "current_sn": eng.current_sn or "Нет данных",
-            "model": eng.model or "-",
-            "status": eng.status,
-            "location": loc_name,
-            "tt": eng.total_time if eng.total_time is not None else 0,
-            "tc": eng.total_cycles if eng.total_cycles is not None else 0,
-            "aircraft_id": eng.aircraft_id,
-            "aircraft": eng.aircraft.tail_number if eng.aircraft else None,
-            "position": eng.position,
-            "photo_url": eng.photo_url,
-            "remarks": eng.remarks or "",
-            "removed_from": eng.removed_from or "",
-            "install_date": eng.install_date.strftime('%Y-%m-%d') if eng.install_date else None
-        })
-    return result
+            # 3. Собираем данные, заменяя пустые (None) на текст или нули
+            result.append({
+                "id": eng.id,
+                "original_sn": eng.original_sn or "Нет данных",
+                "gss_sn": eng.gss_sn or eng.original_sn,
+                "current_sn": eng.current_sn or "Нет данных",
+                "model": eng.model or "-",
+                "status": eng.status,
+                "location": loc_name,
+                "tt": eng.total_time if eng.total_time is not None else 0,
+                "tc": eng.total_cycles if eng.total_cycles is not None else 0,
+                "aircraft_id": eng.aircraft_id,
+                "aircraft": eng.aircraft.tail_number if eng.aircraft else None,
+                "position": eng.position,
+                "photo_url": eng.photo_url,
+                "remarks": eng.remarks or "",
+                "removed_from": eng.removed_from or "",
+                "install_date": eng.install_date.strftime('%Y-%m-%d') if eng.install_date else None
+            })
+        return result
+    except Exception as e:
+        return []
 
 # --- API (ACTIONS & HISTORY) ---
 
@@ -1765,22 +1768,25 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
 # 4. История перемещений (SHIP)
 @app.get("/api/history/SHIP")
 def get_shipment_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "SHIP").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "from": l.from_location or "-",
-            "to": l.to_location or "-",
-            "remarks": l.comments
-        })
-    return res
+    try:
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "SHIP").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "from": l.from_location or "-",
+                "to": l.to_location or "-",
+                "remarks": l.comments
+            })
+        return res
+    except Exception:
+        return []
 
 # 5. Сохранить Перемещение (SHIPMENT)
 @app.post("/api/actions/ship")
