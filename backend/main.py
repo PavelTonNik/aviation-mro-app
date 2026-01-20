@@ -154,8 +154,10 @@ app.add_middleware(
 def startup_event():
     # Ensure all tables exist first (from models.py)
     try:
-        print("🔍 Verifying database schema...")
+        print("� Creating/verifying all database tables...")
+        print(f"🔗 Database: {database.DATABASE_URL[:50]}...")
         models.Base.metadata.create_all(bind=database.engine)
+        print("✅ All tables created/verified successfully")
         
         # Add work_type column if missing
         from sqlalchemy import text
