@@ -893,13 +893,14 @@ def delete_recent_actions(range_key: str = Query("all", alias="range"), db: Sess
 
 @app.get("/api/dashboard/aircraft-details")
 def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
-    """
-    Возвращает детальную информацию для дашборда:
-    - Общий налет самолета
-    - 4 позиции двигателей (даже если пустые)
-    - Для каждого двигателя: TSN/CSN с момента установки, N1/N2, дата обновления
-    """
-    aircrafts = db.query(models.Aircraft).all()
+    try:
+        """
+        Возвращает детальную информацию для дашборда:
+        - Общий налет самолета
+        - 4 позиции двигателей (даже если пустые)
+        - Для каждого двигателя: TSN/CSN с момента установки, N1/N2, дата обновления
+        """
+        aircrafts = db.query(models.Aircraft).all()
     
     # Если в базе нет самолетов - создаем пустые карточки для визуализации
     if not aircrafts:
@@ -1051,6 +1052,8 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
         })
     
     return result
+    except Exception as e:
+        return []
 
 # --- ВОТ ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОКАЗЫВАЕТ ВСЕ ДВИГАТЕЛИ) ---
 @app.get("/api/engines")
@@ -1676,29 +1679,32 @@ def delete_history_record(action_type: str, log_id: int, db: Session = Depends(g
 # 1. Получить историю установок (Вся информация)
 @app.get("/api/history/INSTALL")
 def get_install_history(db: Session = Depends(get_db)):
-    # Берем логи только типа INSTALL
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "INSTALL").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        # Если двигатель удален, пишем заглушку
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "install_to": l.to_aircraft, 
-            "position": l.position,
-            "location_from": l.from_location,
-            "tt": l.snapshot_tt,
-            "tc": l.snapshot_tc,
-            "ac_ttsn": l.ac_ttsn,
-            "ac_tcsn": l.ac_tcsn,
-            "remarks": l.comments
-        })
-    return res
+    try:
+        # Берем логи только типа INSTALL
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "INSTALL").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            # Если двигатель удален, пишем заглушку
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "install_to": l.to_aircraft, 
+                "position": l.position,
+                "location_from": l.from_location,
+                "tt": l.snapshot_tt,
+                "tc": l.snapshot_tc,
+                "ac_ttsn": l.ac_ttsn,
+                "ac_tcsn": l.ac_tcsn,
+                "remarks": l.comments
+            })
+        return res
+    except Exception:
+        return []
 
 # 3. Сохранить Установку (INSTALL)
 @app.post("/api/actions/install")
@@ -1834,21 +1840,24 @@ def ship_engine(data: ShipmentSchema, db: Session = Depends(get_db)):
 # 6. История снятий (REMOVE)
 @app.get("/api/history/REMOVE")
 def get_remove_history(db: Session = Depends(get_db)):
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "REMOVE").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        orig_sn = l.engine.original_sn if l.engine else "Deleted"
-        curr_sn = l.engine.current_sn if l.engine else "-"
-        res.append({
-            "id": l.id,
-            "date": l.date.strftime("%Y-%m-%d"),
-            "original_sn": orig_sn,
-            "current_sn": curr_sn,
-            "from": l.from_location or "-",
-            "to": l.to_location or "-",
-            "remarks": l.comments
-        })
-    return res
+    try:
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "REMOVE").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            orig_sn = l.engine.original_sn if l.engine else "Deleted"
+            curr_sn = l.engine.current_sn if l.engine else "-"
+            res.append({
+                "id": l.id,
+                "date": l.date.strftime("%Y-%m-%d"),
+                "original_sn": orig_sn,
+                "current_sn": curr_sn,
+                "from": l.from_location or "-",
+                "to": l.to_location or "-",
+                "remarks": l.comments
+            })
+        return res
+    except Exception:
+        return []
 
 # 7. Сохранить Снятие (REMOVE)
 @app.post("/api/actions/remove")
@@ -1971,44 +1980,47 @@ def repair_engine(data: RepairSchema, db: Session = Depends(get_db)):
 # 13. История запчастей (PARTS LOGISTICS / STORE BALANCE)
 @app.get("/api/parts/history")
 def get_parts_history(db: Session = Depends(get_db)):
-    # Получаем логи, связанные с запчастями (где part_id не null или в комментах пометка PART)
-    # Для простоты пока будем фильтровать по типам действий запчастей
-    # Но так как мы пишем всё в ActionLog, будем искать по ключевым словам в типе или создадим новый тип
-    # В данной реализации мы просто вернем все записи, у которых есть данные о запчастях
-    # (Подразумевается, что мы расширим ActionLog или будем писать в comments JSON, но для старта сделаем просто)
-    
-    # ВАЖНО: В реальном проекте лучше отдельная таблица PartLog. 
-    # Сейчас мы будем использовать ActionLog с action_type="PART_ACTION"
-    
-    logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "PART_ACTION").order_by(models.ActionLog.date.desc()).all()
-    res = []
-    for l in logs:
-        # Парсим данные из полей ActionLog (упрощенная схема)
-        import json
-        try:
-            details = json.loads(l.comments) if l.comments else {}
-        except:
-            details = {}
-        date_value = ""
-        if isinstance(l.date, datetime):
-            date_value = l.date.strftime("%Y-%m-%d")
-        elif isinstance(l.date, str) and l.date:
-            date_value = l.date
+    try:
+        # Получаем логи, связанные с запчастями (где part_id не null или в комментах пометка PART)
+        # Для простоты пока будем фильтровать по типам действий запчастей
+        # Но так как мы пишем всё в ActionLog, будем искать по ключевым словам в типе или создадим новый тип
+        # В данной реализации мы просто вернем все записи, у которых есть данные о запчастях
+        # (Подразумевается, что мы расширим ActionLog или будем писать в comments JSON, но для старта сделаем просто)
+        
+        # ВАЖНО: В реальном проекте лучше отдельная таблица PartLog. 
+        # Сейчас мы будем использовать ActionLog с action_type="PART_ACTION"
+        
+        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "PART_ACTION").order_by(models.ActionLog.date.desc()).all()
+        res = []
+        for l in logs:
+            # Парсим данные из полей ActionLog (упрощенная схема)
+            import json
+            try:
+                details = json.loads(l.comments) if l.comments else {}
+            except:
+                details = {}
+            date_value = ""
+            if isinstance(l.date, datetime):
+                date_value = l.date.strftime("%Y-%m-%d")
+            elif isinstance(l.date, str) and l.date:
+                date_value = l.date
 
-        res.append({
-            "id": l.id,
-            "date": date_value,
-            "action": l.from_location or "UNKNOWN",
-            "part_name": details.get("part_name", "-"),
-            "part_number": details.get("part_number", "-"),
-            "serial_number": details.get("serial_number", "-"),
-            "quantity": details.get("quantity", 0),
-            "from_esn": details.get("from_esn", "-"),
-            "to_esn": details.get("to_esn", "-"),
-            "location": details.get("location", "-"),
-            "reason": details.get("reason", "-")
-        })
-    return res
+            res.append({
+                "id": l.id,
+                "date": date_value,
+                "action": l.from_location or "UNKNOWN",
+                "part_name": details.get("part_name", "-"),
+                "part_number": details.get("part_number", "-"),
+                "serial_number": details.get("serial_number", "-"),
+                "quantity": details.get("quantity", 0),
+                "from_esn": details.get("from_esn", "-"),
+                "to_esn": details.get("to_esn", "-"),
+                "location": details.get("location", "-"),
+                "reason": details.get("reason", "-")
+            })
+        return res
+    except Exception:
+        return []
 
 # 14. Сохранить действие с запчастью (PART ACTION)
 @app.post("/api/actions/part")
@@ -2838,7 +2850,7 @@ def get_condition_statuses(db: Session = Depends(get_db)):
 def get_calendar_events(year: int, month: int, db: Session = Depends(get_db)):
     return []
 
-@app.get("/api/movements")
+@app.get("/api/logistics/movements")
 def get_movements(db: Session = Depends(get_db)):
     return {"engines_transit": 0, "parts_transit": 0, "location_changes": 0, "total": 0}
 
