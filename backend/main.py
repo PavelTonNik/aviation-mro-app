@@ -2791,7 +2791,7 @@ def get_borescope_schedule(date_from: str = None, date_to: str = None, db: Sessi
         if parsed_to:
             query = query.filter(models.BoroscopeSchedule.date <= parsed_to)
     schedules = query.order_by(models.BoroscopeSchedule.date.asc()).all()
-    return [{"id": s.id, "date": s.date.isoformat(), "aircraft_tail_number": s.aircraft_tail_number, 
+    return [{"id": s.id, "date": s.date.isoformat(), "aircraft_id": s.aircraft_id, 
              "position": s.position, "inspector": s.inspector, "status": s.status, 
              "remarks": s.remarks, "location": s.location} for s in schedules]
 
@@ -2800,7 +2800,7 @@ def create_borescope_schedule(data: dict, db: Session = Depends(get_db)):
     parsed_date = parse_input_date(data.get("date"))
     new_schedule = models.BoroscopeSchedule(
         date=parsed_date.date() if parsed_date else datetime.utcnow().date(),
-        aircraft_tail_number=data.get("aircraft_tail_number"),
+        aircraft_id=data.get("aircraft_id"),
         position=data.get("position"),
         inspector=data.get("inspector"),
         remarks=data.get("remarks"),
@@ -2815,7 +2815,7 @@ def create_borescope_schedule(data: dict, db: Session = Depends(get_db)):
 @app.get("/api/schedules")
 def get_all_schedules(db: Session = Depends(get_db)):
     schedules = db.query(models.BoroscopeSchedule).order_by(models.BoroscopeSchedule.date.asc()).all()
-    return [{"id": s.id, "date": s.date.isoformat(), "aircraft_tail_number": s.aircraft_tail_number,
+    return [{"id": s.id, "date": s.date.isoformat(), "aircraft_id": s.aircraft_id,
              "position": s.position, "inspector": s.inspector, "status": s.status,
              "remarks": s.remarks, "location": s.location} for s in schedules]
 
