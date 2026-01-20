@@ -414,6 +414,23 @@ def startup_event():
                 db.commit()
                 print("🔧 Admin user normalized (role/active/password).")
         
+        # Create default test user Maxim
+        maxim_user = db.query(models.User).filter(models.User.username == "Maxim").first()
+        if not maxim_user:
+            print("🚀 Creating default user: Maxim...")
+            hashed_password = hashlib.sha256("123456".encode()).hexdigest()
+            maxim_user = models.User(
+                username="Maxim",
+                password_hash=hashed_password,
+                first_name="Maxim",
+                last_name="User",
+                role="user",
+                is_active=True
+            )
+            db.add(maxim_user)
+            db.commit()
+            print("✅ User created: Maxim / 123456")
+        
         # 1. Если нет Локаций -> Создаем базовые (SHJ, FRU, DXB, MIAMI, ROME)
         if not db.query(models.Location).first():
             print("База пуста. Создаем пустые окна Локаций...")
