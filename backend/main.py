@@ -27,29 +27,10 @@ app = FastAPI(title="Aviation MRO System")
 def startup_event():
     """При старте приложения создаем все таблицы (включая новые)"""
     try:
-        # Пересоздаем ВСЕ таблицы из models.py если их нет
         models.Base.metadata.create_all(bind=database.engine)
         print("✅ All database tables created/verified successfully")
-        
-        # PostgreSQL миграция: добавить gss_sn если его нет
-        if "postgres" in str(database.engine.url):
-            try:
-                with database.engine.connect() as conn:
-                    # Проверяем существует ли колонка gss_sn
-                    result = conn.execute(text("""
-                        SELECT column_name FROM information_schema.columns 
-                        WHERE table_name='engines' AND column_name='gss_sn'
-                    """))
-                    if not result.fetchone():
-                        print("🔧 Adding gss_sn column to engines table...")
-                        conn.execute(text("ALTER TABLE engines ADD COLUMN gss_sn VARCHAR"))
-                        conn.commit()
-                        print("✅ gss_sn column added successfully")
-            except Exception as e:
-                print(f"⚠️ gss_sn migration warning: {e}")
-                
     except Exception as e:
-        print(f"⚠️ Database table creation warning: {e}")
+        print(f"⚠️ Startup warning: {e}")
     
     # SQLite-specific column additions (только для локальной БД)
     ensure_sqlite_column("aircrafts", "initial_total_time FLOAT DEFAULT 0")
@@ -1183,7 +1164,6 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
     # Создаем новый двигатель
     new_engine = models.Engine(
         original_sn=data.original_sn,
-        gss_sn=data.gss_sn or data.original_sn,
         current_sn=data.current_sn,
         model=data.model,
         status=data.status,
@@ -1263,7 +1243,6 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
     # Обновляем поля
     engine.original_sn = data.original_sn
     engine.model = data.model
-    engine.gss_sn = data.gss_sn or data.original_sn
     engine.current_sn = data.current_sn
     engine.status = data.status
     engine.total_time = data.total_time
@@ -1301,7 +1280,7 @@ def get_engine_by_id(engine_id: int, db: Session = Depends(get_db)):
     return {
         "id": engine.id,
         "original_sn": engine.original_sn or "N/A",
-        "gss_sn": engine.gss_sn or engine.original_sn,
+        "gss_sn": getattr(engine, 'gss_sn', None) or engine.original_sn,
         "current_sn": engine.current_sn or "N/A",
         "model": engine.model or "-",
         "status": engine.status,
