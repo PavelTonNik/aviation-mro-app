@@ -5,11 +5,13 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 # Database URL resolution: use env var `DATABASE_URL` if provided,
-# fallback to local SQLite file next to this module.
+# fallback to local SQLite file next to this module. If `DATABASE_URL`
+# is explicitly provided, always honor it regardless of LOCAL_DEV.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_SQLITE_PATH = os.path.join(BASE_DIR, "aviation_mro.db")
 DEFAULT_SQLITE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
 
+HAS_EXPLICIT_DB_URL = "DATABASE_URL" in os.environ
 DATABASE_URL = os.environ.get("DATABASE_URL", DEFAULT_SQLITE_URL)
 
 # Render.com uses postgres:// but SQLAlchemy 1.4+ requires postgresql://
@@ -32,7 +34,8 @@ def _ensure_sslmode(url: str) -> str:
 
 DATABASE_URL = _ensure_sslmode(DATABASE_URL)
 
-# Try to detect if we're in local development mode
+# Try to detect if we're in local development mode. This flag should only
+# influence DB selection when there is NO explicit DATABASE_URL provided.
 IS_LOCAL_DEV = os.environ.get("LOCAL_DEV", "").lower() in ("1", "true", "yes")
 
 IS_SQLITE = DATABASE_URL.startswith("sqlite://")
@@ -48,7 +51,8 @@ if IS_SQLITE:
 # For PostgreSQL, try to connect; optionally allow fallback via env flag
 ALLOW_SQLITE_FALLBACK = os.environ.get("ALLOW_SQLITE_FALLBACK", "0").lower() in ("1", "true", "yes")
 
-if not IS_SQLITE and not IS_LOCAL_DEV:
+# If we have a non-SQLite URL, attempt to connect (always honor explicit DB URL)
+if not IS_SQLITE and (HAS_EXPLICIT_DB_URL or not IS_LOCAL_DEV):
     try:
         # PostgreSQL needs SSL; add connect_args explicitly
         pg_connect_args = {}
@@ -89,8 +93,10 @@ if not IS_SQLITE and not IS_LOCAL_DEV:
             # Do NOT silently fall back in production; surface the error
             raise
 else:
-    if IS_LOCAL_DEV:
-        print(f"🔧 LOCAL_DEV=1 detected, using local SQLite: {DEFAULT_SQLITE_PATH}")
+    # Only default to SQLite when either URL is sqlite, or LOCAL_DEV is set
+    # AND there is no explicit DATABASE_URL.
+    if IS_LOCAL_DEV and not HAS_EXPLICIT_DB_URL:
+        print(f"🔧 LOCAL_DEV=1 detected without DATABASE_URL, using local SQLite: {DEFAULT_SQLITE_PATH}")
         DATABASE_URL = DEFAULT_SQLITE_URL
         IS_SQLITE = True
         engine_kwargs["connect_args"] = {"check_same_thread": False}
