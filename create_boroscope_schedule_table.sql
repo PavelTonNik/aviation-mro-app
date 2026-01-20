@@ -18,15 +18,3 @@ CREATE TABLE IF NOT EXISTS boroscope_schedule (
 CREATE INDEX IF NOT EXISTS idx_boroscope_date ON boroscope_schedule(date);
 CREATE INDEX IF NOT EXISTS idx_boroscope_aircraft ON boroscope_schedule(aircraft_tail_number);
 CREATE INDEX IF NOT EXISTS idx_boroscope_status ON boroscope_schedule(status);
-
--- Alter table if it already exists (safe operation)
-ALTER TABLE boroscope_schedule ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;
-ALTER TABLE boroscope_schedule ADD COLUMN IF NOT EXISTS date DATE NOT NULL;
-ALTER TABLE boroscope_schedule ADD COLUMN IF NOT EXISTS aircraft_tail_number VARCHAR(20) NOT NULL;
-ALTER TABLE boroscope_schedule ADD COLUMN IF NOT EXISTS position INTEGER NOT NULL;
-ALTER TABLE boroscope_schedule ADD COLUMN IF NOT EXISTS inspector VARCHAR(255) NOT NULL;
-ALTER TABLE boroscope_schedule ADD COLUMN IF NOT EXISTS remarks TEXT;
-ALTER TABLE boroscope_schedule ADD COLUMN IF NOT EXISTS location VARCHAR(255);
-ALTER TABLE boroscope_schedule ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Scheduled';
-ALTER TABLE boroscope_schedule ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-ALTER TABLE boroscope_schedule ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
