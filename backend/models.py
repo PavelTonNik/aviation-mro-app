@@ -1,5 +1,5 @@
 # backend/models.py
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, Date
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, Enum, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -14,7 +14,6 @@ class EngineStatus(str, enum.Enum):
     US = "US"               # Unserviceable (Неисправен)
     INSTALLED = "INSTALLED" # Установлен на самолет
     REMOVED = "REMOVED"     # Снят (обычно требует инспекции)
-    UNASSIGNED = "-"        # Unassigned (Не назначен)
 
 class ActionType(str, enum.Enum):
     INSTALL = "INSTALL"
@@ -59,15 +58,11 @@ class Engine(Base):
     id = Column(Integer, primary_key=True, index=True)
     original_sn = Column(String, unique=True)
     gss_sn = Column(String, nullable=True)
-    current_sn = Column(String, nullable=True) # Текущий серийный номер (может отличаться от original)
+    current_sn = Column(String, nullable=False) # Основной идентификатор
     model = Column(String, nullable=True) # Модель двигателя (CF6-80, CFM56 и т.д.)
     
-    # В бизнес-логике статус отражает установку/снятие.
-    # Значения: INSTALLED, REMOVED, '-'.
-    status = Column(String, default="-")
-    condition_1 = Column(String, default="SV")  # Техсостояние: SV/US/Scrap
-    condition_2 = Column(String, default="New")  # Физсостояние: New/Overhauled/Repaired/Inspected tested/AS
-    
+    status = Column(Enum(EngineStatus), default=EngineStatus.SV
+    )    
     # Наработка
     total_time = Column(Float, default=0.0)   # TT
     total_cycles = Column(Integer, default=0) # TC
@@ -83,8 +78,6 @@ class Engine(Base):
     position = Column(Integer, nullable=True) # 1 (Left) или 2 (Right), если на самолете
     
     # Дополнительные поля
-    from_location = Column(String, nullable=True) # Откуда перемещен (лок/шоп)
-    price = Column(Float, nullable=True)  # Цена двигателя
     photo_url = Column(String, nullable=True) # Ссылка на фото
     remarks = Column(String, nullable=True) # Примечания/комментарии
     removed_from = Column(String, nullable=True) # Место откуда снят двигатель
@@ -125,7 +118,7 @@ class ActionLog(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     date = Column(DateTime(timezone=True), server_default=func.now())
-    action_type = Column(String, nullable=False)
+    action_type = Column(Enum(ActionType), nullable=False)
     
     # К чему относится запись
     engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)
@@ -141,8 +134,9 @@ class ActionLog(Base):
     snapshot_tt = Column(Float, nullable=True)
     snapshot_tc = Column(Integer, nullable=True)
     
-    # Для REMOVE: техсостояние при снятии
-    condition_1_at_removal = Column(String, nullable=True)
+    # Наработка самолета при установке двигателя
+    ac_ttsn = Column(Float, nullable=True)
+    ac_tcsn = Column(Integer, nullable=True)
     
     comments = Column(Text, nullable=True)
     file_url = Column(String, nullable=True) # Ссылка на Google Drive / S3
@@ -167,27 +161,8 @@ class ActionLog(Base):
     hyd_3 = Column(Float, nullable=True)
     hyd_4 = Column(Float, nullable=True)
     performed_by = Column(String, nullable=True)
-    ttsn = Column(Float, nullable=True)  # TTSN (Engine) при снятии
-    tcsn = Column(Integer, nullable=True)  # TCSN (Engine) при снятии
-    ttsn_ac = Column(Float, nullable=True)  # TTSN (Aircraft) при снятии
-    tcsn_ac = Column(Integer, nullable=True)  # TCSN (Aircraft) при снятии
-    remarks_removal = Column(String, nullable=True)  # Дополнительные замечания при снятии
-    supplier = Column(String, nullable=True)  # Поставщик (для Installation)
-    is_active = Column(Boolean, default=True)  # Для INSTALL: активна ли установка (False если двигатель снят)
+    
     engine = relationship("Engine", back_populates="logs")
-
-class AircraftUtilizationHistory(Base):
-    """История общего налета самолёта (TTSN/TCSN)"""
-    __tablename__ = "aircraft_utilization_history"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    aircraft_id = Column(Integer, ForeignKey("aircrafts.id"), nullable=False)
-    date = Column(DateTime(timezone=True), nullable=False)
-    total_time = Column(Float, nullable=False)  # TTSN самолёта
-    total_cycles = Column(Integer, nullable=False)  # TCSN самолёта
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
-    aircraft = relationship("Aircraft")
 
 class EngineParameterHistory(Base):
     """История ввода параметров двигателя (N1, N2, EGT)"""
@@ -221,27 +196,7 @@ class BoroscopeInspection(Base):
     gss_id = Column(String, nullable=True)
     inspector = Column(String, nullable=False)
     link = Column(String, nullable=True)
-    comment = Column(String, nullable=True)
-    work_type = Column(String, nullable=False, default='All Engine')  # HPT, LPT, All Engine
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-class BoroscopeSchedule(Base):
-    """Запланированные боroскопические инспекции"""
-    __tablename__ = "boroscope_schedule"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    date = Column(Date, nullable=False)
-    aircraft_tail_number = Column(String, ForeignKey('aircrafts.tail_number'), nullable=False)
-    position = Column(Integer, nullable=False)  # 1, 2, 3, 4
-    inspector = Column(String, nullable=False)
-    remarks = Column(String, nullable=True)
-    location = Column(String, nullable=True)
-    status = Column(String, default='Scheduled', nullable=False)  # Scheduled, Completed, Cancelled
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    completed_at = Column(DateTime(timezone=True), nullable=True)
-    
-    # Relationships
-    aircraft = relationship("Aircraft", backref="boroscope_schedules")
 
 class PurchaseOrder(Base):
     """Purchase Orders - заказы на закупку"""
@@ -287,8 +242,6 @@ class UtilizationParameter(Base):
     id = Column(Integer, primary_key=True, index=True)
     date = Column(DateTime(timezone=True), nullable=False)
     aircraft = Column(String, nullable=False)
-    position = Column(Integer, nullable=True)  # Позиция двигателя (1-4) или NULL для общей записи
-    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)  # FK на двигатель
     ttsn = Column(Float, nullable=False)  # Total Time Since New
     tcsn = Column(Integer, nullable=False)  # Total Cycles Since New
     period = Column(Boolean, default=False)  # Флаг периода
@@ -329,225 +282,44 @@ class Notification(Base):
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-
-class CustomColumn(Base):
-    """Пользовательские колонки для таблиц"""
-    __tablename__ = "custom_columns"
+class TableColumnConfig(Base):
+    """Конфигурация столбцов для таблиц (для динамического управления колонками)"""
+    __tablename__ = "table_column_configs"
     
     id = Column(Integer, primary_key=True, index=True)
-    table_name = Column(String, nullable=False)  # 'purchase_orders', etc.
-    column_key = Column(String, nullable=False)  # 'custom_1', 'custom_2', etc.
-    column_label = Column(String, nullable=False)  # Название, которое видит пользователь
-    column_order = Column(Integer, default=0)  # Порядок отображения
+    table_name = Column(String, unique=True, nullable=False)  # 'purchase_orders', 'repairs', и т.д.
+    columns_json = Column(Text, nullable=False)  # JSON с конфигурацией колонок
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
-class PurchaseOrderCustomData(Base):
-    """Данные для пользовательских колонок Purchase Orders"""
-    __tablename__ = "purchase_order_custom_data"
+class BoroscopeSchedule(Base):
+    """Расписание borescope инспекций"""
+    __tablename__ = "boroscope_schedule"
     
     id = Column(Integer, primary_key=True, index=True)
-    purchase_order_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
-    column_key = Column(String, nullable=False)  # Ключ колонки из CustomColumn
-    value = Column(Text, nullable=True)  # Значение
+    date = Column(Date, nullable=False)
+    aircraft_tail_number = Column(String(20), ForeignKey('aircrafts.tail_number', ondelete='CASCADE'), nullable=False)
+    position = Column(Integer, nullable=False)  # 1-4
+    inspector = Column(String(255), nullable=False)
+    remarks = Column(Text, nullable=True)
+    location = Column(String(255), nullable=True)
+    status = Column(String(50), default='Scheduled', nullable=False)  # Scheduled, Completed, Cancelled
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
 
-class FakeInstalled(Base):
-    """Трекинг фейковых установок (документальные замены без фактических)"""
-    __tablename__ = "fake_installed"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)  # Какой двигатель
-    engine_original_sn = Column(String, nullable=False)  # Оригинальный SN для быстрого поиска
-    engine_current_sn = Column(String, nullable=False)  # Текущий SN
-    aircraft_id = Column(Integer, ForeignKey("aircrafts.id"), nullable=True)
-    aircraft_tail = Column(String, nullable=True)  # Для быстрого отображения
-    position = Column(Integer, nullable=True)  # Позиция на самолёте (1 или 2)
-    
-    # Документальная информация
-    documented_date = Column(String, nullable=False)  # Дата когда якобы заменили
-    documented_reason = Column(String, nullable=True)  # Причина в документах
-    
-    # Что якобы было
-    old_engine_sn = Column(String, nullable=True)
-    new_engine_sn = Column(String, nullable=True)
-    
-    # Реальность
-    is_fake = Column(Boolean, default=True)  # Флаг что это фейк
-    actual_notes = Column(Text, nullable=True)  # Что на самом деле было/не было
-    
-    # Метаданные
-    created_by = Column(String, nullable=True)  # Кто зарегистрировал
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-
-class FakeInstalledSettings(Base):
-    """Settings for Fake Installed module (e.g., header labels)."""
-    __tablename__ = "fake_installed_settings"
-
-    id = Column(Integer, primary_key=True, index=True)
-    # JSON serialized mapping of header keys to labels
-    headers_json = Column(Text, nullable=True)
-
-
-class NameplateTracker(Base):
-    """Tracking nameplate (шильдик) history across engines and aircraft."""
-    __tablename__ = "nameplate_tracker"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    nameplate_sn = Column(String, nullable=False, index=True)  # Серийник на шильдике
-    engine_model = Column(String, nullable=True)  # CFM56-5B, PW, etc
-    gss_id = Column(String, nullable=True, index=True)  # GSS ID физического двигателя
-    engine_orig_sn = Column(String, nullable=True, index=True)  # Original SN двигателя
-    aircraft_tail = Column(String, nullable=True)  # Где установлен (NULL = на складе)
-    position = Column(Integer, nullable=True)  # 1,2,3,4
-    installed_date = Column(String, nullable=False)  # Когда надели/установили
-    removed_date = Column(String, nullable=True)  # Когда сняли (NULL = активно)
-    location_type = Column(String, nullable=True)  # on_aircraft, on_engine_storage, detached
-    action_note = Column(String, nullable=True)  # installed, swapped_under, removed, etc
-    performed_by = Column(String, nullable=True)  # Кто делал
-    notes = Column(Text, nullable=True)  # Дополнительные заметки
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-
-class ScheduledEvent(Base):
-    """Запланированные события и встречи в календаре"""
-    __tablename__ = "scheduled_events"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    event_date = Column(String, nullable=False, index=True)  # YYYY-MM-DD
-    event_time = Column(String, nullable=True)  # HH:MM (опционально)
-    event_type = Column(String, nullable=False)  # SHIPMENT, MEETING, INSPECTION, MAINTENANCE, DEADLINE, OTHER
-    title = Column(String, nullable=False)  # "Engine shipment to Baku"
-    description = Column(Text, nullable=True)  # Детали события
-    
-    # Связь с двигателем (опционально)
-    engine_id = Column(Integer, ForeignKey('engines.id'), nullable=True)
-    serial_number = Column(String, nullable=True)  # Для быстрого доступа
-    
-    # Локация/маршрут (опционально)
-    location = Column(String, nullable=True)  # "Baku", "Dubai", etc.
-    from_location = Column(String, nullable=True)
-    to_location = Column(String, nullable=True)
-    
-    # Статус события
-    status = Column(String, default='PLANNED')  # PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
-    
-    # Приоритет и визуальное оформление
-    priority = Column(String, default='MEDIUM')  # LOW, MEDIUM, HIGH, URGENT
-    color = Column(String, default='#3788d8')  # Цвет плашки на календаре
-    
-    # Метаданные
-    created_by = Column(String, nullable=True)  # Кто создал событие
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-
-# ============================================================
-# SHIPMENT MODEL (Logistics & Schedules Tracking)
-# ============================================================
-class Shipment(Base):
-    """
-    Модель для отслеживания отправок двигателей и запчастей в пути.
-    Поддерживает:
-    - ENGINE type: отслеживание двигателей в транзите
-    - PARTS type: отслеживание запчастей (включая pre-order - еще не в стоке)
-    
-    При статусе DELIVERED:
-    - ENGINE: обновляет engines.location_id на "On Stock"
-    - PARTS: создает новую запись в store_items (автоинвентаризация)
-    """
-    __tablename__ = "shipments"
-    
-    # Основные поля
-    id = Column(Integer, primary_key=True, index=True)
-    shipment_type = Column(String(50), nullable=False)  # ENGINE, PARTS
-    status = Column(String(50), default='PLANNED')  # PLANNED, IN_TRANSIT, DELIVERED, DELAYED, CANCELLED
-    
-    # ДЛЯ ENGINE TYPE
-    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)
-    engine_model = Column(String(100), nullable=True)  # Модель двигателя
-    gss_id = Column(String(100), nullable=True)  # GSS ID двигателя
-    destination_location = Column(String(255), nullable=True)  # Куда должен прибыть двигатель
-    
-    # ДЛЯ PARTS TYPE
-    part_name = Column(String(255), nullable=True)  # Имя запчасти
-    part_category = Column(String(100), nullable=True)  # Overhaul, Consumable, High-Value
-    part_quantity = Column(Integer, nullable=True)  # Количество запчастей
-    reserved_quantity = Column(Integer, default=0)  # Для pre-order (еще не в inventory)
-    
-    # Отправка и доставка
-    departure_date = Column(DateTime, nullable=True)
-    expected_delivery_date = Column(DateTime, nullable=False)
-    actual_delivery_date = Column(DateTime, nullable=True)
-    
-    # Отслеживание
-    supplier_name = Column(String(255), nullable=True)
-    tracking_number = Column(String(255), nullable=True)
-    notes = Column(Text, nullable=True)
-    
-    # Пользователь и время
-    created_by = Column(String(255), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_by = Column(String(255), nullable=True)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    
-    # Связи
-    engine = relationship("Engine", foreign_keys=[engine_id])
-
-
-class ConditionStatus(Base):
-    """Справочник статусов Condition для Store Balance"""
-    __tablename__ = "condition_statuses"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False, unique=True)
-    color = Column(String(20), nullable=False, default="#6c757d")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-class WorkType(Base):
-    """Справочник типов работ для Borescope Inspection"""
-    __tablename__ = "work_types"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False, unique=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-
-class GSSAssignment(Base):
-    """
-    Таблица для отслеживания присвоения GSS ID (внутрикомпанейских номеров) к двигателям.
-    Позволяет отслеживать смену шильдиков (nameplate) на двигателях.
-    
-    Логика:
-    - Если запись существует → GSS ID занят
-    - Если записи нет → GSS ID свободен
-    - При DELETE → GSS ID автоматически освобождается
-    """
+class GssAssignment(Base):
+    """GSS ID присвоения к двигателям (nameplate tracking)"""
     __tablename__ = "gss_assignments"
     
     id = Column(Integer, primary_key=True, index=True)
-    gss_id = Column(Integer, nullable=False, unique=True, index=True)  # Уникальный GSS ID
-    
-    # Связь с двигателем
-    engine_id = Column(Integer, ForeignKey("engines.id", ondelete="CASCADE"), nullable=False)
-    original_sn = Column(String, nullable=False)  # Snapshot Original SN на момент присвоения
-    current_sn = Column(String, nullable=True)    # Snapshot Current SN (если отличается)
-    
-    # Медиа и примечания
-    photo_url = Column(String, nullable=True)      # URL фото (если вставлена ссылка)
-    photo_filename = Column(String, nullable=True) # Имя файла (если загружен файл)
-    remarks = Column(Text, nullable=True)          # Примечания
-    
-    # Метаданные
-    assigned_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    gss_id = Column(Integer, unique=True, nullable=False, index=True)  # Уникальный GSS ID
+    engine_id = Column(Integer, ForeignKey('engines.id', ondelete='CASCADE'), nullable=False)
+    original_sn = Column(String, nullable=False)  # Snapshot Original SN
+    current_sn = Column(String, nullable=True)  # Snapshot Current SN (если отличается)
+    photo_url = Column(String, nullable=True)  # URL фото
+    photo_filename = Column(String, nullable=True)  # Имя файла фото
+    remarks = Column(Text, nullable=True)
+    assigned_by = Column(Integer, ForeignKey('users.id'), nullable=False)
     assigned_date = Column(DateTime(timezone=True), server_default=func.now())
-    
-    # Relationships
-    engine = relationship("Engine", backref="gss_assignment")
-    user = relationship("User", backref="gss_assignments")
