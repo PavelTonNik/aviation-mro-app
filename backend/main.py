@@ -882,33 +882,6 @@ def get_calendar_events(year: int, month: int, db: Session = Depends(get_db)):
 @app.get("/api/logistics/movements")
 def get_movements(db: Session = Depends(get_db)):
     return {"engines_transit": 0, "parts_transit": 0, "location_changes": 0, "total": 0}
-        entity_type="aircraft",
-        entity_id=new_aircraft.id,
-        message=f"Воздушное судно {new_aircraft.tail_number} создано (модель: {new_aircraft.model or '-'}), MSN: {new_aircraft.msn or '-'}",
-        performed_by="Admin"
-    )
-    
-    # Log action
-    create_notification(
-        db,
-        action_type="updated",
-        entity_type="aircraft",
-        entity_id=aircraft.id,
-        message=f"Воздушное судно {aircraft.tail_number} обновлено (модель: {aircraft.model or '-'})",
-        performed_by="Admin"
-    )
-    
-    tail_number = aircraft.tail_number
-    
-    # Log action
-    create_notification(
-        db,
-        action_type="deleted",
-        entity_type="aircraft",
-        entity_id=aircraft_id,
-        message=f"Воздушное судно {tail_number} удалено",
-        performed_by="Admin"
-    )
 
 @app.get("/api/dashboard/aircraft-details")
 def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
