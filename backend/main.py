@@ -954,6 +954,8 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
 
         result = []
         engine_columns = get_table_columns(db, "engines")
+        print(f"\n=== DEBUG aircraft-details ===")
+        print(f"Engine columns in DB: {engine_columns}")
         engine_selectable = [
             "id",
             "original_sn",
@@ -976,6 +978,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
             "last_param_update",
         ]
         engine_fields = [col for col in engine_selectable if col in engine_columns]
+        print(f"Selected engine fields: {engine_fields}")
 
         if not engine_fields:
             # Нет ни одной подходящей колонки двигателя — возвращаем карточки без позиций, чтобы не ронять фронт
@@ -996,6 +999,8 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
         params_template = {"status": "INSTALLED"} if "status" in engine_columns else {}
         if "status" in engine_columns:
             engine_sql += " AND status = :status"
+        print(f"Engine SQL: {engine_sql}")
+        print(f"Params template: {params_template}")
 
         for ac in aircraft_rows:
             # Последняя запись БЕЗ периода для заголовка (текущий налет)
@@ -1042,6 +1047,9 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
             last_data_date = last_entry.created_at.strftime("%d-%m-%Y") if last_entry and last_entry.created_at else None
 
             engines_on_wing = db.execute(text(engine_sql), {"ac_id": ac["id"], **params_template}).mappings().all()
+            print(f"Aircraft {ac['tail_number']} (ID {ac['id']}): found {len(engines_on_wing)} engines")
+            if engines_on_wing:
+                print(f"  Engines: {[(e.get('current_sn'), e.get('position'), e.get('status')) for e in engines_on_wing]}")
 
             positions = {1: None, 2: None, 3: None, 4: None}
             for eng in engines_on_wing:
