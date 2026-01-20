@@ -80,6 +80,8 @@ class Engine(Base):
     photo_url = Column(String, nullable=True) # Ссылка на фото
     remarks = Column(String, nullable=True) # Примечания/комментарии
     removed_from = Column(String, nullable=True) # Место откуда снят двигатель
+    condition_1 = Column(String, nullable=True) # Condition 1 (состояние/комментарии)
+    condition_2 = Column(String, nullable=True) # Condition 2 (дополнительные комментарии)
     
     # Параметры двигателя (для мониторинга)
     n1_takeoff = Column(Float, nullable=True)

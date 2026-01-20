@@ -60,6 +60,8 @@ def startup_event():
     ensure_sqlite_column("purchase_orders", "serial_number TEXT")
     ensure_sqlite_column("purchase_orders", "price FLOAT DEFAULT 0")
     ensure_sqlite_column("action_logs", "performed_by TEXT")
+    ensure_sqlite_column("engines", "condition_1 TEXT")
+    ensure_sqlite_column("engines", "condition_2 TEXT")
 
     # Открываем сессию базы данных
     db = database.SessionLocal()
@@ -1046,7 +1048,26 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
             ).order_by(models.UtilizationParameter.created_at.desc()).first()
             last_data_date = last_entry.created_at.strftime("%d-%m-%Y") if last_entry and last_entry.created_at else None
 
+            # Сначала пробуем найти по aircraft_id
             engines_on_wing = db.execute(text(engine_sql), {"ac_id": ac["id"], **params_template}).mappings().all()
+            
+            # ЕСЛИ НЕ НАШЛИ - пробуем найти по текстовой локации (для старых данных где aircraft_id = NULL)
+            if not engines_on_wing:
+                # Ищем двигатели где location_id указывает на текстовую локацию вида "ER-BAT (Pos X)"
+                fallback_sql = f"""SELECT e.{', e.'.join(engine_fields)} 
+                    FROM engines e 
+                    LEFT JOIN locations l ON e.location_id = l.id
+                    WHERE (l.name LIKE :tail_pattern OR e.removed_from LIKE :tail_pattern)
+                """
+                if "status" in engine_columns:
+                    fallback_sql += " AND e.status = :status"
+                
+                tail_suffix = ac['tail_number'].split('-')[-1] if '-' in ac['tail_number'] else ac['tail_number']
+                pattern = f"%{tail_suffix}%"
+                fallback_params = {"tail_pattern": pattern, **params_template}
+                
+                engines_on_wing = db.execute(text(fallback_sql), fallback_params).mappings().all()
+            
             print(f"Aircraft {ac['tail_number']} (ID {ac['id']}): found {len(engines_on_wing)} engines")
             if engines_on_wing:
                 print(f"  Engines: {[(e.get('current_sn'), e.get('position'), e.get('status')) for e in engines_on_wing]}")
@@ -1167,6 +1188,8 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
             "photo_url",
             "remarks",
             "removed_from",
+            "condition_1",
+            "condition_2",
         ]
         engine_fields = [col for col in selectable if col in engine_columns]
         if not engine_fields:
@@ -1226,6 +1249,8 @@ def get_all_engines(status: str = None, db: Session = Depends(get_db)):
                     "remarks": eng.get("remarks") or "",
                     "removed_from": eng.get("removed_from") or "",
                     "install_date": install_date,
+                    "condition_1": eng.get("condition_1") or "-",
+                    "condition_2": eng.get("condition_2") or "-",
                 }
             )
         return result
