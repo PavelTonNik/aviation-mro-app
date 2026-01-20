@@ -299,7 +299,7 @@ class BoroscopeSchedule(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False)
-    aircraft_tail_number = Column(String(20), ForeignKey('aircrafts.tail_number', ondelete='CASCADE'), nullable=False)
+    aircraft_id = Column(Integer, ForeignKey('aircrafts.id', ondelete='CASCADE'), nullable=False)
     position = Column(Integer, nullable=False)  # 1-4
     inspector = Column(String(255), nullable=False)
     remarks = Column(Text, nullable=True)

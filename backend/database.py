@@ -1,5 +1,5 @@
 # backend/database.py
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
@@ -31,30 +31,9 @@ engine_kwargs = {
 if IS_SQLITE:
     engine_kwargs["connect_args"] = {"check_same_thread": False}
 else:
-    # PostgreSQL SSL configuration for Render
-    engine_kwargs["connect_args"] = {
-        "sslmode": "require",
-        "connect_timeout": 10,
-        "keepalives": 1,
-        "keepalives_idle": 30,
-        "keepalives_interval": 10,
-        "keepalives_count": 5,
-    }
+    engine_kwargs["connect_args"] = {"sslmode": "require"}
 
 engine = create_engine(DATABASE_URL, **engine_kwargs)
-
-# Retry a few times to avoid transient SSL close on Render before metadata.create_all
-import time
-for _ in range(5):
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        break
-    except Exception:
-        time.sleep(2)
-else:
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

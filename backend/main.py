@@ -2797,8 +2797,9 @@ def get_borescope_schedule(date_from: str = None, date_to: str = None, db: Sessi
 
 @app.post("/api/boroscope/schedule")
 def create_borescope_schedule(data: dict, db: Session = Depends(get_db)):
+    parsed_date = parse_input_date(data.get("date"))
     new_schedule = models.BoroscopeSchedule(
-        date=parse_input_date(data.get("date")),
+        date=parsed_date.date() if parsed_date else datetime.utcnow().date(),
         aircraft_tail_number=data.get("aircraft_tail_number"),
         position=data.get("position"),
         inspector=data.get("inspector"),
