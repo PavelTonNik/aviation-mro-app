@@ -142,6 +142,22 @@
             color: #fff;
         }
 
+        /* Removed engine styling */
+        .removed-engine {
+            opacity: 0.6 !important;
+            background-color: #f0f0f0 !important;
+        }
+        
+        .removed-engine td {
+            text-decoration: line-through !important;
+            color: #999 !important;
+        }
+        
+        .removed-engine-badge {
+            background-color: #6c757d !important;
+            text-decoration: line-through !important;
+        }
+
         /* Subcards: full size matching main dashboard cards */
         .btn-dashboard-sub {
             padding: 20px;
@@ -8946,7 +8962,10 @@ function restoreView(viewName) {
             const removeRes = await safeFetch('/api/history/REMOVE' + noCache());
             if (removeRes && removeRes.ok) {
                 removeData = await removeRes.json();
-                console.log('Remove data loaded:', removeData);
+                console.log('🔍 Remove data loaded:', removeData.length, 'records');
+                removeData.forEach((r, i) => {
+                    if (i < 3) console.log(`  Record ${i}:`, {sn: r.current_sn || r.original_sn, from: r.from, date: r.date});
+                });
             }
         } catch (e) {
             console.warn('Could not load remove history for marking', e);
@@ -8959,36 +8978,62 @@ function restoreView(viewName) {
         }
 
         serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
-        serverData.forEach(row => {
+        
+        serverData.forEach((row, idx) => {
+            // Нормализуем AC - убираем префиксы
+            const normalizeAC = (ac) => {
+                if (!ac) return '';
+                return ac.replace(/^AC[_:\s]*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim();
+            };
+            
+            const normalizedInstallAC = normalizeAC(row.install_to);
+            
             // Проверяем: был ли этот двигатель снят ПОСЛЕ этой установки
-            const wasRemoved = removeData.some(rem => {
+            let wasRemoved = false;
+            let matchingRemove = null;
+            
+            for (let rem of removeData) {
                 const remSN = rem.current_sn || rem.original_sn;
                 const installCurrentSN = row.current_sn;
+                const normalizedRemFrom = normalizeAC(rem.from);
                 
-                // Извлекаем AC название из "AC: ER-BAR (Pos 4)" -> "ER-BAR"
-                const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
+                // Логирование для первых записей
+                if (idx < 3 && remSN === installCurrentSN) {
+                    console.log(`  Comparing: install=${installCurrentSN} vs remove=${remSN}, AC=${normalizedInstallAC} vs ${normalizedRemFrom}, date ${row.date} vs ${rem.date}`);
+                }
                 
                 // Проверяем совпадение current_sn, самолета и даты
-                if (remSN !== installCurrentSN) return false;
-                if (remFrom !== row.install_to) return false;
-                if (new Date(rem.date) < new Date(row.date)) return false;
+                if (remSN !== installCurrentSN) continue;
+                if (normalizedRemFrom !== normalizedInstallAC) continue;
+                if (new Date(rem.date) < new Date(row.date)) continue;
                 
-                // ВАЖНО: Проверяем, нет ли более поздней установки с той же табличкой на тот же самолет
+                matchingRemove = rem;
+                if (idx < 3) console.log(`    ✓ Match found!`);
+                break;
+            }
+            
+            // Если снятие найдено, проверяем, нет ли более поздней установки
+            if (matchingRemove) {
                 const laterInstall = serverData.find(inst => {
-                    return inst.current_sn === installCurrentSN &&
-                           inst.install_to === row.install_to &&
-                           new Date(inst.date) > new Date(rem.date);
+                    return inst.current_sn === row.current_sn &&
+                           normalizeAC(inst.install_to) === normalizeAC(matchingRemove.from) &&
+                           new Date(inst.date) > new Date(matchingRemove.date);
                 });
                 
-                // Зачеркиваем только если НЕТ более поздней установки
-                return !laterInstall;
-            });
+                if (!laterInstall) {
+                    wasRemoved = true;
+                    if (idx < 3) console.log(`    ✓✓ Row ${idx} marked as REMOVED`);
+                } else {
+                    if (idx < 3) console.log(`    ✗ Later install found, not marked as removed`);
+                }
+            }
             
-            // Стили для снятого двигателя
-            const badgeClass = wasRemoved ? 'bg-secondary text-decoration-line-through opacity-50' : 'bg-primary';
+            // Применяем класс к строке
+            const rowClass = wasRemoved ? 'removed-engine' : '';
+            const badgeClass = wasRemoved ? 'badge bg-secondary removed-engine-badge' : 'badge bg-primary';
             
             tbody.innerHTML += `
-                <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
+                <tr class="${rowClass}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
                     <td class="delete-col-install" style="display: none;">
                         <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('INSTALL', ${row.id || 0}, '${row.original_sn}')" title="Delete">
                             <i class="bi bi-trash"></i>
