@@ -8979,6 +8979,10 @@ function restoreView(viewName) {
 
         serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
         
+        console.log('🔍 === DEBUGGING STRIKETHROUGH MATCHING ===');
+        console.log('Total INSTALL records:', serverData.length);
+        console.log('Total REMOVE records:', removeData.length);
+        
         serverData.forEach((row, idx) => {
             // Нормализуем AC - убираем префиксы
             const normalizeAC = (ac) => {
@@ -8992,23 +8996,37 @@ function restoreView(viewName) {
             let wasRemoved = false;
             let matchingRemove = null;
             
+            // Логируем первые 5 записей в деталях
+            if (idx < 5) {
+                console.log(`\n📋 Row ${idx}: SN=${row.current_sn}, AC=${row.install_to} (norm=${normalizedInstallAC}), date=${row.date}`);
+            }
+            
             for (let rem of removeData) {
                 const remSN = rem.current_sn || rem.original_sn;
                 const installCurrentSN = row.current_sn;
                 const normalizedRemFrom = normalizeAC(rem.from);
                 
-                // Логирование для первых записей
-                if (idx < 3 && remSN === installCurrentSN) {
-                    console.log(`  Comparing: install=${installCurrentSN} vs remove=${remSN}, AC=${normalizedInstallAC} vs ${normalizedRemFrom}, date ${row.date} vs ${rem.date}`);
+                // Логирование попыток сравнения
+                if (idx < 5) {
+                    console.log(`  vs Remove: SN=${remSN}, from=${rem.from} (norm=${normalizedRemFrom}), date=${rem.date}`);
                 }
                 
                 // Проверяем совпадение current_sn, самолета и даты
-                if (remSN !== installCurrentSN) continue;
-                if (normalizedRemFrom !== normalizedInstallAC) continue;
-                if (new Date(rem.date) < new Date(row.date)) continue;
+                if (remSN !== installCurrentSN) {
+                    if (idx < 5) console.log(`    ✗ SN mismatch`);
+                    continue;
+                }
+                if (normalizedRemFrom !== normalizedInstallAC) {
+                    if (idx < 5) console.log(`    ✗ AC mismatch (${normalizedRemFrom} !== ${normalizedInstallAC})`);
+                    continue;
+                }
+                if (new Date(rem.date) < new Date(row.date)) {
+                    if (idx < 5) console.log(`    ✗ Date too old`);
+                    continue;
+                }
                 
                 matchingRemove = rem;
-                if (idx < 3) console.log(`    ✓ Match found!`);
+                if (idx < 5) console.log(`    ✓✓ MATCH FOUND!`);
                 break;
             }
             
@@ -9022,15 +9040,17 @@ function restoreView(viewName) {
                 
                 if (!laterInstall) {
                     wasRemoved = true;
-                    if (idx < 3) console.log(`    ✓✓ Row ${idx} marked as REMOVED`);
+                    if (idx < 5) console.log(`    ➜ REMOVED: No later install found`);
                 } else {
-                    if (idx < 3) console.log(`    ✗ Later install found, not marked as removed`);
+                    if (idx < 5) console.log(`    ✗ Later install ${laterInstall.date} found, NOT removed`);
                 }
+            } else {
+                if (idx < 5) console.log(`    ✗ No matching REMOVE found`);
             }
             
             // Применяем класс к строке
             const rowClass = wasRemoved ? 'removed-engine' : '';
-            const badgeClass = wasRemoved ? 'badge bg-secondary removed-engine-badge' : 'badge bg-primary';
+            const badgeClass = wasRemoved ? 'badge bg-secondary' : 'badge bg-primary';
             
             tbody.innerHTML += `
                 <tr class="${rowClass}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
@@ -9042,7 +9062,7 @@ function restoreView(viewName) {
                     <td>${row.date}</td>
                     <td>${row.original_sn}</td>
                     <td>${row.current_sn}</td>
-                    <td><span class="badge ${badgeClass}">${row.install_to}</span></td>
+                    <td><span class="${badgeClass}" style="text-decoration: ${wasRemoved ? 'line-through' : 'none'}; opacity: ${wasRemoved ? '0.6' : '1'};">${row.install_to}</span></td>
                     <td>${row.position}</td>
                     <td>${row.location_from}</td>
                     <td>${row.tt}</td>
