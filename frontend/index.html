@@ -9015,29 +9015,40 @@ function restoreView(viewName) {
                 const installCurrentSN = row.current_sn;
                 const normalizedRemFrom = normalizeAC(rem.from);
                 
+                // Извлекаем позицию из REMOVE: "AC: ER-BAT (Pos 2)" → 2
+                const removePosBracket = rem.from ? rem.from.match(/\(Pos\s+(\d+)\)/) : null;
+                const removePosition = removePosBracket ? parseInt(removePosBracket[1], 10) : null;
+                
                 // Логирование для отладки
                 if (idx < 5) {
                     const fromRaw = rem.from || 'NULL';
-                    console.log(`  REMOVE: SN="${remSN}", from="${fromRaw}" (norm=${normalizedRemFrom}), date=${rem.date}`);
+                    console.log(`  REMOVE: SN="${remSN}", from="${fromRaw}" (AC=${normalizedRemFrom}, Pos=${removePosition}), date=${rem.date}`);
                 }
                 
-                // === ПЕРВАЯ ПОПЫТКА: точное совпадение ===
+                // === ПРОВЕРКА: SN + AC + ПОЗИЦИЯ + ДАТА ===
                 if (remSN === installCurrentSN && 
                     normalizedRemFrom === normalizedInstallAC && 
+                    removePosition === row.position &&  // ← ВАЖНО: позиция должна совпадать!
                     new Date(rem.date) >= new Date(row.date)) {
-                    if (idx < 5) console.log(`    ✓ EXACT MATCH!`);
+                    if (idx < 5) console.log(`    ✓ EXACT MATCH! (same SN, AC, position and date)`);
                     matchingRemove = rem;
                     break;
                 }
             }
             
-            // === ВТОРАЯ ПОПЫТКА (если первая не сработала): ищем по SN и дате только ===
+            // === ВТОРАЯ ПОПЫТКА (если первая не сработала): ищем по SN, AC и ПОЗИЦИИ ===
             if (!matchingRemove && idx < 5) {
-                console.log(`  ⚠️ No exact match, trying alternative...`);
+                console.log(`  ⚠️ No exact match, trying by SN+AC+position...`);
                 for (let rem of removeData) {
                     const remSN = rem.current_sn || rem.original_sn;
-                    if (remSN === row.current_sn && new Date(rem.date) >= new Date(row.date)) {
-                        if (idx < 5) console.log(`    ⚠️ Found by SN+date only: from="${rem.from}"`);
+                    const removePosBracket = rem.from ? rem.from.match(/\(Pos\s+(\d+)\)/) : null;
+                    const removePosition = removePosBracket ? parseInt(removePosBracket[1], 10) : null;
+                    const normalizedRemFrom = normalizeAC(rem.from);
+                    
+                    if (remSN === row.current_sn && 
+                        normalizedRemFrom === normalizedInstallAC && 
+                        removePosition === row.position) {
+                        if (idx < 5) console.log(`    ✓ MATCH by SN+AC+position (date: ${rem.date})`);
                         matchingRemove = rem;
                         break;
                     }
