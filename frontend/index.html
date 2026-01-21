@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Engine Management</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' font-weight='bold' fill='%23011325'>✈</text></svg>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -141,22 +140,6 @@
             background: linear-gradient(135deg, #343a40 0%, #6c757d 100%);
             box-shadow: 0 16px 40px rgba(108, 117, 125, 0.35);
             color: #fff;
-        }
-        
-        /* Removed engine styling */
-        .removed-engine {
-            opacity: 0.5 !important;
-        }
-        
-        .removed-engine td {
-            text-decoration: line-through !important;
-            color: #999 !important;
-        }
-        
-        .removed-engine-badge {
-            background-color: #6c757d !important;
-            text-decoration: line-through !important;
-            opacity: 0.8 !important;
         }
 
         /* Subcards: full size matching main dashboard cards */
@@ -3225,9 +3208,6 @@
                 </a>
                 <a href="#" class="btn btn-neon w-100 text-start mb-2" onclick="openSchedulesModal(); return false;">
                     <i class="bi bi-calendar-check"></i> Open Schedules
-                </a>
-                <a href="#" class="btn btn-neon w-100 text-start" onclick="openBoroscopeScheduleModal(); return false;">
-                    <i class="bi bi-calendar2-check"></i> Schedule Boroscope
                 </a>
             </div>
             <!-- REPORTS GROUP (COLLAPSIBLE) -->
@@ -8967,10 +8947,6 @@ function restoreView(viewName) {
             if (removeRes && removeRes.ok) {
                 removeData = await removeRes.json();
                 console.log('Remove data loaded:', removeData);
-                if (removeData.length > 0) {
-                    console.log('First remove record:', removeData[0]);
-                    console.log('Remove fields:', Object.keys(removeData[0]));
-                }
             }
         } catch (e) {
             console.warn('Could not load remove history for marking', e);
@@ -8983,37 +8959,19 @@ function restoreView(viewName) {
         }
 
         serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
-        console.log('Installation data:', serverData.length, 'rows');
-        console.log('Remove data:', removeData.length, 'rows');
-        
-        serverData.forEach((row, idx) => {
+        serverData.forEach(row => {
             // Проверяем: был ли этот двигатель снят ПОСЛЕ этой установки
             const wasRemoved = removeData.some(rem => {
                 const remSN = rem.current_sn || rem.original_sn;
                 const installCurrentSN = row.current_sn;
                 
-                // Извлекаем AC название - поля могут быть: from, from_location, to_aircraft
-                let remFrom = '';
-                if (rem.from) {
-                    remFrom = rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim();
-                } else if (rem.from_location) {
-                    remFrom = rem.from_location.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim();
-                } else if (rem.to_aircraft) {
-                    remFrom = rem.to_aircraft;
-                }
+                // Извлекаем AC название из "AC: ER-BAR (Pos 4)" -> "ER-BAR"
+                const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
                 
-                const snMatch = remSN === installCurrentSN;
-                const fromMatch = remFrom === row.install_to;
-                const dateMatch = new Date(rem.date) >= new Date(row.date);
-                const match = snMatch && fromMatch && dateMatch;
-                
-                if (idx < 3 && (snMatch || fromMatch)) {
-                    console.log(`Row ${idx}: remSN="${remSN}" vs install="${installCurrentSN}" (match=${snMatch}), remFrom="${remFrom}" vs install_to="${row.install_to}" (match=${fromMatch}), date match=${dateMatch}`);
-                }
-                
-                if (match) {
-                    console.log(`✓ Engine ${installCurrentSN} removed from ${row.install_to} after installation`);
-                }
+                // Проверяем совпадение current_sn, самолета и даты
+                if (remSN !== installCurrentSN) return false;
+                if (remFrom !== row.install_to) return false;
+                if (new Date(rem.date) < new Date(row.date)) return false;
                 
                 // ВАЖНО: Проверяем, нет ли более поздней установки с той же табличкой на тот же самолет
                 const laterInstall = serverData.find(inst => {
@@ -9023,17 +8981,14 @@ function restoreView(viewName) {
                 });
                 
                 // Зачеркиваем только если НЕТ более поздней установки
-                return match && !laterInstall;
+                return !laterInstall;
             });
             
-            if (idx < 3) console.log(`Row ${idx} (${row.current_sn}): wasRemoved=${wasRemoved}`);
-            
             // Стили для снятого двигателя
-            const badgeClass = wasRemoved ? 'badge bg-secondary removed-engine-badge' : 'badge bg-primary';
-            const rowClass = wasRemoved ? 'removed-engine' : '';
+            const badgeClass = wasRemoved ? 'bg-secondary text-decoration-line-through opacity-50' : 'bg-primary';
             
             tbody.innerHTML += `
-                <tr class="${rowClass}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
+                <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
                     <td class="delete-col-install" style="display: none;">
                         <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('INSTALL', ${row.id || 0}, '${row.original_sn}')" title="Delete">
                             <i class="bi bi-trash"></i>
@@ -9042,7 +8997,7 @@ function restoreView(viewName) {
                     <td>${row.date}</td>
                     <td>${row.original_sn}</td>
                     <td>${row.current_sn}</td>
-                    <td><span class="${badgeClass}">${row.install_to}</span></td>
+                    <td><span class="badge ${badgeClass}">${row.install_to}</span></td>
                     <td>${row.position}</td>
                     <td>${row.location_from}</td>
                     <td>${row.tt}</td>
@@ -21575,4 +21530,3 @@ async function displayBoroscopeReminders() {
 
 </body>
 </html>
-
