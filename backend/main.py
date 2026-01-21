@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, status, Request
+﻿from fastapi import FastAPI, Depends, HTTPException, Query, status, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -21,47 +21,47 @@ except ImportError:  # fallback when running as a standalone script
 
 def _sync_engine_status_from_history(db):
     """
-    Синхронизирует физическое состояние двигателей (aircraft_id, position, status, condition_1)
-    на основе истории Installation/Removal в action_logs.
+    ðíð©ð¢ÐàÐÇð¥ð¢ð©ðÀð©ÐÇÐâðÁÐé Ðäð©ðÀð©ÐçðÁÐüð║ð¥ðÁ Ðüð¥ÐüÐéð¥ÐÅð¢ð©ðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╣ (aircraft_id, position, status, condition_1)
+    ð¢ð░ ð¥Ðüð¢ð¥ð▓ðÁ ð©ÐüÐéð¥ÐÇð©ð© Installation/Removal ð▓ action_logs.
     
-    Логика:
-    - Для каждого двигателя находит все INSTALL/REMOVE операции
-    - Определяет последнюю операцию по дате
-    - Если последняя = INSTALL: устанавливает aircraft_id, position, status=INSTALLED
-    - Если последняя = REMOVE: очищает aircraft_id, position, устанавливает status и condition_1
-                               используя значение из condition_1_at_removal (что выбрал пользователь)
+    ðøð¥ð│ð©ð║ð░:
+    - ðöð╗ÐÅ ð║ð░ðÂð┤ð¥ð│ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ ð¢ð░Ðàð¥ð┤ð©Ðé ð▓ÐüðÁ INSTALL/REMOVE ð¥ð┐ðÁÐÇð░Ðåð©ð©
+    - ð×ð┐ÐÇðÁð┤ðÁð╗ÐÅðÁÐé ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÄÐÄ ð¥ð┐ðÁÐÇð░Ðåð©ÐÄ ð┐ð¥ ð┤ð░ÐéðÁ
+    - ðòÐüð╗ð© ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÅÐÅ = INSTALL: ÐâÐüÐéð░ð¢ð░ð▓ð╗ð©ð▓ð░ðÁÐé aircraft_id, position, status=INSTALLED
+    - ðòÐüð╗ð© ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÅÐÅ = REMOVE: ð¥Ðçð©Ðëð░ðÁÐé aircraft_id, position, ÐâÐüÐéð░ð¢ð░ð▓ð╗ð©ð▓ð░ðÁÐé status ð© condition_1
+                               ð©Ðüð┐ð¥ð╗ÐîðÀÐâÐÅ ðÀð¢ð░ÐçðÁð¢ð©ðÁ ð©ðÀ condition_1_at_removal (ÐçÐéð¥ ð▓Ðïð▒ÐÇð░ð╗ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗Ðî)
     
-    Возвращает словарь с результатами синхронизации.
+    ðÆð¥ðÀð▓ÐÇð░Ðëð░ðÁÐé Ðüð╗ð¥ð▓ð░ÐÇÐî Ðü ÐÇðÁðÀÐâð╗ÐîÐéð░Ðéð░ð╝ð© Ðüð©ð¢ÐàÐÇð¥ð¢ð©ðÀð░Ðåð©ð©.
     """
     try:
         from sqlalchemy import desc
         engines_to_sync = []
         changes_log = []
         
-        # Получаем все двигатели
+        # ðƒð¥ð╗ÐâÐçð░ðÁð╝ ð▓ÐüðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗ð©
         all_engines = db.query(models.Engine).all()
         
         for engine in all_engines:
-            # Получаем все INSTALL/REMOVE операции для этого двигателя, сортированные по дате (новые в конце)
+            # ðƒð¥ð╗ÐâÐçð░ðÁð╝ ð▓ÐüðÁ INSTALL/REMOVE ð¥ð┐ðÁÐÇð░Ðåð©ð© ð┤ð╗ÐÅ ÐìÐéð¥ð│ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ, Ðüð¥ÐÇÐéð©ÐÇð¥ð▓ð░ð¢ð¢ÐïðÁ ð┐ð¥ ð┤ð░ÐéðÁ (ð¢ð¥ð▓ÐïðÁ ð▓ ð║ð¥ð¢ÐåðÁ)
             actions = db.query(models.ActionLog).filter(
                 models.ActionLog.engine_id == engine.id,
                 models.ActionLog.action_type.in_(["INSTALL", "REMOVE"])
             ).order_by(models.ActionLog.date.asc()).all()
             
             if not actions:
-                # Нет истории - пропускаем
+                # ðØðÁÐé ð©ÐüÐéð¥ÐÇð©ð© - ð┐ÐÇð¥ð┐ÐâÐüð║ð░ðÁð╝
                 continue
             
-            # Последняя операция по дате (в конце списка, так как сортировали по asc)
+            # ðƒð¥Ðüð╗ðÁð┤ð¢ÐÅÐÅ ð¥ð┐ðÁÐÇð░Ðåð©ÐÅ ð┐ð¥ ð┤ð░ÐéðÁ (ð▓ ð║ð¥ð¢ÐåðÁ Ðüð┐ð©Ðüð║ð░, Ðéð░ð║ ð║ð░ð║ Ðüð¥ÐÇÐéð©ÐÇð¥ð▓ð░ð╗ð© ð┐ð¥ asc)
             last_action = actions[-1]
             
-            # Проверяем, нужна ли синхронизация
+            # ðƒÐÇð¥ð▓ðÁÐÇÐÅðÁð╝, ð¢ÐâðÂð¢ð░ ð╗ð© Ðüð©ð¢ÐàÐÇð¥ð¢ð©ðÀð░Ðåð©ÐÅ
             current_state_matches = False
             
             if last_action.action_type == "INSTALL":
-                # После INSTALL двигатель должен быть на борту
-                # Получаем aircraft_id из to_aircraft (tail number)
-                to_aircraft_str = last_action.to_aircraft  # например "ER-BAT"
+                # ðƒð¥Ðüð╗ðÁ INSTALL ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð┤ð¥ð╗ðÂðÁð¢ ð▒ÐïÐéÐî ð¢ð░ ð▒ð¥ÐÇÐéÐâ
+                # ðƒð¥ð╗ÐâÐçð░ðÁð╝ aircraft_id ð©ðÀ to_aircraft (tail number)
+                to_aircraft_str = last_action.to_aircraft  # ð¢ð░ð┐ÐÇð©ð╝ðÁÐÇ "ER-BAT"
                 aircraft_obj = db.query(models.Aircraft).filter(
                     models.Aircraft.tail_number == to_aircraft_str
                 ).first() if to_aircraft_str else None
@@ -74,20 +74,20 @@ def _sync_engine_status_from_history(db):
                     engine.position == target_position):
                     current_state_matches = True
                 else:
-                    # Нужна синхронизация - двигатель должен быть на борту
+                    # ðØÐâðÂð¢ð░ Ðüð©ð¢ÐàÐÇð¥ð¢ð©ðÀð░Ðåð©ÐÅ - ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð┤ð¥ð╗ðÂðÁð¢ ð▒ÐïÐéÐî ð¢ð░ ð▒ð¥ÐÇÐéÐâ
                     old_state = f"status={engine.status}, aircraft_id={engine.aircraft_id}, pos={engine.position}"
                     
                     engine.status = "INSTALLED"
                     engine.aircraft_id = target_aircraft_id
                     engine.position = target_position
-                    # Не меняем condition_1 для INSTALL
+                    # ðØðÁ ð╝ðÁð¢ÐÅðÁð╝ condition_1 ð┤ð╗ÐÅ INSTALL
                     
                     new_state = f"status=INSTALLED, aircraft_id={target_aircraft_id}, pos={target_position}"
-                    changes_log.append(f"Engine {engine.gss_sn or engine.id}: INSTALL - {old_state} → {new_state}")
+                    changes_log.append(f"Engine {engine.gss_sn or engine.id}: INSTALL - {old_state} ÔåÆ {new_state}")
                     engines_to_sync.append(engine)
                     
             elif last_action.action_type == "REMOVE":
-                # После REMOVE двигатель должен быть снят с борта
+                # ðƒð¥Ðüð╗ðÁ REMOVE ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð┤ð¥ð╗ðÂðÁð¢ ð▒ÐïÐéÐî Ðüð¢ÐÅÐé Ðü ð▒ð¥ÐÇÐéð░
                 new_status = last_action.condition_1_at_removal or "SV"
                 
                 if (engine.status == new_status and 
@@ -96,7 +96,7 @@ def _sync_engine_status_from_history(db):
                     engine.condition_1 == new_status):
                     current_state_matches = True
                 else:
-                    # Нужна синхронизация - двигатель должен быть снят с борта
+                    # ðØÐâðÂð¢ð░ Ðüð©ð¢ÐàÐÇð¥ð¢ð©ðÀð░Ðåð©ÐÅ - ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð┤ð¥ð╗ðÂðÁð¢ ð▒ÐïÐéÐî Ðüð¢ÐÅÐé Ðü ð▒ð¥ÐÇÐéð░
                     old_state = f"status={engine.status}, aircraft_id={engine.aircraft_id}, pos={engine.position}, cond_1={engine.condition_1}"
                     
                     engine.status = new_status
@@ -105,10 +105,10 @@ def _sync_engine_status_from_history(db):
                     engine.position = None
                     
                     new_state = f"status={new_status}, aircraft_id=None, pos=None, cond_1={new_status}"
-                    changes_log.append(f"Engine {engine.gss_sn or engine.id}: REMOVE - {old_state} → {new_state}")
+                    changes_log.append(f"Engine {engine.gss_sn or engine.id}: REMOVE - {old_state} ÔåÆ {new_state}")
                     engines_to_sync.append(engine)
         
-        # Если есть изменения - сохраняем их
+        # ðòÐüð╗ð© ðÁÐüÐéÐî ð©ðÀð╝ðÁð¢ðÁð¢ð©ÐÅ - Ðüð¥ÐàÐÇð░ð¢ÐÅðÁð╝ ð©Ðà
         if engines_to_sync:
             db.commit()
             return {
@@ -122,7 +122,7 @@ def _sync_engine_status_from_history(db):
             }
             
     except Exception as e:
-        print(f"❌ Ошибка при синхронизации: {e}")
+        print(f"ÔØî ð×Ðêð©ð▒ð║ð░ ð┐ÐÇð© Ðüð©ð¢ÐàÐÇð¥ð¢ð©ðÀð░Ðåð©ð©: {e}")
         import traceback
         traceback.print_exc()
         return {
@@ -130,13 +130,13 @@ def _sync_engine_status_from_history(db):
             "changes": [f"Error: {e}"]
         }
 
-# Создаем таблицы в БД (если их нет)
+# ðíð¥ðÀð┤ð░ðÁð╝ Ðéð░ð▒ð╗ð©ÐåÐï ð▓ ðæðö (ðÁÐüð╗ð© ð©Ðà ð¢ðÁÐé)
 try:
-    print("📋 Creating database tables...")
+    print("­ƒôï Creating database tables...")
     models.Base.metadata.create_all(bind=database.engine)
-    print("✅ Database tables created/verified")
+    print("Ô£à Database tables created/verified")
 except Exception as e:
-    print(f"⚠️ Warning: Could not create tables: {e}")
+    print(f"ÔÜá´©Å Warning: Could not create tables: {e}")
 
 app = FastAPI(title="Aviation MRO System")
 
@@ -154,7 +154,7 @@ app.add_middleware(
 def startup_event():
     # Ensure all tables exist first (from models.py)
     try:
-        print("🔍 Verifying database schema...")
+        print("­ƒöì Verifying database schema...")
         models.Base.metadata.create_all(bind=database.engine)
         
         # Add work_type column if missing
@@ -163,7 +163,7 @@ def startup_event():
             try:
                 conn.execute(text("ALTER TABLE borescope_inspections ADD COLUMN work_type VARCHAR DEFAULT 'All Engine' NOT NULL"))
                 conn.commit()
-                print("✅ Added work_type column")
+                print("Ô£à Added work_type column")
             except:
                 pass  # Column already exists
 
@@ -171,18 +171,18 @@ def startup_event():
             try:
                 conn.execute(text("ALTER TABLE borescope_inspections ADD COLUMN comment TEXT"))
                 conn.commit()
-                print("✅ Added borescope comment column")
+                print("Ô£à Added borescope comment column")
             except:
                 pass  # Column already exists
         
-        print("✅ Schema verification complete")
+        print("Ô£à Schema verification complete")
     except Exception as e:
-        print(f"⚠️ Schema verification warning: {e}")
+        print(f"ÔÜá´©Å Schema verification warning: {e}")
     
     # Add missing columns directly for PostgreSQL
     if not database.IS_SQLITE:
         try:
-            print("🔧 Adding missing columns to PostgreSQL...")
+            print("­ƒöº Adding missing columns to PostgreSQL...")
             from sqlalchemy import text
             db = database.SessionLocal()
             try:
@@ -315,14 +315,14 @@ def startup_event():
                     END $$;
                 """))
                 db.commit()
-                print("✅ Missing columns added successfully")
+                print("Ô£à Missing columns added successfully")
             except Exception as col_e:
-                print(f"ℹ️  Column update: {col_e}")
+                print(f"Ôä╣´©Å  Column update: {col_e}")
                 db.rollback()
             finally:
                 db.close()
         except Exception as e:
-            print(f"ℹ️  Column sync skipped: {e}")
+            print(f"Ôä╣´©Å  Column sync skipped: {e}")
     
     ensure_sqlite_column("aircrafts", "initial_total_time FLOAT DEFAULT 0")
     ensure_sqlite_column("aircrafts", "initial_total_cycles INTEGER DEFAULT 0")
@@ -366,13 +366,13 @@ def startup_event():
     ensure_sqlite_column("shipments", "engine_model TEXT")
     ensure_sqlite_column("shipments", "gss_id TEXT")
 
-    # Открываем сессию базы данных
+    # ð×Ðéð║ÐÇÐïð▓ð░ðÁð╝ ÐüðÁÐüÐüð©ÐÄ ð▒ð░ðÀÐï ð┤ð░ð¢ð¢ÐïÐà
     db = database.SessionLocal()
     try:
-        # 0. Создаем админа если его нет
+        # 0. ðíð¥ðÀð┤ð░ðÁð╝ ð░ð┤ð╝ð©ð¢ð░ ðÁÐüð╗ð© ðÁð│ð¥ ð¢ðÁÐé
         admin_user = db.query(models.User).filter(models.User.username == "admin").first()
         if not admin_user:
-            print("🚀 Creating default admin user...")
+            print("­ƒÜÇ Creating default admin user...")
             hashed_password = hashlib.sha256("admin123".encode()).hexdigest()
             admin_user = models.User(
                 username="admin",
@@ -384,7 +384,7 @@ def startup_event():
             )
             db.add(admin_user)
             db.commit()
-            print("✅ Admin user created: admin / admin123")
+            print("Ô£à Admin user created: admin / admin123")
         else:
             # Ensure admin account is valid (role, active, password hash)
             changed = False
@@ -410,11 +410,11 @@ def startup_event():
                 changed = True
             if changed:
                 db.commit()
-                print("🔧 Admin user normalized (role/active/password).")
+                print("­ƒöº Admin user normalized (role/active/password).")
         
-        # 1. Если нет Локаций -> Создаем базовые (SHJ, FRU, DXB, MIAMI, ROME)
+        # 1. ðòÐüð╗ð© ð¢ðÁÐé ðøð¥ð║ð░Ðåð©ð╣ -> ðíð¥ðÀð┤ð░ðÁð╝ ð▒ð░ðÀð¥ð▓ÐïðÁ (SHJ, FRU, DXB, MIAMI, ROME)
         if not db.query(models.Location).first():
-            print("База пуста. Создаем пустые окна Локаций...")
+            print("ðæð░ðÀð░ ð┐ÐâÐüÐéð░. ðíð¥ðÀð┤ð░ðÁð╝ ð┐ÐâÐüÐéÐïðÁ ð¥ð║ð¢ð░ ðøð¥ð║ð░Ðåð©ð╣...")
             locations = [
                 models.Location(name="SHJ", city="Sharjah"),
                 models.Location(name="FRU", city="Bishkek"),
@@ -425,7 +425,7 @@ def startup_event():
             db.add_all(locations)
             db.commit()
         else:
-            # Обновляем устаревшую запись KBL -> MIAMI и добавляем новые базовые локации
+            # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ÐâÐüÐéð░ÐÇðÁð▓ÐêÐâÐÄ ðÀð░ð┐ð©ÐüÐî KBL -> MIAMI ð© ð┤ð¥ð▒ð░ð▓ð╗ÐÅðÁð╝ ð¢ð¥ð▓ÐïðÁ ð▒ð░ðÀð¥ð▓ÐïðÁ ð╗ð¥ð║ð░Ðåð©ð©
             legacy_kbl = db.query(models.Location).filter(models.Location.name == "KBL").first()
             if legacy_kbl:
                 existing_miami = db.query(models.Location).filter(models.Location.name == "MIAMI").first()
@@ -437,9 +437,9 @@ def startup_event():
                     legacy_kbl.city = "Miami"
                 db.commit()
 
-        # 2. Если нет Самолетов -> Создаем базовый флот
+        # 2. ðòÐüð╗ð© ð¢ðÁÐé ðíð░ð╝ð¥ð╗ðÁÐéð¥ð▓ -> ðíð¥ðÀð┤ð░ðÁð╝ ð▒ð░ðÀð¥ð▓Ðïð╣ Ðäð╗ð¥Ðé
         if not db.query(models.Aircraft).first():
-            print("База пуста. Создаем пустые окна Флота...")
+            print("ðæð░ðÀð░ ð┐ÐâÐüÐéð░. ðíð¥ðÀð┤ð░ðÁð╝ ð┐ÐâÐüÐéÐïðÁ ð¥ð║ð¢ð░ ðñð╗ð¥Ðéð░...")
             aircrafts = [
                 models.Aircraft(tail_number="ER-BAT", model="Boeing 747-200", msn="22545"),
                 models.Aircraft(tail_number="ER-BAR", model="Boeing 747-200", msn="23813"),
@@ -448,7 +448,7 @@ def startup_event():
             db.add_all(aircrafts)
             db.commit()
 
-        # 3. Применяем базовые значения налета/ATLB для флота (если еще не заданы)
+        # 3. ðƒÐÇð©ð╝ðÁð¢ÐÅðÁð╝ ð▒ð░ðÀð¥ð▓ÐïðÁ ðÀð¢ð░ÐçðÁð¢ð©ÐÅ ð¢ð░ð╗ðÁÐéð░/ATLB ð┤ð╗ÐÅ Ðäð╗ð¥Ðéð░ (ðÁÐüð╗ð© ðÁÐëðÁ ð¢ðÁ ðÀð░ð┤ð░ð¢Ðï)
         fleet = db.query(models.Aircraft).all()
         for ac in fleet:
             baseline = get_baseline_for_tail(ac.tail_number)
@@ -476,33 +476,33 @@ def startup_event():
 
         db.commit()
         
-        # ⚡ Синхронизация статусов двигателей на основе Installation/Removal истории
-        # Автоматически исправляет физическое состояние двигателя (aircraft_id, position, status)
-        # в соответствии с последней операцией (Installation или Removal)
+        # ÔÜí ðíð©ð¢ÐàÐÇð¥ð¢ð©ðÀð░Ðåð©ÐÅ ÐüÐéð░ÐéÐâÐüð¥ð▓ ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╣ ð¢ð░ ð¥Ðüð¢ð¥ð▓ðÁ Installation/Removal ð©ÐüÐéð¥ÐÇð©ð©
+        # ðÉð▓Ðéð¥ð╝ð░Ðéð©ÐçðÁÐüð║ð© ð©Ðüð┐ÐÇð░ð▓ð╗ÐÅðÁÐé Ðäð©ðÀð©ÐçðÁÐüð║ð¥ðÁ Ðüð¥ÐüÐéð¥ÐÅð¢ð©ðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ (aircraft_id, position, status)
+        # ð▓ Ðüð¥ð¥Ðéð▓ðÁÐéÐüÐéð▓ð©ð© Ðü ð┐ð¥Ðüð╗ðÁð┤ð¢ðÁð╣ ð¥ð┐ðÁÐÇð░Ðåð©ðÁð╣ (Installation ð©ð╗ð© Removal)
         try:
-            print("🔄 Синхронизация статусов двигателей...")
+            print("­ƒöä ðíð©ð¢ÐàÐÇð¥ð¢ð©ðÀð░Ðåð©ÐÅ ÐüÐéð░ÐéÐâÐüð¥ð▓ ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╣...")
             sync_result = _sync_engine_status_from_history(db)
             if sync_result["synced_count"] > 0:
-                print(f"✅ Синхронизировано {sync_result['synced_count']} двигателей")
+                print(f"Ô£à ðíð©ð¢ÐàÐÇð¥ð¢ð©ðÀð©ÐÇð¥ð▓ð░ð¢ð¥ {sync_result['synced_count']} ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╣")
                 for item in sync_result["changes"][:5]:  # Show first 5 changes
-                    print(f"   • {item}")
+                    print(f"   ÔÇó {item}")
             else:
-                print("ℹ️  Все двигатели уже синхронизированы")
+                print("Ôä╣´©Å  ðÆÐüðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗ð© ÐâðÂðÁ Ðüð©ð¢ÐàÐÇð¥ð¢ð©ðÀð©ÐÇð¥ð▓ð░ð¢Ðï")
         except Exception as sync_e:
-            print(f"⚠️ Ошибка синхронизации статусов: {sync_e}")
+            print(f"ÔÜá´©Å ð×Ðêð©ð▒ð║ð░ Ðüð©ð¢ÐàÐÇð¥ð¢ð©ðÀð░Ðåð©ð© ÐüÐéð░ÐéÐâÐüð¥ð▓: {sync_e}")
             
     except Exception as e:
-        print(f"Ошибка при создании структуры: {e}")
+        print(f"ð×Ðêð©ð▒ð║ð░ ð┐ÐÇð© Ðüð¥ðÀð┤ð░ð¢ð©ð© ÐüÐéÐÇÐâð║ÐéÐâÐÇÐï: {e}")
     finally:
         db.close()
-# 1. Подключаем папку frontend как хранилище статических файлов
-# Используем абсолютный путь, чтобы сервер всегда брал нужную копию фронтенда.
+# 1. ðƒð¥ð┤ð║ð╗ÐÄÐçð░ðÁð╝ ð┐ð░ð┐ð║Ðâ frontend ð║ð░ð║ ÐàÐÇð░ð¢ð©ð╗ð©ÐëðÁ ÐüÐéð░Ðéð©ÐçðÁÐüð║ð©Ðà Ðäð░ð╣ð╗ð¥ð▓
+# ðÿÐüð┐ð¥ð╗ÐîðÀÐâðÁð╝ ð░ð▒Ðüð¥ð╗ÐÄÐéð¢Ðïð╣ ð┐ÐâÐéÐî, ÐçÐéð¥ð▒Ðï ÐüðÁÐÇð▓ðÁÐÇ ð▓ÐüðÁð│ð┤ð░ ð▒ÐÇð░ð╗ ð¢ÐâðÂð¢ÐâÐÄ ð║ð¥ð┐ð©ÐÄ ÐäÐÇð¥ð¢ÐéðÁð¢ð┤ð░.
 BACKEND_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BACKEND_DIR.parent / "frontend"
 
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
-# 2. Главная страница
+# 2. ðôð╗ð░ð▓ð¢ð░ÐÅ ÐüÐéÐÇð░ð¢ð©Ðåð░
 @app.get("/")
 def read_index():
     return FileResponse(FRONTEND_DIR / "index.html")
@@ -528,7 +528,7 @@ def ensure_from_location_column():
                 has_active = any(r[1] == 'is_active' for r in rows2)
                 if not has_active:
                     conn.execute(text("ALTER TABLE action_logs ADD COLUMN is_active BOOLEAN DEFAULT 1"))
-                    # Умная логика: если есть REMOVE после INSTALL - помечаем INSTALL как неактивный
+                    # ðúð╝ð¢ð░ÐÅ ð╗ð¥ð│ð©ð║ð░: ðÁÐüð╗ð© ðÁÐüÐéÐî REMOVE ð┐ð¥Ðüð╗ðÁ INSTALL - ð┐ð¥ð╝ðÁÐçð░ðÁð╝ INSTALL ð║ð░ð║ ð¢ðÁð░ð║Ðéð©ð▓ð¢Ðïð╣
                     conn.execute(text("""
                         UPDATE action_logs SET is_active = 0 
                         WHERE action_type = 'INSTALL' 
@@ -541,10 +541,10 @@ def ensure_from_location_column():
                     """))
                     conn.execute(text("UPDATE action_logs SET is_active = 0 WHERE action_type != 'INSTALL'"))
 
-                # Обнуляем aircraft_id для двигателей со статусом REMOVED
+                # ð×ð▒ð¢Ðâð╗ÐÅðÁð╝ aircraft_id ð┤ð╗ÐÅ ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╣ Ðüð¥ ÐüÐéð░ÐéÐâÐüð¥ð╝ REMOVED
                 conn.execute(text("UPDATE engines SET aircraft_id = NULL, position = NULL WHERE status = 'REMOVED'"))
 
-                # Если последняя операция по двигателю REMOVE, снимаем его с борта (для старых данных)
+                # ðòÐüð╗ð© ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÅÐÅ ð¥ð┐ðÁÐÇð░Ðåð©ÐÅ ð┐ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÄ REMOVE, Ðüð¢ð©ð╝ð░ðÁð╝ ðÁð│ð¥ Ðü ð▒ð¥ÐÇÐéð░ (ð┤ð╗ÐÅ ÐüÐéð░ÐÇÐïÐà ð┤ð░ð¢ð¢ÐïÐà)
                 conn.execute(text("""
                     WITH last_action AS (
                         SELECT engine_id, MAX(date) AS maxd
@@ -574,7 +574,7 @@ def ensure_from_location_column():
                 res2 = conn.execute(text("SELECT 1 FROM information_schema.columns WHERE table_name = 'action_logs' AND column_name = 'is_active'"))
                 if res2.scalar() is None:
                     conn.execute(text("ALTER TABLE action_logs ADD COLUMN is_active BOOLEAN DEFAULT TRUE"))
-                    # Умная логика: если есть REMOVE после INSTALL - помечаем INSTALL как неактивный
+                    # ðúð╝ð¢ð░ÐÅ ð╗ð¥ð│ð©ð║ð░: ðÁÐüð╗ð© ðÁÐüÐéÐî REMOVE ð┐ð¥Ðüð╗ðÁ INSTALL - ð┐ð¥ð╝ðÁÐçð░ðÁð╝ INSTALL ð║ð░ð║ ð¢ðÁð░ð║Ðéð©ð▓ð¢Ðïð╣
                     conn.execute(text("""
                         UPDATE action_logs SET is_active = FALSE 
                         WHERE action_type = 'INSTALL' 
@@ -587,10 +587,10 @@ def ensure_from_location_column():
                     """))
                     conn.execute(text("UPDATE action_logs SET is_active = FALSE WHERE action_type != 'INSTALL'"))
                 
-                # Обнуляем aircraft_id для двигателей со статусом REMOVED
+                # ð×ð▒ð¢Ðâð╗ÐÅðÁð╝ aircraft_id ð┤ð╗ÐÅ ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╣ Ðüð¥ ÐüÐéð░ÐéÐâÐüð¥ð╝ REMOVED
                 conn.execute(text("UPDATE engines SET aircraft_id = NULL, position = NULL WHERE status = 'REMOVED'"))
 
-                # Если последняя операция по двигателю REMOVE, снимаем его с борта (для старых данных)
+                # ðòÐüð╗ð© ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÅÐÅ ð¥ð┐ðÁÐÇð░Ðåð©ÐÅ ð┐ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÄ REMOVE, Ðüð¢ð©ð╝ð░ðÁð╝ ðÁð│ð¥ Ðü ð▒ð¥ÐÇÐéð░ (ð┤ð╗ÐÅ ÐüÐéð░ÐÇÐïÐà ð┤ð░ð¢ð¢ÐïÐà)
                 conn.execute(text("""
                     WITH last_action AS (
                         SELECT engine_id, MAX(date) AS maxd
@@ -613,9 +613,9 @@ def ensure_from_location_column():
             conn.commit()
         _column_checked = True
     except Exception as e:
-        print(f"⚠️ Failed to ensure columns: {e}")
+        print(f"ÔÜá´©Å Failed to ensure columns: {e}")
 
-# Dependency (получение сессии БД)
+# Dependency (ð┐ð¥ð╗ÐâÐçðÁð¢ð©ðÁ ÐüðÁÐüÐüð©ð© ðæðö)
 def get_db():
     ensure_from_location_column()
     db = database.SessionLocal()
@@ -824,7 +824,7 @@ def get_baseline_for_tail(tail_number: Optional[str]):
             return cfg
     return None
 
-# --- Pydantic Schemas (Для валидации данных с форм) ---
+# --- Pydantic Schemas (ðöð╗ÐÅ ð▓ð░ð╗ð©ð┤ð░Ðåð©ð© ð┤ð░ð¢ð¢ÐïÐà Ðü Ðäð¥ÐÇð╝) ---
 class InstallSchema(BaseModel):
     date: str
     engine_id: int
@@ -835,8 +835,8 @@ class InstallSchema(BaseModel):
     ac_ttsn: Optional[float] = None
     ac_tcsn: Optional[int] = None
     remarks: Optional[str] = ""
-    supplier: Optional[str] = None  # Поставщик
-    current_sn: Optional[str] = None  # Current SN при установке
+    supplier: Optional[str] = None  # ðƒð¥ÐüÐéð░ð▓Ðëð©ð║
+    current_sn: Optional[str] = None  # Current SN ð┐ÐÇð© ÐâÐüÐéð░ð¢ð¥ð▓ð║ðÁ
 
 
 class ShipmentSchema(BaseModel):
@@ -844,15 +844,15 @@ class ShipmentSchema(BaseModel):
     engine_id: int
     engine_model: Optional[str] = None
     gss_id: Optional[str] = None
-    to_location_id: int  # Куда отправляем (ID локации)
-    waybill: Optional[str] = "" # Номер накладной
+    to_location_id: int  # ðÜÐâð┤ð░ ð¥Ðéð┐ÐÇð░ð▓ð╗ÐÅðÁð╝ (ID ð╗ð¥ð║ð░Ðåð©ð©)
+    waybill: Optional[str] = "" # ðØð¥ð╝ðÁÐÇ ð¢ð░ð║ð╗ð░ð┤ð¢ð¥ð╣
     remarks: Optional[str] = ""
 
 class RemoveSchema(BaseModel):
     date: str
     engine_id: int
-    to_location_id: int # Куда положили снятый двигатель
-    condition_1: Optional[str] = "SV"  # Техсостояние при снятии
+    to_location_id: int # ðÜÐâð┤ð░ ð┐ð¥ð╗ð¥ðÂð©ð╗ð© Ðüð¢ÐÅÐéÐïð╣ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
+    condition_1: Optional[str] = "SV"  # ðóðÁÐàÐüð¥ÐüÐéð¥ÐÅð¢ð©ðÁ ð┐ÐÇð© Ðüð¢ÐÅÐéð©ð©
     reason: Optional[str] = ""
     ttsn: Optional[float] = None
     tcsn: Optional[int] = None
@@ -864,9 +864,9 @@ class RemoveSchema(BaseModel):
 class RepairSchema(BaseModel):
     date: str
     engine_id: int
-    vendor: str         # Название мастерской (Lufthansa, GE, etc.)
-    work_order: str     # Номер заказ-наряда
-    tt: float           # Наработка после ремонта
+    vendor: str         # ðØð░ðÀð▓ð░ð¢ð©ðÁ ð╝ð░ÐüÐéðÁÐÇÐüð║ð¥ð╣ (Lufthansa, GE, etc.)
+    work_order: str     # ðØð¥ð╝ðÁÐÇ ðÀð░ð║ð░ðÀ-ð¢ð░ÐÇÐÅð┤ð░
+    tt: float           # ðØð░ÐÇð░ð▒ð¥Ðéð║ð░ ð┐ð¥Ðüð╗ðÁ ÐÇðÁð╝ð¥ð¢Ðéð░
     tc: int
     photo_url: Optional[str] = ""
     remarks: Optional[str] = ""
@@ -905,21 +905,21 @@ class UtilizationSchema(BaseModel):
     aircraft_tail: Optional[str] = None
     flight_from: Optional[str] = ""
     flight_to: Optional[str] = ""
-    flight_hours: float # Время в полете (например 2.5 часа)
-    flight_cycles: int  # Количество посадок (обычно 1)
-    atlb_ref: Optional[str] = "" # Номер страницы бортжурнала
+    flight_hours: float # ðÆÐÇðÁð╝ÐÅ ð▓ ð┐ð¥ð╗ðÁÐéðÁ (ð¢ð░ð┐ÐÇð©ð╝ðÁÐÇ 2.5 Ðçð░Ðüð░)
+    flight_cycles: int  # ðÜð¥ð╗ð©ÐçðÁÐüÐéð▓ð¥ ð┐ð¥Ðüð░ð┤ð¥ð║ (ð¥ð▒ÐïÐçð¢ð¥ 1)
+    atlb_ref: Optional[str] = "" # ðØð¥ð╝ðÁÐÇ ÐüÐéÐÇð░ð¢ð©ÐåÐï ð▒ð¥ÐÇÐéðÂÐâÐÇð¢ð░ð╗ð░
     maintenance: bool = False
 
 
-    # Откуда (для REMOVED / SWAP)
-    from_esn: Optional[str] = ""  # Original SN двигателя
-    from_gss: Optional[str] = ""  # Наш ID
+    # ð×Ðéð║Ðâð┤ð░ (ð┤ð╗ÐÅ REMOVED / SWAP)
+    from_esn: Optional[str] = ""  # Original SN ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
+    from_gss: Optional[str] = ""  # ðØð░Ðê ID
     
-    # Куда (для INSTALLED / SWAP)
+    # ðÜÐâð┤ð░ (ð┤ð╗ÐÅ INSTALLED / SWAP)
     to_esn: Optional[str] = ""
     to_gss: Optional[str] = ""
     
-    location: Optional[str] = ""  # Текущая локация (город/шоп)
+    location: Optional[str] = ""  # ðóðÁð║ÐâÐëð░ÐÅ ð╗ð¥ð║ð░Ðåð©ÐÅ (ð│ð¥ÐÇð¥ð┤/Ðêð¥ð┐)
     reason: Optional[str] = ""
 class ATLBSchema(BaseModel):
     date: str
@@ -930,21 +930,21 @@ class ATLBSchema(BaseModel):
     from_apt: str
     to_apt: str
 
-    # Times (в формате HH:MM)
+    # Times (ð▓ Ðäð¥ÐÇð╝ð░ÐéðÁ HH:MM)
     out_time: str
     in_time: str
-    block_time: str  # Рассчитанное значение
+    block_time: str  # ðáð░ÐüÐüÐçð©Ðéð░ð¢ð¢ð¥ðÁ ðÀð¢ð░ÐçðÁð¢ð©ðÁ
 
     off_time: str
     on_time: str
-    flight_time: str  # Рассчитанное значение (идет в наработку)
+    flight_time: str  # ðáð░ÐüÐüÐçð©Ðéð░ð¢ð¢ð¥ðÁ ðÀð¢ð░ÐçðÁð¢ð©ðÁ (ð©ð┤ðÁÐé ð▓ ð¢ð░ÐÇð░ð▒ð¥Ðéð║Ðâ)
 
     cycles: int
 
     maintenance_type: str
     maintenance_only: bool = False
 
-    # Oil & Hyd (просто текст или числа)
+    # Oil & Hyd (ð┐ÐÇð¥ÐüÐéð¥ ÐéðÁð║ÐüÐé ð©ð╗ð© Ðçð©Ðüð╗ð░)
     oil_1: Optional[float] = None
     oil_2: Optional[float] = None
     oil_3: Optional[float] = None
@@ -958,7 +958,7 @@ class ATLBSchema(BaseModel):
 
 class EngineParametersSchema(BaseModel):
     engine_id: int
-    date: str  # Дата записи параметров (в формате ISO)
+    date: str  # ðöð░Ðéð░ ðÀð░ð┐ð©Ðüð© ð┐ð░ÐÇð░ð╝ðÁÐéÐÇð¥ð▓ (ð▓ Ðäð¥ÐÇð╝ð░ÐéðÁ ISO)
     n1_takeoff: Optional[float] = None
     n2_takeoff: Optional[float] = None
     egt_takeoff: Optional[float] = None
@@ -1016,7 +1016,7 @@ class GSSRangeItem(BaseModel):
     engine_info: Optional[dict] = None
 
 class BoroscopeScheduleCreateSchema(BaseModel):
-    """Schema для создания запланированного боroскопа"""
+    """Schema ð┤ð╗ÐÅ Ðüð¥ðÀð┤ð░ð¢ð©ÐÅ ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢ð¥ð│ð¥ ð▒ð¥roÐüð║ð¥ð┐ð░"""
     date: str  # YYYY-MM-DD format
     aircraft_tail_number: str  # ER-BAT, ER-BAR, ER-BAQ
     position: int  # 1, 2, 3, 4
@@ -1025,7 +1025,7 @@ class BoroscopeScheduleCreateSchema(BaseModel):
     location: Optional[str] = None
 
 class BoroscopeScheduleUpdateSchema(BaseModel):
-    """Schema для обновления запланированного боroскопа"""
+    """Schema ð┤ð╗ÐÅ ð¥ð▒ð¢ð¥ð▓ð╗ðÁð¢ð©ÐÅ ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢ð¥ð│ð¥ ð▒ð¥roÐüð║ð¥ð┐ð░"""
     date: Optional[str] = None
     position: Optional[int] = None
     inspector: Optional[str] = None
@@ -1034,7 +1034,7 @@ class BoroscopeScheduleUpdateSchema(BaseModel):
     status: Optional[str] = None  # Scheduled, Completed, Cancelled
 
 class BoroscopeScheduleResponseSchema(BaseModel):
-    """Schema для возврата запланированного боroскопа"""
+    """Schema ð┤ð╗ÐÅ ð▓ð¥ðÀð▓ÐÇð░Ðéð░ ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢ð¥ð│ð¥ ð▒ð¥roÐüð║ð¥ð┐ð░"""
     id: int
     date: str
     aircraft_tail_number: str
@@ -1122,12 +1122,12 @@ class UtilizationParameterSchema(BaseModel):
     """Schema for Utilization Parameters"""
     date: str
     aircraft: str
-    position: int  # Позиция двигателя (1-4) обязательна
+    position: int  # ðƒð¥ðÀð©Ðåð©ÐÅ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ (1-4) ð¥ð▒ÐÅðÀð░ÐéðÁð╗Ðîð¢ð░
     ttsn: float
     tcsn: int
-    period: bool = True  # Теперь всегда True по умолчанию
-    date_from: str  # Обязательная дата начала периода
-    date_to: str  # Обязательная дата конца периода
+    period: bool = True  # ðóðÁð┐ðÁÐÇÐî ð▓ÐüðÁð│ð┤ð░ True ð┐ð¥ Ðâð╝ð¥ð╗Ðçð░ð¢ð©ÐÄ
+    date_from: str  # ð×ð▒ÐÅðÀð░ÐéðÁð╗Ðîð¢ð░ÐÅ ð┤ð░Ðéð░ ð¢ð░Ðçð░ð╗ð░ ð┐ðÁÐÇð©ð¥ð┤ð░
+    date_to: str  # ð×ð▒ÐÅðÀð░ÐéðÁð╗Ðîð¢ð░ÐÅ ð┤ð░Ðéð░ ð║ð¥ð¢Ðåð░ ð┐ðÁÐÇð©ð¥ð┤ð░
 
 
 class UserCreateSchema(BaseModel):
@@ -1228,7 +1228,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
             "REMOVED": db.query(models.Engine).filter(models.Engine.status == "REMOVED").count()
         }
     except Exception as e:
-        print(f"❌ Error in get_dashboard_stats: {e}")
+        print(f"ÔØî Error in get_dashboard_stats: {e}")
         return {
             "SV": 0,
             "US": 0,
@@ -1256,7 +1256,7 @@ def get_condition2_breakdown(base: str, db: Session = Depends(get_db)):
             stats[key] = stats.get(key, 0) + 1
         return stats
     except Exception as e:
-        print(f"❌ Error in get_condition2_breakdown: {e}")
+        print(f"ÔØî Error in get_condition2_breakdown: {e}")
         return {}
 
 @app.get("/api/locations")
@@ -1274,7 +1274,7 @@ def get_locations_overview(db: Session = Depends(get_db)):
             })
         return result
     except Exception as e:
-        print(f"❌ Error in get_locations_overview: {e}")
+        print(f"ÔØî Error in get_locations_overview: {e}")
         return []
 
 @app.post("/api/locations")
@@ -1302,7 +1302,7 @@ def create_location(data: LocationCreateSchema, user_id: int = Query(...), db: S
         db.commit()
         db.refresh(new_location)
         
-        print(f"✅ Location created: {name} ({city})")
+        print(f"Ô£à Location created: {name} ({city})")
         return {
             "id": new_location.id,
             "name": new_location.name,
@@ -1312,7 +1312,7 @@ def create_location(data: LocationCreateSchema, user_id: int = Query(...), db: S
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error creating location: {e}")
+        print(f"ÔØî Error creating location: {e}")
         raise HTTPException(status_code=500, detail=f"Error creating location: {e}")
 
 class LocationUpdateSchema(BaseModel):
@@ -1393,7 +1393,7 @@ def get_fleet_status(db: Session = Depends(get_db)):
             })
         return result
     except Exception as e:
-        print(f"❌ Error in get_fleet_status: {e}")
+        print(f"ÔØî Error in get_fleet_status: {e}")
         return []
 
 class AircraftCreateSchema(BaseModel):
@@ -1513,7 +1513,7 @@ def get_recent_actions(limit: int = 20, db: Session = Depends(get_db)):
             
         return result
     except Exception as e:
-        print(f"❌ Error in get_recent_actions: {e}")
+        print(f"ÔØî Error in get_recent_actions: {e}")
         return []
 
 @app.delete("/api/recent-actions")
@@ -1552,7 +1552,7 @@ def delete_recent_actions(range_key: str = Query("all", alias="range"), db: Sess
         action_type="updated",
         entity_type="location",
         entity_id=location.id,
-        message=f"Локация переименована в '{location.name}'",
+        message=f"ðøð¥ð║ð░Ðåð©ÐÅ ð┐ðÁÐÇðÁð©ð╝ðÁð¢ð¥ð▓ð░ð¢ð░ ð▓ '{location.name}'",
         performed_by="Admin"
     )
     
@@ -1564,7 +1564,7 @@ def delete_recent_actions(range_key: str = Query("all", alias="range"), db: Sess
         action_type="deleted",
         entity_type="location",
         entity_id=location_id,
-        message=f"Локация '{location_name}' удалена",
+        message=f"ðøð¥ð║ð░Ðåð©ÐÅ '{location_name}' Ðâð┤ð░ð╗ðÁð¢ð░",
         performed_by="Admin"
     )
     
@@ -1574,7 +1574,7 @@ def delete_recent_actions(range_key: str = Query("all", alias="range"), db: Sess
         action_type="created",
         entity_type="aircraft",
         entity_id=new_aircraft.id,
-        message=f"Воздушное судно {new_aircraft.tail_number} создано (модель: {new_aircraft.model or '-'}), MSN: {new_aircraft.msn or '-'}",
+        message=f"ðÆð¥ðÀð┤ÐâÐêð¢ð¥ðÁ ÐüÐâð┤ð¢ð¥ {new_aircraft.tail_number} Ðüð¥ðÀð┤ð░ð¢ð¥ (ð╝ð¥ð┤ðÁð╗Ðî: {new_aircraft.model or '-'}), MSN: {new_aircraft.msn or '-'}",
         performed_by="Admin"
     )
     
@@ -1584,7 +1584,7 @@ def delete_recent_actions(range_key: str = Query("all", alias="range"), db: Sess
         action_type="updated",
         entity_type="aircraft",
         entity_id=aircraft.id,
-        message=f"Воздушное судно {aircraft.tail_number} обновлено (модель: {aircraft.model or '-'})",
+        message=f"ðÆð¥ðÀð┤ÐâÐêð¢ð¥ðÁ ÐüÐâð┤ð¢ð¥ {aircraft.tail_number} ð¥ð▒ð¢ð¥ð▓ð╗ðÁð¢ð¥ (ð╝ð¥ð┤ðÁð╗Ðî: {aircraft.model or '-'})",
         performed_by="Admin"
     )
     
@@ -1596,22 +1596,22 @@ def delete_recent_actions(range_key: str = Query("all", alias="range"), db: Sess
         action_type="deleted",
         entity_type="aircraft",
         entity_id=aircraft_id,
-        message=f"Воздушное судно {tail_number} удалено",
+        message=f"ðÆð¥ðÀð┤ÐâÐêð¢ð¥ðÁ ÐüÐâð┤ð¢ð¥ {tail_number} Ðâð┤ð░ð╗ðÁð¢ð¥",
         performed_by="Admin"
     )
 
 @app.get("/api/dashboard/aircraft-details")
 def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
     """
-    Возвращает детальную информацию для дашборда:
-    - Общий налет самолета
-    - 4 позиции двигателей (даже если пустые)
-    - Для каждого двигателя: TSN/CSN с момента установки, N1/N2, дата обновления
+    ðÆð¥ðÀð▓ÐÇð░Ðëð░ðÁÐé ð┤ðÁÐéð░ð╗Ðîð¢ÐâÐÄ ð©ð¢Ðäð¥ÐÇð╝ð░Ðåð©ÐÄ ð┤ð╗ÐÅ ð┤ð░Ðêð▒ð¥ÐÇð┤ð░:
+    - ð×ð▒Ðëð©ð╣ ð¢ð░ð╗ðÁÐé Ðüð░ð╝ð¥ð╗ðÁÐéð░
+    - 4 ð┐ð¥ðÀð©Ðåð©ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╣ (ð┤ð░ðÂðÁ ðÁÐüð╗ð© ð┐ÐâÐüÐéÐïðÁ)
+    - ðöð╗ÐÅ ð║ð░ðÂð┤ð¥ð│ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ: TSN/CSN Ðü ð╝ð¥ð╝ðÁð¢Ðéð░ ÐâÐüÐéð░ð¢ð¥ð▓ð║ð©, N1/N2, ð┤ð░Ðéð░ ð¥ð▒ð¢ð¥ð▓ð╗ðÁð¢ð©ÐÅ
     """
     try:
         aircrafts = db.query(models.Aircraft).all()
         
-        # Если в базе нет самолетов - создаем пустые карточки для визуализации
+        # ðòÐüð╗ð© ð▓ ð▒ð░ðÀðÁ ð¢ðÁÐé Ðüð░ð╝ð¥ð╗ðÁÐéð¥ð▓ - Ðüð¥ðÀð┤ð░ðÁð╝ ð┐ÐâÐüÐéÐïðÁ ð║ð░ÐÇÐéð¥Ðçð║ð© ð┤ð╗ÐÅ ð▓ð©ðÀÐâð░ð╗ð©ðÀð░Ðåð©ð©
         if not aircrafts:
             result = [
                 {
@@ -1644,7 +1644,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
         result = []
         
         for ac in aircrafts:
-            # Последняя запись БЕЗ периода для заголовка (текущий налет)
+            # ðƒð¥Ðüð╗ðÁð┤ð¢ÐÅÐÅ ðÀð░ð┐ð©ÐüÐî ðæðòðù ð┐ðÁÐÇð©ð¥ð┤ð░ ð┤ð╗ÐÅ ðÀð░ð│ð¥ð╗ð¥ð▓ð║ð░ (ÐéðÁð║ÐâÐëð©ð╣ ð¢ð░ð╗ðÁÐé)
             latest_non_period = db.query(models.UtilizationParameter).filter(
                 models.UtilizationParameter.aircraft == ac.tail_number,
                 models.UtilizationParameter.period == False
@@ -1654,7 +1654,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                 models.UtilizationParameter.id.desc()
             ).first()
 
-            # Последняя ПЕРИОДНАЯ запись для сводки внутри раскрытия
+            # ðƒð¥Ðüð╗ðÁð┤ð¢ÐÅÐÅ ðƒðòðáðÿð×ðöðØðÉð» ðÀð░ð┐ð©ÐüÐî ð┤ð╗ÐÅ Ðüð▓ð¥ð┤ð║ð© ð▓ð¢ÐâÐéÐÇð© ÐÇð░Ðüð║ÐÇÐïÐéð©ÐÅ
             latest_period = db.query(models.UtilizationParameter).filter(
                 models.UtilizationParameter.aircraft == ac.tail_number,
                 models.UtilizationParameter.period == True
@@ -1664,7 +1664,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                 models.UtilizationParameter.id.desc()
             ).first()
 
-            # Итог для заголовка: берем без периода, если есть, иначе поля самолета
+            # ðÿÐéð¥ð│ ð┤ð╗ÐÅ ðÀð░ð│ð¥ð╗ð¥ð▓ð║ð░: ð▒ðÁÐÇðÁð╝ ð▒ðÁðÀ ð┐ðÁÐÇð©ð¥ð┤ð░, ðÁÐüð╗ð© ðÁÐüÐéÐî, ð©ð¢ð░ÐçðÁ ð┐ð¥ð╗ÐÅ Ðüð░ð╝ð¥ð╗ðÁÐéð░
             util_ttsn = ac.total_time or 0.0
             util_tcsn = ac.total_cycles or 0
             util_date = None
@@ -1673,14 +1673,14 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                 util_tcsn = latest_non_period.tcsn if latest_non_period.tcsn is not None else util_tcsn
                 util_date = latest_non_period.date.strftime("%Y-%m-%d") if latest_non_period.date else None
 
-            # Сводка периода: берем последнюю периодную запись
+            # ðíð▓ð¥ð┤ð║ð░ ð┐ðÁÐÇð©ð¥ð┤ð░: ð▒ðÁÐÇðÁð╝ ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÄÐÄ ð┐ðÁÐÇð©ð¥ð┤ð¢ÐâÐÄ ðÀð░ð┐ð©ÐüÐî
             util_period = bool(latest_period)
             util_date_from = latest_period.date_from.strftime("%Y-%m-%d") if latest_period and latest_period.date_from else None
             util_date_to = latest_period.date_to.strftime("%Y-%m-%d") if latest_period and latest_period.date_to else None
             period_ttsn = latest_period.ttsn if latest_period else None
             period_tcsn = latest_period.tcsn if latest_period else None
 
-            # Последняя дата ввода данных (любая запись - периодная или нет)
+            # ðƒð¥Ðüð╗ðÁð┤ð¢ÐÅÐÅ ð┤ð░Ðéð░ ð▓ð▓ð¥ð┤ð░ ð┤ð░ð¢ð¢ÐïÐà (ð╗ÐÄð▒ð░ÐÅ ðÀð░ð┐ð©ÐüÐî - ð┐ðÁÐÇð©ð¥ð┤ð¢ð░ÐÅ ð©ð╗ð© ð¢ðÁÐé)
             last_entry = db.query(models.UtilizationParameter).filter(
                 models.UtilizationParameter.aircraft == ac.tail_number
             ).order_by(
@@ -1688,7 +1688,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
             ).first()
             last_data_date = last_entry.created_at.strftime("%d-%m-%Y") if last_entry and last_entry.created_at else None
 
-            # Все двигатели на самолете (берем самый свежий на позицию, чтобы не показывать старый)
+            # ðÆÐüðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗ð© ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ (ð▒ðÁÐÇðÁð╝ Ðüð░ð╝Ðïð╣ Ðüð▓ðÁðÂð©ð╣ ð¢ð░ ð┐ð¥ðÀð©Ðåð©ÐÄ, ÐçÐéð¥ð▒Ðï ð¢ðÁ ð┐ð¥ð║ð░ðÀÐïð▓ð░ÐéÐî ÐüÐéð░ÐÇÐïð╣)
             engines_on_wing = db.query(models.Engine).filter(
                 models.Engine.aircraft_id == ac.id,
                 models.Engine.aircraft_id != None,
@@ -1698,33 +1698,33 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                 models.Engine.id.desc()
             ).all()
             
-            # Создаем 4 позиции (1, 2, 3, 4)
+            # ðíð¥ðÀð┤ð░ðÁð╝ 4 ð┐ð¥ðÀð©Ðåð©ð© (1, 2, 3, 4)
             positions = {}
             for pos in [1, 2, 3, 4]:
                 positions[pos] = None
                 
-            # Заполняем реальными двигателями
+            # ðùð░ð┐ð¥ð╗ð¢ÐÅðÁð╝ ÐÇðÁð░ð╗Ðîð¢Ðïð╝ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅð╝ð©
             for eng in engines_on_wing:
                 if eng.position and 1 <= eng.position <= 4:
-                    # Если на позицию уже поставили более свежий двигатель, пропускаем старые записи
+                    # ðòÐüð╗ð© ð¢ð░ ð┐ð¥ðÀð©Ðåð©ÐÄ ÐâðÂðÁ ð┐ð¥ÐüÐéð░ð▓ð©ð╗ð© ð▒ð¥ð╗ðÁðÁ Ðüð▓ðÁðÂð©ð╣ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî, ð┐ÐÇð¥ð┐ÐâÐüð║ð░ðÁð╝ ÐüÐéð░ÐÇÐïðÁ ðÀð░ð┐ð©Ðüð©
                     if positions.get(eng.position):
                         continue
-                    # Вычисляем налет на конкретном самолете по согласованной логике
+                    # ðÆÐïÐçð©Ðüð╗ÐÅðÁð╝ ð¢ð░ð╗ðÁÐé ð¢ð░ ð║ð¥ð¢ð║ÐÇðÁÐéð¢ð¥ð╝ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ ð┐ð¥ Ðüð¥ð│ð╗ð░Ðüð¥ð▓ð░ð¢ð¢ð¥ð╣ ð╗ð¥ð│ð©ð║ðÁ
                     tsn_on_aircraft = 0.0
                     csn_on_aircraft = 0
                     
-                    # Находим последнюю запись INSTALL для этого двигателя
+                    # ðØð░Ðàð¥ð┤ð©ð╝ ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÄÐÄ ðÀð░ð┐ð©ÐüÐî INSTALL ð┤ð╗ÐÅ ÐìÐéð¥ð│ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
                     last_install = db.query(models.ActionLog).filter(
                         models.ActionLog.engine_id == eng.id,
                         models.ActionLog.action_type == "INSTALL"
                     ).order_by(models.ActionLog.date.desc()).first()
                     
                     if last_install:
-                        # Текущий налёт самолёта
+                        # ðóðÁð║ÐâÐëð©ð╣ ð¢ð░ð╗ÐæÐé Ðüð░ð╝ð¥ð╗ÐæÐéð░
                         current_ac_ttsn = ac.total_time or 0.0
                         current_ac_tcsn = ac.total_cycles or 0
                         
-                        # Налёт самолёта на момент установки хранится в строковых полях block_time_str/block_in_str
+                        # ðØð░ð╗ÐæÐé Ðüð░ð╝ð¥ð╗ÐæÐéð░ ð¢ð░ ð╝ð¥ð╝ðÁð¢Ðé ÐâÐüÐéð░ð¢ð¥ð▓ð║ð© ÐàÐÇð░ð¢ð©ÐéÐüÐÅ ð▓ ÐüÐéÐÇð¥ð║ð¥ð▓ÐïÐà ð┐ð¥ð╗ÐÅÐà block_time_str/block_in_str
                         def _to_float(v):
                             try:
                                 return float(v) if v is not None and str(v).strip() != "" else 0.0
@@ -1738,20 +1738,20 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                         ac_ttsn_at_install = _to_float(getattr(last_install, "block_time_str", None))
                         ac_tcsn_at_install = _to_int(getattr(last_install, "block_in_str", None))
                         
-                        # Налёт двигателя на момент установки берём из snapshot_tt/snapshot_tc
+                        # ðØð░ð╗ÐæÐé ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ ð¢ð░ ð╝ð¥ð╝ðÁð¢Ðé ÐâÐüÐéð░ð¢ð¥ð▓ð║ð© ð▒ðÁÐÇÐæð╝ ð©ðÀ snapshot_tt/snapshot_tc
                         engine_tsn_at_install = last_install.snapshot_tt or 0.0
                         engine_csn_at_install = last_install.snapshot_tc or 0
                         
                         tsn_on_aircraft = current_ac_ttsn - ac_ttsn_at_install - engine_tsn_at_install
                         csn_on_aircraft = current_ac_tcsn - ac_tcsn_at_install - engine_csn_at_install
                         
-                        # Защита от отрицательных значений
+                        # ðùð░Ðëð©Ðéð░ ð¥Ðé ð¥ÐéÐÇð©Ðåð░ÐéðÁð╗Ðîð¢ÐïÐà ðÀð¢ð░ÐçðÁð¢ð©ð╣
                         if tsn_on_aircraft < 0:
                             tsn_on_aircraft = 0.0
                         if csn_on_aircraft < 0:
                             csn_on_aircraft = 0
                     
-                    # Находим последнюю запись ATLB для определения даты обновления
+                    # ðØð░Ðàð¥ð┤ð©ð╝ ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÄÐÄ ðÀð░ð┐ð©ÐüÐî ATLB ð┤ð╗ÐÅ ð¥ð┐ÐÇðÁð┤ðÁð╗ðÁð¢ð©ÐÅ ð┤ð░ÐéÐï ð¥ð▒ð¢ð¥ð▓ð╗ðÁð¢ð©ÐÅ
                     last_atlb = db.query(models.ActionLog).filter(
                         models.ActionLog.action_type == "FLIGHT"
                     ).order_by(models.ActionLog.date.desc()).first()
@@ -1760,7 +1760,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                     
                     supplier = last_install.supplier if last_install and last_install.supplier else None
                     
-                    # Находим последнюю периодическую запись для этой позиции
+                    # ðØð░Ðàð¥ð┤ð©ð╝ ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÄÐÄ ð┐ðÁÐÇð©ð¥ð┤ð©ÐçðÁÐüð║ÐâÐÄ ðÀð░ð┐ð©ÐüÐî ð┤ð╗ÐÅ ÐìÐéð¥ð╣ ð┐ð¥ðÀð©Ðåð©ð©
                     util_param = db.query(models.UtilizationParameter).filter(
                         models.UtilizationParameter.aircraft == ac.tail_number,
                         models.UtilizationParameter.position == eng.position,
@@ -1771,7 +1771,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                         models.UtilizationParameter.id.desc()
                     ).first()
                     
-                    # Данные периода для этой позиции
+                    # ðöð░ð¢ð¢ÐïðÁ ð┐ðÁÐÇð©ð¥ð┤ð░ ð┤ð╗ÐÅ ÐìÐéð¥ð╣ ð┐ð¥ðÀð©Ðåð©ð©
                     position_util_ttsn = util_param.ttsn if util_param else None
                     position_util_tcsn = util_param.tcsn if util_param else None
                     position_date_from = util_param.date_from.strftime("%Y-%m-%d") if util_param and util_param.date_from else None
@@ -1797,7 +1797,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                         "last_update": last_update,
                         "supplier": supplier,
                         "param_date": eng.last_param_update.strftime("%d.%m.%Y") if eng.last_param_update else None,
-                        # Данные периода для этой конкретной позиции
+                        # ðöð░ð¢ð¢ÐïðÁ ð┐ðÁÐÇð©ð¥ð┤ð░ ð┤ð╗ÐÅ ÐìÐéð¥ð╣ ð║ð¥ð¢ð║ÐÇðÁÐéð¢ð¥ð╣ ð┐ð¥ðÀð©Ðåð©ð©
                         "util_ttsn": position_util_ttsn,
                         "util_tcsn": position_util_tcsn,
                         "util_date_from": position_date_from,
@@ -1827,7 +1827,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
         
         return result
     except Exception as e:
-        print(f"❌ Error in get_aircraft_dashboard_details: {e}")
+        print(f"ÔØî Error in get_aircraft_dashboard_details: {e}")
         return []
 
 
@@ -1880,7 +1880,7 @@ def get_aircraft_by_tail_number(tail_number: str, db: Session = Depends(get_db))
             ]
         }
     except Exception as e:
-        print(f"❌ Error in get_aircraft_by_tail_number: {e}")
+        print(f"ÔØî Error in get_aircraft_by_tail_number: {e}")
         return {"error": str(e)}, 500
 
 @app.patch("/api/aircraft/{tail_number}")
@@ -1994,14 +1994,14 @@ def get_aircraft_utilization_history(aircraft: str = None, db: Session = Depends
         print(f"Error getting aircraft utilization history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- ВОТ ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОКАЗЫВАЕТ ВСЕ ДВИГАТЕЛИ) ---
+# --- ðÆð×ðó ðÿðíðƒðáðÉðÆðøðòðØðØðÉð» ðñðúðØðÜðªðÿð» (ðƒð×ðÜðÉðùð½ðÆðÉðòðó ðÆðíðò ðöðÆðÿðôðÉðóðòðøðÿ) ---
 @app.get("/api/engines")
 def get_all_engines(status: str = None, condition2: str = None, db: Session = Depends(get_db)):
     try:
-        # 1. Запрашиваем ВСЕ двигатели из базы
+        # 1. ðùð░ð┐ÐÇð░Ðêð©ð▓ð░ðÁð╝ ðÆðíðò ð┤ð▓ð©ð│ð░ÐéðÁð╗ð© ð©ðÀ ð▒ð░ðÀÐï
         query = db.query(models.Engine)
         if status:
-            # SV/US/SCRAP фильтруем по condition_1, остальные по status
+            # SV/US/SCRAP Ðäð©ð╗ÐîÐéÐÇÐâðÁð╝ ð┐ð¥ condition_1, ð¥ÐüÐéð░ð╗Ðîð¢ÐïðÁ ð┐ð¥ status
             if status in ["SV", "US", "SCRAP", "Scrap"]:
                 normalized = "Scrap" if status in ("SCRAP", "Scrap") else status
                 query = query.filter(models.Engine.condition_1 == normalized)
@@ -2014,8 +2014,8 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
         result = []
         
         for eng in engines:
-            # 2. Безопасное определение локации (чтобы не было ошибок, если локация удалена)
-            loc_name = "Не указано" 
+            # 2. ðæðÁðÀð¥ð┐ð░Ðüð¢ð¥ðÁ ð¥ð┐ÐÇðÁð┤ðÁð╗ðÁð¢ð©ðÁ ð╗ð¥ð║ð░Ðåð©ð© (ÐçÐéð¥ð▒Ðï ð¢ðÁ ð▒Ðïð╗ð¥ ð¥Ðêð©ð▒ð¥ð║, ðÁÐüð╗ð© ð╗ð¥ð║ð░Ðåð©ÐÅ Ðâð┤ð░ð╗ðÁð¢ð░)
+            loc_name = "ðØðÁ Ðâð║ð░ðÀð░ð¢ð¥" 
             
             try:
                 if eng.location:
@@ -2024,9 +2024,9 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
                     tail = eng.aircraft.tail_number if eng.aircraft.tail_number else "No Tail"
                     loc_name = f"{tail} (Pos {eng.position})"
             except Exception:
-                loc_name = "Ошибка данных" # Если ссылка на удаленный объект
+                loc_name = "ð×Ðêð©ð▒ð║ð░ ð┤ð░ð¢ð¢ÐïÐà" # ðòÐüð╗ð© ÐüÐüÐïð╗ð║ð░ ð¢ð░ Ðâð┤ð░ð╗ðÁð¢ð¢Ðïð╣ ð¥ð▒ÐèðÁð║Ðé
 
-            # 2.1 Дата установки: если пусто, берем первую дату из истории двигателя
+            # 2.1 ðöð░Ðéð░ ÐâÐüÐéð░ð¢ð¥ð▓ð║ð©: ðÁÐüð╗ð© ð┐ÐâÐüÐéð¥, ð▒ðÁÐÇðÁð╝ ð┐ðÁÐÇð▓ÐâÐÄ ð┤ð░ÐéÐâ ð©ðÀ ð©ÐüÐéð¥ÐÇð©ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
             display_date = eng.install_date
             if not display_date and eng.logs:
                 try:
@@ -2036,8 +2036,8 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
                 except Exception:
                     display_date = None
 
-            # 3. Собираем данные, заменяя пустые (None) на текст или нули
-            # 3.1 Если двигатель установлен, добавляем данные о самолете
+            # 3. ðíð¥ð▒ð©ÐÇð░ðÁð╝ ð┤ð░ð¢ð¢ÐïðÁ, ðÀð░ð╝ðÁð¢ÐÅÐÅ ð┐ÐâÐüÐéÐïðÁ (None) ð¢ð░ ÐéðÁð║ÐüÐé ð©ð╗ð© ð¢Ðâð╗ð©
+            # 3.1 ðòÐüð╗ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢, ð┤ð¥ð▒ð░ð▓ð╗ÐÅðÁð╝ ð┤ð░ð¢ð¢ÐïðÁ ð¥ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ
             ac_ttsn = None
             ac_tcsn = None
             if eng.aircraft:
@@ -2046,7 +2046,7 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
             
             result.append({
                 "id": eng.id,
-                "original_sn": eng.original_sn or "Нет данных",
+                "original_sn": eng.original_sn or "ðØðÁÐé ð┤ð░ð¢ð¢ÐïÐà",
                 "gss_sn": eng.gss_sn if eng.gss_sn else "-",
                 "current_sn": eng.current_sn if eng.current_sn else "-",
                 "model": eng.model or "-",
@@ -2073,14 +2073,14 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
         
         return result
     except Exception as e:
-        print(f"❌ Error in get_all_engines: {e}")
+        print(f"ÔØî Error in get_all_engines: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Error loading engines: {str(e)}")
 
 # --- API (ACTIONS & HISTORY) ---
 
-# СОЗДАНИЕ НОВОГО ДВИГАТЕЛЯ
+# ðíð×ðùðöðÉðØðÿðò ðØð×ðÆð×ðôð× ðöðÆðÿðôðÉðóðòðøð»
 class EngineCreateSchema(BaseModel):
     date: Optional[str] = None
     original_sn: str
@@ -2107,27 +2107,27 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             raise HTTPException(status_code=403, detail="Only admins can create engines")
         actor_name = resolve_actor_name(db, current_user_id, "Admin")
         
-        # Проверяем, существует ли уже двигатель с таким original_sn
+        # ðƒÐÇð¥ð▓ðÁÐÇÐÅðÁð╝, ÐüÐâÐëðÁÐüÐéð▓ÐâðÁÐé ð╗ð© ÐâðÂðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî Ðü Ðéð░ð║ð©ð╝ original_sn
         existing = db.query(models.Engine).filter(models.Engine.original_sn == data.original_sn).first()
         if existing:
             raise HTTPException(400, f"Engine with ESN {data.original_sn} already exists")
         
-        # Парсим дату если передана
+        # ðƒð░ÐÇÐüð©ð╝ ð┤ð░ÐéÐâ ðÁÐüð╗ð© ð┐ðÁÐÇðÁð┤ð░ð¢ð░
         install_date = None
         if data.date and data.date.strip():
             try:
-                # Пробуем разные форматы
+                # ðƒÐÇð¥ð▒ÐâðÁð╝ ÐÇð░ðÀð¢ÐïðÁ Ðäð¥ÐÇð╝ð░ÐéÐï
                 date_str = data.date.strip()
-                if 'T' in date_str:  # ISO формат с временем
+                if 'T' in date_str:  # ISO Ðäð¥ÐÇð╝ð░Ðé Ðü ð▓ÐÇðÁð╝ðÁð¢ðÁð╝
                     install_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                else:  # Простой формат YYYY-MM-DD
+                else:  # ðƒÐÇð¥ÐüÐéð¥ð╣ Ðäð¥ÐÇð╝ð░Ðé YYYY-MM-DD
                     install_date = datetime.strptime(date_str, '%Y-%m-%d')
             except Exception as e:
                 print(f"[create_engine] date parse error for '{data.date}': {e}")
                 print(f"[create_engine] Skipping date, will use None")
                 install_date = None
         
-        # Создаем новый двигатель
+        # ðíð¥ðÀð┤ð░ðÁð╝ ð¢ð¥ð▓Ðïð╣ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
         new_engine = models.Engine(
             original_sn=data.original_sn,
             gss_sn=data.gss_sn or data.original_sn,
@@ -2151,7 +2151,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
         db.commit()
         db.refresh(new_engine)
         
-        # Создаем только notification для Recent Actions (БЕЗ ActionLog - это не действие, а просто добавление записи)
+        # ðíð¥ðÀð┤ð░ðÁð╝ Ðéð¥ð╗Ðîð║ð¥ notification ð┤ð╗ÐÅ Recent Actions (ðæðòðù ActionLog - ÐìÐéð¥ ð¢ðÁ ð┤ðÁð╣ÐüÐéð▓ð©ðÁ, ð░ ð┐ÐÇð¥ÐüÐéð¥ ð┤ð¥ð▒ð░ð▓ð╗ðÁð¢ð©ðÁ ðÀð░ð┐ð©Ðüð©)
         location = db.query(models.Location).filter(models.Location.id == data.location_id).first()
         loc_name = location.name if location else "Unknown"
         
@@ -2159,7 +2159,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
                            action_type="created",
                            entity_type="engine",
                            entity_id=new_engine.id,
-                           message=f"Был добавлен новый двигатель {new_engine.current_sn} (ESN: {new_engine.original_sn}) в локацию {loc_name} пользователем {actor_name}",
+                           message=f"ðæÐïð╗ ð┤ð¥ð▒ð░ð▓ð╗ðÁð¢ ð¢ð¥ð▓Ðïð╣ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî {new_engine.current_sn} (ESN: {new_engine.original_sn}) ð▓ ð╗ð¥ð║ð░Ðåð©ÐÄ {loc_name} ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╝ {actor_name}",
                            performed_by=actor_name,
                            performed_by_user_id=current_user_id)
         
@@ -2169,59 +2169,59 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
     except Exception as e:
         db.rollback()
         import traceback
-        print(f"❌ Error in create_engine: {e}")
-        print(f"❌ Traceback: {traceback.format_exc()}")
-        print(f"❌ Data received: original_sn={data.original_sn}, location_id={data.location_id}, status={data.status}")
+        print(f"ÔØî Error in create_engine: {e}")
+        print(f"ÔØî Traceback: {traceback.format_exc()}")
+        print(f"ÔØî Data received: original_sn={data.original_sn}, location_id={data.location_id}, status={data.status}")
         raise HTTPException(status_code=500, detail=f"Failed to create engine: {str(e)}")
 
-# УДАЛЕНИЕ ДВИГАТЕЛЯ
+# ðúðöðÉðøðòðØðÿðò ðöðÆðÿðôðÉðóðòðøð»
 @app.delete("/api/engines/{engine_id}")
 def delete_engine(engine_id: int, db: Session = Depends(get_db)):
-    # Находим двигатель
+    # ðØð░Ðàð¥ð┤ð©ð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
     engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
     if not engine:
         raise HTTPException(404, "Engine not found")
     
-    # Проверяем, не установлен ли двигатель на самолет
+    # ðƒÐÇð¥ð▓ðÁÐÇÐÅðÁð╝, ð¢ðÁ ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ ð╗ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐé
     if engine.status == "INSTALLED":
         raise HTTPException(400, "Cannot delete engine that is installed on aircraft. Remove it first.")
     
-    # Сохраняем информацию для лога
+    # ðíð¥ÐàÐÇð░ð¢ÐÅðÁð╝ ð©ð¢Ðäð¥ÐÇð╝ð░Ðåð©ÐÄ ð┤ð╗ÐÅ ð╗ð¥ð│ð░
     engine_sn = engine.original_sn
     
-    # Удаляем все связанные логи (опционально, можно оставить для истории)
+    # ðúð┤ð░ð╗ÐÅðÁð╝ ð▓ÐüðÁ Ðüð▓ÐÅðÀð░ð¢ð¢ÐïðÁ ð╗ð¥ð│ð© (ð¥ð┐Ðåð©ð¥ð¢ð░ð╗Ðîð¢ð¥, ð╝ð¥ðÂð¢ð¥ ð¥ÐüÐéð░ð▓ð©ÐéÐî ð┤ð╗ÐÅ ð©ÐüÐéð¥ÐÇð©ð©)
     # db.query(models.ActionLog).filter(models.ActionLog.engine_id == engine_id).delete()
     
-    # Удаляем двигатель
+    # ðúð┤ð░ð╗ÐÅðÁð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
     db.delete(engine)
     db.commit()
     
     return {"message": f"Engine {engine_sn} deleted successfully"}
 
-# ОБНОВЛЕНИЕ ДВИГАТЕЛЯ
+# ð×ðæðØð×ðÆðøðòðØðÿðò ðöðÆðÿðôðÉðóðòðøð»
 @app.put("/api/engines/{engine_id}")
 def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depends(get_db)):
     try:
-        # Находим двигатель
+        # ðØð░Ðàð¥ð┤ð©ð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
         engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
         if not engine:
             raise HTTPException(404, "Engine not found")
         
-        # Парсим дату если передана
+        # ðƒð░ÐÇÐüð©ð╝ ð┤ð░ÐéÐâ ðÁÐüð╗ð© ð┐ðÁÐÇðÁð┤ð░ð¢ð░
         install_date = None
         if data.date and data.date.strip():
             try:
-                # Пробуем разные форматы
+                # ðƒÐÇð¥ð▒ÐâðÁð╝ ÐÇð░ðÀð¢ÐïðÁ Ðäð¥ÐÇð╝ð░ÐéÐï
                 date_str = data.date.strip()
-                if 'T' in date_str:  # ISO формат с временем
+                if 'T' in date_str:  # ISO Ðäð¥ÐÇð╝ð░Ðé Ðü ð▓ÐÇðÁð╝ðÁð¢ðÁð╝
                     install_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                else:  # Простой формат YYYY-MM-DD
+                else:  # ðƒÐÇð¥ÐüÐéð¥ð╣ Ðäð¥ÐÇð╝ð░Ðé YYYY-MM-DD
                     install_date = datetime.strptime(date_str, '%Y-%m-%d')
             except Exception as e:
                 print(f"[update_engine] date parse error for '{data.date}': {e}")
                 install_date = None
         
-        # Обновляем поля
+        # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ð┐ð¥ð╗ÐÅ
         engine.original_sn = data.original_sn
         engine.model = data.model
         engine.gss_sn = data.gss_sn or data.original_sn
@@ -2229,10 +2229,10 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         engine.condition_1 = data.condition_1 if data.condition_1 and data.condition_1.strip() and data.condition_1 != '-' else "SV"
         engine.condition_2 = data.condition_2 if data.condition_2 and data.condition_2.strip() and data.condition_2 != '-' else "New"
         
-        # НЕ меняем status и location если двигатель в "системном" статусе (INSTALLED, REMOVED, REPAIRED)
+        # ðØðò ð╝ðÁð¢ÐÅðÁð╝ status ð© location ðÁÐüð╗ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð▓ "Ðüð©ÐüÐéðÁð╝ð¢ð¥ð╝" ÐüÐéð░ÐéÐâÐüðÁ (INSTALLED, REMOVED, REPAIRED)
         protected_statuses = ["INSTALLED", "REMOVED", "REPAIRED"]
         if engine.status not in protected_statuses:
-            # Разрешаем только INSTALLED/REMOVED/'-'. Любые другие значения маппим на '-'.
+            # ðáð░ðÀÐÇðÁÐêð░ðÁð╝ Ðéð¥ð╗Ðîð║ð¥ INSTALLED/REMOVED/'-'. ðøÐÄð▒ÐïðÁ ð┤ÐÇÐâð│ð©ðÁ ðÀð¢ð░ÐçðÁð¢ð©ÐÅ ð╝ð░ð┐ð┐ð©ð╝ ð¢ð░ '-'.
             status_value = data.status if data.status and data.status.strip() else "-"
             allowed_statuses = ["INSTALLED", "REMOVED", "-"]
             engine.status = status_value if status_value in allowed_statuses else "-"
@@ -2255,12 +2255,12 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         raise
     except Exception as e:
         db.rollback()
-        print(f"❌ Error updating engine {engine_id}: {e}")
+        print(f"ÔØî Error updating engine {engine_id}: {e}")
         import traceback
         print(traceback.format_exc())
         raise HTTPException(500, f"Failed to update engine: {str(e)}")
 
-# ПОЛУЧЕНИЕ ОДНОГО ДВИГАТЕЛЯ ПО ID
+# ðƒð×ðøðúðºðòðØðÿðò ð×ðöðØð×ðôð× ðöðÆðÿðôðÉðóðòðøð» ðƒð× ID
 @app.get("/api/engines/{engine_id}")
 def get_engine_by_id(engine_id: int, db: Session = Depends(get_db)):
     engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
@@ -2300,24 +2300,24 @@ def get_engine_by_id(engine_id: int, db: Session = Depends(get_db)):
         "condition_2": engine.condition_2 or "New"
     }
 
-# ПОЛУЧЕНИЕ ПОЛНОЙ ИСТОРИИ ДВИГАТЕЛЯ
+# ðƒð×ðøðúðºðòðØðÿðò ðƒð×ðøðØð×ðÖ ðÿðíðóð×ðáðÿðÿ ðöðÆðÿðôðÉðóðòðøð»
 @app.get("/api/engines/{engine_id}/history")
 def get_engine_history(engine_id: int, db: Session = Depends(get_db)):
     engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
     if not engine:
         raise HTTPException(404, "Engine not found")
     
-    # Получаем все логи действий для данного двигателя (сортируем от старых к новым - хронологически)
-    # Фильтруем только реальные действия из ACTIONS (не utilization, parameters и т.д.)
+    # ðƒð¥ð╗ÐâÐçð░ðÁð╝ ð▓ÐüðÁ ð╗ð¥ð│ð© ð┤ðÁð╣ÐüÐéð▓ð©ð╣ ð┤ð╗ÐÅ ð┤ð░ð¢ð¢ð¥ð│ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ (Ðüð¥ÐÇÐéð©ÐÇÐâðÁð╝ ð¥Ðé ÐüÐéð░ÐÇÐïÐà ð║ ð¢ð¥ð▓Ðïð╝ - ÐàÐÇð¥ð¢ð¥ð╗ð¥ð│ð©ÐçðÁÐüð║ð©)
+    # ðñð©ð╗ÐîÐéÐÇÐâðÁð╝ Ðéð¥ð╗Ðîð║ð¥ ÐÇðÁð░ð╗Ðîð¢ÐïðÁ ð┤ðÁð╣ÐüÐéð▓ð©ÐÅ ð©ðÀ ACTIONS (ð¢ðÁ utilization, parameters ð© Ðé.ð┤.)
     logs = db.query(models.ActionLog).filter(
         models.ActionLog.engine_id == engine_id,
         models.ActionLog.action_type.in_(["INSTALL", "REMOVE", "SHIP", "REPAIR"])
-    ).order_by(models.ActionLog.date.asc()).all()  # ASC для хронологического порядка (старые сверху)
+    ).order_by(models.ActionLog.date.asc()).all()  # ASC ð┤ð╗ÐÅ ÐàÐÇð¥ð¢ð¥ð╗ð¥ð│ð©ÐçðÁÐüð║ð¥ð│ð¥ ð┐ð¥ÐÇÐÅð┤ð║ð░ (ÐüÐéð░ÐÇÐïðÁ Ðüð▓ðÁÐÇÐàÐâ)
     
     result = []
     for log in logs:
         try:
-            # Базовые поля
+            # ðæð░ðÀð¥ð▓ÐïðÁ ð┐ð¥ð╗ÐÅ
             event = {
                 "id": log.id,
                 "date": log.date.strftime('%Y-%m-%d') if log.date else "N/A",
@@ -2327,7 +2327,7 @@ def get_engine_history(engine_id: int, db: Session = Depends(get_db)):
                 "remarks": log.comments or ""
             }
             
-            # Специфичные поля для разных типов действий
+            # ðíð┐ðÁÐåð©Ðäð©Ðçð¢ÐïðÁ ð┐ð¥ð╗ÐÅ ð┤ð╗ÐÅ ÐÇð░ðÀð¢ÐïÐà Ðéð©ð┐ð¥ð▓ ð┤ðÁð╣ÐüÐéð▓ð©ð╣
             if log.action_type == "INSTALL":
                 event.update({
                     "install_to": log.to_aircraft,
@@ -2362,13 +2362,13 @@ def get_engine_history(engine_id: int, db: Session = Depends(get_db)):
             print(f"[engine_history] skip log {getattr(log,'id',None)} due to error: {e}")
             continue
     
-    # Также получаем все parts которые установлены на этом двигателе
+    # ðóð░ð║ðÂðÁ ð┐ð¥ð╗ÐâÐçð░ðÁð╝ ð▓ÐüðÁ parts ð║ð¥Ðéð¥ÐÇÐïðÁ ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢Ðï ð¢ð░ ÐìÐéð¥ð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁ
     parts = db.query(models.Part).filter(models.Part.engine_id == engine_id).all()
     for part in parts:
-        if part.id:  # Только если part имеет ID (установлен)
+        if part.id:  # ðóð¥ð╗Ðîð║ð¥ ðÁÐüð╗ð© part ð©ð╝ðÁðÁÐé ID (ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢)
             part_event = {
                 "id": f"part_{part.id}",
-                "date": "N/A",  # Parts не имеют даты установки в отдельном поле
+                "date": "N/A",  # Parts ð¢ðÁ ð©ð╝ðÁÐÄÐé ð┤ð░ÐéÐï ÐâÐüÐéð░ð¢ð¥ð▓ð║ð© ð▓ ð¥Ðéð┤ðÁð╗Ðîð¢ð¥ð╝ ð┐ð¥ð╗ðÁ
                 "action_type": "PART_INSTALLED",
                 "engine_original_sn": engine.original_sn,
                 "engine_current_sn": engine.current_sn,
@@ -2381,7 +2381,7 @@ def get_engine_history(engine_id: int, db: Session = Depends(get_db)):
     
     return result
 
-# ОБНОВЛЕНИЕ ЗАПИСИ В ИСТОРИИ (ActionLog)
+# ð×ðæðØð×ðÆðøðòðØðÿðò ðùðÉðƒðÿðíðÿ ðÆ ðÿðíðóð×ðáðÿðÿ (ActionLog)
 class ActionLogUpdateSchema(BaseModel):
     date: Optional[str] = None
     from_location: Optional[str] = None
@@ -2418,7 +2418,7 @@ class ActionLogCreateSchema(BaseModel):
 
 @app.put("/api/history/{action_type}/{log_id}")
 def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSchema, db: Session = Depends(get_db)):
-    # Специальная обработка для BORESCOPE
+    # ðíð┐ðÁÐåð©ð░ð╗Ðîð¢ð░ÐÅ ð¥ð▒ÐÇð░ð▒ð¥Ðéð║ð░ ð┤ð╗ÐÅ BORESCOPE
     if action_type == "BORESCOPE":
         inspection = db.query(models.BoroscopeInspection).filter(models.BoroscopeInspection.id == log_id).first()
         if not inspection:
@@ -2449,7 +2449,7 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
         db.refresh(inspection)
         return {"message": "Borescope inspection updated successfully"}
     
-    # Специальная обработка для PURCHASE_ORDER
+    # ðíð┐ðÁÐåð©ð░ð╗Ðîð¢ð░ÐÅ ð¥ð▒ÐÇð░ð▒ð¥Ðéð║ð░ ð┤ð╗ÐÅ PURCHASE_ORDER
     if action_type == "PURCHASE_ORDER":
         order = db.query(models.PurchaseOrder).filter(models.PurchaseOrder.id == log_id).first()
         if not order:
@@ -2474,7 +2474,7 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
         db.refresh(order)
         return {"message": "Purchase order updated successfully"}
     
-    # Специальная обработка для PARAMETER
+    # ðíð┐ðÁÐåð©ð░ð╗Ðîð¢ð░ÐÅ ð¥ð▒ÐÇð░ð▒ð¥Ðéð║ð░ ð┤ð╗ÐÅ PARAMETER
     if action_type == "PARAMETER":
         param = db.query(models.EngineParameterHistory).filter(models.EngineParameterHistory.id == log_id).first()
         if not param:
@@ -2492,9 +2492,9 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
             param.egt_takeoff = data.snapshot_tt
         if data.snapshot_tc:  # n1_cruise
             param.n1_cruise = float(data.snapshot_tc) if data.snapshot_tc else None
-        if data.comments:  # n2_cruise (первая часть)
+        if data.comments:  # n2_cruise (ð┐ðÁÐÇð▓ð░ÐÅ Ðçð░ÐüÐéÐî)
             param.n2_cruise = float(data.comments.split(',')[0]) if data.comments else None
-        if data.file_url:  # egt_cruise (вторая часть)
+        if data.file_url:  # egt_cruise (ð▓Ðéð¥ÐÇð░ÐÅ Ðçð░ÐüÐéÐî)
             param.egt_cruise = float(data.file_url) if data.file_url else None
             
         db.commit()
@@ -2548,7 +2548,7 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
             engine.total_cycles = data.snapshot_tc
             engine.csn_at_install = data.snapshot_tc
 
-        # Сохраняем налёт самолета в логе (НЕ обновляем Aircraft.total_time/cycles)
+        # ðíð¥ÐàÐÇð░ð¢ÐÅðÁð╝ ð¢ð░ð╗ÐæÐé Ðüð░ð╝ð¥ð╗ðÁÐéð░ ð▓ ð╗ð¥ð│ðÁ (ðØðò ð¥ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ Aircraft.total_time/cycles)
         if data.ac_ttsn is not None:
             log.block_time_str = str(data.ac_ttsn)
         if data.ac_tcsn is not None:
@@ -2565,12 +2565,12 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
 
         if data.original_sn is not None:
             engine.original_sn = data.original_sn
-            # Дублируем в логе для отображения в истории
+            # ðöÐâð▒ð╗ð©ÐÇÐâðÁð╝ ð▓ ð╗ð¥ð│ðÁ ð┤ð╗ÐÅ ð¥Ðéð¥ð▒ÐÇð░ðÂðÁð¢ð©ÐÅ ð▓ ð©ÐüÐéð¥ÐÇð©ð©
             log.engine_original_sn = data.original_sn
 
         if data.current_sn is not None:
             engine.current_sn = data.current_sn
-            # Дублируем в логе, чтобы сразу отображалось в истории
+            # ðöÐâð▒ð╗ð©ÐÇÐâðÁð╝ ð▓ ð╗ð¥ð│ðÁ, ÐçÐéð¥ð▒Ðï ÐüÐÇð░ðÀÐâ ð¥Ðéð¥ð▒ÐÇð░ðÂð░ð╗ð¥ÐüÐî ð▓ ð©ÐüÐéð¥ÐÇð©ð©
             log.engine_current_sn = data.current_sn
 
         db.commit()
@@ -2578,7 +2578,7 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
         db.refresh(engine)
         return {"message": f"Install record updated successfully (ID: {log_id})"}
 
-    # Обычная обработка для ActionLog
+    # ð×ð▒ÐïÐçð¢ð░ÐÅ ð¥ð▒ÐÇð░ð▒ð¥Ðéð║ð░ ð┤ð╗ÐÅ ActionLog
     log = db.query(models.ActionLog).filter(
         models.ActionLog.id == log_id,
         models.ActionLog.action_type == action_type
@@ -2587,7 +2587,7 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
     if not log:
         raise HTTPException(404, f"History record not found (ID: {log_id}, Type: {action_type})")
     
-    # Обновляем только переданные поля
+    # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ Ðéð¥ð╗Ðîð║ð¥ ð┐ðÁÐÇðÁð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐÅ
     if data.date:
         parsed = parse_input_date(data.date)
         if parsed:
@@ -2616,11 +2616,11 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
     
     return {"message": f"History record updated successfully (ID: {log_id})"}
 
-# УДАЛЕНИЕ ЗАПИСИ ИЗ ИСТОРИИ (ActionLog)
+# ðúðöðÉðøðòðØðÿðò ðùðÉðƒðÿðíðÿ ðÿðù ðÿðíðóð×ðáðÿðÿ (ActionLog)
 @app.delete("/api/history/{action_type}/{log_id}")
 def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query("User"), db: Session = Depends(get_db)):
     try:
-        # Специальная обработка для Reports
+        # ðíð┐ðÁÐåð©ð░ð╗Ðîð¢ð░ÐÅ ð¥ð▒ÐÇð░ð▒ð¥Ðéð║ð░ ð┤ð╗ÐÅ Reports
         if action_type == "BORESCOPE":
             inspection = db.query(models.BoroscopeInspection).filter(models.BoroscopeInspection.id == log_id).first()
             if not inspection:
@@ -2632,7 +2632,7 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
                 action_type="deleted",
                 entity_type="borescope",
                 entity_id=log_id,
-                message=f"Бороскопия: борт {inspection.aircraft}, двигатель {inspection.serial_number}, позиция {inspection.position or '-'}",
+                message=f"ðæð¥ÐÇð¥Ðüð║ð¥ð┐ð©ÐÅ: ð▒ð¥ÐÇÐé {inspection.aircraft}, ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî {inspection.serial_number}, ð┐ð¥ðÀð©Ðåð©ÐÅ {inspection.position or '-'}",
                 performed_by=deleted_by
             )
             
@@ -2651,7 +2651,7 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
                 action_type="deleted",
                 entity_type="purchase_order",
                 entity_id=log_id,
-                message=f"Purchase Order '{order.name}' для борта {order.aircraft or '-'} (RO: {order.ro_number or '-'})",
+                message=f"Purchase Order '{order.name}' ð┤ð╗ÐÅ ð▒ð¥ÐÇÐéð░ {order.aircraft or '-'} (RO: {order.ro_number or '-'})",
                 performed_by=deleted_by
             )
             
@@ -2666,8 +2666,8 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
             
             # Get engine and aircraft info
             engine_sn = param.engine.original_sn or param.engine.current_sn or "Unknown" if param.engine else "Unknown engine"
-            engine_info = f"двигатель {engine_sn}"
-            aircraft_info = f"борт {param.engine.aircraft.tail_number}" if param.engine and param.engine.aircraft else "N/A"
+            engine_info = f"ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî {engine_sn}"
+            aircraft_info = f"ð▒ð¥ÐÇÐé {param.engine.aircraft.tail_number}" if param.engine and param.engine.aircraft else "N/A"
             date_info = param.date.strftime("%Y-%m-%d") if param.date else "Unknown date"
             
             # Create notification
@@ -2676,7 +2676,7 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
                 action_type="deleted",
                 entity_type="engine_parameter",
                 entity_id=log_id,
-                message=f"Engine Parameters: {engine_info}, {aircraft_info}, дата {date_info}",
+                message=f"Engine Parameters: {engine_info}, {aircraft_info}, ð┤ð░Ðéð░ {date_info}",
                 performed_by=deleted_by
             )
             
@@ -2684,7 +2684,7 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
             db.commit()
             return {"message": f"Engine parameter record deleted successfully (ID: {log_id})"}
         
-        # Обычная обработка для ActionLog
+        # ð×ð▒ÐïÐçð¢ð░ÐÅ ð¥ð▒ÐÇð░ð▒ð¥Ðéð║ð░ ð┤ð╗ÐÅ ActionLog
         log = db.query(models.ActionLog).filter(
             models.ActionLog.id == log_id,
             models.ActionLog.action_type == action_type
@@ -2693,21 +2693,21 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
         if not log:
             raise HTTPException(404, f"History record not found (ID: {log_id}, Type: {action_type})")
         
-        # Если это INSTALL, отменяем установку: возвращаем двигатель в статус '-'
+        # ðòÐüð╗ð© ÐìÐéð¥ INSTALL, ð¥Ðéð╝ðÁð¢ÐÅðÁð╝ ÐâÐüÐéð░ð¢ð¥ð▓ð║Ðâ: ð▓ð¥ðÀð▓ÐÇð░Ðëð░ðÁð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð▓ ÐüÐéð░ÐéÐâÐü '-'
         if action_type == "INSTALL" and log.engine:
             engine = log.engine
-            engine.status = models.EngineStatus.UNASSIGNED  # Возвращаем статус '-'
+            engine.status = models.EngineStatus.UNASSIGNED  # ðÆð¥ðÀð▓ÐÇð░Ðëð░ðÁð╝ ÐüÐéð░ÐéÐâÐü '-'
             engine.aircraft_id = None
             engine.position = None
             engine.tsn_at_install = None
             engine.csn_at_install = None
             engine.install_date = None
-            # Примечание: location_id оставляем как есть (последняя известная локация)
+            # ðƒÐÇð©ð╝ðÁÐçð░ð¢ð©ðÁ: location_id ð¥ÐüÐéð░ð▓ð╗ÐÅðÁð╝ ð║ð░ð║ ðÁÐüÐéÐî (ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÅÐÅ ð©ðÀð▓ðÁÐüÐéð¢ð░ÐÅ ð╗ð¥ð║ð░Ðåð©ÐÅ)
         
-        # Если это REMOVE, отменяем снятие: возвращаем двигатель обратно на самолет
+        # ðòÐüð╗ð© ÐìÐéð¥ REMOVE, ð¥Ðéð╝ðÁð¢ÐÅðÁð╝ Ðüð¢ÐÅÐéð©ðÁ: ð▓ð¥ðÀð▓ÐÇð░Ðëð░ðÁð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð¥ð▒ÐÇð░Ðéð¢ð¥ ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐé
         if action_type == "REMOVE" and log.engine:
             engine = log.engine
-            # Находим последнюю INSTALL запись для этого двигателя (до текущей REMOVE)
+            # ðØð░Ðàð¥ð┤ð©ð╝ ð┐ð¥Ðüð╗ðÁð┤ð¢ÐÄÐÄ INSTALL ðÀð░ð┐ð©ÐüÐî ð┤ð╗ÐÅ ÐìÐéð¥ð│ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ (ð┤ð¥ ÐéðÁð║ÐâÐëðÁð╣ REMOVE)
             last_install = db.query(models.ActionLog).filter(
                 models.ActionLog.engine_id == engine.id,
                 models.ActionLog.action_type == "INSTALL",
@@ -2715,7 +2715,7 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
             ).order_by(models.ActionLog.date.desc()).first()
             
             if last_install:
-                # Восстанавливаем данные из последней установки
+                # ðÆð¥ÐüÐüÐéð░ð¢ð░ð▓ð╗ð©ð▓ð░ðÁð╝ ð┤ð░ð¢ð¢ÐïðÁ ð©ðÀ ð┐ð¥Ðüð╗ðÁð┤ð¢ðÁð╣ ÐâÐüÐéð░ð¢ð¥ð▓ð║ð©
                 aircraft = db.query(models.Aircraft).filter(models.Aircraft.tail_number == last_install.to_aircraft).first()
                 if aircraft:
                     engine.status = models.EngineStatus.INSTALLED
@@ -2725,15 +2725,15 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
                     engine.total_time = last_install.snapshot_tt if last_install.snapshot_tt else engine.total_time
                     engine.total_cycles = last_install.snapshot_tc if last_install.snapshot_tc else engine.total_cycles
             else:
-                # Если нет предыдущей установки, просто меняем статус на '-'
+                # ðòÐüð╗ð© ð¢ðÁÐé ð┐ÐÇðÁð┤Ðïð┤ÐâÐëðÁð╣ ÐâÐüÐéð░ð¢ð¥ð▓ð║ð©, ð┐ÐÇð¥ÐüÐéð¥ ð╝ðÁð¢ÐÅðÁð╝ ÐüÐéð░ÐéÐâÐü ð¢ð░ '-'
                 engine.status = models.EngineStatus.UNASSIGNED
                 engine.aircraft_id = None
                 engine.position = None
         
-        # Если это REPAIR, отменяем ремонт: восстанавливаем предыдущие TT/TC
+        # ðòÐüð╗ð© ÐìÐéð¥ REPAIR, ð¥Ðéð╝ðÁð¢ÐÅðÁð╝ ÐÇðÁð╝ð¥ð¢Ðé: ð▓ð¥ÐüÐüÐéð░ð¢ð░ð▓ð╗ð©ð▓ð░ðÁð╝ ð┐ÐÇðÁð┤Ðïð┤ÐâÐëð©ðÁ TT/TC
         if action_type == "REPAIR" and log.engine:
             engine = log.engine
-            # Находим предыдущую запись с TT/TC для этого двигателя
+            # ðØð░Ðàð¥ð┤ð©ð╝ ð┐ÐÇðÁð┤Ðïð┤ÐâÐëÐâÐÄ ðÀð░ð┐ð©ÐüÐî Ðü TT/TC ð┤ð╗ÐÅ ÐìÐéð¥ð│ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
             prev_log = db.query(models.ActionLog).filter(
                 models.ActionLog.engine_id == engine.id,
                 models.ActionLog.date < log.date,
@@ -2743,25 +2743,25 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
             if prev_log:
                 engine.total_time = prev_log.snapshot_tt
                 engine.total_cycles = prev_log.snapshot_tc if prev_log.snapshot_tc else engine.total_cycles
-            # Примечание: Статус остается как есть (не меняем на SV автоматически)
+            # ðƒÐÇð©ð╝ðÁÐçð░ð¢ð©ðÁ: ðíÐéð░ÐéÐâÐü ð¥ÐüÐéð░ðÁÐéÐüÐÅ ð║ð░ð║ ðÁÐüÐéÐî (ð¢ðÁ ð╝ðÁð¢ÐÅðÁð╝ ð¢ð░ SV ð░ð▓Ðéð¥ð╝ð░Ðéð©ÐçðÁÐüð║ð©)
         
-        # Если это SHIP (отгрузка), отменяем отгрузку: возвращаем двигатель в исходную локацию
+        # ðòÐüð╗ð© ÐìÐéð¥ SHIP (ð¥Ðéð│ÐÇÐâðÀð║ð░), ð¥Ðéð╝ðÁð¢ÐÅðÁð╝ ð¥Ðéð│ÐÇÐâðÀð║Ðâ: ð▓ð¥ðÀð▓ÐÇð░Ðëð░ðÁð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð▓ ð©ÐüÐàð¥ð┤ð¢ÐâÐÄ ð╗ð¥ð║ð░Ðåð©ÐÄ
         if action_type == "SHIP" and log.engine:
             engine = log.engine
-            # Пытаемся найти локацию из from_location
+            # ðƒÐïÐéð░ðÁð╝ÐüÐÅ ð¢ð░ð╣Ðéð© ð╗ð¥ð║ð░Ðåð©ÐÄ ð©ðÀ from_location
             if log.from_location:
                 from_location = db.query(models.Location).filter(models.Location.name == log.from_location).first()
                 if from_location:
                     engine.location_id = from_location.id
-            # Примечание: Статус не меняем (остается как был)
+            # ðƒÐÇð©ð╝ðÁÐçð░ð¢ð©ðÁ: ðíÐéð░ÐéÐâÐü ð¢ðÁ ð╝ðÁð¢ÐÅðÁð╝ (ð¥ÐüÐéð░ðÁÐéÐüÐÅ ð║ð░ð║ ð▒Ðïð╗)
         
-        # Формируем сообщение для уведомления
+        # ðñð¥ÐÇð╝ð©ÐÇÐâðÁð╝ Ðüð¥ð¥ð▒ÐëðÁð¢ð©ðÁ ð┤ð╗ÐÅ Ðâð▓ðÁð┤ð¥ð╝ð╗ðÁð¢ð©ÐÅ
         engine_sn = log.engine.original_sn or log.engine.current_sn or "Unknown" if log.engine else ""
-        engine_info = f" двигатель {engine_sn}" if log.engine else ""
-        aircraft_info = f" с борта {log.to_aircraft or log.from_location or '-'}" if action_type in ["INSTALL", "REMOVE", "SHIP"] else ""
+        engine_info = f" ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî {engine_sn}" if log.engine else ""
+        aircraft_info = f" Ðü ð▒ð¥ÐÇÐéð░ {log.to_aircraft or log.from_location or '-'}" if action_type in ["INSTALL", "REMOVE", "SHIP"] else ""
         message = f"{action_type}: {engine_info}{aircraft_info}"
         
-        # Create notification перед удалением
+        # Create notification ð┐ðÁÐÇðÁð┤ Ðâð┤ð░ð╗ðÁð¢ð©ðÁð╝
         create_notification(
             db,
             action_type="deleted",
@@ -2771,7 +2771,7 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
             performed_by=deleted_by
         )
         
-        # Удаляем запись
+        # ðúð┤ð░ð╗ÐÅðÁð╝ ðÀð░ð┐ð©ÐüÐî
         db.delete(log)
         db.commit()
         
@@ -2780,18 +2780,18 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
         raise
     except Exception as e:
         db.rollback()
-        print(f"❌ Error in delete_history_record ({action_type}, ID: {log_id}): {e}")
+        print(f"ÔØî Error in delete_history_record ({action_type}, ID: {log_id}): {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Failed to delete {action_type} record: {str(e)}")
 
-# ВАЖНО: Сначала специфичные маршруты (INSTALL), потом общие ({action_type})
+# ðÆðÉðûðØð×: ðíð¢ð░Ðçð░ð╗ð░ Ðüð┐ðÁÐåð©Ðäð©Ðçð¢ÐïðÁ ð╝ð░ÐÇÐêÐÇÐâÐéÐï (INSTALL), ð┐ð¥Ðéð¥ð╝ ð¥ð▒Ðëð©ðÁ ({action_type})
 
-# 1. Получить историю установок (Вся информация)
+# 1. ðƒð¥ð╗ÐâÐçð©ÐéÐî ð©ÐüÐéð¥ÐÇð©ÐÄ ÐâÐüÐéð░ð¢ð¥ð▓ð¥ð║ (ðÆÐüÐÅ ð©ð¢Ðäð¥ÐÇð╝ð░Ðåð©ÐÅ)
 @app.get("/api/history/INSTALL")
 def get_install_history(db: Session = Depends(get_db)):
     try:
-        # Берем логи только типа INSTALL
+        # ðæðÁÐÇðÁð╝ ð╗ð¥ð│ð© Ðéð¥ð╗Ðîð║ð¥ Ðéð©ð┐ð░ INSTALL
         logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "INSTALL").order_by(models.ActionLog.date.desc()).all()
         def _safe_float(val):
             try:
@@ -2807,11 +2807,11 @@ def get_install_history(db: Session = Depends(get_db)):
 
         res = []
         for l in logs:
-            # Если двигатель удален, пишем заглушку
+            # ðòÐüð╗ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî Ðâð┤ð░ð╗ðÁð¢, ð┐ð©ÐêðÁð╝ ðÀð░ð│ð╗ÐâÐêð║Ðâ
             orig_sn = l.engine.original_sn if l.engine else "Deleted"
             curr_sn = l.engine.current_sn if l.engine else "-"
             
-            # Определяем статус установки
+            # ð×ð┐ÐÇðÁð┤ðÁð╗ÐÅðÁð╝ ÐüÐéð░ÐéÐâÐü ÐâÐüÐéð░ð¢ð¥ð▓ð║ð©
             install_status = "INSTALLED" if l.is_active else "REMOVED"
             
             res.append({
@@ -2832,35 +2832,35 @@ def get_install_history(db: Session = Depends(get_db)):
             })
         return res
     except Exception as e:
-        print(f"❌ Error in get_install_history: {e}")
+        print(f"ÔØî Error in get_install_history: {e}")
         return []
 
-# 3. Сохранить Установку (INSTALL)
+# 3. ðíð¥ÐàÐÇð░ð¢ð©ÐéÐî ðúÐüÐéð░ð¢ð¥ð▓ð║Ðâ (INSTALL)
 @app.post("/api/actions/install")
 def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
-    # Ищем двигатель
+    # ðÿÐëðÁð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
     if not eng:
         return {
             "status": "warning",
             "code": "ENGINE_NOT_FOUND",
-            "message": "⚠️ Двигатель не найден в базе данных",
-            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "message": "ÔÜá´©Å ðöð▓ð©ð│ð░ÐéðÁð╗Ðî ð¢ðÁ ð¢ð░ð╣ð┤ðÁð¢ ð▓ ð▒ð░ðÀðÁ ð┤ð░ð¢ð¢ÐïÐà",
+            "hint": "ðƒð¥ðÂð░ð╗Ðâð╣ÐüÐéð░, Ðüð¢ð░Ðçð░ð╗ð░ ð┤ð¥ð▒ð░ð▓ÐîÐéðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð▓ Master Engine List",
             "action": "create_engine"
         }
     
-    # Ищем самолет
+    # ðÿÐëðÁð╝ Ðüð░ð╝ð¥ð╗ðÁÐé
     ac = db.query(models.Aircraft).filter(models.Aircraft.id == data.aircraft_id).first()
     if not ac:
         return {
             "status": "warning",
             "code": "AIRCRAFT_NOT_FOUND",
-            "message": "⚠️ Самолет не найден в базе данных",
-            "hint": "Пожалуйста, сначала добавьте самолет в Fleet",
+            "message": "ÔÜá´©Å ðíð░ð╝ð¥ð╗ðÁÐé ð¢ðÁ ð¢ð░ð╣ð┤ðÁð¢ ð▓ ð▒ð░ðÀðÁ ð┤ð░ð¢ð¢ÐïÐà",
+            "hint": "ðƒð¥ðÂð░ð╗Ðâð╣ÐüÐéð░, Ðüð¢ð░Ðçð░ð╗ð░ ð┤ð¥ð▒ð░ð▓ÐîÐéðÁ Ðüð░ð╝ð¥ð╗ðÁÐé ð▓ Fleet",
             "action": "create_aircraft"
         }
     
-    # Проверяем нет ли уже двигателя на этой позиции
+    # ðƒÐÇð¥ð▓ðÁÐÇÐÅðÁð╝ ð¢ðÁÐé ð╗ð© ÐâðÂðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ ð¢ð░ ÐìÐéð¥ð╣ ð┐ð¥ðÀð©Ðåð©ð©
     existing_engine = db.query(models.Engine).filter(
         models.Engine.aircraft_id == data.aircraft_id,
         models.Engine.position == data.position,
@@ -2868,7 +2868,7 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
     ).first()
     
     if existing_engine:
-        # УМНАЯ ПРОВЕРКА: Проверяем есть ли removal для этого двигателя с датой >= новой installation
+        # ðúð£ðØðÉð» ðƒðáð×ðÆðòðáðÜðÉ: ðƒÐÇð¥ð▓ðÁÐÇÐÅðÁð╝ ðÁÐüÐéÐî ð╗ð© removal ð┤ð╗ÐÅ ÐìÐéð¥ð│ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ Ðü ð┤ð░Ðéð¥ð╣ >= ð¢ð¥ð▓ð¥ð╣ installation
         install_date = parse_input_date(data.date) or datetime.now()
         
         removal_after = db.query(models.ActionLog).filter(
@@ -2882,16 +2882,16 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
             return {
                 "status": "warning",
                 "code": "POSITION_OCCUPIED",
-                "message": f"⚠️ Позиция {data.position} на {ac.tail_number} уже занята",
-                "hint": f"Двигатель {existing_engine.current_sn or existing_engine.original_sn} установлен на этой позиции. Сначала снимите его.",
+                "message": f"ÔÜá´©Å ðƒð¥ðÀð©Ðåð©ÐÅ {data.position} ð¢ð░ {ac.tail_number} ÐâðÂðÁ ðÀð░ð¢ÐÅÐéð░",
+                "hint": f"ðöð▓ð©ð│ð░ÐéðÁð╗Ðî {existing_engine.current_sn or existing_engine.original_sn} ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ ð¢ð░ ÐìÐéð¥ð╣ ð┐ð¥ðÀð©Ðåð©ð©. ðíð¢ð░Ðçð░ð╗ð░ Ðüð¢ð©ð╝ð©ÐéðÁ ðÁð│ð¥.",
                 "action": "remove_engine_first"
             }
     
-    # Запоминаем откуда взяли
+    # ðùð░ð┐ð¥ð╝ð©ð¢ð░ðÁð╝ ð¥Ðéð║Ðâð┤ð░ ð▓ðÀÐÅð╗ð©
     from_loc = eng.location.name if eng.location else "Unknown"
     install_dt = parse_input_date(data.date)
     
-    # Обновляем сам двигатель
+    # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ Ðüð░ð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
     eng.status = "INSTALLED"
     eng.location_id = None
     eng.aircraft_id = ac.id
@@ -2899,21 +2899,21 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
     eng.total_time = data.tt
     eng.total_cycles = data.tc
     
-    # Обновляем Current SN если передан при установке
+    # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ Current SN ðÁÐüð╗ð© ð┐ðÁÐÇðÁð┤ð░ð¢ ð┐ÐÇð© ÐâÐüÐéð░ð¢ð¥ð▓ð║ðÁ
     if data.current_sn and data.current_sn.strip():
         eng.current_sn = data.current_sn.strip()
 
-    # НЕ обновляем aircraft.total_time/cycles здесь - только через Utilization Parameters
+    # ðØðò ð¥ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ aircraft.total_time/cycles ðÀð┤ðÁÐüÐî - Ðéð¥ð╗Ðîð║ð¥ ÐçðÁÐÇðÁðÀ Utilization Parameters
     
-    # SNAPSHOT для отслеживания наработки на конкретном самолете
+    # SNAPSHOT ð┤ð╗ÐÅ ð¥ÐéÐüð╗ðÁðÂð©ð▓ð░ð¢ð©ÐÅ ð¢ð░ÐÇð░ð▒ð¥Ðéð║ð© ð¢ð░ ð║ð¥ð¢ð║ÐÇðÁÐéð¢ð¥ð╝ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ
     eng.tsn_at_install = data.tt
     eng.csn_at_install = data.tc
     eng.install_date = install_dt or datetime.utcnow()
     
     db.commit()
-    db.refresh(eng)  # Обновляем объект двигателя после commit
+    db.refresh(eng)  # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ð¥ð▒ÐèðÁð║Ðé ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ ð┐ð¥Ðüð╗ðÁ commit
     
-    # Пишем историю
+    # ðƒð©ÐêðÁð╝ ð©ÐüÐéð¥ÐÇð©ÐÄ
     new_log = models.ActionLog(
         action_type="INSTALL",
         engine_id=eng.id,
@@ -2928,7 +2928,7 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
         supplier=data.supplier,
         date=install_dt or datetime.now()
     )
-    new_log.is_active = True  # Помечаем установку как активную
+    new_log.is_active = True  # ðƒð¥ð╝ðÁÐçð░ðÁð╝ ÐâÐüÐéð░ð¢ð¥ð▓ð║Ðâ ð║ð░ð║ ð░ð║Ðéð©ð▓ð¢ÐâÐÄ
     db.add(new_log)
     db.commit()
 
@@ -2938,16 +2938,16 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
         action_type="created",
         entity_type="install",
         entity_id=new_log.id,
-        message=f"Были внесены данные пользователем User в группу Installation: двигатель {eng.current_sn} установлен на {ac.tail_number} позиция {data.position}",
+        message=f"ðæÐïð╗ð© ð▓ð¢ðÁÐüðÁð¢Ðï ð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╝ User ð▓ ð│ÐÇÐâð┐ð┐Ðâ Installation: ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî {eng.current_sn} ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ ð¢ð░ {ac.tail_number} ð┐ð¥ðÀð©Ðåð©ÐÅ {data.position}",
         performed_by="User"
     )
     return {
         "status": "success",
-        "message": f"✅ Двигатель {eng.current_sn} успешно установлен на {ac.tail_number} (позиция {data.position})",
+        "message": f"Ô£à ðöð▓ð©ð│ð░ÐéðÁð╗Ðî {eng.current_sn} ÐâÐüð┐ðÁÐêð¢ð¥ ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ ð¢ð░ {ac.tail_number} (ð┐ð¥ðÀð©Ðåð©ÐÅ {data.position})",
         "data": {"engine_id": eng.id, "aircraft_id": ac.id, "log_id": new_log.id}
     }
 
-# 4. История перемещений (SHIP)
+# 4. ðÿÐüÐéð¥ÐÇð©ÐÅ ð┐ðÁÐÇðÁð╝ðÁÐëðÁð¢ð©ð╣ (SHIP)
 @app.get("/api/history/SHIP")
 def get_shipment_history(db: Session = Depends(get_db)):
     try:
@@ -2974,61 +2974,61 @@ def get_shipment_history(db: Session = Depends(get_db)):
             })
         return res
     except Exception as e:
-        print(f"❌ Error in get_shipment_history: {e}")
+        print(f"ÔØî Error in get_shipment_history: {e}")
         return []
 
-# 5. Сохранить Перемещение (SHIPMENT)
+# 5. ðíð¥ÐàÐÇð░ð¢ð©ÐéÐî ðƒðÁÐÇðÁð╝ðÁÐëðÁð¢ð©ðÁ (SHIPMENT)
 @app.post("/api/actions/ship")
 def ship_engine(data: ShipmentSchema, db: Session = Depends(get_db)):
-    # Ищем двигатель
+    # ðÿÐëðÁð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
     if not eng:
         return {
             "status": "warning",
             "code": "ENGINE_NOT_FOUND",
-            "message": "⚠️ Двигатель не найден в базе данных",
-            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "message": "ÔÜá´©Å ðöð▓ð©ð│ð░ÐéðÁð╗Ðî ð¢ðÁ ð¢ð░ð╣ð┤ðÁð¢ ð▓ ð▒ð░ðÀðÁ ð┤ð░ð¢ð¢ÐïÐà",
+            "hint": "ðƒð¥ðÂð░ð╗Ðâð╣ÐüÐéð░, Ðüð¢ð░Ðçð░ð╗ð░ ð┤ð¥ð▒ð░ð▓ÐîÐéðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð▓ Master Engine List",
             "action": "create_engine"
         }
     
-    # Проверка: INSTALLED двигатели нельзя отправлять (они на крыльях)
+    # ðƒÐÇð¥ð▓ðÁÐÇð║ð░: INSTALLED ð┤ð▓ð©ð│ð░ÐéðÁð╗ð© ð¢ðÁð╗ÐîðÀÐÅ ð¥Ðéð┐ÐÇð░ð▓ð╗ÐÅÐéÐî (ð¥ð¢ð© ð¢ð░ ð║ÐÇÐïð╗ÐîÐÅÐà)
     if eng.status == "INSTALLED":
         return {
             "status": "warning",
             "code": "ENGINE_INSTALLED",
-            "message": f"⚠️ Невозможно отправить двигатель {eng.original_sn}",
-            "hint": "Двигатель установлен на самолете. Сначала снимите его с самолета",
+            "message": f"ÔÜá´©Å ðØðÁð▓ð¥ðÀð╝ð¥ðÂð¢ð¥ ð¥Ðéð┐ÐÇð░ð▓ð©ÐéÐî ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî {eng.original_sn}",
+            "hint": "ðöð▓ð©ð│ð░ÐéðÁð╗Ðî ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ. ðíð¢ð░Ðçð░ð╗ð░ Ðüð¢ð©ð╝ð©ÐéðÁ ðÁð│ð¥ Ðü Ðüð░ð╝ð¥ð╗ðÁÐéð░",
             "action": "remove_engine_first"
         }
     
-    # Ищем локацию назначения
+    # ðÿÐëðÁð╝ ð╗ð¥ð║ð░Ðåð©ÐÄ ð¢ð░ðÀð¢ð░ÐçðÁð¢ð©ÐÅ
     dest_loc = db.query(models.Location).filter(models.Location.id == data.to_location_id).first()
     if not dest_loc:
         return {
             "status": "warning",
             "code": "LOCATION_NOT_FOUND",
-            "message": "⚠️ Локация назначения не найдена",
-            "hint": "Пожалуйста, проверьте выбранную локацию",
+            "message": "ÔÜá´©Å ðøð¥ð║ð░Ðåð©ÐÅ ð¢ð░ðÀð¢ð░ÐçðÁð¢ð©ÐÅ ð¢ðÁ ð¢ð░ð╣ð┤ðÁð¢ð░",
+            "hint": "ðƒð¥ðÂð░ð╗Ðâð╣ÐüÐéð░, ð┐ÐÇð¥ð▓ðÁÐÇÐîÐéðÁ ð▓Ðïð▒ÐÇð░ð¢ð¢ÐâÐÄ ð╗ð¥ð║ð░Ðåð©ÐÄ",
             "action": "check_location"
         }
 
-    # Откуда забираем (для истории)
+    # ð×Ðéð║Ðâð┤ð░ ðÀð░ð▒ð©ÐÇð░ðÁð╝ (ð┤ð╗ÐÅ ð©ÐüÐéð¥ÐÇð©ð©)
     from_loc_txt = "Unknown"
     if eng.location:
         from_loc_txt = eng.location.name
     elif eng.aircraft:
         from_loc_txt = f"AC: {eng.aircraft.tail_number}"
 
-    # Логика перемещения:
-    # Shipment - это отправка двигателя в другую локацию, но он остается на самолете
-    # Если двигатель был на самолете (INSTALLED), он остается на самолете (сохраняем aircraft_id)
-    # Если двигатель был на складе (SV), он остается на складе
-    # Меняется только location_id - место назначения отправки
+    # ðøð¥ð│ð©ð║ð░ ð┐ðÁÐÇðÁð╝ðÁÐëðÁð¢ð©ÐÅ:
+    # Shipment - ÐìÐéð¥ ð¥Ðéð┐ÐÇð░ð▓ð║ð░ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ ð▓ ð┤ÐÇÐâð│ÐâÐÄ ð╗ð¥ð║ð░Ðåð©ÐÄ, ð¢ð¥ ð¥ð¢ ð¥ÐüÐéð░ðÁÐéÐüÐÅ ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ
+    # ðòÐüð╗ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð▒Ðïð╗ ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ (INSTALLED), ð¥ð¢ ð¥ÐüÐéð░ðÁÐéÐüÐÅ ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ (Ðüð¥ÐàÐÇð░ð¢ÐÅðÁð╝ aircraft_id)
+    # ðòÐüð╗ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð▒Ðïð╗ ð¢ð░ Ðüð║ð╗ð░ð┤ðÁ (SV), ð¥ð¢ ð¥ÐüÐéð░ðÁÐéÐüÐÅ ð¢ð░ Ðüð║ð╗ð░ð┤ðÁ
+    # ð£ðÁð¢ÐÅðÁÐéÐüÐÅ Ðéð¥ð╗Ðîð║ð¥ location_id - ð╝ðÁÐüÐéð¥ ð¢ð░ðÀð¢ð░ÐçðÁð¢ð©ÐÅ ð¥Ðéð┐ÐÇð░ð▓ð║ð©
     eng.location_id = dest_loc.id
-    # Статус НЕ меняется при shipment - двигатель остается в том же статусе
-    # (если был INSTALLED, остается INSTALLED; если SV, остается SV и т.д.)
+    # ðíÐéð░ÐéÐâÐü ðØðò ð╝ðÁð¢ÐÅðÁÐéÐüÐÅ ð┐ÐÇð© shipment - ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð¥ÐüÐéð░ðÁÐéÐüÐÅ ð▓ Ðéð¥ð╝ ðÂðÁ ÐüÐéð░ÐéÐâÐüðÁ
+    # (ðÁÐüð╗ð© ð▒Ðïð╗ INSTALLED, ð¥ÐüÐéð░ðÁÐéÐüÐÅ INSTALLED; ðÁÐüð╗ð© SV, ð¥ÐüÐéð░ðÁÐéÐüÐÅ SV ð© Ðé.ð┤.)
 
-    # Пишем лог
+    # ðƒð©ÐêðÁð╝ ð╗ð¥ð│
     new_log = models.ActionLog(
         action_type="SHIP",
         engine_id=eng.id,
@@ -3047,16 +3047,16 @@ def ship_engine(data: ShipmentSchema, db: Session = Depends(get_db)):
         action_type="created",
         entity_type="shipment",
         entity_id=new_log.id,
-        message=f"Были внесены данные пользователем User в группу Shipment: двигатель {eng.current_sn} отправлен из {from_loc_txt} в {dest_loc.name}",
+        message=f"ðæÐïð╗ð© ð▓ð¢ðÁÐüðÁð¢Ðï ð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╝ User ð▓ ð│ÐÇÐâð┐ð┐Ðâ Shipment: ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî {eng.current_sn} ð¥Ðéð┐ÐÇð░ð▓ð╗ðÁð¢ ð©ðÀ {from_loc_txt} ð▓ {dest_loc.name}",
         performed_by="User"
     )
     return {
         "status": "success",
-        "message": f"✅ Двигатель {eng.current_sn} успешно отправлен в {dest_loc.name}",
+        "message": f"Ô£à ðöð▓ð©ð│ð░ÐéðÁð╗Ðî {eng.current_sn} ÐâÐüð┐ðÁÐêð¢ð¥ ð¥Ðéð┐ÐÇð░ð▓ð╗ðÁð¢ ð▓ {dest_loc.name}",
         "data": {"engine_id": eng.id, "location_id": dest_loc.id, "log_id": new_log.id}
     }
 
-# 6. История снятий (REMOVE)
+# 6. ðÿÐüÐéð¥ÐÇð©ÐÅ Ðüð¢ÐÅÐéð©ð╣ (REMOVE)
 @app.get("/api/history/REMOVE")
 def get_remove_history(db: Session = Depends(get_db)):
     try:
@@ -3081,10 +3081,10 @@ def get_remove_history(db: Session = Depends(get_db)):
             })
         return res
     except Exception as e:
-        print(f"❌ Error in get_remove_history: {e}")
+        print(f"ÔØî Error in get_remove_history: {e}")
         return []
 
-# 7. Сохранить Снятие (REMOVE)
+# 7. ðíð¥ÐàÐÇð░ð¢ð©ÐéÐî ðíð¢ÐÅÐéð©ðÁ (REMOVE)
 @app.post("/api/actions/remove")
 def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
@@ -3092,18 +3092,18 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         return {
             "status": "warning",
             "code": "ENGINE_NOT_FOUND",
-            "message": "⚠️ Двигатель не найден в базе данных",
-            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "message": "ÔÜá´©Å ðöð▓ð©ð│ð░ÐéðÁð╗Ðî ð¢ðÁ ð¢ð░ð╣ð┤ðÁð¢ ð▓ ð▒ð░ðÀðÁ ð┤ð░ð¢ð¢ÐïÐà",
+            "hint": "ðƒð¥ðÂð░ð╗Ðâð╣ÐüÐéð░, Ðüð¢ð░Ðçð░ð╗ð░ ð┤ð¥ð▒ð░ð▓ÐîÐéðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð▓ Master Engine List",
             "action": "create_engine"
         }
     
-    # Проверяем что двигатель установлен на самолете
+    # ðƒÐÇð¥ð▓ðÁÐÇÐÅðÁð╝ ÐçÐéð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ
     if eng.status != models.EngineStatus.INSTALLED:
         return {
             "status": "warning",
             "code": "ENGINE_NOT_INSTALLED",
-            "message": f"⚠️ Невозможно снять двигатель {eng.original_sn}",
-            "hint": f"Текущий статус: {eng.status}. Можно снимать только установленные двигатели (INSTALLED)",
+            "message": f"ÔÜá´©Å ðØðÁð▓ð¥ðÀð╝ð¥ðÂð¢ð¥ Ðüð¢ÐÅÐéÐî ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî {eng.original_sn}",
+            "hint": f"ðóðÁð║ÐâÐëð©ð╣ ÐüÐéð░ÐéÐâÐü: {eng.status}. ð£ð¥ðÂð¢ð¥ Ðüð¢ð©ð╝ð░ÐéÐî Ðéð¥ð╗Ðîð║ð¥ ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ð¢ÐïðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗ð© (INSTALLED)",
             "action": "install_first"
         }
     
@@ -3111,8 +3111,8 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         return {
             "status": "warning",
             "code": "ENGINE_NO_AIRCRAFT",
-            "message": f"⚠️ Двигатель {eng.original_sn} не установлен на самолете",
-            "hint": "Проверьте статус двигателя в системе",
+            "message": f"ÔÜá´©Å ðöð▓ð©ð│ð░ÐéðÁð╗Ðî {eng.original_sn} ð¢ðÁ ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ",
+            "hint": "ðƒÐÇð¥ð▓ðÁÐÇÐîÐéðÁ ÐüÐéð░ÐéÐâÐü ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ ð▓ Ðüð©ÐüÐéðÁð╝ðÁ",
             "action": "check_status"
         }
     
@@ -3121,24 +3121,24 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         return {
             "status": "warning",
             "code": "LOCATION_NOT_FOUND",
-            "message": "⚠️ Локация назначения не найдена",
-            "hint": "Пожалуйста, проверьте выбранную локацию",
+            "message": "ÔÜá´©Å ðøð¥ð║ð░Ðåð©ÐÅ ð¢ð░ðÀð¢ð░ÐçðÁð¢ð©ÐÅ ð¢ðÁ ð¢ð░ð╣ð┤ðÁð¢ð░",
+            "hint": "ðƒð¥ðÂð░ð╗Ðâð╣ÐüÐéð░, ð┐ÐÇð¥ð▓ðÁÐÇÐîÐéðÁ ð▓Ðïð▒ÐÇð░ð¢ð¢ÐâÐÄ ð╗ð¥ð║ð░Ðåð©ÐÄ",
             "action": "check_location"
         }
 
-    # Запоминаем, откуда сняли (с самолета)
+    # ðùð░ð┐ð¥ð╝ð©ð¢ð░ðÁð╝, ð¥Ðéð║Ðâð┤ð░ Ðüð¢ÐÅð╗ð© (Ðü Ðüð░ð╝ð¥ð╗ðÁÐéð░)
     from_txt = "Unknown"
     if eng.aircraft:
         from_txt = f"AC: {eng.aircraft.tail_number} (Pos {eng.position})"
 
-    # Логика: Отвязываем от самолета, привязываем к локации
+    # ðøð¥ð│ð©ð║ð░: ð×Ðéð▓ÐÅðÀÐïð▓ð░ðÁð╝ ð¥Ðé Ðüð░ð╝ð¥ð╗ðÁÐéð░, ð┐ÐÇð©ð▓ÐÅðÀÐïð▓ð░ðÁð╝ ð║ ð╗ð¥ð║ð░Ðåð©ð©
     eng.aircraft_id = None
     eng.position = None
     eng.location_id = dest_loc.id
-    eng.status = "REMOVED" # Меняем статус
-    eng.condition_1 = data.condition_1  # Обновляем техсостояние
+    eng.status = "REMOVED" # ð£ðÁð¢ÐÅðÁð╝ ÐüÐéð░ÐéÐâÐü
+    eng.condition_1 = data.condition_1  # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ÐéðÁÐàÐüð¥ÐüÐéð¥ÐÅð¢ð©ðÁ
 
-    # Закрываем активную установку (is_active = False) для этого двигателя
+    # ðùð░ð║ÐÇÐïð▓ð░ðÁð╝ ð░ð║Ðéð©ð▓ð¢ÐâÐÄ ÐâÐüÐéð░ð¢ð¥ð▓ð║Ðâ (is_active = False) ð┤ð╗ÐÅ ÐìÐéð¥ð│ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
     active_install = db.query(models.ActionLog).filter(
         models.ActionLog.engine_id == eng.id,
         models.ActionLog.action_type == "INSTALL",
@@ -3148,7 +3148,7 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     if active_install:
         active_install.is_active = False
 
-    # Пишем лог (с полными данными для истории)
+    # ðƒð©ÐêðÁð╝ ð╗ð¥ð│ (Ðü ð┐ð¥ð╗ð¢Ðïð╝ð© ð┤ð░ð¢ð¢Ðïð╝ð© ð┤ð╗ÐÅ ð©ÐüÐéð¥ÐÇð©ð©)
     new_log = models.ActionLog(
         action_type="REMOVE",
         engine_id=eng.id,
@@ -3167,7 +3167,7 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     )
     db.add(new_log)
     db.commit()
-    db.refresh(eng)  # Обновляем объект двигателя после commit
+    db.refresh(eng)  # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ð¥ð▒ÐèðÁð║Ðé ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ ð┐ð¥Ðüð╗ðÁ commit
 
     # Log action
     create_notification(
@@ -3175,16 +3175,16 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         action_type="created",
         entity_type="remove",
         entity_id=new_log.id,
-        message=f"Были внесены данные пользователем User в группу Remove: двигатель {eng.current_sn} снят с {from_txt} и перемещен в {dest_loc.name}",
+        message=f"ðæÐïð╗ð© ð▓ð¢ðÁÐüðÁð¢Ðï ð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╝ User ð▓ ð│ÐÇÐâð┐ð┐Ðâ Remove: ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî {eng.current_sn} Ðüð¢ÐÅÐé Ðü {from_txt} ð© ð┐ðÁÐÇðÁð╝ðÁÐëðÁð¢ ð▓ {dest_loc.name}",
         performed_by="User"
     )
     return {
         "status": "success",
-        "message": f"✅ Двигатель {eng.current_sn} успешно снят и перемещен в {dest_loc.name}",
+        "message": f"Ô£à ðöð▓ð©ð│ð░ÐéðÁð╗Ðî {eng.current_sn} ÐâÐüð┐ðÁÐêð¢ð¥ Ðüð¢ÐÅÐé ð© ð┐ðÁÐÇðÁð╝ðÁÐëðÁð¢ ð▓ {dest_loc.name}",
         "data": {"engine_id": eng.id, "location_id": dest_loc.id, "log_id": new_log.id}
     }
     
-    # 9. История ремонтов (REPAIR)
+    # 9. ðÿÐüÐéð¥ÐÇð©ÐÅ ÐÇðÁð╝ð¥ð¢Ðéð¥ð▓ (REPAIR)
 @app.get("/api/history/REPAIR")
 def get_repair_history(db: Session = Depends(get_db)):
     try:
@@ -3198,8 +3198,8 @@ def get_repair_history(db: Session = Depends(get_db)):
                 "date": l.date.strftime("%Y-%m-%d"),
                 "original_sn": orig_sn,
                 "current_sn": curr_sn,
-                "vendor": l.from_location,   # Используем поле from для Вендора
-                "wo": l.to_location,         # Используем поле to для Work Order
+                "vendor": l.from_location,   # ðÿÐüð┐ð¥ð╗ÐîðÀÐâðÁð╝ ð┐ð¥ð╗ðÁ from ð┤ð╗ÐÅ ðÆðÁð¢ð┤ð¥ÐÇð░
+                "wo": l.to_location,         # ðÿÐüð┐ð¥ð╗ÐîðÀÐâðÁð╝ ð┐ð¥ð╗ðÁ to ð┤ð╗ÐÅ Work Order
                 "tt": l.snapshot_tt,
                 "tc": l.snapshot_tc,
                 "photo": l.file_url,
@@ -3207,10 +3207,10 @@ def get_repair_history(db: Session = Depends(get_db)):
             })
         return res
     except Exception as e:
-        print(f"❌ Error in get_repair_history: {e}")
+        print(f"ÔØî Error in get_repair_history: {e}")
         return []
 
-# 10. Сохранить Ремонт (REPAIR)
+# 10. ðíð¥ÐàÐÇð░ð¢ð©ÐéÐî ðáðÁð╝ð¥ð¢Ðé (REPAIR)
 @app.post("/api/actions/repair")
 def repair_engine(data: RepairSchema, db: Session = Depends(get_db)):
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
@@ -3218,35 +3218,35 @@ def repair_engine(data: RepairSchema, db: Session = Depends(get_db)):
         return {
             "status": "warning",
             "code": "ENGINE_NOT_FOUND",
-            "message": "⚠️ Двигатель не найден в базе данных",
-            "hint": "Пожалуйста, сначала добавьте двигатель в Master Engine List",
+            "message": "ÔÜá´©Å ðöð▓ð©ð│ð░ÐéðÁð╗Ðî ð¢ðÁ ð¢ð░ð╣ð┤ðÁð¢ ð▓ ð▒ð░ðÀðÁ ð┤ð░ð¢ð¢ÐïÐà",
+            "hint": "ðƒð¥ðÂð░ð╗Ðâð╣ÐüÐéð░, Ðüð¢ð░Ðçð░ð╗ð░ ð┤ð¥ð▒ð░ð▓ÐîÐéðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð▓ Master Engine List",
             "action": "create_engine"
         }
     
-    # Проверка: SV двигатели нельзя отремонтировать
+    # ðƒÐÇð¥ð▓ðÁÐÇð║ð░: SV ð┤ð▓ð©ð│ð░ÐéðÁð╗ð© ð¢ðÁð╗ÐîðÀÐÅ ð¥ÐéÐÇðÁð╝ð¥ð¢Ðéð©ÐÇð¥ð▓ð░ÐéÐî
     if eng.status == "SV":
         return {
             "status": "warning",
             "code": "ENGINE_ALREADY_SV",
-            "message": f"⚠️ Двигатель {eng.original_sn} уже исправен (SV)",
-            "hint": "Ремонтировать можно только двигатели в статусе US, REMOVED и т.д.",
+            "message": f"ÔÜá´©Å ðöð▓ð©ð│ð░ÐéðÁð╗Ðî {eng.original_sn} ÐâðÂðÁ ð©Ðüð┐ÐÇð░ð▓ðÁð¢ (SV)",
+            "hint": "ðáðÁð╝ð¥ð¢Ðéð©ÐÇð¥ð▓ð░ÐéÐî ð╝ð¥ðÂð¢ð¥ Ðéð¥ð╗Ðîð║ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ð© ð▓ ÐüÐéð░ÐéÐâÐüðÁ US, REMOVED ð© Ðé.ð┤.",
             "action": "check_status"
         }
     
-    # Логика ремонта:
-    # 1. Обновляем наработку (обычно после ремонта она меняется или подтверждается)
+    # ðøð¥ð│ð©ð║ð░ ÐÇðÁð╝ð¥ð¢Ðéð░:
+    # 1. ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ð¢ð░ÐÇð░ð▒ð¥Ðéð║Ðâ (ð¥ð▒ÐïÐçð¢ð¥ ð┐ð¥Ðüð╗ðÁ ÐÇðÁð╝ð¥ð¢Ðéð░ ð¥ð¢ð░ ð╝ðÁð¢ÐÅðÁÐéÐüÐÅ ð©ð╗ð© ð┐ð¥ð┤Ðéð▓ðÁÐÇðÂð┤ð░ðÁÐéÐüÐÅ)
     eng.total_time = data.tt
     eng.total_cycles = data.tc
-    # 2. Статус всегда становится SV (Исправен)
+    # 2. ðíÐéð░ÐéÐâÐü ð▓ÐüðÁð│ð┤ð░ ÐüÐéð░ð¢ð¥ð▓ð©ÐéÐüÐÅ SV (ðÿÐüð┐ÐÇð░ð▓ðÁð¢)
     eng.status = "SV"
-    # 3. Двигатель теперь числится на складе "Вендора" (условно) или возвращается на склад
-    # Для простоты оставляем локацию как есть, но логируем вендора
+    # 3. ðöð▓ð©ð│ð░ÐéðÁð╗Ðî ÐéðÁð┐ðÁÐÇÐî Ðçð©Ðüð╗ð©ÐéÐüÐÅ ð¢ð░ Ðüð║ð╗ð░ð┤ðÁ "ðÆðÁð¢ð┤ð¥ÐÇð░" (ÐâÐüð╗ð¥ð▓ð¢ð¥) ð©ð╗ð© ð▓ð¥ðÀð▓ÐÇð░Ðëð░ðÁÐéÐüÐÅ ð¢ð░ Ðüð║ð╗ð░ð┤
+    # ðöð╗ÐÅ ð┐ÐÇð¥ÐüÐéð¥ÐéÐï ð¥ÐüÐéð░ð▓ð╗ÐÅðÁð╝ ð╗ð¥ð║ð░Ðåð©ÐÄ ð║ð░ð║ ðÁÐüÐéÐî, ð¢ð¥ ð╗ð¥ð│ð©ÐÇÐâðÁð╝ ð▓ðÁð¢ð┤ð¥ÐÇð░
 
     new_log = models.ActionLog(
         action_type="REPAIR",
         engine_id=eng.id,
-        from_location=data.vendor,   # Кто делал
-        to_location=data.work_order, # Основание (документ)
+        from_location=data.vendor,   # ðÜÐéð¥ ð┤ðÁð╗ð░ð╗
+        to_location=data.work_order, # ð×Ðüð¢ð¥ð▓ð░ð¢ð©ðÁ (ð┤ð¥ð║Ðâð╝ðÁð¢Ðé)
         snapshot_tt=data.tt,
         snapshot_tc=data.tc,
         file_url=data.photo_url,
@@ -3262,31 +3262,31 @@ def repair_engine(data: RepairSchema, db: Session = Depends(get_db)):
         action_type="created",
         entity_type="repair",
         entity_id=new_log.id,
-        message=f"Были внесены данные пользователем User в группу Repair: ремонт двигателя {eng.current_sn} у вендора {data.vendor}",
+        message=f"ðæÐïð╗ð© ð▓ð¢ðÁÐüðÁð¢Ðï ð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╝ User ð▓ ð│ÐÇÐâð┐ð┐Ðâ Repair: ÐÇðÁð╝ð¥ð¢Ðé ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ {eng.current_sn} Ðâ ð▓ðÁð¢ð┤ð¥ÐÇð░ {data.vendor}",
         performed_by="User"
     )
     return {
         "status": "success",
-        "message": f"✅ Ремонт двигателя {eng.current_sn} успешно зарегистрирован (вендор: {data.vendor})",
+        "message": f"Ô£à ðáðÁð╝ð¥ð¢Ðé ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ {eng.current_sn} ÐâÐüð┐ðÁÐêð¢ð¥ ðÀð░ÐÇðÁð│ð©ÐüÐéÐÇð©ÐÇð¥ð▓ð░ð¢ (ð▓ðÁð¢ð┤ð¥ÐÇ: {data.vendor})",
         "data": {"engine_id": eng.id, "vendor": data.vendor, "log_id": new_log.id}
     } 
-# 13. История запчастей (PARTS LOGISTICS / STORE BALANCE)
+# 13. ðÿÐüÐéð¥ÐÇð©ÐÅ ðÀð░ð┐Ðçð░ÐüÐéðÁð╣ (PARTS LOGISTICS / STORE BALANCE)
 @app.get("/api/parts/history")
 def get_parts_history(db: Session = Depends(get_db)):
     try:
-        # Получаем логи, связанные с запчастями (где part_id не null или в комментах пометка PART)
-        # Для простоты пока будем фильтровать по типам действий запчастей
-        # Но так как мы пишем всё в ActionLog, будем искать по ключевым словам в типе или создадим новый тип
-        # В данной реализации мы просто вернем все записи, у которых есть данные о запчастях
-        # (Подразумевается, что мы расширим ActionLog или будем писать в comments JSON, но для старта сделаем просто)
+        # ðƒð¥ð╗ÐâÐçð░ðÁð╝ ð╗ð¥ð│ð©, Ðüð▓ÐÅðÀð░ð¢ð¢ÐïðÁ Ðü ðÀð░ð┐Ðçð░ÐüÐéÐÅð╝ð© (ð│ð┤ðÁ part_id ð¢ðÁ null ð©ð╗ð© ð▓ ð║ð¥ð╝ð╝ðÁð¢Ðéð░Ðà ð┐ð¥ð╝ðÁÐéð║ð░ PART)
+        # ðöð╗ÐÅ ð┐ÐÇð¥ÐüÐéð¥ÐéÐï ð┐ð¥ð║ð░ ð▒Ðâð┤ðÁð╝ Ðäð©ð╗ÐîÐéÐÇð¥ð▓ð░ÐéÐî ð┐ð¥ Ðéð©ð┐ð░ð╝ ð┤ðÁð╣ÐüÐéð▓ð©ð╣ ðÀð░ð┐Ðçð░ÐüÐéðÁð╣
+        # ðØð¥ Ðéð░ð║ ð║ð░ð║ ð╝Ðï ð┐ð©ÐêðÁð╝ ð▓ÐüÐæ ð▓ ActionLog, ð▒Ðâð┤ðÁð╝ ð©Ðüð║ð░ÐéÐî ð┐ð¥ ð║ð╗ÐÄÐçðÁð▓Ðïð╝ Ðüð╗ð¥ð▓ð░ð╝ ð▓ Ðéð©ð┐ðÁ ð©ð╗ð© Ðüð¥ðÀð┤ð░ð┤ð©ð╝ ð¢ð¥ð▓Ðïð╣ Ðéð©ð┐
+        # ðÆ ð┤ð░ð¢ð¢ð¥ð╣ ÐÇðÁð░ð╗ð©ðÀð░Ðåð©ð© ð╝Ðï ð┐ÐÇð¥ÐüÐéð¥ ð▓ðÁÐÇð¢ðÁð╝ ð▓ÐüðÁ ðÀð░ð┐ð©Ðüð©, Ðâ ð║ð¥Ðéð¥ÐÇÐïÐà ðÁÐüÐéÐî ð┤ð░ð¢ð¢ÐïðÁ ð¥ ðÀð░ð┐Ðçð░ÐüÐéÐÅÐà
+        # (ðƒð¥ð┤ÐÇð░ðÀÐâð╝ðÁð▓ð░ðÁÐéÐüÐÅ, ÐçÐéð¥ ð╝Ðï ÐÇð░ÐüÐêð©ÐÇð©ð╝ ActionLog ð©ð╗ð© ð▒Ðâð┤ðÁð╝ ð┐ð©Ðüð░ÐéÐî ð▓ comments JSON, ð¢ð¥ ð┤ð╗ÐÅ ÐüÐéð░ÐÇÐéð░ Ðüð┤ðÁð╗ð░ðÁð╝ ð┐ÐÇð¥ÐüÐéð¥)
         
-        # ВАЖНО: В реальном проекте лучше отдельная таблица PartLog. 
-        # Сейчас мы будем использовать ActionLog с action_type="PART_ACTION"
+        # ðÆðÉðûðØð×: ðÆ ÐÇðÁð░ð╗Ðîð¢ð¥ð╝ ð┐ÐÇð¥ðÁð║ÐéðÁ ð╗ÐâÐçÐêðÁ ð¥Ðéð┤ðÁð╗Ðîð¢ð░ÐÅ Ðéð░ð▒ð╗ð©Ðåð░ PartLog. 
+        # ðíðÁð╣Ðçð░Ðü ð╝Ðï ð▒Ðâð┤ðÁð╝ ð©Ðüð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéÐî ActionLog Ðü action_type="PART_ACTION"
         
         logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "PART_ACTION").order_by(models.ActionLog.date.desc()).all()
         res = []
         for l in logs:
-            # Парсим данные из полей ActionLog (упрощенная схема)
+            # ðƒð░ÐÇÐüð©ð╝ ð┤ð░ð¢ð¢ÐïðÁ ð©ðÀ ð┐ð¥ð╗ðÁð╣ ActionLog (Ðâð┐ÐÇð¥ÐëðÁð¢ð¢ð░ÐÅ ÐüÐàðÁð╝ð░)
             import json
             try:
                 details = json.loads(l.comments) if l.comments else {}
@@ -3313,13 +3313,13 @@ def get_parts_history(db: Session = Depends(get_db)):
             })
         return res
     except Exception as e:
-        print(f"❌ Error in get_parts_history: {e}")
+        print(f"ÔØî Error in get_parts_history: {e}")
         return []
 
-# 14. Сохранить действие с запчастью (PART ACTION)
+# 14. ðíð¥ÐàÐÇð░ð¢ð©ÐéÐî ð┤ðÁð╣ÐüÐéð▓ð©ðÁ Ðü ðÀð░ð┐Ðçð░ÐüÐéÐîÐÄ (PART ACTION)
 @app.post("/api/actions/part")
 def part_action(data: PartActionSchema, db: Session = Depends(get_db)):
-    # 1. Находим или создаем запчасть в базе (Таблица parts)
+    # 1. ðØð░Ðàð¥ð┤ð©ð╝ ð©ð╗ð© Ðüð¥ðÀð┤ð░ðÁð╝ ðÀð░ð┐Ðçð░ÐüÐéÐî ð▓ ð▒ð░ðÀðÁ (ðóð░ð▒ð╗ð©Ðåð░ parts)
     part = db.query(models.Part).filter(models.Part.part_number == data.part_number, models.Part.serial_number == data.serial_number).first()
     if not part:
         part = models.Part(
@@ -3332,7 +3332,7 @@ def part_action(data: PartActionSchema, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(part)
 
-    # 2. Формируем JSON для хранения в comments
+    # 2. ðñð¥ÐÇð╝ð©ÐÇÐâðÁð╝ JSON ð┤ð╗ÐÅ ÐàÐÇð░ð¢ðÁð¢ð©ÐÅ ð▓ comments
     import json
     details_json = json.dumps({
         "part_name": data.part_name,
@@ -3345,15 +3345,15 @@ def part_action(data: PartActionSchema, db: Session = Depends(get_db)):
         "reason": data.reason or "-"
     })
 
-    # 3. Пишем в историю
+    # 3. ðƒð©ÐêðÁð╝ ð▓ ð©ÐüÐéð¥ÐÇð©ÐÄ
     log_date = parse_input_date(data.date)
     new_log = models.ActionLog(
         date=log_date,
-        action_type="PART_ACTION", # Специальный тип для запчастей
+        action_type="PART_ACTION", # ðíð┐ðÁÐåð©ð░ð╗Ðîð¢Ðïð╣ Ðéð©ð┐ ð┤ð╗ÐÅ ðÀð░ð┐Ðçð░ÐüÐéðÁð╣
         part_id=part.id,
-        from_location=data.action, # Пишем действие сюда (INSTALLED/REMOVED/SWAP)
-        to_location=f"{data.part_name}", # Пишем имя запчасти сюда
-        comments=details_json # Все детали в JSON
+        from_location=data.action, # ðƒð©ÐêðÁð╝ ð┤ðÁð╣ÐüÐéð▓ð©ðÁ ÐüÐÄð┤ð░ (INSTALLED/REMOVED/SWAP)
+        to_location=f"{data.part_name}", # ðƒð©ÐêðÁð╝ ð©ð╝ÐÅ ðÀð░ð┐Ðçð░ÐüÐéð© ÐüÐÄð┤ð░
+        comments=details_json # ðÆÐüðÁ ð┤ðÁÐéð░ð╗ð© ð▓ JSON
     )
     db.add(new_log)
     db.commit()
@@ -3387,7 +3387,7 @@ def get_store_balance(db: Session = Depends(get_db)):
             })
         return result
     except Exception as e:
-        print(f"❌ Error in get_store_balance: {e}")
+        print(f"ÔØî Error in get_store_balance: {e}")
         return []
 
 
@@ -3431,7 +3431,7 @@ def create_store_item(data: StoreItemSchema, db: Session = Depends(get_db)):
         action_type="created",
         entity_type="store_item",
         entity_id=item.id,
-        message=f"Были внесены данные пользователем User в группу Store Balance: запчасть {part_name} {part_number} количество {item.quantity}",
+        message=f"ðæÐïð╗ð© ð▓ð¢ðÁÐüðÁð¢Ðï ð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╝ User ð▓ ð│ÐÇÐâð┐ð┐Ðâ Store Balance: ðÀð░ð┐Ðçð░ÐüÐéÐî {part_name} {part_number} ð║ð¥ð╗ð©ÐçðÁÐüÐéð▓ð¥ {item.quantity}",
         performed_by="User"
     )
 
@@ -3480,7 +3480,7 @@ def update_store_item(item_id: int, data: StoreItemSchema, db: Session = Depends
         action_type="updated",
         entity_type="store_item",
         entity_id=item.id,
-        message=f"Склад обновлён: {item.part_name} {item.part_number}, количество {item.quantity}",
+        message=f"ðíð║ð╗ð░ð┤ ð¥ð▒ð¢ð¥ð▓ð╗Ðæð¢: {item.part_name} {item.part_number}, ð║ð¥ð╗ð©ÐçðÁÐüÐéð▓ð¥ {item.quantity}",
         performed_by="User"
     )
 
@@ -3502,13 +3502,13 @@ def delete_store_item(item_id: int, db: Session = Depends(get_db)):
         action_type="deleted",
         entity_type="store_item",
         entity_id=item_id,
-        message=f"Склад: позиция {part_name} {part_number} удалена",
+        message=f"ðíð║ð╗ð░ð┤: ð┐ð¥ðÀð©Ðåð©ÐÅ {part_name} {part_number} Ðâð┤ð░ð╗ðÁð¢ð░",
         performed_by="User"
     )
 
     return {"message": "Store item deleted"}
 
-# 15. История налетов (UTILIZATION HISTORY)
+# 15. ðÿÐüÐéð¥ÐÇð©ÐÅ ð¢ð░ð╗ðÁÐéð¥ð▓ (UTILIZATION HISTORY)
 @app.get("/api/history/FLIGHT")
 def get_flight_history(db: Session = Depends(get_db)):
     try:
@@ -3567,7 +3567,7 @@ def get_flight_history(db: Session = Depends(get_db)):
             row.pop("_sort", None)
         return rows
     except Exception as e:
-        print(f"❌ Error in get_flight_history: {e}")
+        print(f"ÔØî Error in get_flight_history: {e}")
         return []
 
 
@@ -3614,10 +3614,10 @@ def get_utilization_summary(db: Session = Depends(get_db)):
         
             return summary
     except Exception as e:
-        print(f"❌ Error in get_utilization_summary: {e}")
+        print(f"ÔØî Error in get_utilization_summary: {e}")
         return []
 
-# 16. Добавить Налет (UTILIZATION ADD)
+# 16. ðöð¥ð▒ð░ð▓ð©ÐéÐî ðØð░ð╗ðÁÐé (UTILIZATION ADD)
 @app.post("/api/actions/utilization")
 def add_utilization(data: UtilizationSchema, db: Session = Depends(get_db)):
     ac = None
@@ -3634,7 +3634,7 @@ def add_utilization(data: UtilizationSchema, db: Session = Depends(get_db)):
     ac.total_time = (ac.total_time or 0.0) + flight_hours
     ac.total_cycles = (ac.total_cycles or 0) + flight_cycles
 
-    # Обновляем базовые значения, если они не заполнены
+    # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ð▒ð░ðÀð¥ð▓ÐïðÁ ðÀð¢ð░ÐçðÁð¢ð©ÐÅ, ðÁÐüð╗ð© ð¥ð¢ð© ð¢ðÁ ðÀð░ð┐ð¥ð╗ð¢ðÁð¢Ðï
     if ac.initial_total_time in (None, 0):
         ac.initial_total_time = (ac.total_time or 0.0) - flight_hours
     if ac.initial_total_cycles in (None, 0):
@@ -3721,7 +3721,7 @@ def reset_utilization_state(db: Session = Depends(get_db)):
         "message": "Utilization data reset",
         "deleted_logs": deleted_logs
     }
-# 17. История ATLB
+# 17. ðÿÐüÐéð¥ÐÇð©ÐÅ ATLB
 @app.get("/api/history/ATLB")
 def get_atlb_history(db: Session = Depends(get_db)):
     try:
@@ -3825,13 +3825,13 @@ def get_atlb_history(db: Session = Depends(get_db)):
             row.pop("_sort", None)
         return rows
     except Exception as e:
-        print(f"❌ Error in get_atlb_history: {e}")
+        print(f"ÔØî Error in get_atlb_history: {e}")
         return []
 
-# 18. Сохранить ATLB (и обновить счетчики)
+# 18. ðíð¥ÐàÐÇð░ð¢ð©ÐéÐî ATLB (ð© ð¥ð▒ð¢ð¥ð▓ð©ÐéÐî ÐüÐçðÁÐéÐçð©ð║ð©)
 @app.post("/api/actions/atlb")
 def save_atlb(data: ATLBSchema, db: Session = Depends(get_db)):
-    # 1. Ищем самолет
+    # 1. ðÿÐëðÁð╝ Ðüð░ð╝ð¥ð╗ðÁÐé
     ac = db.query(models.Aircraft).filter(models.Aircraft.id == data.aircraft_id).first()
     if not ac: raise HTTPException(404, "Aircraft not found")
     
@@ -3871,7 +3871,7 @@ def save_atlb(data: ATLBSchema, db: Session = Depends(get_db)):
         flight_off = None
         flight_on = None
 
-    # 3. Обновляем Самолет
+    # 3. ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ðíð░ð╝ð¥ð╗ðÁÐé
     if ac.total_time is None:
         ac.total_time = 0.0
     if ac.total_cycles is None:
@@ -3884,7 +3884,7 @@ def save_atlb(data: ATLBSchema, db: Session = Depends(get_db)):
         ac.total_time = ac.total_time or 0.0
         ac.total_cycles = ac.total_cycles or 0
     
-    # 4. Обновляем Двигатели
+    # 4. ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ðöð▓ð©ð│ð░ÐéðÁð╗ð©
     if not maintenance_only:
         engines = db.query(models.Engine).filter(models.Engine.aircraft_id == ac.id, models.Engine.status == "INSTALLED").all()
         for eng in engines:
@@ -3928,7 +3928,7 @@ def save_atlb(data: ATLBSchema, db: Session = Depends(get_db)):
         comments_parts.append("Maintenance Only")
     comment_text = " | ".join(part for part in comments_parts if part)
 
-    # 5. Лог
+    # 5. ðøð¥ð│
     new_log = models.ActionLog(
         action_type="FLIGHT",
         from_location=ac.tail_number,
@@ -3963,23 +3963,23 @@ def save_atlb(data: ATLBSchema, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Flight Saved & Counters Updated"}
 
-# 19. Сохранить параметры двигателя (N1, N2, EGT)
+# 19. ðíð¥ÐàÐÇð░ð¢ð©ÐéÐî ð┐ð░ÐÇð░ð╝ðÁÐéÐÇÐï ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ (N1, N2, EGT)
 @app.post("/api/engines/parameters")
 def save_engine_parameters(data: EngineParametersSchema, db: Session = Depends(get_db)):
     from datetime import datetime
     
-    # Находим двигатель
+    # ðØð░Ðàð¥ð┤ð©ð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
     eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
     if not eng:
         raise HTTPException(404, "Engine not found")
     
-    # Парсим дату
+    # ðƒð░ÐÇÐüð©ð╝ ð┤ð░ÐéÐâ
     try:
         param_date = datetime.fromisoformat(data.date.replace('Z', '+00:00'))
     except:
         param_date = datetime.now()
     
-    # Обновляем текущие параметры двигателя
+    # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ÐéðÁð║ÐâÐëð©ðÁ ð┐ð░ÐÇð░ð╝ðÁÐéÐÇÐï ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
     if data.n1_takeoff is not None:
         eng.n1_takeoff = data.n1_takeoff
     if data.n2_takeoff is not None:
@@ -3994,7 +3994,7 @@ def save_engine_parameters(data: EngineParametersSchema, db: Session = Depends(g
         eng.egt_cruise = data.egt_cruise
     eng.last_param_update = param_date
     
-    # Сохраняем в историю
+    # ðíð¥ÐàÐÇð░ð¢ÐÅðÁð╝ ð▓ ð©ÐüÐéð¥ÐÇð©ÐÄ
     history_entry = models.EngineParameterHistory(
         engine_id=eng.id,
         date=param_date,
@@ -4014,7 +4014,7 @@ def save_engine_parameters(data: EngineParametersSchema, db: Session = Depends(g
         action_type="created",
         entity_type="engine_parameters",
         entity_id=history_entry.id,
-        message=f"Были внесены данные пользователем User в группу Engine Parameters: параметры для двигателя {eng.current_sn}",
+        message=f"ðæÐïð╗ð© ð▓ð¢ðÁÐüðÁð¢Ðï ð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╝ User ð▓ ð│ÐÇÐâð┐ð┐Ðâ Engine Parameters: ð┐ð░ÐÇð░ð╝ðÁÐéÐÇÐï ð┤ð╗ÐÅ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ {eng.current_sn}",
         performed_by="User"
     )
     
@@ -4026,7 +4026,7 @@ def save_engine_parameters(data: EngineParametersSchema, db: Session = Depends(g
         "date": param_date.isoformat()
     }
 
-# 20. Получить историю параметров двигателя
+# 20. ðƒð¥ð╗ÐâÐçð©ÐéÐî ð©ÐüÐéð¥ÐÇð©ÐÄ ð┐ð░ÐÇð░ð╝ðÁÐéÐÇð¥ð▓ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
 @app.get("/api/engines/parameters/history")
 def get_parameter_history(engine_id: int = None, db: Session = Depends(get_db)):
     try:
@@ -4057,7 +4057,7 @@ def get_parameter_history(engine_id: int = None, db: Session = Depends(get_db)):
         
         return result
     except Exception as e:
-        print(f"❌ Error in get_parameter_history: {e}")
+        print(f"ÔØî Error in get_parameter_history: {e}")
         return []
 
 
@@ -4088,13 +4088,13 @@ def get_borescope_history(db: Session = Depends(get_db)):
             })
         return result
     except Exception as e:
-        print(f"❌ Error in get_borescope_history: {e}")
+        print(f"ÔØî Error in get_borescope_history: {e}")
         return []
 
 @app.post("/api/history/BORESCOPE")
 def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get_db)):
     try:
-        print(f"📝 Creating borescope inspection: {data.dict()}")
+        print(f"­ƒôØ Creating borescope inspection: {data.dict()}")
         new_inspection = models.BoroscopeInspection(
             date=data.date,
             aircraft=data.aircraft,
@@ -4110,7 +4110,7 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
         db.commit()
         db.refresh(new_inspection)
     except Exception as e:
-        print(f"❌ Error creating borescope inspection: {e}")
+        print(f"ÔØî Error creating borescope inspection: {e}")
         import traceback
         traceback.print_exc()
         db.rollback()
@@ -4122,7 +4122,7 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
         action_type="created",
         entity_type="borescope",
         entity_id=new_inspection.id,
-        message=f"Бороскопия: борт {data.aircraft}, двигатель {data.serial_number}, позиция {data.position or '-'} (инспектор {data.inspector or '-'})",
+        message=f"ðæð¥ÐÇð¥Ðüð║ð¥ð┐ð©ÐÅ: ð▒ð¥ÐÇÐé {data.aircraft}, ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî {data.serial_number}, ð┐ð¥ðÀð©Ðåð©ÐÅ {data.position or '-'} (ð©ð¢Ðüð┐ðÁð║Ðéð¥ÐÇ {data.inspector or '-'})",
         performed_by="User"
     )
     return {"status": "ok", "id": new_inspection.id}
@@ -4131,14 +4131,14 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
 
 @app.post("/api/boroscope/schedule")
 def create_boroscope_schedule(data: BoroscopeScheduleCreateSchema, db: Session = Depends(get_db)):
-    """Создать новый запланированный боroскоп"""
+    """ðíð¥ðÀð┤ð░ÐéÐî ð¢ð¥ð▓Ðïð╣ ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢Ðïð╣ ð▒ð¥roÐüð║ð¥ð┐"""
     try:
         from datetime import datetime
         
-        # Парсим дату
+        # ðƒð░ÐÇÐüð©ð╝ ð┤ð░ÐéÐâ
         schedule_date = datetime.strptime(data.date, "%Y-%m-%d").date()
         
-        # Проверяем, существует ли уже запись на эту дату/самолет/позицию
+        # ðƒÐÇð¥ð▓ðÁÐÇÐÅðÁð╝, ÐüÐâÐëðÁÐüÐéð▓ÐâðÁÐé ð╗ð© ÐâðÂðÁ ðÀð░ð┐ð©ÐüÐî ð¢ð░ ÐìÐéÐâ ð┤ð░ÐéÐâ/Ðüð░ð╝ð¥ð╗ðÁÐé/ð┐ð¥ðÀð©Ðåð©ÐÄ
         existing = db.query(models.BoroscopeSchedule).filter(
             models.BoroscopeSchedule.date == schedule_date,
             models.BoroscopeSchedule.aircraft_tail_number == data.aircraft_tail_number,
@@ -4151,7 +4151,7 @@ def create_boroscope_schedule(data: BoroscopeScheduleCreateSchema, db: Session =
                 "message": f"Boroscope already scheduled for {data.aircraft_tail_number} Position {data.position} on {data.date}"
             }
         
-        # Создаем новую запись
+        # ðíð¥ðÀð┤ð░ðÁð╝ ð¢ð¥ð▓ÐâÐÄ ðÀð░ð┐ð©ÐüÐî
         new_schedule = models.BoroscopeSchedule(
             date=schedule_date,
             aircraft_tail_number=data.aircraft_tail_number,
@@ -4181,7 +4181,7 @@ def create_boroscope_schedule(data: BoroscopeScheduleCreateSchema, db: Session =
             "data": {"id": new_schedule.id}
         }
     except Exception as e:
-        print(f"❌ Error creating boroscope schedule: {e}")
+        print(f"ÔØî Error creating boroscope schedule: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -4193,13 +4193,13 @@ def get_boroscope_schedules(
     status: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """Получить список запланированных боroскопов с фильтрацией"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî Ðüð┐ð©Ðüð¥ð║ ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢ÐïÐà ð▒ð¥roÐüð║ð¥ð┐ð¥ð▓ Ðü Ðäð©ð╗ÐîÐéÐÇð░Ðåð©ðÁð╣"""
     try:
         from datetime import datetime
         
         query = db.query(models.BoroscopeSchedule)
         
-        # Фильтры
+        # ðñð©ð╗ÐîÐéÐÇÐï
         if aircraft:
             query = query.filter(models.BoroscopeSchedule.aircraft_tail_number == aircraft)
         
@@ -4233,12 +4233,12 @@ def get_boroscope_schedules(
         
         return result
     except Exception as e:
-        print(f"❌ Error fetching boroscope schedules: {e}")
+        print(f"ÔØî Error fetching boroscope schedules: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/boroscope/schedule/{schedule_id}")
 def get_boroscope_schedule(schedule_id: int, db: Session = Depends(get_db)):
-    """Получить одну запись о запланированном боroскопе"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî ð¥ð┤ð¢Ðâ ðÀð░ð┐ð©ÐüÐî ð¥ ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢ð¥ð╝ ð▒ð¥roÐüð║ð¥ð┐ðÁ"""
     schedule = db.query(models.BoroscopeSchedule).filter(models.BoroscopeSchedule.id == schedule_id).first()
     
     if not schedule:
@@ -4263,7 +4263,7 @@ def update_boroscope_schedule(
     data: BoroscopeScheduleUpdateSchema,
     db: Session = Depends(get_db)
 ):
-    """Обновить запланированный боroскоп"""
+    """ð×ð▒ð¢ð¥ð▓ð©ÐéÐî ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢Ðïð╣ ð▒ð¥roÐüð║ð¥ð┐"""
     try:
         from datetime import datetime
         
@@ -4272,7 +4272,7 @@ def update_boroscope_schedule(
         if not schedule:
             raise HTTPException(status_code=404, detail="Boroscope schedule not found")
         
-        # Обновляем поля
+        # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ð┐ð¥ð╗ÐÅ
         if data.date:
             schedule.date = datetime.strptime(data.date, "%Y-%m-%d").date()
         if data.position:
@@ -4296,13 +4296,13 @@ def update_boroscope_schedule(
             "message": "Boroscope schedule updated successfully"
         }
     except Exception as e:
-        print(f"❌ Error updating boroscope schedule: {e}")
+        print(f"ÔØî Error updating boroscope schedule: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/boroscope/schedule/{schedule_id}")
 def delete_boroscope_schedule(schedule_id: int, db: Session = Depends(get_db)):
-    """Удалить запланированный боroскоп"""
+    """ðúð┤ð░ð╗ð©ÐéÐî ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢Ðïð╣ ð▒ð¥roÐüð║ð¥ð┐"""
     try:
         schedule = db.query(models.BoroscopeSchedule).filter(models.BoroscopeSchedule.id == schedule_id).first()
         
@@ -4314,20 +4314,20 @@ def delete_boroscope_schedule(schedule_id: int, db: Session = Depends(get_db)):
         
         return {"status": "success", "message": "Boroscope schedule deleted successfully"}
     except Exception as e:
-        print(f"❌ Error deleting boroscope schedule: {e}")
+        print(f"ÔØî Error deleting boroscope schedule: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/boroscope/schedule/upcoming/reminders")
 def get_boroscope_reminders(db: Session = Depends(get_db)):
-    """Получить напоминания о боroскопах на сегодня/завтра"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî ð¢ð░ð┐ð¥ð╝ð©ð¢ð░ð¢ð©ÐÅ ð¥ ð▒ð¥roÐüð║ð¥ð┐ð░Ðà ð¢ð░ ÐüðÁð│ð¥ð┤ð¢ÐÅ/ðÀð░ð▓ÐéÐÇð░"""
     try:
         from datetime import datetime, timedelta
         
         today = datetime.now().date()
         tomorrow = today + timedelta(days=1)
         
-        # Запланированные на сегодня и завтра со статусом Scheduled
+        # ðùð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢ÐïðÁ ð¢ð░ ÐüðÁð│ð¥ð┤ð¢ÐÅ ð© ðÀð░ð▓ÐéÐÇð░ Ðüð¥ ÐüÐéð░ÐéÐâÐüð¥ð╝ Scheduled
         reminders = db.query(models.BoroscopeSchedule).filter(
             models.BoroscopeSchedule.date.in_([today, tomorrow]),
             models.BoroscopeSchedule.status == "Scheduled"
@@ -4350,7 +4350,7 @@ def get_boroscope_reminders(db: Session = Depends(get_db)):
         
         return result
     except Exception as e:
-        print(f"❌ Error getting boroscope reminders: {e}")
+        print(f"ÔØî Error getting boroscope reminders: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- PURCHASE ORDERS API ---
@@ -4359,9 +4359,9 @@ def get_boroscope_reminders(db: Session = Depends(get_db)):
 def get_purchase_orders_history(db: Session = Depends(get_db)):
     try:
         orders = db.query(models.PurchaseOrder).order_by(models.PurchaseOrder.date.desc()).all()
-        print(f"📦 Found {len(orders)} purchase orders in DB")
+        print(f"­ƒôª Found {len(orders)} purchase orders in DB")
         
-        # Получаем все пользовательские колонки для purchase_orders
+        # ðƒð¥ð╗ÐâÐçð░ðÁð╝ ð▓ÐüðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ð©ðÁ ð║ð¥ð╗ð¥ð¢ð║ð© ð┤ð╗ÐÅ purchase_orders
         custom_columns = db.query(models.CustomColumn).filter(
             models.CustomColumn.table_name == "purchase_orders"
         ).order_by(models.CustomColumn.column_order).all()
@@ -4381,7 +4381,7 @@ def get_purchase_orders_history(db: Session = Depends(get_db)):
                 "link": order.link
             }
             
-            # Добавляем данные для пользовательских колонок
+            # ðöð¥ð▒ð░ð▓ð╗ÐÅðÁð╝ ð┤ð░ð¢ð¢ÐïðÁ ð┤ð╗ÐÅ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ð©Ðà ð║ð¥ð╗ð¥ð¢ð¥ð║
             for col in custom_columns:
                 custom_data = db.query(models.PurchaseOrderCustomData).filter(
                     models.PurchaseOrderCustomData.purchase_order_id == order.id,
@@ -4391,7 +4391,7 @@ def get_purchase_orders_history(db: Session = Depends(get_db)):
             
             result.append(order_data)
         
-        print(f"✅ Returning {len(result)} purchase orders")
+        print(f"Ô£à Returning {len(result)} purchase orders")
         return JSONResponse(
             content=result,
             headers={
@@ -4401,7 +4401,7 @@ def get_purchase_orders_history(db: Session = Depends(get_db)):
             }
         )
     except Exception as e:
-        print(f"❌ Error in get_purchase_orders_history: {e}")
+        print(f"ÔØî Error in get_purchase_orders_history: {e}")
         import traceback
         traceback.print_exc()
         return []
@@ -4409,7 +4409,7 @@ def get_purchase_orders_history(db: Session = Depends(get_db)):
 @app.post("/api/history/PURCHASE_ORDER")
 def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_db)):
     try:
-        print(f"📝 Creating purchase order:")
+        print(f"­ƒôØ Creating purchase order:")
         print(f"  - date: {data.date}")
         print(f"  - name: {data.name}")
         print(f"  - aircraft: {data.aircraft}")
@@ -4420,7 +4420,7 @@ def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_d
         try:
             price_val = float(data.price) if data.price is not None else None
         except Exception as e:
-            print(f"  ⚠️ Price parse error: {e}")
+            print(f"  ÔÜá´©Å Price parse error: {e}")
             price_val = None
 
         new_order = models.PurchaseOrder(
@@ -4436,11 +4436,11 @@ def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_d
         )
         db.add(new_order)
         db.flush()
-        print(f"  ✓ Flushed to DB")
+        print(f"  Ô£ô Flushed to DB")
         db.commit()
-        print(f"  ✓ Committed to DB")
+        print(f"  Ô£ô Committed to DB")
         db.refresh(new_order)
-        print(f"✅ Purchase order saved: ID={new_order.id}, name={new_order.name}")
+        print(f"Ô£à Purchase order saved: ID={new_order.id}, name={new_order.name}")
 
         # Log action
         create_notification(
@@ -4448,12 +4448,12 @@ def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_d
             action_type="created",
             entity_type="purchase_order",
             entity_id=new_order.id,
-            message=f"Purchase Order '{data.name}' для борта {data.aircraft or '-'} (RO: {data.ro_number or '-'}) создан",
+            message=f"Purchase Order '{data.name}' ð┤ð╗ÐÅ ð▒ð¥ÐÇÐéð░ {data.aircraft or '-'} (RO: {data.ro_number or '-'}) Ðüð¥ðÀð┤ð░ð¢",
             performed_by="User"
         )
         return {"status": "ok", "id": new_order.id, "message": f"Purchase order '{data.name}' saved successfully"}
     except Exception as e:
-        print(f"❌ Error in create_purchase_order: {e}")
+        print(f"ÔØî Error in create_purchase_order: {e}")
         import traceback
         traceback.print_exc()
         db.rollback()
@@ -4464,7 +4464,7 @@ def create_purchase_order(data: PurchaseOrderSchema, db: Session = Depends(get_d
 
 @app.get("/api/events")
 def get_all_events(db: Session = Depends(get_db)):
-    """Получить все запланированные события"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî ð▓ÐüðÁ ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢ÐïðÁ Ðüð¥ð▒ÐïÐéð©ÐÅ"""
     try:
         events = db.query(models.ScheduledEvent).order_by(models.ScheduledEvent.event_date.asc()).all()
         result = []
@@ -4490,7 +4490,7 @@ def get_all_events(db: Session = Depends(get_db)):
             })
         return result
     except Exception as e:
-        print(f"❌ Error in get_all_events: {e}")
+        print(f"ÔØî Error in get_all_events: {e}")
         import traceback
         traceback.print_exc()
         return []
@@ -4498,9 +4498,9 @@ def get_all_events(db: Session = Depends(get_db)):
 
 @app.get("/api/events/calendar/{year}/{month}")
 def get_events_by_month(year: int, month: int, db: Session = Depends(get_db)):
-    """Получить события за конкретный месяц (для календаря)"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî Ðüð¥ð▒ÐïÐéð©ÐÅ ðÀð░ ð║ð¥ð¢ð║ÐÇðÁÐéð¢Ðïð╣ ð╝ðÁÐüÐÅÐå (ð┤ð╗ÐÅ ð║ð░ð╗ðÁð¢ð┤ð░ÐÇÐÅ)"""
     try:
-        # Формируем диапазон дат для месяца (YYYY-MM)
+        # ðñð¥ÐÇð╝ð©ÐÇÐâðÁð╝ ð┤ð©ð░ð┐ð░ðÀð¥ð¢ ð┤ð░Ðé ð┤ð╗ÐÅ ð╝ðÁÐüÐÅÐåð░ (YYYY-MM)
         month_str = f"{year:04d}-{month:02d}"
         
         events = db.query(models.ScheduledEvent).filter(
@@ -4528,7 +4528,7 @@ def get_events_by_month(year: int, month: int, db: Session = Depends(get_db)):
             })
         return result
     except Exception as e:
-        print(f"❌ Error in get_events_by_month: {e}")
+        print(f"ÔØî Error in get_events_by_month: {e}")
         import traceback
         traceback.print_exc()
         return []
@@ -4536,7 +4536,7 @@ def get_events_by_month(year: int, month: int, db: Session = Depends(get_db)):
 
 @app.get("/api/events/{event_id}")
 def get_event_by_id(event_id: int, db: Session = Depends(get_db)):
-    """Получить детали конкретного события"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî ð┤ðÁÐéð░ð╗ð© ð║ð¥ð¢ð║ÐÇðÁÐéð¢ð¥ð│ð¥ Ðüð¥ð▒ÐïÐéð©ÐÅ"""
     try:
         event = db.query(models.ScheduledEvent).filter(models.ScheduledEvent.id == event_id).first()
         if not event:
@@ -4564,7 +4564,7 @@ def get_event_by_id(event_id: int, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error in get_event_by_id: {e}")
+        print(f"ÔØî Error in get_event_by_id: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Failed to get event: {str(e)}")
@@ -4572,7 +4572,7 @@ def get_event_by_id(event_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/events")
 def create_event(data: ScheduledEventSchema, db: Session = Depends(get_db)):
-    """Создать новое событие в календаре"""
+    """ðíð¥ðÀð┤ð░ÐéÐî ð¢ð¥ð▓ð¥ðÁ Ðüð¥ð▒ÐïÐéð©ðÁ ð▓ ð║ð░ð╗ðÁð¢ð┤ð░ÐÇðÁ"""
     try:
         new_event = models.ScheduledEvent(
             event_date=data.event_date,
@@ -4595,21 +4595,21 @@ def create_event(data: ScheduledEventSchema, db: Session = Depends(get_db)):
         db.refresh(new_event)
         
         # Log notification with details
-        location_info = f" в {data.location}" if data.location else ""
+        location_info = f" ð▓ {data.location}" if data.location else ""
         engine_info = f" (S/N: {data.serial_number})" if data.serial_number else ""
         create_notification(
             db,
             action_type="created",
             entity_type="scheduled_event",
             entity_id=new_event.id,
-            message=f"📅 Событие '{data.title}' запланировано на {data.event_date}{location_info}{engine_info} ({data.event_type})",
+            message=f"­ƒôà ðíð¥ð▒ÐïÐéð©ðÁ '{data.title}' ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¥ ð¢ð░ {data.event_date}{location_info}{engine_info} ({data.event_type})",
             performed_by=data.created_by or "User"
         )
         
         return {"status": "ok", "id": new_event.id}
     except Exception as e:
         db.rollback()
-        print(f"❌ Error in create_event: {e}")
+        print(f"ÔØî Error in create_event: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Failed to create event: {str(e)}")
@@ -4617,13 +4617,13 @@ def create_event(data: ScheduledEventSchema, db: Session = Depends(get_db)):
 
 @app.put("/api/events/{event_id}")
 def update_event(event_id: int, data: ScheduledEventSchema, db: Session = Depends(get_db)):
-    """Обновить существующее событие"""
+    """ð×ð▒ð¢ð¥ð▓ð©ÐéÐî ÐüÐâÐëðÁÐüÐéð▓ÐâÐÄÐëðÁðÁ Ðüð¥ð▒ÐïÐéð©ðÁ"""
     try:
         event = db.query(models.ScheduledEvent).filter(models.ScheduledEvent.id == event_id).first()
         if not event:
             raise HTTPException(404, f"Event not found (ID: {event_id})")
         
-        # Обновляем поля
+        # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ð┐ð¥ð╗ÐÅ
         event.event_date = data.event_date
         event.event_time = data.event_time
         event.event_type = data.event_type
@@ -4641,13 +4641,13 @@ def update_event(event_id: int, data: ScheduledEventSchema, db: Session = Depend
         db.commit()
         
         # Log notification with status
-        status_info = f" [Статус: {data.status}]" if data.status != "PLANNED" else ""
+        status_info = f" [ðíÐéð░ÐéÐâÐü: {data.status}]" if data.status != "PLANNED" else ""
         create_notification(
             db,
             action_type="updated",
             entity_type="scheduled_event",
             entity_id=event.id,
-            message=f"📅 Событие '{data.title}' обновлено ({data.event_date}){status_info}",
+            message=f"­ƒôà ðíð¥ð▒ÐïÐéð©ðÁ '{data.title}' ð¥ð▒ð¢ð¥ð▓ð╗ðÁð¢ð¥ ({data.event_date}){status_info}",
             performed_by=data.created_by or "User"
         )
         
@@ -4656,7 +4656,7 @@ def update_event(event_id: int, data: ScheduledEventSchema, db: Session = Depend
         raise
     except Exception as e:
         db.rollback()
-        print(f"❌ Error in update_event: {e}")
+        print(f"ÔØî Error in update_event: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Failed to update event: {str(e)}")
@@ -4664,7 +4664,7 @@ def update_event(event_id: int, data: ScheduledEventSchema, db: Session = Depend
 
 @app.delete("/api/events/{event_id}")
 def delete_event(event_id: int, deleted_by: str = Query("User"), db: Session = Depends(get_db)):
-    """Удалить событие из календаря"""
+    """ðúð┤ð░ð╗ð©ÐéÐî Ðüð¥ð▒ÐïÐéð©ðÁ ð©ðÀ ð║ð░ð╗ðÁð¢ð┤ð░ÐÇÐÅ"""
     try:
         event = db.query(models.ScheduledEvent).filter(models.ScheduledEvent.id == event_id).first()
         if not event:
@@ -4679,7 +4679,7 @@ def delete_event(event_id: int, deleted_by: str = Query("User"), db: Session = D
             action_type="deleted",
             entity_type="scheduled_event",
             entity_id=event_id,
-            message=f"📅 Событие '{event_title}' удалено (было запланировано на {event_date})",
+            message=f"­ƒôà ðíð¥ð▒ÐïÐéð©ðÁ '{event_title}' Ðâð┤ð░ð╗ðÁð¢ð¥ (ð▒Ðïð╗ð¥ ðÀð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¥ ð¢ð░ {event_date})",
             performed_by=deleted_by
         )
         
@@ -4691,7 +4691,7 @@ def delete_event(event_id: int, deleted_by: str = Query("User"), db: Session = D
         raise
     except Exception as e:
         db.rollback()
-        print(f"❌ Error in delete_event: {e}")
+        print(f"ÔØî Error in delete_event: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Failed to delete event: {str(e)}")
@@ -4701,7 +4701,7 @@ def delete_event(event_id: int, deleted_by: str = Query("User"), db: Session = D
 
 @app.get("/api/custom-columns/{table_name}")
 def get_custom_columns(table_name: str, db: Session = Depends(get_db)):
-    """Получить список пользовательских колонок для таблицы"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî Ðüð┐ð©Ðüð¥ð║ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ð©Ðà ð║ð¥ð╗ð¥ð¢ð¥ð║ ð┤ð╗ÐÅ Ðéð░ð▒ð╗ð©ÐåÐï"""
     try:
         columns = db.query(models.CustomColumn).filter(
             models.CustomColumn.table_name == table_name
@@ -4720,8 +4720,8 @@ def get_custom_columns(table_name: str, db: Session = Depends(get_db)):
 
 @app.post("/api/custom-columns/{table_name}")
 def create_custom_column(table_name: str, data: CustomColumnSchema, db: Session = Depends(get_db)):
-    """Создать новую пользовательскую колонку"""
-    # Генерируем уникальный ключ для новой колонки
+    """ðíð¥ðÀð┤ð░ÐéÐî ð¢ð¥ð▓ÐâÐÄ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ÐâÐÄ ð║ð¥ð╗ð¥ð¢ð║Ðâ"""
+    # ðôðÁð¢ðÁÐÇð©ÐÇÐâðÁð╝ Ðâð¢ð©ð║ð░ð╗Ðîð¢Ðïð╣ ð║ð╗ÐÄÐç ð┤ð╗ÐÅ ð¢ð¥ð▓ð¥ð╣ ð║ð¥ð╗ð¥ð¢ð║ð©
     existing_cols = db.query(models.CustomColumn).filter(
         models.CustomColumn.table_name == table_name
     ).all()
@@ -4758,7 +4758,7 @@ def create_custom_column(table_name: str, data: CustomColumnSchema, db: Session 
 
 @app.put("/api/custom-columns/{column_id}")
 def update_custom_column(column_id: int, data: CustomColumnUpdateSchema, db: Session = Depends(get_db)):
-    """Обновить название пользовательской колонки"""
+    """ð×ð▒ð¢ð¥ð▓ð©ÐéÐî ð¢ð░ðÀð▓ð░ð¢ð©ðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ð¥ð╣ ð║ð¥ð╗ð¥ð¢ð║ð©"""
     column = db.query(models.CustomColumn).filter(models.CustomColumn.id == column_id).first()
     if not column:
         raise HTTPException(404, "Column not found")
@@ -4777,12 +4777,12 @@ def update_custom_column(column_id: int, data: CustomColumnUpdateSchema, db: Ses
 
 @app.delete("/api/custom-columns/{column_id}")
 def delete_custom_column(column_id: int, db: Session = Depends(get_db)):
-    """Удалить пользовательскую колонку"""
+    """ðúð┤ð░ð╗ð©ÐéÐî ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ÐâÐÄ ð║ð¥ð╗ð¥ð¢ð║Ðâ"""
     column = db.query(models.CustomColumn).filter(models.CustomColumn.id == column_id).first()
     if not column:
         raise HTTPException(404, "Column not found")
     
-    # Удаляем все данные для этой колонки
+    # ðúð┤ð░ð╗ÐÅðÁð╝ ð▓ÐüðÁ ð┤ð░ð¢ð¢ÐïðÁ ð┤ð╗ÐÅ ÐìÐéð¥ð╣ ð║ð¥ð╗ð¥ð¢ð║ð©
     if column.table_name == "purchase_orders":
         db.query(models.PurchaseOrderCustomData).filter(
             models.PurchaseOrderCustomData.column_key == column.column_key
@@ -4796,7 +4796,7 @@ def delete_custom_column(column_id: int, db: Session = Depends(get_db)):
 
 @app.get("/api/purchase-order-custom-data")
 def get_all_purchase_order_custom_data(db: Session = Depends(get_db)):
-    """Получить все данные пользовательских колонок для всех Purchase Orders"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî ð▓ÐüðÁ ð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ð©Ðà ð║ð¥ð╗ð¥ð¢ð¥ð║ ð┤ð╗ÐÅ ð▓ÐüðÁÐà Purchase Orders"""
     custom_data = db.query(models.PurchaseOrderCustomData).all()
     return [
         {
@@ -4810,14 +4810,14 @@ def get_all_purchase_order_custom_data(db: Session = Depends(get_db)):
 
 @app.post("/api/purchase-order-custom-data")
 def save_purchase_order_custom_data(data: dict, db: Session = Depends(get_db)):
-    """Сохранить данные для пользовательских колонок"""
+    """ðíð¥ÐàÐÇð░ð¢ð©ÐéÐî ð┤ð░ð¢ð¢ÐïðÁ ð┤ð╗ÐÅ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ð©Ðà ð║ð¥ð╗ð¥ð¢ð¥ð║"""
     purchase_order_id = data.get("purchase_order_id")
     custom_data = data.get("custom_data", {})
     
     if not purchase_order_id:
         raise HTTPException(400, "purchase_order_id is required")
     
-    # Для каждой пользовательской колонки сохраняем или обновляем значение
+    # ðöð╗ÐÅ ð║ð░ðÂð┤ð¥ð╣ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ð¥ð╣ ð║ð¥ð╗ð¥ð¢ð║ð© Ðüð¥ÐàÐÇð░ð¢ÐÅðÁð╝ ð©ð╗ð© ð¥ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ðÀð¢ð░ÐçðÁð¢ð©ðÁ
     for column_key, value in custom_data.items():
         existing = db.query(models.PurchaseOrderCustomData).filter(
             models.PurchaseOrderCustomData.purchase_order_id == purchase_order_id,
@@ -4949,7 +4949,7 @@ def get_utilization_parameters(db: Session = Depends(get_db)):
         
         result = []
         for p in params:
-            # Получаем Orig SN и GSS ID если указана позиция
+            # ðƒð¥ð╗ÐâÐçð░ðÁð╝ Orig SN ð© GSS ID ðÁÐüð╗ð© Ðâð║ð░ðÀð░ð¢ð░ ð┐ð¥ðÀð©Ðåð©ÐÅ
             orig_sn = None
             gss_sn = None
             if p.position and p.engine_id:
@@ -4975,7 +4975,7 @@ def get_utilization_parameters(db: Session = Depends(get_db)):
         
         return result
     except Exception as e:
-        print(f"❌ Error in get_utilization_parameters: {e}")
+        print(f"ÔØî Error in get_utilization_parameters: {e}")
         return []
 
 
@@ -4986,7 +4986,7 @@ def create_utilization_parameter(data: UtilizationParameterSchema, db: Session =
     if not parsed_date:
         raise HTTPException(status_code=400, detail="Invalid date format")
     
-    # Валидация обязательных полей
+    # ðÆð░ð╗ð©ð┤ð░Ðåð©ÐÅ ð¥ð▒ÐÅðÀð░ÐéðÁð╗Ðîð¢ÐïÐà ð┐ð¥ð╗ðÁð╣
     if not data.position or data.position < 1 or data.position > 4:
         raise HTTPException(status_code=400, detail="Position is required and must be between 1 and 4")
     
@@ -4999,7 +4999,7 @@ def create_utilization_parameter(data: UtilizationParameterSchema, db: Session =
     if not parsed_date_from or not parsed_date_to:
         raise HTTPException(status_code=400, detail="Invalid date format for date_from or date_to")
     
-    # Позиция обязательна - ищем двигатель на этой позиции
+    # ðƒð¥ðÀð©Ðåð©ÐÅ ð¥ð▒ÐÅðÀð░ÐéðÁð╗Ðîð¢ð░ - ð©ÐëðÁð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð¢ð░ ÐìÐéð¥ð╣ ð┐ð¥ðÀð©Ðåð©ð©
     ac = db.query(models.Aircraft).filter(
         models.Aircraft.tail_number == data.aircraft
     ).first()
@@ -5031,7 +5031,7 @@ def create_utilization_parameter(data: UtilizationParameterSchema, db: Session =
     db.commit()
     db.refresh(new_param)
 
-    # Если привязали к конкретному двигателю, обновляем его текущие TT/TC и дату обновления параметров
+    # ðòÐüð╗ð© ð┐ÐÇð©ð▓ÐÅðÀð░ð╗ð© ð║ ð║ð¥ð¢ð║ÐÇðÁÐéð¢ð¥ð╝Ðâ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÄ, ð¥ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ðÁð│ð¥ ÐéðÁð║ÐâÐëð©ðÁ TT/TC ð© ð┤ð░ÐéÐâ ð¥ð▒ð¢ð¥ð▓ð╗ðÁð¢ð©ÐÅ ð┐ð░ÐÇð░ð╝ðÁÐéÐÇð¥ð▓
     if engine_id:
         eng = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
         if eng:
@@ -5044,13 +5044,13 @@ def create_utilization_parameter(data: UtilizationParameterSchema, db: Session =
             db.refresh(eng)
     
     # Log action
-    period_text = "Период" if data.period else "Обычный"
+    period_text = "ðƒðÁÐÇð©ð¥ð┤" if data.period else "ð×ð▒ÐïÐçð¢Ðïð╣"
     create_notification(
         db,
         action_type="created",
         entity_type="utilization_parameter",
         entity_id=new_param.id,
-        message=f"Были внесены данные пользователем User в группу Utilization Parameters: {period_text} параметры для самолета {data.aircraft}",
+        message=f"ðæÐïð╗ð© ð▓ð¢ðÁÐüðÁð¢Ðï ð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╝ User ð▓ ð│ÐÇÐâð┐ð┐Ðâ Utilization Parameters: {period_text} ð┐ð░ÐÇð░ð╝ðÁÐéÐÇÐï ð┤ð╗ÐÅ Ðüð░ð╝ð¥ð╗ðÁÐéð░ {data.aircraft}",
         performed_by="User"
     )
     
@@ -5074,7 +5074,7 @@ def update_utilization_parameter(param_id: int, data: UtilizationParameterSchema
     if not parsed_date:
         raise HTTPException(status_code=400, detail="Invalid date format")
     
-    # Валидация обязательных полей
+    # ðÆð░ð╗ð©ð┤ð░Ðåð©ÐÅ ð¥ð▒ÐÅðÀð░ÐéðÁð╗Ðîð¢ÐïÐà ð┐ð¥ð╗ðÁð╣
     if not data.position or data.position < 1 or data.position > 4:
         raise HTTPException(status_code=400, detail="Position is required and must be between 1 and 4")
     
@@ -5087,7 +5087,7 @@ def update_utilization_parameter(param_id: int, data: UtilizationParameterSchema
     if not parsed_date_from or not parsed_date_to:
         raise HTTPException(status_code=400, detail="Invalid date format for date_from or date_to")
     
-    # Позиция обязательна - ищем двигатель на этой позиции
+    # ðƒð¥ðÀð©Ðåð©ÐÅ ð¥ð▒ÐÅðÀð░ÐéðÁð╗Ðîð¢ð░ - ð©ÐëðÁð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî ð¢ð░ ÐìÐéð¥ð╣ ð┐ð¥ðÀð©Ðåð©ð©
     ac = db.query(models.Aircraft).filter(models.Aircraft.tail_number == data.aircraft).first()
     if not ac:
         raise HTTPException(status_code=404, detail=f"Aircraft {data.aircraft} not found")
@@ -5112,7 +5112,7 @@ def update_utilization_parameter(param_id: int, data: UtilizationParameterSchema
     db.commit()
     db.refresh(param)
 
-    # Если привязали к конкретному двигателю, обновляем его текущие TT/TC и дату обновления параметров
+    # ðòÐüð╗ð© ð┐ÐÇð©ð▓ÐÅðÀð░ð╗ð© ð║ ð║ð¥ð¢ð║ÐÇðÁÐéð¢ð¥ð╝Ðâ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÄ, ð¥ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ðÁð│ð¥ ÐéðÁð║ÐâÐëð©ðÁ TT/TC ð© ð┤ð░ÐéÐâ ð¥ð▒ð¢ð¥ð▓ð╗ðÁð¢ð©ÐÅ ð┐ð░ÐÇð░ð╝ðÁÐéÐÇð¥ð▓
     if engine_id:
         eng = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
         if eng:
@@ -5125,13 +5125,13 @@ def update_utilization_parameter(param_id: int, data: UtilizationParameterSchema
             db.refresh(eng)
     
     # Log action
-    period_text = "Период" if data.period else "Обычный"
+    period_text = "ðƒðÁÐÇð©ð¥ð┤" if data.period else "ð×ð▒ÐïÐçð¢Ðïð╣"
     create_notification(
         db,
         action_type="updated",
         entity_type="utilization_parameter",
         entity_id=param.id,
-        message=f"Были обновлены данные пользователем User в группу Utilization Parameters: {period_text} параметры для самолета {data.aircraft}",
+        message=f"ðæÐïð╗ð© ð¥ð▒ð¢ð¥ð▓ð╗ðÁð¢Ðï ð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╝ User ð▓ ð│ÐÇÐâð┐ð┐Ðâ Utilization Parameters: {period_text} ð┐ð░ÐÇð░ð╝ðÁÐéÐÇÐï ð┤ð╗ÐÅ Ðüð░ð╝ð¥ð╗ðÁÐéð░ {data.aircraft}",
         performed_by="User"
     )
     return {"message": "Utilization parameter updated successfully"}
@@ -5149,7 +5149,7 @@ def delete_utilization_parameter(param_id: int, db: Session = Depends(get_db)):
     
     # Capture details for log before delete
     aircraft = param.aircraft
-    period_text = "Период" if param.period else "Обычный"
+    period_text = "ðƒðÁÐÇð©ð¥ð┤" if param.period else "ð×ð▒ÐïÐçð¢Ðïð╣"
 
     db.delete(param)
     db.commit()
@@ -5160,7 +5160,7 @@ def delete_utilization_parameter(param_id: int, db: Session = Depends(get_db)):
         action_type="deleted",
         entity_type="utilization_parameter",
         entity_id=param_id,
-        message=f"Были удалены данные пользователем User в группу Utilization Parameters: {period_text} параметры для самолета {aircraft}",
+        message=f"ðæÐïð╗ð© Ðâð┤ð░ð╗ðÁð¢Ðï ð┤ð░ð¢ð¢ÐïðÁ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╝ User ð▓ ð│ÐÇÐâð┐ð┐Ðâ Utilization Parameters: {period_text} ð┐ð░ÐÇð░ð╝ðÁÐéÐÇÐï ð┤ð╗ÐÅ Ðüð░ð╝ð¥ð╗ðÁÐéð░ {aircraft}",
         performed_by="User"
     )
 
@@ -5431,12 +5431,12 @@ def mark_all_read(user_id: Optional[int] = None, db: Session = Depends(get_db)):
 
 
 # ============================================================================
-# === FAKE INSTALLED API ENDPOINTS (независимый модуль, не трогаем логику) ===
+# === FAKE INSTALLED API ENDPOINTS (ð¢ðÁðÀð░ð▓ð©Ðüð©ð╝Ðïð╣ ð╝ð¥ð┤Ðâð╗Ðî, ð¢ðÁ ÐéÐÇð¥ð│ð░ðÁð╝ ð╗ð¥ð│ð©ð║Ðâ) ===
 # ============================================================================
 
 @app.get("/api/fake-installed")
 def get_fake_installed(engine_sn: Optional[str] = None, db: Session = Depends(get_db)):
-    """Получить все записи Fake Installed, опционально отфильтровать по SN двигателя"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî ð▓ÐüðÁ ðÀð░ð┐ð©Ðüð© Fake Installed, ð¥ð┐Ðåð©ð¥ð¢ð░ð╗Ðîð¢ð¥ ð¥ÐéÐäð©ð╗ÐîÐéÐÇð¥ð▓ð░ÐéÐî ð┐ð¥ SN ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ"""
     try:
         if not hasattr(models, "FakeInstalled"):
             print("FakeInstalled model missing")
@@ -5479,7 +5479,7 @@ def get_fake_installed(engine_sn: Optional[str] = None, db: Session = Depends(ge
 
 @app.post("/api/fake-installed")
 def create_fake_installed(data: dict, db: Session = Depends(get_db)):
-    """Добавить новую запись Fake Installed"""
+    """ðöð¥ð▒ð░ð▓ð©ÐéÐî ð¢ð¥ð▓ÐâÐÄ ðÀð░ð┐ð©ÐüÐî Fake Installed"""
     try:
         if not hasattr(models, "FakeInstalled"):
             raise HTTPException(status_code=500, detail="FakeInstalled model missing")
@@ -5514,7 +5514,7 @@ def create_fake_installed(data: dict, db: Session = Depends(get_db)):
 
 @app.put("/api/fake-installed/{fake_id}")
 def update_fake_installed(fake_id: int, data: dict, db: Session = Depends(get_db)):
-    """Обновить запись Fake Installed"""
+    """ð×ð▒ð¢ð¥ð▓ð©ÐéÐî ðÀð░ð┐ð©ÐüÐî Fake Installed"""
     try:
         if not hasattr(models, "FakeInstalled"):
             raise HTTPException(status_code=500, detail="FakeInstalled model missing")
@@ -5536,7 +5536,7 @@ def update_fake_installed(fake_id: int, data: dict, db: Session = Depends(get_db
 
 @app.delete("/api/fake-installed/{fake_id}")
 def delete_fake_installed(fake_id: int, db: Session = Depends(get_db)):
-    """Удалить запись Fake Installed"""
+    """ðúð┤ð░ð╗ð©ÐéÐî ðÀð░ð┐ð©ÐüÐî Fake Installed"""
     try:
         if not hasattr(models, "FakeInstalled"):
             raise HTTPException(status_code=500, detail="FakeInstalled model missing")
@@ -5626,7 +5626,7 @@ def update_fake_installed_headers(payload: dict, db: Session = Depends(get_db)):
 
 
 # ============================================================================
-# === NAMEPLATE TRACKER API (независимый модуль) ===
+# === NAMEPLATE TRACKER API (ð¢ðÁðÀð░ð▓ð©Ðüð©ð╝Ðïð╣ ð╝ð¥ð┤Ðâð╗Ðî) ===
 # ============================================================================
 
 @app.get("/api/engine-by-sn/{sn}")
@@ -5968,7 +5968,7 @@ def execute_nameplate_action(data: dict, db: Session = Depends(get_db)):
                 installed_date=data.get("date") or datetime.utcnow().date().isoformat(),
                 action_note="swap",
                 performed_by=data.get("performed_by"),
-                notes=f"Swapped: {eng1.gss_sn}({old_sn1}↔{old_sn2}) with {eng2.gss_sn}({old_sn2}↔{old_sn1})",
+                notes=f"Swapped: {eng1.gss_sn}({old_sn1}Ôåö{old_sn2}) with {eng2.gss_sn}({old_sn2}Ôåö{old_sn1})",
             )
             db.add(rec)
             db.commit()
@@ -6112,7 +6112,7 @@ def get_all_schedules(
         
         return result
     except Exception as e:
-        print(f"❌ Error in get_all_schedules: {e}")
+        print(f"ÔØî Error in get_all_schedules: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Failed to fetch schedules: {str(e)}")
@@ -6185,7 +6185,7 @@ def get_schedule_stats(db: Session = Depends(get_db)):
                 except:
                     pass
         
-        print(f"✅ Schedule stats: on_order={on_order}, in_transit={in_transit}, arriving_soon={arriving_soon}")
+        print(f"Ô£à Schedule stats: on_order={on_order}, in_transit={in_transit}, arriving_soon={arriving_soon}")
         
         return {
             "on_order": on_order,
@@ -6196,7 +6196,7 @@ def get_schedule_stats(db: Session = Depends(get_db)):
             "completed_month": completed_month
         }
     except Exception as e:
-        print(f"❌ Error in get_schedule_stats: {e}")
+        print(f"ÔØî Error in get_schedule_stats: {e}")
         import traceback
         traceback.print_exc()
         return {
@@ -6241,7 +6241,7 @@ def get_schedule_by_id(shipment_id: int, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error in get_schedule_by_id: {e}")
+        print(f"ÔØî Error in get_schedule_by_id: {e}")
         raise HTTPException(500, f"Failed to fetch shipment: {str(e)}")
 
 
@@ -6279,10 +6279,10 @@ def create_schedule(data: LogisticsShipmentSchema, db: Session = Depends(get_db)
         if data.shipment_type == "ENGINE":
             engine = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
             engine_sn = engine.original_sn or engine.current_sn or 'Unknown' if engine else 'Unknown'
-            event_title = f"🛫 Engine {engine_sn} Expected Arrival"
+            event_title = f"­ƒø½ Engine {engine_sn} Expected Arrival"
             event_desc = f"Supplier: {data.supplier_name}, Destination: {data.destination_location}"
         else:  # PARTS
-            event_title = f"📦 Parts: {data.part_quantity}x {data.part_name} Expected"
+            event_title = f"­ƒôª Parts: {data.part_quantity}x {data.part_name} Expected"
             event_desc = f"Supplier: {data.supplier_name}, Category: {data.part_category}"
         
         calendar_event = models.ScheduledEvent(
@@ -6304,7 +6304,7 @@ def create_schedule(data: LogisticsShipmentSchema, db: Session = Depends(get_db)
             action_type="created",
             entity_type="shipment",
             entity_id=shipment.id,
-            message=f"📦 Shipment #{shipment.id} created: {event_title}",
+            message=f"­ƒôª Shipment #{shipment.id} created: {event_title}",
             performed_by=data.created_by or "User"
         )
         
@@ -6318,7 +6318,7 @@ def create_schedule(data: LogisticsShipmentSchema, db: Session = Depends(get_db)
         }
     except Exception as e:
         db.rollback()
-        print(f"❌ Error in create_schedule: {e}")
+        print(f"ÔØî Error in create_schedule: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Failed to create shipment: {str(e)}")
@@ -6374,7 +6374,7 @@ def update_schedule(shipment_id: int, data: dict, db: Session = Depends(get_db))
                         action_type="received",
                         entity_type="engine",
                         entity_id=engine.id,
-                        message=f"🛬 Engine {engine.serial_number} RECEIVED - Location updated to On Stock",
+                        message=f"­ƒø¼ Engine {engine.serial_number} RECEIVED - Location updated to On Stock",
                         performed_by=data.get("updated_by", "User")
                     )
             
@@ -6410,7 +6410,7 @@ def update_schedule(shipment_id: int, data: dict, db: Session = Depends(get_db))
                         action_type="received",
                         entity_type="parts",
                         entity_id=store_item.id,
-                        message=f"📦 {shipment.part_quantity}x {shipment.part_name} RECEIVED - Added to inventory",
+                        message=f"­ƒôª {shipment.part_quantity}x {shipment.part_name} RECEIVED - Added to inventory",
                         performed_by=data.get("updated_by", "User")
                     )
             
@@ -6429,7 +6429,7 @@ def update_schedule(shipment_id: int, data: dict, db: Session = Depends(get_db))
                 action_type="updated",
                 entity_type="shipment",
                 entity_id=shipment.id,
-                message=f"📦 Shipment #{shipment.id} status changed: {old_status} → {new_status}",
+                message=f"­ƒôª Shipment #{shipment.id} status changed: {old_status} ÔåÆ {new_status}",
                 performed_by=data.get("updated_by", "User")
             )
         
@@ -6442,7 +6442,7 @@ def update_schedule(shipment_id: int, data: dict, db: Session = Depends(get_db))
         raise
     except Exception as e:
         db.rollback()
-        print(f"❌ Error in update_schedule: {e}")
+        print(f"ÔØî Error in update_schedule: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Failed to update shipment: {str(e)}")
@@ -6473,7 +6473,7 @@ def delete_schedule(shipment_id: int, deleted_by: str = Query("User"), db: Sessi
             action_type="deleted",
             entity_type="shipment",
             entity_id=shipment_id,
-            message=f"📦 Shipment #{shipment_id} ({shipment_info}) deleted",
+            message=f"­ƒôª Shipment #{shipment_id} ({shipment_info}) deleted",
             performed_by=deleted_by
         )
         
@@ -6485,7 +6485,7 @@ def delete_schedule(shipment_id: int, deleted_by: str = Query("User"), db: Sessi
         raise
     except Exception as e:
         db.rollback()
-        print(f"❌ Error in delete_schedule: {e}")
+        print(f"ÔØî Error in delete_schedule: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Failed to delete shipment: {str(e)}")
@@ -6521,7 +6521,7 @@ def get_schedules_calendar(year: int, month: int, db: Session = Depends(get_db))
         
         return events
     except Exception as e:
-        print(f"❌ Error in get_schedules_calendar: {e}")
+        print(f"ÔØî Error in get_schedules_calendar: {e}")
         raise HTTPException(500, f"Failed to fetch calendar data: {str(e)}")
 
 
@@ -6537,7 +6537,7 @@ def get_store_balance(db: Session = Depends(get_db)):
         
         return {"total": total}
     except Exception as e:
-        print(f"❌ Error in get_store_balance: {e}")
+        print(f"ÔØî Error in get_store_balance: {e}")
         return {"total": 0}
 
 
@@ -6573,7 +6573,7 @@ def get_logistics_movements(db: Session = Depends(get_db)):
             "total": total
         }
     except Exception as e:
-        print(f"❌ Error in get_logistics_movements: {e}")
+        print(f"ÔØî Error in get_logistics_movements: {e}")
         return {
             "engines_transit": 0,
             "parts_transit": 0,
@@ -6586,17 +6586,17 @@ def get_logistics_movements(db: Session = Depends(get_db)):
 
 @app.get("/api/condition-statuses")
 def get_condition_statuses(db: Session = Depends(get_db)):
-    """Получить все статусы Condition"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî ð▓ÐüðÁ ÐüÐéð░ÐéÐâÐüÐï Condition"""
     try:
         statuses = db.query(models.ConditionStatus).all()
         return [{"id": s.id, "name": s.name, "color": s.color} for s in statuses]
     except Exception as e:
-        print(f"❌ Error in get_condition_statuses: {e}")
+        print(f"ÔØî Error in get_condition_statuses: {e}")
         return []
 
 @app.post("/api/condition-statuses")
 def create_condition_status(data: dict, db: Session = Depends(get_db)):
-    """Создать новый статус Condition"""
+    """ðíð¥ðÀð┤ð░ÐéÐî ð¢ð¥ð▓Ðïð╣ ÐüÐéð░ÐéÐâÐü Condition"""
     try:
         name = data.get("name", "").strip()
         color = data.get("color", "#6c757d")
@@ -6604,7 +6604,7 @@ def create_condition_status(data: dict, db: Session = Depends(get_db)):
         if not name:
             return {"status": "error", "message": "Name is required"}
         
-        # Проверка на дубликат
+        # ðƒÐÇð¥ð▓ðÁÐÇð║ð░ ð¢ð░ ð┤Ðâð▒ð╗ð©ð║ð░Ðé
         existing = db.query(models.ConditionStatus).filter(models.ConditionStatus.name == name).first()
         if existing:
             return {"status": "error", "message": "Status already exists"}
@@ -6615,13 +6615,13 @@ def create_condition_status(data: dict, db: Session = Depends(get_db)):
         db.refresh(new_status)
         return {"status": "success", "id": new_status.id, "name": new_status.name, "color": new_status.color}
     except Exception as e:
-        print(f"❌ Error in create_condition_status: {e}")
+        print(f"ÔØî Error in create_condition_status: {e}")
         db.rollback()
         return {"status": "error", "message": str(e)}
 
 @app.delete("/api/condition-statuses/{status_id}")
 def delete_condition_status(status_id: int, db: Session = Depends(get_db)):
-    """Удалить статус Condition"""
+    """ðúð┤ð░ð╗ð©ÐéÐî ÐüÐéð░ÐéÐâÐü Condition"""
     try:
         status = db.query(models.ConditionStatus).filter(models.ConditionStatus.id == status_id).first()
         if not status:
@@ -6631,7 +6631,7 @@ def delete_condition_status(status_id: int, db: Session = Depends(get_db)):
         db.commit()
         return {"status": "success"}
     except Exception as e:
-        print(f"❌ Error in delete_condition_status: {e}")
+        print(f"ÔØî Error in delete_condition_status: {e}")
         db.rollback()
         return {"status": "error", "message": str(e)}
 
@@ -6641,24 +6641,24 @@ def delete_condition_status(status_id: int, db: Session = Depends(get_db)):
 
 @app.get("/api/work-types")
 def get_work_types(db: Session = Depends(get_db)):
-    """Получить все типы работ для Borescope"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî ð▓ÐüðÁ Ðéð©ð┐Ðï ÐÇð░ð▒ð¥Ðé ð┤ð╗ÐÅ Borescope"""
     try:
         work_types = db.query(models.WorkType).all()
         return [{"id": wt.id, "name": wt.name} for wt in work_types]
     except Exception as e:
-        print(f"❌ Error in get_work_types: {e}")
+        print(f"ÔØî Error in get_work_types: {e}")
         return []
 
 @app.post("/api/work-types")
 def create_work_type(data: dict, db: Session = Depends(get_db)):
-    """Создать новый тип работы"""
+    """ðíð¥ðÀð┤ð░ÐéÐî ð¢ð¥ð▓Ðïð╣ Ðéð©ð┐ ÐÇð░ð▒ð¥ÐéÐï"""
     try:
         name = data.get("name", "").strip()
         
         if not name:
             return {"status": "error", "message": "Name is required"}
         
-        # Проверка на дубликат
+        # ðƒÐÇð¥ð▓ðÁÐÇð║ð░ ð¢ð░ ð┤Ðâð▒ð╗ð©ð║ð░Ðé
         existing = db.query(models.WorkType).filter(models.WorkType.name == name).first()
         if existing:
             return {"status": "error", "message": "Work Type already exists"}
@@ -6669,13 +6669,13 @@ def create_work_type(data: dict, db: Session = Depends(get_db)):
         db.refresh(new_work_type)
         return {"status": "success", "id": new_work_type.id, "name": new_work_type.name}
     except Exception as e:
-        print(f"❌ Error in create_work_type: {e}")
+        print(f"ÔØî Error in create_work_type: {e}")
         db.rollback()
         return {"status": "error", "message": str(e)}
 
 @app.delete("/api/work-types/{work_type_id}")
 def delete_work_type(work_type_id: int, db: Session = Depends(get_db)):
-    """Удалить тип работы"""
+    """ðúð┤ð░ð╗ð©ÐéÐî Ðéð©ð┐ ÐÇð░ð▒ð¥ÐéÐï"""
     try:
         work_type = db.query(models.WorkType).filter(models.WorkType.id == work_type_id).first()
         if not work_type:
@@ -6685,7 +6685,7 @@ def delete_work_type(work_type_id: int, db: Session = Depends(get_db)):
         db.commit()
         return {"status": "success"}
     except Exception as e:
-        print(f"❌ Error in delete_work_type: {e}")
+        print(f"ÔØî Error in delete_work_type: {e}")
         db.rollback()
         return {"status": "error", "message": str(e)}
 
@@ -6703,16 +6703,16 @@ def get_gss_range(
     show_assigned: bool = Query(default=False),
     db: Session = Depends(get_db)
 ):
-    """Получить диапазон GSS ID с информацией о доступности"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî ð┤ð©ð░ð┐ð░ðÀð¥ð¢ GSS ID Ðü ð©ð¢Ðäð¥ÐÇð╝ð░Ðåð©ðÁð╣ ð¥ ð┤ð¥ÐüÐéÐâð┐ð¢ð¥ÐüÐéð©"""
     try:
-        # Проверка ограничения
+        # ðƒÐÇð¥ð▓ðÁÐÇð║ð░ ð¥ð│ÐÇð░ð¢ð©ÐçðÁð¢ð©ÐÅ
         if to_id - from_id + 1 > MAX_GSS_RANGE:
             raise HTTPException(400, f"Range too large! Maximum {MAX_GSS_RANGE} numbers at once")
         
         if from_id > to_id:
             raise HTTPException(400, "Invalid range: from_id > to_id")
         
-        # Получаем занятые GSS ID в диапазоне
+        # ðƒð¥ð╗ÐâÐçð░ðÁð╝ ðÀð░ð¢ÐÅÐéÐïðÁ GSS ID ð▓ ð┤ð©ð░ð┐ð░ðÀð¥ð¢ðÁ
         assigned = db.query(models.GSSAssignment).filter(
             models.GSSAssignment.gss_id.between(from_id, to_id)
         ).all()
@@ -6723,7 +6723,7 @@ def get_gss_range(
         for gss_id in range(from_id, to_id + 1):
             is_assigned = gss_id in assigned_map
             
-            # Если show_assigned=False, пропускаем занятые
+            # ðòÐüð╗ð© show_assigned=False, ð┐ÐÇð¥ð┐ÐâÐüð║ð░ðÁð╝ ðÀð░ð¢ÐÅÐéÐïðÁ
             if not show_assigned and is_assigned:
                 continue
             
@@ -6748,7 +6748,7 @@ def get_gss_range(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error in get_gss_range: {e}")
+        print(f"ÔØî Error in get_gss_range: {e}")
         raise HTTPException(500, f"Server error: {str(e)}")
 
 @app.post("/api/gss/assign")
@@ -6757,9 +6757,9 @@ def assign_gss_id(
     current_user_id: int = Query(..., alias="user_id"),
     db: Session = Depends(get_db)
 ):
-    """Присвоить GSS ID к двигателю"""
+    """ðƒÐÇð©Ðüð▓ð¥ð©ÐéÐî GSS ID ð║ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÄ"""
     try:
-        # Проверка: GSS ID уже занят?
+        # ðƒÐÇð¥ð▓ðÁÐÇð║ð░: GSS ID ÐâðÂðÁ ðÀð░ð¢ÐÅÐé?
         existing = db.query(models.GSSAssignment).filter(
             models.GSSAssignment.gss_id == data.gss_id
         ).first()
@@ -6767,12 +6767,12 @@ def assign_gss_id(
         if existing:
             raise HTTPException(400, f"GSS ID {data.gss_id} already assigned to engine {existing.original_sn}")
         
-        # Получаем двигатель
+        # ðƒð¥ð╗ÐâÐçð░ðÁð╝ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
         engine = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
         if not engine:
             raise HTTPException(404, "Engine not found")
         
-        # Создаем присвоение
+        # ðíð¥ðÀð┤ð░ðÁð╝ ð┐ÐÇð©Ðüð▓ð¥ðÁð¢ð©ðÁ
         assignment = models.GSSAssignment(
             gss_id=data.gss_id,
             engine_id=engine.id,
@@ -6783,7 +6783,7 @@ def assign_gss_id(
             assigned_by=current_user_id
         )
         
-        # Обновляем gss_sn в Engine
+        # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ gss_sn ð▓ Engine
         engine.gss_sn = str(data.gss_id)
         
         db.add(assignment)
@@ -6794,7 +6794,7 @@ def assign_gss_id(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error in assign_gss_id: {e}")
+        print(f"ÔØî Error in assign_gss_id: {e}")
         db.rollback()
         raise HTTPException(500, f"Server error: {str(e)}")
 
@@ -6804,7 +6804,7 @@ def edit_gss_assignment(
     data: GSSAssignmentUpdate,
     db: Session = Depends(get_db)
 ):
-    """Редактировать присвоение GSS ID"""
+    """ðáðÁð┤ð░ð║Ðéð©ÐÇð¥ð▓ð░ÐéÐî ð┐ÐÇð©Ðüð▓ð¥ðÁð¢ð©ðÁ GSS ID"""
     try:
         assignment = db.query(models.GSSAssignment).filter(
             models.GSSAssignment.gss_id == gss_id
@@ -6813,7 +6813,7 @@ def edit_gss_assignment(
         if not assignment:
             raise HTTPException(404, "GSS assignment not found")
         
-        # Обновляем поля
+        # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ð┐ð¥ð╗ÐÅ
         if data.current_sn is not None:
             assignment.current_sn = data.current_sn
         if data.photo_url is not None:
@@ -6828,7 +6828,7 @@ def edit_gss_assignment(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error in edit_gss_assignment: {e}")
+        print(f"ÔØî Error in edit_gss_assignment: {e}")
         db.rollback()
         raise HTTPException(500, f"Server error: {str(e)}")
 
@@ -6838,7 +6838,7 @@ async def upload_gss_photo(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """Загрузка фото для GSS ID"""
+    """ðùð░ð│ÐÇÐâðÀð║ð░ Ðäð¥Ðéð¥ ð┤ð╗ÐÅ GSS ID"""
     try:
         from fastapi import UploadFile, File, Form
         form = await request.form()
@@ -6847,14 +6847,14 @@ async def upload_gss_photo(
         if not file:
             raise HTTPException(400, "No file provided")
         
-        # Проверка расширения
+        # ðƒÐÇð¥ð▓ðÁÐÇð║ð░ ÐÇð░ÐüÐêð©ÐÇðÁð¢ð©ÐÅ
         allowed_ext = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
         file_ext = Path(file.filename).suffix.lower()
         
         if file_ext not in allowed_ext:
             raise HTTPException(400, "Invalid file type")
         
-        # Сохраняем файл
+        # ðíð¥ÐàÐÇð░ð¢ÐÅðÁð╝ Ðäð░ð╣ð╗
         filename = f"gss_{gss_id}_{int(datetime.now().timestamp())}{file_ext}"
         file_path = UPLOAD_DIR / filename
         
@@ -6862,7 +6862,7 @@ async def upload_gss_photo(
         with open(file_path, "wb") as f:
             f.write(content)
         
-        # Обновляем БД
+        # ð×ð▒ð¢ð¥ð▓ð╗ÐÅðÁð╝ ðæðö
         assignment = db.query(models.GSSAssignment).filter(
             models.GSSAssignment.gss_id == gss_id
         ).first()
@@ -6879,7 +6879,7 @@ async def upload_gss_photo(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error in upload_gss_photo: {e}")
+        print(f"ÔØî Error in upload_gss_photo: {e}")
         raise HTTPException(500, f"Server error: {str(e)}")
 
 @app.get("/api/gss/history")
@@ -6888,7 +6888,7 @@ def get_gss_history(
     engine_id: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
-    """Получить историю присвоений GSS ID"""
+    """ðƒð¥ð╗ÐâÐçð©ÐéÐî ð©ÐüÐéð¥ÐÇð©ÐÄ ð┐ÐÇð©Ðüð▓ð¥ðÁð¢ð©ð╣ GSS ID"""
     try:
         query = db.query(models.GSSAssignment)
         
@@ -6898,7 +6898,7 @@ def get_gss_history(
         if engine_id:
             query = query.filter(models.GSSAssignment.engine_id == engine_id)
         
-        # Сортировка: старые внизу, новые вверху
+        # ðíð¥ÐÇÐéð©ÐÇð¥ð▓ð║ð░: ÐüÐéð░ÐÇÐïðÁ ð▓ð¢ð©ðÀÐâ, ð¢ð¥ð▓ÐïðÁ ð▓ð▓ðÁÐÇÐàÐâ
         assignments = query.order_by(models.GSSAssignment.assigned_date.asc()).all()
         
         result = []
@@ -6921,7 +6921,7 @@ def get_gss_history(
         
         return result
     except Exception as e:
-        print(f"❌ Error in get_gss_history: {e}")
+        print(f"ÔØî Error in get_gss_history: {e}")
         raise HTTPException(500, f"Server error: {str(e)}")
 
 @app.delete("/api/gss/delete/{gss_id}")
@@ -6929,7 +6929,7 @@ def delete_gss_assignment(
     gss_id: int,
     db: Session = Depends(get_db)
 ):
-    """Удалить присвоение GSS ID (освобождает номер)"""
+    """ðúð┤ð░ð╗ð©ÐéÐî ð┐ÐÇð©Ðüð▓ð¥ðÁð¢ð©ðÁ GSS ID (ð¥Ðüð▓ð¥ð▒ð¥ðÂð┤ð░ðÁÐé ð¢ð¥ð╝ðÁÐÇ)"""
     try:
         assignment = db.query(models.GSSAssignment).filter(
             models.GSSAssignment.gss_id == gss_id
@@ -6938,11 +6938,11 @@ def delete_gss_assignment(
         if not assignment:
             raise HTTPException(404, "GSS assignment not found")
         
-        # Очищаем gss_sn в Engine
+        # ð×Ðçð©Ðëð░ðÁð╝ gss_sn ð▓ Engine
         if assignment.engine:
             assignment.engine.gss_sn = None
         
-        # Удаляем запись
+        # ðúð┤ð░ð╗ÐÅðÁð╝ ðÀð░ð┐ð©ÐüÐî
         db.delete(assignment)
         db.commit()
         
@@ -6950,6 +6950,7 @@ def delete_gss_assignment(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error in delete_gss_assignment: {e}")
+        print(f"ÔØî Error in delete_gss_assignment: {e}")
         db.rollback()
         raise HTTPException(500, f"Server error: {str(e)}")
+

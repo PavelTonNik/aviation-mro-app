@@ -1,4 +1,4 @@
-# backend/models.py
+﻿# backend/models.py
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -8,13 +8,13 @@ try:
 except ImportError:  # Fallback when running as a module script
     from database import Base
 
-# --- ENUMS (Списки допустимых значений) ---
+# --- ENUMS (ðíð┐ð©Ðüð║ð© ð┤ð¥ð┐ÐâÐüÐéð©ð╝ÐïÐà ðÀð¢ð░ÐçðÁð¢ð©ð╣) ---
 class EngineStatus(str, enum.Enum):
-    SV = "SV"               # Serviceable (Исправен)
-    US = "US"               # Unserviceable (Неисправен)
-    INSTALLED = "INSTALLED" # Установлен на самолет
-    REMOVED = "REMOVED"     # Снят (обычно требует инспекции)
-    UNASSIGNED = "-"        # Unassigned (Не назначен)
+    SV = "SV"               # Serviceable (ðÿÐüð┐ÐÇð░ð▓ðÁð¢)
+    US = "US"               # Unserviceable (ðØðÁð©Ðüð┐ÐÇð░ð▓ðÁð¢)
+    INSTALLED = "INSTALLED" # ðúÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐé
+    REMOVED = "REMOVED"     # ðíð¢ÐÅÐé (ð¥ð▒ÐïÐçð¢ð¥ ÐéÐÇðÁð▒ÐâðÁÐé ð©ð¢Ðüð┐ðÁð║Ðåð©ð©)
+    UNASSIGNED = "-"        # Unassigned (ðØðÁ ð¢ð░ðÀð¢ð░ÐçðÁð¢)
 
 class ActionType(str, enum.Enum):
     INSTALL = "INSTALL"
@@ -23,9 +23,9 @@ class ActionType(str, enum.Enum):
     REPAIR = "REPAIR"
     INSPECT = "INSPECT"
     PART_ACTION = "PART_ACTION"
-    FLIGHT = "FLIGHT"  # Для записей ATLB/Utilization
+    FLIGHT = "FLIGHT"  # ðöð╗ÐÅ ðÀð░ð┐ð©ÐüðÁð╣ ATLB/Utilization
     
-# --- TABLES (Таблицы) ---
+# --- TABLES (ðóð░ð▒ð╗ð©ÐåÐï) ---
 
 class Location(Base):
     __tablename__ = "locations"
@@ -34,7 +34,7 @@ class Location(Base):
     name = Column(String, unique=True, nullable=False) # FRU, SHJ, Shop, etc.
     city = Column(String)
     
-    # Связи для удобства (обратные)
+    # ðíð▓ÐÅðÀð© ð┤ð╗ÐÅ Ðâð┤ð¥ð▒ÐüÐéð▓ð░ (ð¥ð▒ÐÇð░Ðéð¢ÐïðÁ)
     engines = relationship("Engine", back_populates="location")
     parts = relationship("Part", back_populates="location")
 
@@ -43,7 +43,7 @@ class Aircraft(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     tail_number = Column(String, unique=True, nullable=False) # BAT, BAR, BAQ
-    model = Column(String) # Например "Boeing 737-300"
+    model = Column(String) # ðØð░ð┐ÐÇð©ð╝ðÁÐÇ "Boeing 737-300"
     msn = Column(String, nullable=True) 
     total_time = Column(Float, default=0.0)
     total_cycles = Column(Integer, default=0)
@@ -59,49 +59,49 @@ class Engine(Base):
     id = Column(Integer, primary_key=True, index=True)
     original_sn = Column(String, unique=True)
     gss_sn = Column(String, nullable=True)
-    current_sn = Column(String, nullable=True) # Текущий серийный номер (может отличаться от original)
-    model = Column(String, nullable=True) # Модель двигателя (CF6-80, CFM56 и т.д.)
+    current_sn = Column(String, nullable=True) # ðóðÁð║ÐâÐëð©ð╣ ÐüðÁÐÇð©ð╣ð¢Ðïð╣ ð¢ð¥ð╝ðÁÐÇ (ð╝ð¥ðÂðÁÐé ð¥Ðéð╗ð©Ðçð░ÐéÐîÐüÐÅ ð¥Ðé original)
+    model = Column(String, nullable=True) # ð£ð¥ð┤ðÁð╗Ðî ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ (CF6-80, CFM56 ð© Ðé.ð┤.)
     
-    # В бизнес-логике статус отражает установку/снятие.
-    # Значения: INSTALLED, REMOVED, '-'.
+    # ðÆ ð▒ð©ðÀð¢ðÁÐü-ð╗ð¥ð│ð©ð║ðÁ ÐüÐéð░ÐéÐâÐü ð¥ÐéÐÇð░ðÂð░ðÁÐé ÐâÐüÐéð░ð¢ð¥ð▓ð║Ðâ/Ðüð¢ÐÅÐéð©ðÁ.
+    # ðùð¢ð░ÐçðÁð¢ð©ÐÅ: INSTALLED, REMOVED, '-'.
     status = Column(String, default="-")
-    condition_1 = Column(String, default="SV")  # Техсостояние: SV/US/Scrap
-    condition_2 = Column(String, default="New")  # Физсостояние: New/Overhauled/Repaired/Inspected tested/AS
+    condition_1 = Column(String, default="SV")  # ðóðÁÐàÐüð¥ÐüÐéð¥ÐÅð¢ð©ðÁ: SV/US/Scrap
+    condition_2 = Column(String, default="New")  # ðñð©ðÀÐüð¥ÐüÐéð¥ÐÅð¢ð©ðÁ: New/Overhauled/Repaired/Inspected tested/AS
     
-    # Наработка
+    # ðØð░ÐÇð░ð▒ð¥Ðéð║ð░
     total_time = Column(Float, default=0.0)   # TT
     total_cycles = Column(Integer, default=0) # TC
     
-    # Snapshot при установке (для расчета наработки на конкретном самолете)
-    tsn_at_install = Column(Float, nullable=True)   # TSN на момент установки
-    csn_at_install = Column(Integer, nullable=True) # CSN на момент установки
-    install_date = Column(DateTime(timezone=True), nullable=True) # Дата установки
+    # Snapshot ð┐ÐÇð© ÐâÐüÐéð░ð¢ð¥ð▓ð║ðÁ (ð┤ð╗ÐÅ ÐÇð░ÐüÐçðÁÐéð░ ð¢ð░ÐÇð░ð▒ð¥Ðéð║ð© ð¢ð░ ð║ð¥ð¢ð║ÐÇðÁÐéð¢ð¥ð╝ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ)
+    tsn_at_install = Column(Float, nullable=True)   # TSN ð¢ð░ ð╝ð¥ð╝ðÁð¢Ðé ÐâÐüÐéð░ð¢ð¥ð▓ð║ð©
+    csn_at_install = Column(Integer, nullable=True) # CSN ð¢ð░ ð╝ð¥ð╝ðÁð¢Ðé ÐâÐüÐéð░ð¢ð¥ð▓ð║ð©
+    install_date = Column(DateTime(timezone=True), nullable=True) # ðöð░Ðéð░ ÐâÐüÐéð░ð¢ð¥ð▓ð║ð©
     
-    # Логика местоположения
+    # ðøð¥ð│ð©ð║ð░ ð╝ðÁÐüÐéð¥ð┐ð¥ð╗ð¥ðÂðÁð¢ð©ÐÅ
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
     aircraft_id = Column(Integer, ForeignKey("aircrafts.id"), nullable=True)
-    position = Column(Integer, nullable=True) # 1 (Left) или 2 (Right), если на самолете
+    position = Column(Integer, nullable=True) # 1 (Left) ð©ð╗ð© 2 (Right), ðÁÐüð╗ð© ð¢ð░ Ðüð░ð╝ð¥ð╗ðÁÐéðÁ
     
-    # Дополнительные поля
-    from_location = Column(String, nullable=True) # Откуда перемещен (лок/шоп)
-    price = Column(Float, nullable=True)  # Цена двигателя
-    photo_url = Column(String, nullable=True) # Ссылка на фото
-    remarks = Column(String, nullable=True) # Примечания/комментарии
-    removed_from = Column(String, nullable=True) # Место откуда снят двигатель
+    # ðöð¥ð┐ð¥ð╗ð¢ð©ÐéðÁð╗Ðîð¢ÐïðÁ ð┐ð¥ð╗ÐÅ
+    from_location = Column(String, nullable=True) # ð×Ðéð║Ðâð┤ð░ ð┐ðÁÐÇðÁð╝ðÁÐëðÁð¢ (ð╗ð¥ð║/Ðêð¥ð┐)
+    price = Column(Float, nullable=True)  # ðªðÁð¢ð░ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
+    photo_url = Column(String, nullable=True) # ðíÐüÐïð╗ð║ð░ ð¢ð░ Ðäð¥Ðéð¥
+    remarks = Column(String, nullable=True) # ðƒÐÇð©ð╝ðÁÐçð░ð¢ð©ÐÅ/ð║ð¥ð╝ð╝ðÁð¢Ðéð░ÐÇð©ð©
+    removed_from = Column(String, nullable=True) # ð£ðÁÐüÐéð¥ ð¥Ðéð║Ðâð┤ð░ Ðüð¢ÐÅÐé ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
     
-    # Параметры двигателя (для мониторинга)
+    # ðƒð░ÐÇð░ð╝ðÁÐéÐÇÐï ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ (ð┤ð╗ÐÅ ð╝ð¥ð¢ð©Ðéð¥ÐÇð©ð¢ð│ð░)
     n1_takeoff = Column(Float, nullable=True)
     n1_cruise = Column(Float, nullable=True)
     n2_takeoff = Column(Float, nullable=True)
     n2_cruise = Column(Float, nullable=True)
-    egt_takeoff = Column(Float, nullable=True)  # EGT при взлете
-    egt_cruise = Column(Float, nullable=True)   # EGT при крейсерском режиме
-    last_param_update = Column(DateTime(timezone=True), nullable=True)  # Дата последнего обновления параметров
+    egt_takeoff = Column(Float, nullable=True)  # EGT ð┐ÐÇð© ð▓ðÀð╗ðÁÐéðÁ
+    egt_cruise = Column(Float, nullable=True)   # EGT ð┐ÐÇð© ð║ÐÇðÁð╣ÐüðÁÐÇÐüð║ð¥ð╝ ÐÇðÁðÂð©ð╝ðÁ
+    last_param_update = Column(DateTime(timezone=True), nullable=True)  # ðöð░Ðéð░ ð┐ð¥Ðüð╗ðÁð┤ð¢ðÁð│ð¥ ð¥ð▒ð¢ð¥ð▓ð╗ðÁð¢ð©ÐÅ ð┐ð░ÐÇð░ð╝ðÁÐéÐÇð¥ð▓
     
-    # Связи
+    # ðíð▓ÐÅðÀð©
     location = relationship("Location", back_populates="engines")
     aircraft = relationship("Aircraft", back_populates="engines")
-    parts = relationship("Part", back_populates="engine") # Установленные запчасти
+    parts = relationship("Part", back_populates="engine") # ðúÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ð¢ÐïðÁ ðÀð░ð┐Ðçð░ÐüÐéð©
     logs = relationship("ActionLog", back_populates="engine")
 
 class Part(Base):
@@ -110,10 +110,10 @@ class Part(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     part_number = Column(String, nullable=False)
-    serial_number = Column(String, nullable=True) # Может быть null для расходников
+    serial_number = Column(String, nullable=True) # ð£ð¥ðÂðÁÐé ð▒ÐïÐéÐî null ð┤ð╗ÐÅ ÐÇð░ÐüÐàð¥ð┤ð¢ð©ð║ð¥ð▓
     quantity = Column(Integer, default=1)
     
-    # Где запчасть? Либо на складе, либо внутри двигателя
+    # ðôð┤ðÁ ðÀð░ð┐Ðçð░ÐüÐéÐî? ðøð©ð▒ð¥ ð¢ð░ Ðüð║ð╗ð░ð┤ðÁ, ð╗ð©ð▒ð¥ ð▓ð¢ÐâÐéÐÇð© ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
     engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)
     
@@ -127,25 +127,25 @@ class ActionLog(Base):
     date = Column(DateTime(timezone=True), server_default=func.now())
     action_type = Column(String, nullable=False)
     
-    # К чему относится запись
+    # ðÜ ÐçðÁð╝Ðâ ð¥Ðéð¢ð¥Ðüð©ÐéÐüÐÅ ðÀð░ð┐ð©ÐüÐî
     engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)
     part_id = Column(Integer, ForeignKey("parts.id"), nullable=True)
     
-    # Детали перемещения/действия
-    from_location = Column(String, nullable=True) # Текстовое описание для истории
+    # ðöðÁÐéð░ð╗ð© ð┐ðÁÐÇðÁð╝ðÁÐëðÁð¢ð©ÐÅ/ð┤ðÁð╣ÐüÐéð▓ð©ÐÅ
+    from_location = Column(String, nullable=True) # ðóðÁð║ÐüÐéð¥ð▓ð¥ðÁ ð¥ð┐ð©Ðüð░ð¢ð©ðÁ ð┤ð╗ÐÅ ð©ÐüÐéð¥ÐÇð©ð©
     to_location = Column(String, nullable=True)
-    to_aircraft = Column(String, nullable=True)  # Для INSTALL: tail number самолета
-    position = Column(Integer, nullable=True)     # Для INSTALL: позиция двигателя
+    to_aircraft = Column(String, nullable=True)  # ðöð╗ÐÅ INSTALL: tail number Ðüð░ð╝ð¥ð╗ðÁÐéð░
+    position = Column(Integer, nullable=True)     # ðöð╗ÐÅ INSTALL: ð┐ð¥ðÀð©Ðåð©ÐÅ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
     
-    # Снапшот наработки на момент действия (ВАЖНО для истории!)
+    # ðíð¢ð░ð┐Ðêð¥Ðé ð¢ð░ÐÇð░ð▒ð¥Ðéð║ð© ð¢ð░ ð╝ð¥ð╝ðÁð¢Ðé ð┤ðÁð╣ÐüÐéð▓ð©ÐÅ (ðÆðÉðûðØð× ð┤ð╗ÐÅ ð©ÐüÐéð¥ÐÇð©ð©!)
     snapshot_tt = Column(Float, nullable=True)
     snapshot_tc = Column(Integer, nullable=True)
     
-    # Для REMOVE: техсостояние при снятии
+    # ðöð╗ÐÅ REMOVE: ÐéðÁÐàÐüð¥ÐüÐéð¥ÐÅð¢ð©ðÁ ð┐ÐÇð© Ðüð¢ÐÅÐéð©ð©
     condition_1_at_removal = Column(String, nullable=True)
     
     comments = Column(Text, nullable=True)
-    file_url = Column(String, nullable=True) # Ссылка на Google Drive / S3
+    file_url = Column(String, nullable=True) # ðíÐüÐïð╗ð║ð░ ð¢ð░ Google Drive / S3
     is_maintenance = Column(Boolean, default=False)
     atlb_ref = Column(String, nullable=True)
     maintenance_type = Column(String, nullable=True)
@@ -167,38 +167,38 @@ class ActionLog(Base):
     hyd_3 = Column(Float, nullable=True)
     hyd_4 = Column(Float, nullable=True)
     performed_by = Column(String, nullable=True)
-    ttsn = Column(Float, nullable=True)  # TTSN (Engine) при снятии
-    tcsn = Column(Integer, nullable=True)  # TCSN (Engine) при снятии
-    ttsn_ac = Column(Float, nullable=True)  # TTSN (Aircraft) при снятии
-    tcsn_ac = Column(Integer, nullable=True)  # TCSN (Aircraft) при снятии
-    remarks_removal = Column(String, nullable=True)  # Дополнительные замечания при снятии
-    supplier = Column(String, nullable=True)  # Поставщик (для Installation)
-    is_active = Column(Boolean, default=True)  # Для INSTALL: активна ли установка (False если двигатель снят)
+    ttsn = Column(Float, nullable=True)  # TTSN (Engine) ð┐ÐÇð© Ðüð¢ÐÅÐéð©ð©
+    tcsn = Column(Integer, nullable=True)  # TCSN (Engine) ð┐ÐÇð© Ðüð¢ÐÅÐéð©ð©
+    ttsn_ac = Column(Float, nullable=True)  # TTSN (Aircraft) ð┐ÐÇð© Ðüð¢ÐÅÐéð©ð©
+    tcsn_ac = Column(Integer, nullable=True)  # TCSN (Aircraft) ð┐ÐÇð© Ðüð¢ÐÅÐéð©ð©
+    remarks_removal = Column(String, nullable=True)  # ðöð¥ð┐ð¥ð╗ð¢ð©ÐéðÁð╗Ðîð¢ÐïðÁ ðÀð░ð╝ðÁÐçð░ð¢ð©ÐÅ ð┐ÐÇð© Ðüð¢ÐÅÐéð©ð©
+    supplier = Column(String, nullable=True)  # ðƒð¥ÐüÐéð░ð▓Ðëð©ð║ (ð┤ð╗ÐÅ Installation)
+    is_active = Column(Boolean, default=True)  # ðöð╗ÐÅ INSTALL: ð░ð║Ðéð©ð▓ð¢ð░ ð╗ð© ÐâÐüÐéð░ð¢ð¥ð▓ð║ð░ (False ðÁÐüð╗ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî Ðüð¢ÐÅÐé)
     engine = relationship("Engine", back_populates="logs")
 
 class AircraftUtilizationHistory(Base):
-    """История общего налета самолёта (TTSN/TCSN)"""
+    """ðÿÐüÐéð¥ÐÇð©ÐÅ ð¥ð▒ÐëðÁð│ð¥ ð¢ð░ð╗ðÁÐéð░ Ðüð░ð╝ð¥ð╗ÐæÐéð░ (TTSN/TCSN)"""
     __tablename__ = "aircraft_utilization_history"
     
     id = Column(Integer, primary_key=True, index=True)
     aircraft_id = Column(Integer, ForeignKey("aircrafts.id"), nullable=False)
     date = Column(DateTime(timezone=True), nullable=False)
-    total_time = Column(Float, nullable=False)  # TTSN самолёта
-    total_cycles = Column(Integer, nullable=False)  # TCSN самолёта
+    total_time = Column(Float, nullable=False)  # TTSN Ðüð░ð╝ð¥ð╗ÐæÐéð░
+    total_cycles = Column(Integer, nullable=False)  # TCSN Ðüð░ð╝ð¥ð╗ÐæÐéð░
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     aircraft = relationship("Aircraft")
 
 class EngineParameterHistory(Base):
-    """История ввода параметров двигателя (N1, N2, EGT)"""
+    """ðÿÐüÐéð¥ÐÇð©ÐÅ ð▓ð▓ð¥ð┤ð░ ð┐ð░ÐÇð░ð╝ðÁÐéÐÇð¥ð▓ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ (N1, N2, EGT)"""
     __tablename__ = "engine_parameter_history"
     
     id = Column(Integer, primary_key=True, index=True)
     engine_id = Column(Integer, ForeignKey("engines.id"), nullable=False)
-    date = Column(DateTime(timezone=True), nullable=False)  # Дата записи параметров
-    created_at = Column(DateTime(timezone=True), server_default=func.now())  # Когда была создана запись
+    date = Column(DateTime(timezone=True), nullable=False)  # ðöð░Ðéð░ ðÀð░ð┐ð©Ðüð© ð┐ð░ÐÇð░ð╝ðÁÐéÐÇð¥ð▓
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # ðÜð¥ð│ð┤ð░ ð▒Ðïð╗ð░ Ðüð¥ðÀð┤ð░ð¢ð░ ðÀð░ð┐ð©ÐüÐî
     
-    # Параметры двигателя
+    # ðƒð░ÐÇð░ð╝ðÁÐéÐÇÐï ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
     n1_takeoff = Column(Float, nullable=True)
     n2_takeoff = Column(Float, nullable=True)
     egt_takeoff = Column(Float, nullable=True)
@@ -206,11 +206,11 @@ class EngineParameterHistory(Base):
     n2_cruise = Column(Float, nullable=True)
     egt_cruise = Column(Float, nullable=True)
     
-    # Связь с двигателем
+    # ðíð▓ÐÅðÀÐî Ðü ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╝
     engine = relationship("Engine")
 
 class BoroscopeInspection(Base):
-    """Borescope инспекции двигателей"""
+    """Borescope ð©ð¢Ðüð┐ðÁð║Ðåð©ð© ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╣"""
     __tablename__ = "borescope_inspections"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -226,7 +226,7 @@ class BoroscopeInspection(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class BoroscopeSchedule(Base):
-    """Запланированные боroскопические инспекции"""
+    """ðùð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢ÐïðÁ ð▒ð¥roÐüð║ð¥ð┐ð©ÐçðÁÐüð║ð©ðÁ ð©ð¢Ðüð┐ðÁð║Ðåð©ð©"""
     __tablename__ = "boroscope_schedule"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -244,7 +244,7 @@ class BoroscopeSchedule(Base):
     aircraft = relationship("Aircraft", backref="boroscope_schedules")
 
 class PurchaseOrder(Base):
-    """Purchase Orders - заказы на закупку"""
+    """Purchase Orders - ðÀð░ð║ð░ðÀÐï ð¢ð░ ðÀð░ð║Ðâð┐ð║Ðâ"""
     __tablename__ = "purchase_orders"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -261,7 +261,7 @@ class PurchaseOrder(Base):
 
 
 class StoreItem(Base):
-    """Запасы склада (Store Balance)"""
+    """ðùð░ð┐ð░ÐüÐï Ðüð║ð╗ð░ð┤ð░ (Store Balance)"""
     __tablename__ = "store_items"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -281,106 +281,106 @@ class StoreItem(Base):
 
 
 class UtilizationParameter(Base):
-    """Utilization Parameters - параметры использования самолета"""
+    """Utilization Parameters - ð┐ð░ÐÇð░ð╝ðÁÐéÐÇÐï ð©Ðüð┐ð¥ð╗ÐîðÀð¥ð▓ð░ð¢ð©ÐÅ Ðüð░ð╝ð¥ð╗ðÁÐéð░"""
     __tablename__ = "utilization_parameters"
     
     id = Column(Integer, primary_key=True, index=True)
     date = Column(DateTime(timezone=True), nullable=False)
     aircraft = Column(String, nullable=False)
-    position = Column(Integer, nullable=True)  # Позиция двигателя (1-4) или NULL для общей записи
-    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)  # FK на двигатель
+    position = Column(Integer, nullable=True)  # ðƒð¥ðÀð©Ðåð©ÐÅ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ (1-4) ð©ð╗ð© NULL ð┤ð╗ÐÅ ð¥ð▒ÐëðÁð╣ ðÀð░ð┐ð©Ðüð©
+    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)  # FK ð¢ð░ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
     ttsn = Column(Float, nullable=False)  # Total Time Since New
     tcsn = Column(Integer, nullable=False)  # Total Cycles Since New
-    period = Column(Boolean, default=False)  # Флаг периода
-    date_from = Column(DateTime(timezone=True), nullable=True)  # Начало периода
-    date_to = Column(DateTime(timezone=True), nullable=True)  # Конец периода
+    period = Column(Boolean, default=False)  # ðñð╗ð░ð│ ð┐ðÁÐÇð©ð¥ð┤ð░
+    date_from = Column(DateTime(timezone=True), nullable=True)  # ðØð░Ðçð░ð╗ð¥ ð┐ðÁÐÇð©ð¥ð┤ð░
+    date_to = Column(DateTime(timezone=True), nullable=True)  # ðÜð¥ð¢ðÁÐå ð┐ðÁÐÇð©ð¥ð┤ð░
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class User(Base):
-    """Пользователи системы"""
+    """ðƒð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ð© Ðüð©ÐüÐéðÁð╝Ðï"""
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False, index=True)
-    password_hash = Column(String, nullable=False)  # Хэш пароля
+    password_hash = Column(String, nullable=False)  # ðÑÐìÐê ð┐ð░ÐÇð¥ð╗ÐÅ
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
-    position = Column(String, nullable=True)  # Должность в компании
+    position = Column(String, nullable=True)  # ðöð¥ð╗ðÂð¢ð¥ÐüÐéÐî ð▓ ð║ð¥ð╝ð┐ð░ð¢ð©ð©
     role = Column(String, nullable=False, default="viewer")  # admin, user, viewer
-    photo_url = Column(String, nullable=True)  # Ссылка на фото профиля
+    photo_url = Column(String, nullable=True)  # ðíÐüÐïð╗ð║ð░ ð¢ð░ Ðäð¥Ðéð¥ ð┐ÐÇð¥Ðäð©ð╗ÐÅ
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
 
 
 class Notification(Base):
-    """Уведомления для пользователей"""
+    """ðúð▓ðÁð┤ð¥ð╝ð╗ðÁð¢ð©ÐÅ ð┤ð╗ÐÅ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ðÁð╣"""
     __tablename__ = "notifications"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=True)  # Кому уведомление (None = всем админам)
+    user_id = Column(Integer, nullable=True)  # ðÜð¥ð╝Ðâ Ðâð▓ðÁð┤ð¥ð╝ð╗ðÁð¢ð©ðÁ (None = ð▓ÐüðÁð╝ ð░ð┤ð╝ð©ð¢ð░ð╝)
     action_type = Column(String, nullable=False)  # 'created', 'updated', 'deleted'
     entity_type = Column(String, nullable=False)  # 'engine', 'parameter', 'utilization', etc.
     entity_id = Column(Integer, nullable=True)
     message = Column(Text, nullable=False)
-    performed_by = Column(String, nullable=False)  # Кто совершил действие
+    performed_by = Column(String, nullable=False)  # ðÜÐéð¥ Ðüð¥ð▓ðÁÐÇÐêð©ð╗ ð┤ðÁð╣ÐüÐéð▓ð©ðÁ
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class CustomColumn(Base):
-    """Пользовательские колонки для таблиц"""
+    """ðƒð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ð©ðÁ ð║ð¥ð╗ð¥ð¢ð║ð© ð┤ð╗ÐÅ Ðéð░ð▒ð╗ð©Ðå"""
     __tablename__ = "custom_columns"
     
     id = Column(Integer, primary_key=True, index=True)
     table_name = Column(String, nullable=False)  # 'purchase_orders', etc.
     column_key = Column(String, nullable=False)  # 'custom_1', 'custom_2', etc.
-    column_label = Column(String, nullable=False)  # Название, которое видит пользователь
-    column_order = Column(Integer, default=0)  # Порядок отображения
+    column_label = Column(String, nullable=False)  # ðØð░ðÀð▓ð░ð¢ð©ðÁ, ð║ð¥Ðéð¥ÐÇð¥ðÁ ð▓ð©ð┤ð©Ðé ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗Ðî
+    column_order = Column(Integer, default=0)  # ðƒð¥ÐÇÐÅð┤ð¥ð║ ð¥Ðéð¥ð▒ÐÇð░ðÂðÁð¢ð©ÐÅ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class PurchaseOrderCustomData(Base):
-    """Данные для пользовательских колонок Purchase Orders"""
+    """ðöð░ð¢ð¢ÐïðÁ ð┤ð╗ÐÅ ð┐ð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗ÐîÐüð║ð©Ðà ð║ð¥ð╗ð¥ð¢ð¥ð║ Purchase Orders"""
     __tablename__ = "purchase_order_custom_data"
     
     id = Column(Integer, primary_key=True, index=True)
     purchase_order_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
-    column_key = Column(String, nullable=False)  # Ключ колонки из CustomColumn
-    value = Column(Text, nullable=True)  # Значение
+    column_key = Column(String, nullable=False)  # ðÜð╗ÐÄÐç ð║ð¥ð╗ð¥ð¢ð║ð© ð©ðÀ CustomColumn
+    value = Column(Text, nullable=True)  # ðùð¢ð░ÐçðÁð¢ð©ðÁ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class FakeInstalled(Base):
-    """Трекинг фейковых установок (документальные замены без фактических)"""
+    """ðóÐÇðÁð║ð©ð¢ð│ ÐäðÁð╣ð║ð¥ð▓ÐïÐà ÐâÐüÐéð░ð¢ð¥ð▓ð¥ð║ (ð┤ð¥ð║Ðâð╝ðÁð¢Ðéð░ð╗Ðîð¢ÐïðÁ ðÀð░ð╝ðÁð¢Ðï ð▒ðÁðÀ Ðäð░ð║Ðéð©ÐçðÁÐüð║ð©Ðà)"""
     __tablename__ = "fake_installed"
     
     id = Column(Integer, primary_key=True, index=True)
-    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)  # Какой двигатель
-    engine_original_sn = Column(String, nullable=False)  # Оригинальный SN для быстрого поиска
-    engine_current_sn = Column(String, nullable=False)  # Текущий SN
+    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)  # ðÜð░ð║ð¥ð╣ ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
+    engine_original_sn = Column(String, nullable=False)  # ð×ÐÇð©ð│ð©ð¢ð░ð╗Ðîð¢Ðïð╣ SN ð┤ð╗ÐÅ ð▒ÐïÐüÐéÐÇð¥ð│ð¥ ð┐ð¥ð©Ðüð║ð░
+    engine_current_sn = Column(String, nullable=False)  # ðóðÁð║ÐâÐëð©ð╣ SN
     aircraft_id = Column(Integer, ForeignKey("aircrafts.id"), nullable=True)
-    aircraft_tail = Column(String, nullable=True)  # Для быстрого отображения
-    position = Column(Integer, nullable=True)  # Позиция на самолёте (1 или 2)
+    aircraft_tail = Column(String, nullable=True)  # ðöð╗ÐÅ ð▒ÐïÐüÐéÐÇð¥ð│ð¥ ð¥Ðéð¥ð▒ÐÇð░ðÂðÁð¢ð©ÐÅ
+    position = Column(Integer, nullable=True)  # ðƒð¥ðÀð©Ðåð©ÐÅ ð¢ð░ Ðüð░ð╝ð¥ð╗ÐæÐéðÁ (1 ð©ð╗ð© 2)
     
-    # Документальная информация
-    documented_date = Column(String, nullable=False)  # Дата когда якобы заменили
-    documented_reason = Column(String, nullable=True)  # Причина в документах
+    # ðöð¥ð║Ðâð╝ðÁð¢Ðéð░ð╗Ðîð¢ð░ÐÅ ð©ð¢Ðäð¥ÐÇð╝ð░Ðåð©ÐÅ
+    documented_date = Column(String, nullable=False)  # ðöð░Ðéð░ ð║ð¥ð│ð┤ð░ ÐÅð║ð¥ð▒Ðï ðÀð░ð╝ðÁð¢ð©ð╗ð©
+    documented_reason = Column(String, nullable=True)  # ðƒÐÇð©Ðçð©ð¢ð░ ð▓ ð┤ð¥ð║Ðâð╝ðÁð¢Ðéð░Ðà
     
-    # Что якобы было
+    # ðºÐéð¥ ÐÅð║ð¥ð▒Ðï ð▒Ðïð╗ð¥
     old_engine_sn = Column(String, nullable=True)
     new_engine_sn = Column(String, nullable=True)
     
-    # Реальность
-    is_fake = Column(Boolean, default=True)  # Флаг что это фейк
-    actual_notes = Column(Text, nullable=True)  # Что на самом деле было/не было
+    # ðáðÁð░ð╗Ðîð¢ð¥ÐüÐéÐî
+    is_fake = Column(Boolean, default=True)  # ðñð╗ð░ð│ ÐçÐéð¥ ÐìÐéð¥ ÐäðÁð╣ð║
+    actual_notes = Column(Text, nullable=True)  # ðºÐéð¥ ð¢ð░ Ðüð░ð╝ð¥ð╝ ð┤ðÁð╗ðÁ ð▒Ðïð╗ð¥/ð¢ðÁ ð▒Ðïð╗ð¥
     
-    # Метаданные
-    created_by = Column(String, nullable=True)  # Кто зарегистрировал
+    # ð£ðÁÐéð░ð┤ð░ð¢ð¢ÐïðÁ
+    created_by = Column(String, nullable=True)  # ðÜÐéð¥ ðÀð░ÐÇðÁð│ð©ÐüÐéÐÇð©ÐÇð¥ð▓ð░ð╗
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -395,55 +395,55 @@ class FakeInstalledSettings(Base):
 
 
 class NameplateTracker(Base):
-    """Tracking nameplate (шильдик) history across engines and aircraft."""
+    """Tracking nameplate (Ðêð©ð╗Ðîð┤ð©ð║) history across engines and aircraft."""
     __tablename__ = "nameplate_tracker"
     
     id = Column(Integer, primary_key=True, index=True)
-    nameplate_sn = Column(String, nullable=False, index=True)  # Серийник на шильдике
+    nameplate_sn = Column(String, nullable=False, index=True)  # ðíðÁÐÇð©ð╣ð¢ð©ð║ ð¢ð░ Ðêð©ð╗Ðîð┤ð©ð║ðÁ
     engine_model = Column(String, nullable=True)  # CFM56-5B, PW, etc
-    gss_id = Column(String, nullable=True, index=True)  # GSS ID физического двигателя
-    engine_orig_sn = Column(String, nullable=True, index=True)  # Original SN двигателя
-    aircraft_tail = Column(String, nullable=True)  # Где установлен (NULL = на складе)
+    gss_id = Column(String, nullable=True, index=True)  # GSS ID Ðäð©ðÀð©ÐçðÁÐüð║ð¥ð│ð¥ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
+    engine_orig_sn = Column(String, nullable=True, index=True)  # Original SN ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
+    aircraft_tail = Column(String, nullable=True)  # ðôð┤ðÁ ÐâÐüÐéð░ð¢ð¥ð▓ð╗ðÁð¢ (NULL = ð¢ð░ Ðüð║ð╗ð░ð┤ðÁ)
     position = Column(Integer, nullable=True)  # 1,2,3,4
-    installed_date = Column(String, nullable=False)  # Когда надели/установили
-    removed_date = Column(String, nullable=True)  # Когда сняли (NULL = активно)
+    installed_date = Column(String, nullable=False)  # ðÜð¥ð│ð┤ð░ ð¢ð░ð┤ðÁð╗ð©/ÐâÐüÐéð░ð¢ð¥ð▓ð©ð╗ð©
+    removed_date = Column(String, nullable=True)  # ðÜð¥ð│ð┤ð░ Ðüð¢ÐÅð╗ð© (NULL = ð░ð║Ðéð©ð▓ð¢ð¥)
     location_type = Column(String, nullable=True)  # on_aircraft, on_engine_storage, detached
     action_note = Column(String, nullable=True)  # installed, swapped_under, removed, etc
-    performed_by = Column(String, nullable=True)  # Кто делал
-    notes = Column(Text, nullable=True)  # Дополнительные заметки
+    performed_by = Column(String, nullable=True)  # ðÜÐéð¥ ð┤ðÁð╗ð░ð╗
+    notes = Column(Text, nullable=True)  # ðöð¥ð┐ð¥ð╗ð¢ð©ÐéðÁð╗Ðîð¢ÐïðÁ ðÀð░ð╝ðÁÐéð║ð©
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class ScheduledEvent(Base):
-    """Запланированные события и встречи в календаре"""
+    """ðùð░ð┐ð╗ð░ð¢ð©ÐÇð¥ð▓ð░ð¢ð¢ÐïðÁ Ðüð¥ð▒ÐïÐéð©ÐÅ ð© ð▓ÐüÐéÐÇðÁÐçð© ð▓ ð║ð░ð╗ðÁð¢ð┤ð░ÐÇðÁ"""
     __tablename__ = "scheduled_events"
     
     id = Column(Integer, primary_key=True, index=True)
     event_date = Column(String, nullable=False, index=True)  # YYYY-MM-DD
-    event_time = Column(String, nullable=True)  # HH:MM (опционально)
+    event_time = Column(String, nullable=True)  # HH:MM (ð¥ð┐Ðåð©ð¥ð¢ð░ð╗Ðîð¢ð¥)
     event_type = Column(String, nullable=False)  # SHIPMENT, MEETING, INSPECTION, MAINTENANCE, DEADLINE, OTHER
     title = Column(String, nullable=False)  # "Engine shipment to Baku"
-    description = Column(Text, nullable=True)  # Детали события
+    description = Column(Text, nullable=True)  # ðöðÁÐéð░ð╗ð© Ðüð¥ð▒ÐïÐéð©ÐÅ
     
-    # Связь с двигателем (опционально)
+    # ðíð▓ÐÅðÀÐî Ðü ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╝ (ð¥ð┐Ðåð©ð¥ð¢ð░ð╗Ðîð¢ð¥)
     engine_id = Column(Integer, ForeignKey('engines.id'), nullable=True)
-    serial_number = Column(String, nullable=True)  # Для быстрого доступа
+    serial_number = Column(String, nullable=True)  # ðöð╗ÐÅ ð▒ÐïÐüÐéÐÇð¥ð│ð¥ ð┤ð¥ÐüÐéÐâð┐ð░
     
-    # Локация/маршрут (опционально)
+    # ðøð¥ð║ð░Ðåð©ÐÅ/ð╝ð░ÐÇÐêÐÇÐâÐé (ð¥ð┐Ðåð©ð¥ð¢ð░ð╗Ðîð¢ð¥)
     location = Column(String, nullable=True)  # "Baku", "Dubai", etc.
     from_location = Column(String, nullable=True)
     to_location = Column(String, nullable=True)
     
-    # Статус события
+    # ðíÐéð░ÐéÐâÐü Ðüð¥ð▒ÐïÐéð©ÐÅ
     status = Column(String, default='PLANNED')  # PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
     
-    # Приоритет и визуальное оформление
+    # ðƒÐÇð©ð¥ÐÇð©ÐéðÁÐé ð© ð▓ð©ðÀÐâð░ð╗Ðîð¢ð¥ðÁ ð¥Ðäð¥ÐÇð╝ð╗ðÁð¢ð©ðÁ
     priority = Column(String, default='MEDIUM')  # LOW, MEDIUM, HIGH, URGENT
-    color = Column(String, default='#3788d8')  # Цвет плашки на календаре
+    color = Column(String, default='#3788d8')  # ðªð▓ðÁÐé ð┐ð╗ð░Ðêð║ð© ð¢ð░ ð║ð░ð╗ðÁð¢ð┤ð░ÐÇðÁ
     
-    # Метаданные
-    created_by = Column(String, nullable=True)  # Кто создал событие
+    # ð£ðÁÐéð░ð┤ð░ð¢ð¢ÐïðÁ
+    created_by = Column(String, nullable=True)  # ðÜÐéð¥ Ðüð¥ðÀð┤ð░ð╗ Ðüð¥ð▒ÐïÐéð©ðÁ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -453,56 +453,56 @@ class ScheduledEvent(Base):
 # ============================================================
 class Shipment(Base):
     """
-    Модель для отслеживания отправок двигателей и запчастей в пути.
-    Поддерживает:
-    - ENGINE type: отслеживание двигателей в транзите
-    - PARTS type: отслеживание запчастей (включая pre-order - еще не в стоке)
+    ð£ð¥ð┤ðÁð╗Ðî ð┤ð╗ÐÅ ð¥ÐéÐüð╗ðÁðÂð©ð▓ð░ð¢ð©ÐÅ ð¥Ðéð┐ÐÇð░ð▓ð¥ð║ ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╣ ð© ðÀð░ð┐Ðçð░ÐüÐéðÁð╣ ð▓ ð┐ÐâÐéð©.
+    ðƒð¥ð┤ð┤ðÁÐÇðÂð©ð▓ð░ðÁÐé:
+    - ENGINE type: ð¥ÐéÐüð╗ðÁðÂð©ð▓ð░ð¢ð©ðÁ ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╣ ð▓ ÐéÐÇð░ð¢ðÀð©ÐéðÁ
+    - PARTS type: ð¥ÐéÐüð╗ðÁðÂð©ð▓ð░ð¢ð©ðÁ ðÀð░ð┐Ðçð░ÐüÐéðÁð╣ (ð▓ð║ð╗ÐÄÐçð░ÐÅ pre-order - ðÁÐëðÁ ð¢ðÁ ð▓ ÐüÐéð¥ð║ðÁ)
     
-    При статусе DELIVERED:
-    - ENGINE: обновляет engines.location_id на "On Stock"
-    - PARTS: создает новую запись в store_items (автоинвентаризация)
+    ðƒÐÇð© ÐüÐéð░ÐéÐâÐüðÁ DELIVERED:
+    - ENGINE: ð¥ð▒ð¢ð¥ð▓ð╗ÐÅðÁÐé engines.location_id ð¢ð░ "On Stock"
+    - PARTS: Ðüð¥ðÀð┤ð░ðÁÐé ð¢ð¥ð▓ÐâÐÄ ðÀð░ð┐ð©ÐüÐî ð▓ store_items (ð░ð▓Ðéð¥ð©ð¢ð▓ðÁð¢Ðéð░ÐÇð©ðÀð░Ðåð©ÐÅ)
     """
     __tablename__ = "shipments"
     
-    # Основные поля
+    # ð×Ðüð¢ð¥ð▓ð¢ÐïðÁ ð┐ð¥ð╗ÐÅ
     id = Column(Integer, primary_key=True, index=True)
     shipment_type = Column(String(50), nullable=False)  # ENGINE, PARTS
     status = Column(String(50), default='PLANNED')  # PLANNED, IN_TRANSIT, DELIVERED, DELAYED, CANCELLED
     
-    # ДЛЯ ENGINE TYPE
+    # ðöðøð» ENGINE TYPE
     engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)
-    engine_model = Column(String(100), nullable=True)  # Модель двигателя
-    gss_id = Column(String(100), nullable=True)  # GSS ID двигателя
-    destination_location = Column(String(255), nullable=True)  # Куда должен прибыть двигатель
+    engine_model = Column(String(100), nullable=True)  # ð£ð¥ð┤ðÁð╗Ðî ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
+    gss_id = Column(String(100), nullable=True)  # GSS ID ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅ
+    destination_location = Column(String(255), nullable=True)  # ðÜÐâð┤ð░ ð┤ð¥ð╗ðÂðÁð¢ ð┐ÐÇð©ð▒ÐïÐéÐî ð┤ð▓ð©ð│ð░ÐéðÁð╗Ðî
     
-    # ДЛЯ PARTS TYPE
-    part_name = Column(String(255), nullable=True)  # Имя запчасти
+    # ðöðøð» PARTS TYPE
+    part_name = Column(String(255), nullable=True)  # ðÿð╝ÐÅ ðÀð░ð┐Ðçð░ÐüÐéð©
     part_category = Column(String(100), nullable=True)  # Overhaul, Consumable, High-Value
-    part_quantity = Column(Integer, nullable=True)  # Количество запчастей
-    reserved_quantity = Column(Integer, default=0)  # Для pre-order (еще не в inventory)
+    part_quantity = Column(Integer, nullable=True)  # ðÜð¥ð╗ð©ÐçðÁÐüÐéð▓ð¥ ðÀð░ð┐Ðçð░ÐüÐéðÁð╣
+    reserved_quantity = Column(Integer, default=0)  # ðöð╗ÐÅ pre-order (ðÁÐëðÁ ð¢ðÁ ð▓ inventory)
     
-    # Отправка и доставка
+    # ð×Ðéð┐ÐÇð░ð▓ð║ð░ ð© ð┤ð¥ÐüÐéð░ð▓ð║ð░
     departure_date = Column(DateTime, nullable=True)
     expected_delivery_date = Column(DateTime, nullable=False)
     actual_delivery_date = Column(DateTime, nullable=True)
     
-    # Отслеживание
+    # ð×ÐéÐüð╗ðÁðÂð©ð▓ð░ð¢ð©ðÁ
     supplier_name = Column(String(255), nullable=True)
     tracking_number = Column(String(255), nullable=True)
     notes = Column(Text, nullable=True)
     
-    # Пользователь и время
+    # ðƒð¥ð╗ÐîðÀð¥ð▓ð░ÐéðÁð╗Ðî ð© ð▓ÐÇðÁð╝ÐÅ
     created_by = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_by = Column(String(255), nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    # Связи
+    # ðíð▓ÐÅðÀð©
     engine = relationship("Engine", foreign_keys=[engine_id])
 
 
 class ConditionStatus(Base):
-    """Справочник статусов Condition для Store Balance"""
+    """ðíð┐ÐÇð░ð▓ð¥Ðçð¢ð©ð║ ÐüÐéð░ÐéÐâÐüð¥ð▓ Condition ð┤ð╗ÐÅ Store Balance"""
     __tablename__ = "condition_statuses"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -511,7 +511,7 @@ class ConditionStatus(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class WorkType(Base):
-    """Справочник типов работ для Borescope Inspection"""
+    """ðíð┐ÐÇð░ð▓ð¥Ðçð¢ð©ð║ Ðéð©ð┐ð¥ð▓ ÐÇð░ð▒ð¥Ðé ð┤ð╗ÐÅ Borescope Inspection"""
     __tablename__ = "work_types"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -521,33 +521,34 @@ class WorkType(Base):
 
 class GSSAssignment(Base):
     """
-    Таблица для отслеживания присвоения GSS ID (внутрикомпанейских номеров) к двигателям.
-    Позволяет отслеживать смену шильдиков (nameplate) на двигателях.
+    ðóð░ð▒ð╗ð©Ðåð░ ð┤ð╗ÐÅ ð¥ÐéÐüð╗ðÁðÂð©ð▓ð░ð¢ð©ÐÅ ð┐ÐÇð©Ðüð▓ð¥ðÁð¢ð©ÐÅ GSS ID (ð▓ð¢ÐâÐéÐÇð©ð║ð¥ð╝ð┐ð░ð¢ðÁð╣Ðüð║ð©Ðà ð¢ð¥ð╝ðÁÐÇð¥ð▓) ð║ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅð╝.
+    ðƒð¥ðÀð▓ð¥ð╗ÐÅðÁÐé ð¥ÐéÐüð╗ðÁðÂð©ð▓ð░ÐéÐî Ðüð╝ðÁð¢Ðâ Ðêð©ð╗Ðîð┤ð©ð║ð¥ð▓ (nameplate) ð¢ð░ ð┤ð▓ð©ð│ð░ÐéðÁð╗ÐÅÐà.
     
-    Логика:
-    - Если запись существует → GSS ID занят
-    - Если записи нет → GSS ID свободен
-    - При DELETE → GSS ID автоматически освобождается
+    ðøð¥ð│ð©ð║ð░:
+    - ðòÐüð╗ð© ðÀð░ð┐ð©ÐüÐî ÐüÐâÐëðÁÐüÐéð▓ÐâðÁÐé ÔåÆ GSS ID ðÀð░ð¢ÐÅÐé
+    - ðòÐüð╗ð© ðÀð░ð┐ð©Ðüð© ð¢ðÁÐé ÔåÆ GSS ID Ðüð▓ð¥ð▒ð¥ð┤ðÁð¢
+    - ðƒÐÇð© DELETE ÔåÆ GSS ID ð░ð▓Ðéð¥ð╝ð░Ðéð©ÐçðÁÐüð║ð© ð¥Ðüð▓ð¥ð▒ð¥ðÂð┤ð░ðÁÐéÐüÐÅ
     """
     __tablename__ = "gss_assignments"
     
     id = Column(Integer, primary_key=True, index=True)
-    gss_id = Column(Integer, nullable=False, unique=True, index=True)  # Уникальный GSS ID
+    gss_id = Column(Integer, nullable=False, unique=True, index=True)  # ðúð¢ð©ð║ð░ð╗Ðîð¢Ðïð╣ GSS ID
     
-    # Связь с двигателем
+    # ðíð▓ÐÅðÀÐî Ðü ð┤ð▓ð©ð│ð░ÐéðÁð╗ðÁð╝
     engine_id = Column(Integer, ForeignKey("engines.id", ondelete="CASCADE"), nullable=False)
-    original_sn = Column(String, nullable=False)  # Snapshot Original SN на момент присвоения
-    current_sn = Column(String, nullable=True)    # Snapshot Current SN (если отличается)
+    original_sn = Column(String, nullable=False)  # Snapshot Original SN ð¢ð░ ð╝ð¥ð╝ðÁð¢Ðé ð┐ÐÇð©Ðüð▓ð¥ðÁð¢ð©ÐÅ
+    current_sn = Column(String, nullable=True)    # Snapshot Current SN (ðÁÐüð╗ð© ð¥Ðéð╗ð©Ðçð░ðÁÐéÐüÐÅ)
     
-    # Медиа и примечания
-    photo_url = Column(String, nullable=True)      # URL фото (если вставлена ссылка)
-    photo_filename = Column(String, nullable=True) # Имя файла (если загружен файл)
-    remarks = Column(Text, nullable=True)          # Примечания
+    # ð£ðÁð┤ð©ð░ ð© ð┐ÐÇð©ð╝ðÁÐçð░ð¢ð©ÐÅ
+    photo_url = Column(String, nullable=True)      # URL Ðäð¥Ðéð¥ (ðÁÐüð╗ð© ð▓ÐüÐéð░ð▓ð╗ðÁð¢ð░ ÐüÐüÐïð╗ð║ð░)
+    photo_filename = Column(String, nullable=True) # ðÿð╝ÐÅ Ðäð░ð╣ð╗ð░ (ðÁÐüð╗ð© ðÀð░ð│ÐÇÐâðÂðÁð¢ Ðäð░ð╣ð╗)
+    remarks = Column(Text, nullable=True)          # ðƒÐÇð©ð╝ðÁÐçð░ð¢ð©ÐÅ
     
-    # Метаданные
+    # ð£ðÁÐéð░ð┤ð░ð¢ð¢ÐïðÁ
     assigned_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     assigned_date = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
     engine = relationship("Engine", backref="gss_assignment")
     user = relationship("User", backref="gss_assignments")
+
