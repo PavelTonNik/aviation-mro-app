@@ -9026,11 +9026,12 @@ function restoreView(viewName) {
                 }
                 
                 // === ПРОВЕРКА: SN + AC + ПОЗИЦИЯ + ДАТА ===
+                // Работает для ЛЮБОГО самолёта и ЛЮБОЙ позиции!
                 if (remSN === installCurrentSN && 
                     normalizedRemFrom === normalizedInstallAC && 
-                    removePosition === row.position &&  // ← ВАЖНО: позиция должна совпадать!
+                    removePosition === row.position &&  // ← проверяем позицию для каждого самолёта
                     new Date(rem.date) >= new Date(row.date)) {
-                    if (idx < 5) console.log(`    ✓ EXACT MATCH! (same SN, AC, position and date)`);
+                    if (idx < 5) console.log(`    ✓ EXACT MATCH! (SN=${remSN}, AC=${normalizedRemFrom}, Pos=${removePosition})`);
                     matchingRemove = rem;
                     break;
                 }
@@ -9053,6 +9054,14 @@ function restoreView(viewName) {
                         break;
                     }
                 }
+            }
+            
+            // Если снятие найдено - двигатель был СНЯТ (неважно, переустановили ли после)
+            if (matchingRemove) {
+                wasRemoved = true;
+                if (idx < 5) console.log(`    ➜ MARK AS REMOVED (SN=${matchingRemove.current_sn || matchingRemove.original_sn} removed from position ${row.position})`);
+            } else {
+                if (idx < 5) console.log(`    ✗ No matching REMOVE found`);
             }
             
             // Если снятие найдено - двигатель был СНЯТ (неважно, переустановили ли после)
