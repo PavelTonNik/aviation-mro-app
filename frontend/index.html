@@ -22,86 +22,103 @@
         #fleet-section, .parts-dashboard-grid, #calendar-grid-container { max-width: 100%; overflow-x: hidden; }
 
         /* --- SIDEBAR --- */
-        #sidebar-wrapper {
-            min-width: 260px; 
-            max-width: 260px;
-            min-height: 100vh;
-            background-color: #011325; 
-            color: #202020;
-            transition: margin 0.3s ease-out;
-            margin-top: 0;
-        }
-        #wrapper.toggled #sidebar-wrapper { margin-left: -260px; }
-        
-        .sidebar-brand { padding: 1.5rem 1rem; font-size: 1.3rem; font-weight: bold; border-bottom: 1px solid #4b545c; color: #423a3a; text-decoration: none; display: block; }
-        .list-group-item { background: transparent; color: #fbfbffa9; border: none; padding: 12px 20px; font-size: 0.95rem; }
-        .list-group-item:hover { background: #053f79; color: #fff; }
-        .list-group-item.active { background: #007bff; color: #fff; border-radius: 4px; }
-        .list-group-item i { margin-right: 10px; width: 20px; text-align: center; }
-        
-        /* Settings modal list items - dark text by default, white on hover */
-        #locations-edit-list .list-group-item,
-        #fleet-edit-list .list-group-item,
-        #status-edit-list .list-group-item {
-            color: #2c3e50;
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            margin-bottom: 4px;
-            border-radius: 6px;
-        }
-        
-        #locations-edit-list .list-group-item:hover,
-        #fleet-edit-list .list-group-item:hover,
-        #status-edit-list .list-group-item:hover {
-            background: #0d6efd;
-            color: #fff;
-            border-color: #0d6efd;
-        }
-        
-        #locations-edit-list .list-group-item strong,
-        #fleet-edit-list .list-group-item strong,
-        #status-edit-list .list-group-item strong {
-            color: inherit;
-        }
+        serverData.forEach((row, idx) => {
+            // Новый алгоритм: ищем любое снятие этого SN после даты установки
+            // и убеждаемся, что ПОСЛЕ снятия нет новой установки этого SN (на любой борт).
+            const installDate = new Date(row.date);
 
+            // Находим самое позднее снятие после этой установки
+            const removesForSN = removeData
+                .filter(r => (r.current_sn || r.original_sn) === row.current_sn && new Date(r.date) >= installDate)
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            const latestRemove = removesForSN[0];
+
+            if (idx < 5) {
+                console.log(`🔍 Row ${idx}: SN="${row.current_sn}" installs ${row.install_to} on ${row.date}; removes found=${removesForSN.length}`);
+            }
+
+            if (!latestRemove) {
+                if (idx < 5) console.log(`🔍 Row ${idx}: no remove found after install`);
+                if (idx < 5) console.log(`🔍 Row ${idx} (SN=${row.current_sn}, AC=${row.install_to}): wasRemoved=false`);
+                return;
+            }
+
+            // Проверяем есть ли установка этого же SN после даты снятия (на любой самолет)
+            const removeDate = new Date(latestRemove.date);
+            const reinstall = serverData.find(inst => inst.current_sn === row.current_sn && new Date(inst.date) > removeDate);
+            if (reinstall && idx < 5) {
+                console.log(`⚠️ Reinstall found for SN=${row.current_sn}: install date=${reinstall.date} > remove date=${latestRemove.date}`);
+            }
+
+            const wasRemoved = !reinstall;
+
+            if (idx < 5) console.log(`🔍 Row ${idx} (SN=${row.current_sn}, AC=${row.install_to}): wasRemoved=${wasRemoved}`);
+
+            // Стили для снятого двигателя
+            const badgeClass = wasRemoved ? 'badge bg-secondary removed-engine-badge' : 'badge bg-primary';
+            const rowClass = wasRemoved ? 'removed-engine' : '';
+
+            tbody.innerHTML += `
+                <tr class="${rowClass}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
+                    <td class="delete-col-install" style="display: none;">
+                        <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('INSTALL', ${row.id || 0}, '${row.original_sn}')" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                    <td>${row.date}</td>
+                    <td>${row.original_sn}</td>
+                    <td>${row.current_sn}</td>
+                    <td><span class="${badgeClass}">${row.install_to}</span></td>
+                    <td>${row.position}</td>
+                    <td>${row.location_from}</td>
+                    <td>${row.tt}</td>
+                    <td>${row.tc}</td>
+                    <td>${row.ac_ttsn ?? '-'}</td>
+                    <td>${row.ac_tcsn ?? '-'}</td>
+                    <td>${row.supplier || '-'}</td>
+                    <td><small>${row.remarks||'-'}</small></td>
+                </tr>
+            `;
+            return; // переходим к следующей строке
         /* КНОПКИ НА ДАШБОРДЕ (Полный стиль) */
-        .btn-dashboard {
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 0.35rem;
-            width: 100%;
-            padding: 18px 20px;
-            border: none;
-            border-radius: 15px;
-            background: linear-gradient(135deg, #1b2436 0%, #263449 100%);
-            color: #f8fafc;
-            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.38);
-            text-align: left;
-            text-transform: none;
-            cursor: pointer;
-            overflow: hidden;
-            transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
-        }
+        
+        // Включаем редактирование по двойному клику: переводим таблицу в Edit и фокусируем ячейку
+        bindPurchaseOrdersInlineEdit();
+    }
 
-        .btn-dashboard .label {
-            font-size: 0.8rem;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            opacity: 0.85;
-        }
-        .btn-dashboard .count {
-            font-size: 1.9rem;
-            font-weight: 700;
-            line-height: 1;
-        }
+    function bindPurchaseOrdersInlineEdit() {
+        const tbody = document.getElementById('purchase-orders-history-body');
+        if (!tbody) return;
+        if (tbody._inlineEditBound) return; // уже привязано
 
-        .btn-dashboard i {
-            position: absolute;
-            top: 16px;
-            right: 16px;
+        tbody.addEventListener('dblclick', (ev) => {
+            const cell = ev.target.closest('td');
+            if (!cell || !tbody.contains(cell)) return;
+            // игнорируем колонку удаления и пустую последнюю ячейку с плюсом
+            if (cell.classList.contains('delete-col-purchase-orders')) return;
+            if (cell.style && cell.style.border === 'none' && cell.style.background === 'transparent') return;
+
+            const row = cell.parentElement;
+            const colIndex = Array.from(row.children).indexOf(cell);
+
+            // Разрешаем работу только если уже включен режим Edit
+            if (!isEditingActive('purchase-orders')) return; // Выходим, если режим редактирования не активен
+
+            // Фокусируем соответствующий инпут в кликнутой ячейке
+            const targetCell = row.children[colIndex];
+            const input = targetCell.querySelector('input, select');
+            if (input) {
+                input.focus();
+                if (typeof input.select === 'function') input.select();
+            }
+        });
+
+        tbody._inlineEditBound = true;
+    }
+    // 5. Отправка формы (Save)
+// 4. Подготовка формы (Загрузка SV двигателей)
+    async function prepareInstallForm() {
             font-size: 1.5rem;
             opacity: 0.25;
             transition: transform 0.25s ease, opacity 0.25s ease;
@@ -3225,9 +3242,6 @@
                 </a>
                 <a href="#" class="btn btn-neon w-100 text-start mb-2" onclick="openSchedulesModal(); return false;">
                     <i class="bi bi-calendar-check"></i> Open Schedules
-                </a>
-                <a href="#" class="btn btn-neon w-100 text-start" onclick="openBoroscopeScheduleModal(); return false;">
-                    <i class="bi bi-calendar2-check"></i> Schedule Boroscope
                 </a>
             </div>
             <!-- REPORTS GROUP (COLLAPSIBLE) -->
@@ -8987,49 +9001,50 @@ function restoreView(viewName) {
         console.log('🔍 First install record:', serverData[0] ? JSON.stringify(serverData[0], null, 2) : 'none');
         
         serverData.forEach((row, idx) => {
-            // Проверяем: был ли этот двигатель снят ПОСЛЕ этой установки
-            const wasRemoved = removeData.some(rem => {
+            // Ищем REMOVE этого двигателя С ТОГО ЖЕ САМОЛЁТА ПОСЛЕ этой установки
+            const installDate = new Date(row.date);
+            const installSN = row.current_sn;
+            const installAC = row.install_to;
+            
+            // Ищем ПЕРВОЕ подходящее REMOVE
+            let matchingRemove = null;
+            for (let rem of removeData) {
                 const remSN = rem.current_sn || rem.original_sn;
-                const installCurrentSN = row.current_sn;
+                const remDate = new Date(rem.date);
                 
-                // Извлекаем AC название - поля могут быть: from, from_location, to_aircraft
+                // Извлекаем AC из поля 'from'
                 let remFrom = '';
                 if (rem.from) {
                     remFrom = rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim();
-                } else if (rem.from_location) {
-                    remFrom = rem.from_location.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim();
-                } else if (rem.to_aircraft) {
-                    remFrom = rem.to_aircraft;
                 }
                 
-                const snMatch = remSN === installCurrentSN;
-                const fromMatch = remFrom === row.install_to;
-                const dateMatch = new Date(rem.date) >= new Date(row.date);
-                const match = snMatch && fromMatch && dateMatch;
-                
-                if (idx < 5) {
-                    console.log(`🔍 Row ${idx}: SN="${installCurrentSN}", remSN="${remSN}" (${snMatch ? '✓' : '✗'}), AC="${row.install_to}", remFrom="${remFrom}" (${fromMatch ? '✓' : '✗'}), date=${dateMatch ? '✓' : '✗'}`);
+                // Проверяем совпадение: SN + AC + дата
+                if (remSN === installSN && remFrom === installAC && remDate >= installDate) {
+                    matchingRemove = rem;
+                    if (idx < 5) {
+                        console.log(`✓ Row ${idx}: Found REMOVE - SN=${remSN}, AC=${remFrom}, date=${rem.date}`);
+                    }
+                    break; // Нашли - выходим
                 }
-                
-                if (match) {
-                    console.log(`✓ Engine ${installCurrentSN} removed from ${row.install_to} after installation`);
-                }
-                
-                // ВАЖНО: Проверяем, нет ли более поздней установки с той же табличкой на тот же самолет
-                const laterInstall = serverData.find(inst => {
-                    return inst.current_sn === installCurrentSN &&
-                           inst.install_to === row.install_to &&
-                           new Date(inst.date) > new Date(rem.date);
-                });
-                if (match && laterInstall && idx < 5) {
-                    console.log(`⚠️ Later install found for SN=${installCurrentSN} on AC=${row.install_to}: install date=${laterInstall.date}, remove date=${rem.date}`);
-                }
-                
-                // Зачеркиваем только если НЕТ более поздней установки
-                return match && !laterInstall;
-            });
+            }
             
-            if (idx < 3) console.log(`Row ${idx} (${row.current_sn}): wasRemoved=${wasRemoved}`);
+            // Если снятие найдено, проверяем: нет ли переустановки ПОСЛЕ снятия
+            let wasRemoved = false;
+            if (matchingRemove) {
+                const removeDate = new Date(matchingRemove.date);
+                const reinstall = serverData.find(inst => 
+                    inst.current_sn === installSN && new Date(inst.date) > removeDate
+                );
+                
+                if (!reinstall) {
+                    wasRemoved = true;
+                    if (idx < 5) console.log(`🔍 Row ${idx}: wasRemoved=true (no reinstall after removal)`);
+                } else {
+                    if (idx < 5) console.log(`⚠️ Row ${idx}: Reinstall found on ${reinstall.install_to} after removal`);
+                }
+            } else {
+                if (idx < 5) console.log(`🔍 Row ${idx}: wasRemoved=false (no matching remove found)`);
+            }
                         if (idx < 5) console.log(`🔍 Row ${idx} (SN=${row.current_sn}, AC=${row.install_to}): wasRemoved=${wasRemoved}`);
             
             // Стили для снятого двигателя
