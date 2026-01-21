@@ -8983,6 +8983,14 @@ function restoreView(viewName) {
         console.log('Total INSTALL records:', serverData.length);
         console.log('Total REMOVE records:', removeData.length);
         
+        // Сохраняем оригинальные данные для отладки
+        if (serverData.length > 0) {
+            console.log('INSTALL Sample:', serverData[0]);
+        }
+        if (removeData.length > 0) {
+            console.log('REMOVE Sample:', removeData[0]);
+        }
+        
         serverData.forEach((row, idx) => {
             // Нормализуем AC - убираем префиксы
             const normalizeAC = (ac) => {
@@ -8998,51 +9006,56 @@ function restoreView(viewName) {
             
             // Логируем первые 5 записей в деталях
             if (idx < 5) {
-                console.log(`\n📋 Row ${idx}: SN=${row.current_sn}, AC=${row.install_to} (norm=${normalizedInstallAC}), date=${row.date}`);
+                console.log(`\n📋 Row ${idx}: SN=${row.current_sn}, install_to="${row.install_to}" (norm=${normalizedInstallAC}), date=${row.date}`);
             }
             
+            // Пытаемся найти REMOVE - проверяем ВСЕ варианты
             for (let rem of removeData) {
                 const remSN = rem.current_sn || rem.original_sn;
                 const installCurrentSN = row.current_sn;
                 const normalizedRemFrom = normalizeAC(rem.from);
                 
-                // Логирование попыток сравнения
+                // Логирование для отладки
                 if (idx < 5) {
-                    console.log(`  vs Remove: SN=${remSN}, from=${rem.from} (norm=${normalizedRemFrom}), date=${rem.date}`);
+                    const fromRaw = rem.from || 'NULL';
+                    console.log(`  REMOVE: SN="${remSN}", from="${fromRaw}" (norm=${normalizedRemFrom}), date=${rem.date}`);
                 }
                 
-                // Проверяем совпадение current_sn, самолета и даты
-                if (remSN !== installCurrentSN) {
-                    if (idx < 5) console.log(`    ✗ SN mismatch`);
-                    continue;
+                // === ПЕРВАЯ ПОПЫТКА: точное совпадение ===
+                if (remSN === installCurrentSN && 
+                    normalizedRemFrom === normalizedInstallAC && 
+                    new Date(rem.date) >= new Date(row.date)) {
+                    if (idx < 5) console.log(`    ✓ EXACT MATCH!`);
+                    matchingRemove = rem;
+                    break;
                 }
-                if (normalizedRemFrom !== normalizedInstallAC) {
-                    if (idx < 5) console.log(`    ✗ AC mismatch (${normalizedRemFrom} !== ${normalizedInstallAC})`);
-                    continue;
+            }
+            
+            // === ВТОРАЯ ПОПЫТКА (если первая не сработала): ищем по SN и дате только ===
+            if (!matchingRemove && idx < 5) {
+                console.log(`  ⚠️ No exact match, trying alternative...`);
+                for (let rem of removeData) {
+                    const remSN = rem.current_sn || rem.original_sn;
+                    if (remSN === row.current_sn && new Date(rem.date) >= new Date(row.date)) {
+                        if (idx < 5) console.log(`    ⚠️ Found by SN+date only: from="${rem.from}"`);
+                        matchingRemove = rem;
+                        break;
+                    }
                 }
-                if (new Date(rem.date) < new Date(row.date)) {
-                    if (idx < 5) console.log(`    ✗ Date too old`);
-                    continue;
-                }
-                
-                matchingRemove = rem;
-                if (idx < 5) console.log(`    ✓✓ MATCH FOUND!`);
-                break;
             }
             
             // Если снятие найдено, проверяем, нет ли более поздней установки
             if (matchingRemove) {
                 const laterInstall = serverData.find(inst => {
                     return inst.current_sn === row.current_sn &&
-                           normalizeAC(inst.install_to) === normalizeAC(matchingRemove.from) &&
                            new Date(inst.date) > new Date(matchingRemove.date);
                 });
                 
                 if (!laterInstall) {
                     wasRemoved = true;
-                    if (idx < 5) console.log(`    ➜ REMOVED: No later install found`);
+                    if (idx < 5) console.log(`    ➜ MARK AS REMOVED (no later install after ${matchingRemove.date})`);
                 } else {
-                    if (idx < 5) console.log(`    ✗ Later install ${laterInstall.date} found, NOT removed`);
+                    if (idx < 5) console.log(`    ✗ Later install ${laterInstall.date} found, NOT marked`);
                 }
             } else {
                 if (idx < 5) console.log(`    ✗ No matching REMOVE found`);
