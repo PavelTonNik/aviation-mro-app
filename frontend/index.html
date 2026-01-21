@@ -9021,6 +9021,9 @@ function restoreView(viewName) {
                            inst.install_to === row.install_to &&
                            new Date(inst.date) > new Date(rem.date);
                 });
+                if (match && laterInstall && idx < 5) {
+                    console.log(`⚠️ Later install found for SN=${installCurrentSN} on AC=${row.install_to}: install date=${laterInstall.date}, remove date=${rem.date}`);
+                }
                 
                 // Зачеркиваем только если НЕТ более поздней установки
                 return match && !laterInstall;
