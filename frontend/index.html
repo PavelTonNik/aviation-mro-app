@@ -8991,6 +8991,7 @@ function restoreView(viewName) {
             console.log('REMOVE Sample:', removeData[0]);
         }
         
+        let rowsHtml = [];
         serverData.forEach((row, idx) => {
             // Нормализуем AC - убираем префиксы
             const normalizeAC = (ac) => {
@@ -9037,37 +9038,10 @@ function restoreView(viewName) {
                 }
             }
             
-            // === ВТОРАЯ ПОПЫТКА (если первая не сработала): ищем по SN, AC и ПОЗИЦИИ ===
-            if (!matchingRemove && idx < 5) {
-                console.log(`  ⚠️ No exact match, trying by SN+AC+position...`);
-                for (let rem of removeData) {
-                    const remSN = rem.current_sn || rem.original_sn;
-                    const removePosBracket = rem.from ? rem.from.match(/\(Pos\s+(\d+)\)/) : null;
-                    const removePosition = removePosBracket ? parseInt(removePosBracket[1], 10) : null;
-                    const normalizedRemFrom = normalizeAC(rem.from);
-                    
-                    if (remSN === row.current_sn && 
-                        normalizedRemFrom === normalizedInstallAC && 
-                        removePosition === row.position) {
-                        if (idx < 5) console.log(`    ✓ MATCH by SN+AC+position (date: ${rem.date})`);
-                        matchingRemove = rem;
-                        break;
-                    }
-                }
-            }
-            
-            // Если снятие найдено - двигатель был СНЯТ (неважно, переустановили ли после)
+            // Если снятие найдено - двигатель был СНЯТ
             if (matchingRemove) {
                 wasRemoved = true;
                 if (idx < 5) console.log(`    ➜ MARK AS REMOVED (SN=${matchingRemove.current_sn || matchingRemove.original_sn} removed from position ${row.position})`);
-            } else {
-                if (idx < 5) console.log(`    ✗ No matching REMOVE found`);
-            }
-            
-            // Если снятие найдено - двигатель был СНЯТ (неважно, переустановили ли после)
-            if (matchingRemove) {
-                wasRemoved = true;
-                if (idx < 5) console.log(`    ➜ MARK AS REMOVED (was removed from ${removeAircraft} on ${matchingRemove.date})`);
             } else {
                 if (idx < 5) console.log(`    ✗ No matching REMOVE found`);
             }
@@ -9076,7 +9050,7 @@ function restoreView(viewName) {
             const rowClass = wasRemoved ? 'removed-engine' : '';
             const badgeClass = wasRemoved ? 'badge bg-secondary' : 'badge bg-primary';
             
-            tbody.innerHTML += `
+            rowsHtml.push(`
                 <tr class="${rowClass}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
                     <td class="delete-col-install" style="display: none;">
                         <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('INSTALL', ${row.id || 0}, '${row.original_sn}')" title="Delete">
@@ -9096,15 +9070,17 @@ function restoreView(viewName) {
                     <td>${row.supplier || '-'}</td>
                     <td><small>${row.remarks||'-'}</small></td>
                 </tr>
-            `;
+            `);
         });
+
+        tbody.innerHTML = rowsHtml.join('');
 
         // Включаем редактирование по двойному клику: переводим таблицу в Edit и фокусируем ячейку
         bindPurchaseOrdersInlineEdit();
     }
 
     function bindPurchaseOrdersInlineEdit() {
-        const tbody = document.getElementById('purchase-orders-history-body');
+        const tbody = document.getElementById('install-history-body');
         if (!tbody) return;
         if (tbody._inlineEditBound) return; // уже привязано
 
@@ -9112,7 +9088,7 @@ function restoreView(viewName) {
             const cell = ev.target.closest('td');
             if (!cell || !tbody.contains(cell)) return;
             // игнорируем колонку удаления и пустую последнюю ячейку с плюсом
-            if (cell.classList.contains('delete-col-purchase-orders')) return;
+            if (cell.classList.contains('delete-col-install')) return;
             if (cell.style && cell.style.border === 'none' && cell.style.background === 'transparent') return;
 
             const row = cell.parentElement;
