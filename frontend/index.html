@@ -9044,18 +9044,24 @@ function restoreView(viewName) {
                 }
             }
             
-            // Если снятие найдено, проверяем, нет ли более поздней установки
+            // Если снятие найдено, проверяем, нет ли более поздней установки этого же двигателя ПОСЛЕ снятия НА ТОТ ЖЕ САМОЛЕТ
             if (matchingRemove) {
-                const laterInstall = serverData.find(inst => {
-                    return inst.current_sn === row.current_sn &&
-                           new Date(inst.date) > new Date(matchingRemove.date);
-                });
+                const removeDate = new Date(matchingRemove.date);
+                const removeAircraft = normalizeAC(matchingRemove.from);
                 
-                if (!laterInstall) {
+                // Проверяем: есть ли ДРУГАЯ установка этого же SN ПОСЛЕ даты снятия на ТОТ ЖЕ САМОЛЕТ?
+                const reinstallAfterRemove = serverData.find(inst => 
+                    inst.current_sn === row.current_sn && 
+                    normalizeAC(inst.install_to) === removeAircraft &&
+                    new Date(inst.date) > removeDate &&
+                    inst.id !== row.id  // не сама эта запись
+                );
+                
+                if (!reinstallAfterRemove) {
                     wasRemoved = true;
-                    if (idx < 5) console.log(`    ➜ MARK AS REMOVED (no later install after ${matchingRemove.date})`);
+                    if (idx < 5) console.log(`    ➜ MARK AS REMOVED (last install on ${removeAircraft} before remove)`);
                 } else {
-                    if (idx < 5) console.log(`    ✗ Later install ${laterInstall.date} found, NOT marked`);
+                    if (idx < 5) console.log(`    ✗ Later install on ${normalizeAC(reinstallAfterRemove.install_to)} at ${reinstallAfterRemove.date}, NOT marked`);
                 }
             } else {
                 if (idx < 5) console.log(`    ✗ No matching REMOVE found`);
