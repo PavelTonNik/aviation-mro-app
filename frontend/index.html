@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -140,6 +140,22 @@
             background: linear-gradient(135deg, #343a40 0%, #6c757d 100%);
             box-shadow: 0 16px 40px rgba(108, 117, 125, 0.35);
             color: #fff;
+        }
+
+        /* Removed engine styling */
+        .removed-engine {
+            opacity: 0.6 !important;
+            background-color: #f0f0f0 !important;
+        }
+        
+        .removed-engine td {
+            text-decoration: line-through !important;
+            color: #999 !important;
+        }
+        
+        .removed-engine-badge {
+            background-color: #6c757d !important;
+            text-decoration: line-through !important;
         }
 
         /* Subcards: full size matching main dashboard cards */
@@ -5382,9 +5398,9 @@
                         </button>
                     </div>
                     <!-- Заголовки столбцов СРАЗУ после заголовка -->
-                    <div class="table-responsive" style="margin-top: 0;">
+                    <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
                         <table class="table table-striped table-hover mb-0" style="margin-top: 0;">
-                            <thead class="table-dark" style="border-top: none;">
+                            <thead class="table-dark" style="position: sticky; top: 0; z-index: 10; border-top: none;">
                                 <tr>
                                     <th>GSS ID</th>
                                     <th>Photo</th>
@@ -6184,7 +6200,7 @@
                                 <button class="btn btn-sm btn-secondary d-none" id="btn-main-cancel" onclick="cancelEditMode()"><i class="bi bi-x-lg"></i> Cancel</button>
                             </div>
                             
-                            <div class="table-responsive" style="max-height: 80vh; overflow: auto;">
+                            <div class="table-responsive" style="max-height: 85vh; overflow: auto;">
                                 <table class="table table-bordered table-hover table-sm text-center align-middle" style="font-size: 0.85rem; min-width: 100%;">
                                     <thead class="table-dark" style="position: sticky; top: 0; z-index: 10;">
                                         <tr>
@@ -7195,19 +7211,19 @@ function restoreView(viewName) {
                                 </div>
                                 <div class="engine-data-item">
                                     <div class="engine-data-label">N1 Takeoff</div>
-                                    <div class="engine-data-value">${pos.n1_takeoff !== null ? pos.n1_takeoff + '%' : 'N/A'}</div>
+                                    <div class="engine-data-value">${pos.n1_takeoff !== null ? pos.n1_takeoff : 'N/A'}</div>
                                 </div>
                                 <div class="engine-data-item">
                                     <div class="engine-data-label">N1 Cruise</div>
-                                    <div class="engine-data-value">${pos.n1_cruise !== null ? pos.n1_cruise + '%' : 'N/A'}</div>
+                                    <div class="engine-data-value">${pos.n1_cruise !== null ? pos.n1_cruise : 'N/A'}</div>
                                 </div>
                                 <div class="engine-data-item">
                                     <div class="engine-data-label">N2 Takeoff</div>
-                                    <div class="engine-data-value">${pos.n2_takeoff !== null ? pos.n2_takeoff + '%' : 'N/A'}</div>
+                                    <div class="engine-data-value">${pos.n2_takeoff !== null ? pos.n2_takeoff : 'N/A'}</div>
                                 </div>
                                 <div class="engine-data-item">
                                     <div class="engine-data-label">N2 Cruise</div>
-                                    <div class="engine-data-value">${pos.n2_cruise !== null ? pos.n2_cruise + '%' : 'N/A'}</div>
+                                    <div class="engine-data-value">${pos.n2_cruise !== null ? pos.n2_cruise : 'N/A'}</div>
                                 </div>
                                 <div class="engine-data-item">
                                     <div class="engine-data-label">EGT Takeoff</div>
@@ -8946,7 +8962,10 @@ function restoreView(viewName) {
             const removeRes = await safeFetch('/api/history/REMOVE' + noCache());
             if (removeRes && removeRes.ok) {
                 removeData = await removeRes.json();
-                console.log('Remove data loaded:', removeData);
+                console.log('🔍 Remove data loaded:', removeData.length, 'records');
+                removeData.forEach((r, i) => {
+                    if (i < 3) console.log(`  Record ${i}:`, {sn: r.current_sn || r.original_sn, from: r.from, date: r.date});
+                });
             }
         } catch (e) {
             console.warn('Could not load remove history for marking', e);
@@ -8959,36 +8978,80 @@ function restoreView(viewName) {
         }
 
         serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
-        serverData.forEach(row => {
+        
+        console.log('🔍 === DEBUGGING STRIKETHROUGH MATCHING ===');
+        console.log('Total INSTALL records:', serverData.length);
+        console.log('Total REMOVE records:', removeData.length);
+        
+        // Сохраняем оригинальные данные для отладки
+        if (serverData.length > 0) {
+            console.log('INSTALL Sample:', serverData[0]);
+        }
+        if (removeData.length > 0) {
+            console.log('REMOVE Sample:', removeData[0]);
+        }
+        
+        let rowsHtml = [];
+        serverData.forEach((row, idx) => {
+            // Нормализуем AC - убираем префиксы
+            const normalizeAC = (ac) => {
+                if (!ac) return '';
+                return ac.replace(/^AC[_:\s]*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim();
+            };
+            
+            const normalizedInstallAC = normalizeAC(row.install_to);
+            
             // Проверяем: был ли этот двигатель снят ПОСЛЕ этой установки
-            const wasRemoved = removeData.some(rem => {
+            let wasRemoved = false;
+            let matchingRemove = null;
+            
+            // Логируем первые 5 записей в деталях
+            if (idx < 5) {
+                console.log(`\n📋 Row ${idx}: SN=${row.current_sn}, install_to="${row.install_to}" (norm=${normalizedInstallAC}), date=${row.date}`);
+            }
+            
+            // Пытаемся найти REMOVE - проверяем ВСЕ варианты
+            for (let rem of removeData) {
                 const remSN = rem.current_sn || rem.original_sn;
                 const installCurrentSN = row.current_sn;
+                const normalizedRemFrom = normalizeAC(rem.from);
                 
-                // Извлекаем AC название из "AC: ER-BAR (Pos 4)" -> "ER-BAR"
-                const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
+                // Извлекаем позицию из REMOVE: "AC: ER-BAT (Pos 2)" → 2
+                const removePosBracket = rem.from ? rem.from.match(/\(Pos\s+(\d+)\)/) : null;
+                const removePosition = removePosBracket ? parseInt(removePosBracket[1], 10) : null;
                 
-                // Проверяем совпадение current_sn, самолета и даты
-                if (remSN !== installCurrentSN) return false;
-                if (remFrom !== row.install_to) return false;
-                if (new Date(rem.date) < new Date(row.date)) return false;
+                // Логирование для отладки
+                if (idx < 5) {
+                    const fromRaw = rem.from || 'NULL';
+                    console.log(`  REMOVE: SN="${remSN}", from="${fromRaw}" (AC=${normalizedRemFrom}, Pos=${removePosition}), date=${rem.date}`);
+                }
                 
-                // ВАЖНО: Проверяем, нет ли более поздней установки с той же табличкой на тот же самолет
-                const laterInstall = serverData.find(inst => {
-                    return inst.current_sn === installCurrentSN &&
-                           inst.install_to === row.install_to &&
-                           new Date(inst.date) > new Date(rem.date);
-                });
-                
-                // Зачеркиваем только если НЕТ более поздней установки
-                return !laterInstall;
-            });
+                // === ПРОВЕРКА: SN + AC + ПОЗИЦИЯ + ДАТА ===
+                // Работает для ЛЮБОГО самолёта и ЛЮБОЙ позиции!
+                if (remSN === installCurrentSN && 
+                    normalizedRemFrom === normalizedInstallAC && 
+                    removePosition === row.position &&  // ← проверяем позицию для каждого самолёта
+                    new Date(rem.date) >= new Date(row.date)) {
+                    if (idx < 5) console.log(`    ✓ EXACT MATCH! (SN=${remSN}, AC=${normalizedRemFrom}, Pos=${removePosition})`);
+                    matchingRemove = rem;
+                    break;
+                }
+            }
             
-            // Стили для снятого двигателя
-            const badgeClass = wasRemoved ? 'bg-secondary text-decoration-line-through opacity-50' : 'bg-primary';
+            // Если снятие найдено - двигатель был СНЯТ
+            if (matchingRemove) {
+                wasRemoved = true;
+                if (idx < 5) console.log(`    ➜ MARK AS REMOVED (SN=${matchingRemove.current_sn || matchingRemove.original_sn} removed from position ${row.position})`);
+            } else {
+                if (idx < 5) console.log(`    ✗ No matching REMOVE found`);
+            }
             
-            tbody.innerHTML += `
-                <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
+            // Применяем класс к строке
+            const rowClass = wasRemoved ? 'removed-engine' : '';
+            const badgeClass = wasRemoved ? 'badge bg-secondary' : 'badge bg-primary';
+            
+            rowsHtml.push(`
+                <tr class="${rowClass}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
                     <td class="delete-col-install" style="display: none;">
                         <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('INSTALL', ${row.id || 0}, '${row.original_sn}')" title="Delete">
                             <i class="bi bi-trash"></i>
@@ -8997,7 +9060,7 @@ function restoreView(viewName) {
                     <td>${row.date}</td>
                     <td>${row.original_sn}</td>
                     <td>${row.current_sn}</td>
-                    <td><span class="badge ${badgeClass}">${row.install_to}</span></td>
+                    <td><span class="${badgeClass}" style="text-decoration: ${wasRemoved ? 'line-through' : 'none'}; opacity: ${wasRemoved ? '0.6' : '1'};">${row.install_to}</span></td>
                     <td>${row.position}</td>
                     <td>${row.location_from}</td>
                     <td>${row.tt}</td>
@@ -9007,15 +9070,17 @@ function restoreView(viewName) {
                     <td>${row.supplier || '-'}</td>
                     <td><small>${row.remarks||'-'}</small></td>
                 </tr>
-            `;
+            `);
         });
+
+        tbody.innerHTML = rowsHtml.join('');
 
         // Включаем редактирование по двойному клику: переводим таблицу в Edit и фокусируем ячейку
         bindPurchaseOrdersInlineEdit();
     }
 
     function bindPurchaseOrdersInlineEdit() {
-        const tbody = document.getElementById('purchase-orders-history-body');
+        const tbody = document.getElementById('install-history-body');
         if (!tbody) return;
         if (tbody._inlineEditBound) return; // уже привязано
 
@@ -9023,7 +9088,7 @@ function restoreView(viewName) {
             const cell = ev.target.closest('td');
             if (!cell || !tbody.contains(cell)) return;
             // игнорируем колонку удаления и пустую последнюю ячейку с плюсом
-            if (cell.classList.contains('delete-col-purchase-orders')) return;
+            if (cell.classList.contains('delete-col-install')) return;
             if (cell.style && cell.style.border === 'none' && cell.style.background === 'transparent') return;
 
             const row = cell.parentElement;
