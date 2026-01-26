@@ -9,6 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <!-- SheetJS for Excel Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
@@ -602,8 +603,6 @@
             border-color: rgba(93, 101, 110, 0.4);
             color: #eceff1;
         }
-            color: #fff;
-        }
 
         #locations-container .btn-dashboard {
             background: linear-gradient(135deg, #1a2332 0%, #243040 100%);
@@ -1044,7 +1043,8 @@
         }
         
         .engine-visual {
-            flex: 0 0 200px;\n            display: flex;
+            flex: 0 0 200px;
+            display: flex;
             align-items: center;
             justify-content: center;
             background: rgba(0, 0, 0, 0.3);
@@ -10226,7 +10226,7 @@ function restoreView(viewName) {
         const engines = positions.map((pos, index) => {
             if (!pos) {
                 return {
-                    position: `ENG ${index + 1} (${index % 2 === 0 ? 'L' : 'R'})`,
+                    position: `ENG ${index + 1}`,
                     engine_id: null,
                     original_sn: null,
                     current_sn: null,
@@ -10549,8 +10549,8 @@ function restoreView(viewName) {
                 return;
             }
 
-            // Fetch parameters data
-            const response = await fetch(`/api/aircraft/${aircraftId}/engines/${e.engine_id}/parameters-data?months=12`);
+            // Fetch parameters data - ВСЕ данные из истории
+            const response = await fetch(`/api/aircraft/${aircraftId}/engines/${e.engine_id}/parameters-data?months=999`);
             if (!response.ok) throw new Error('Failed to load parameters');
             
             const data = await response.json();
@@ -10617,21 +10617,83 @@ function restoreView(viewName) {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
                     plugins: {
                         legend: {
                             display: true,
                             labels: { color: '#cbd5e1', font: { size: 12 } }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#e2e8f0',
+                            bodyColor: '#cbd5e1',
+                            borderColor: '#475569',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: true,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(1);
+                                        if (chartType === 'egt') {
+                                            label += '°C';
+                                        } else if (chartType === 'n1' || chartType === 'n2') {
+                                            label += '%';
+                                        }
+                                    }
+                                    return label;
+                                }
+                            }
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: false,
                             grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                            ticks: { color: '#94a3b8' }
+                            ticks: { 
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    if (chartType === 'egt') {
+                                        return value + '°C';
+                                    } else if (chartType === 'n1' || chartType === 'n2') {
+                                        return value + '%';
+                                    }
+                                    return value;
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: chartType === 'egt' ? 'Temperature (°C)' : 'Percentage (%)',
+                                color: '#94a3b8'
+                            }
                         },
                         x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                displayFormats: {
+                                    day: 'MMM dd, yyyy'
+                                },
+                                tooltipFormat: 'MMM dd, yyyy'
+                            },
                             grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                            ticks: { color: '#94a3b8' }
+                            ticks: { 
+                                color: '#94a3b8',
+                                maxRotation: 45,
+                                minRotation: 0
+                            },
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                color: '#94a3b8'
+                            }
                         }
                     }
                 }

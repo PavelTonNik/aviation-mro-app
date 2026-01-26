@@ -2005,7 +2005,7 @@ def get_aircraft_engines(aircraft_id: int, db: Session = Depends(get_db)):
                     utilization = round(engine.total_time - engine.tsn_at_install, 1)
                 
                 engine_positions.append({
-                    "position": f"ENG {pos} ({'L' if pos in [1, 3] else 'R'})",
+                    "position": f"ENG {pos}",
                     "engine_id": engine.id,
                     "original_sn": engine.original_sn or "N/A",
                     "current_sn": engine.current_sn or engine.original_sn or "N/A",
@@ -7240,12 +7240,11 @@ def get_engine_parameters_data(aircraft_id: int, engine_id: int, months: int = 1
         if not aircraft:
             raise HTTPException(404, "Aircraft not found")
 
-        # 1. ENGINE PARAMETERS (N1, N2, EGT)
-        cutoff_date = datetime.now(timezone.utc) - timedelta(days=months*30)
+        # 1. ENGINE PARAMETERS (N1, N2, EGT) - ВСЕ ДАННЫЕ
+        # Убираем ограничение по месяцам - показываем полную историю
         
         param_history = db.query(models.EngineParameterHistory).filter(
-            models.EngineParameterHistory.engine_id == engine_id,
-            models.EngineParameterHistory.date >= cutoff_date
+            models.EngineParameterHistory.engine_id == engine_id
         ).order_by(models.EngineParameterHistory.date.asc()).all()
 
         parameters_data = []
@@ -7260,11 +7259,10 @@ def get_engine_parameters_data(aircraft_id: int, engine_id: int, months: int = 1
                 "egt_cruise": param.egt_cruise
             })
 
-        # 2. ENGINE SWAP HISTORY за этот период
+        # 2. ENGINE SWAP HISTORY - вся история
         swap_history = db.query(models.ActionLog).filter(
             models.ActionLog.to_aircraft == aircraft.tail_number,
-            models.ActionLog.action_type == "INSTALL",
-            models.ActionLog.date >= cutoff_date
+            models.ActionLog.action_type == "INSTALL"
         ).order_by(models.ActionLog.date.asc()).all()
 
         swap_timeline = {}
