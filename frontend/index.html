@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -8,35 +8,88 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
-        html { overflow-y: scroll; overflow-x: hidden; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #e9eaee; overflow-x: hidden; padding-top: 0; max-width: 100vw; }
+        html { overflow-y: auto; overflow-x: hidden; }
+        html::-webkit-scrollbar { width: 0; }
+        html { -ms-overflow-style: none; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0b1120; overflow-x: visible; padding-top: 0; max-width: 100vw; color: #e2e8f0; }
         
         /* Prevent horizontal overflow on main content */
-        #wrapper { display: flex; width: 100%; max-width: 100vw; align-items: stretch; transition: all 0.3s; padding-top: 0; overflow-x: hidden; }
-        #page-content-wrapper { flex: 1 1 auto; width: auto !important; min-width: 0; max-width: 100%; overflow-x: hidden; }
-        .container-fluid { max-width: 100%; overflow-x: hidden; }
-        .dashboard-content { width: 100%; max-width: 100%; overflow-x: hidden; }
-        #fleet-section, .parts-dashboard-grid, #calendar-grid-container { max-width: 100%; overflow-x: hidden; }
+        #wrapper { display: flex; width: 100%; max-width: 100vw; align-items: stretch; transition: all 0.3s; padding-top: 0; overflow-x: visible; }
+        #page-content-wrapper { flex: 1 1 auto; width: auto !important; min-width: 0; max-width: 100%; overflow-x: visible; background-color: #0b1120; }
+        .container-fluid { max-width: 100%; overflow-x: visible; }
+        .dashboard-content { width: 100%; max-width: 100%; overflow-x: visible; }
+        #fleet-section, .parts-dashboard-grid, #calendar-grid-container { max-width: 100%; overflow-x: visible; }
 
         /* --- SIDEBAR --- */
         #sidebar-wrapper {
             min-width: 260px; 
             max-width: 260px;
             min-height: 100vh;
-            background-color: #011325; 
-            color: #202020;
-            transition: margin 0.3s ease-out;
+            background: linear-gradient(180deg, #0a1929 0%, #0d1f2d 100%);
+            color: #b0bec5;
+            transition: margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             margin-top: 0;
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
         }
         #wrapper.toggled #sidebar-wrapper { margin-left: -260px; }
         
-        .sidebar-brand { padding: 1.5rem 1rem; font-size: 1.3rem; font-weight: bold; border-bottom: 1px solid #4b545c; color: #423a3a; text-decoration: none; display: block; }
-        .list-group-item { background: transparent; color: #fbfbffa9; border: none; padding: 12px 20px; font-size: 0.95rem; }
-        .list-group-item:hover { background: #053f79; color: #fff; }
-        .list-group-item.active { background: #007bff; color: #fff; border-radius: 4px; }
-        .list-group-item i { margin-right: 10px; width: 20px; text-align: center; }
+        .sidebar-brand { 
+            padding: 1.5rem 1.25rem; 
+            font-size: 1.15rem; 
+            font-weight: 600; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
+            color: #eceff1; 
+            text-decoration: none; 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+        }
+        .sidebar-brand:hover {
+            color: #4fc3f7;
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .sidebar-brand i {
+            font-size: 1.1rem;
+            color: #4fc3f7;
+        }
+        .list-group-item { 
+            background: transparent; 
+            color: #b0bec5; 
+            border: none; 
+            padding: 11px 20px; 
+            font-size: 0.9rem;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 3px solid transparent;
+        }
+        .list-group-item:hover { 
+            background: rgba(79, 195, 247, 0.08); 
+            color: #eceff1;
+            border-left-color: #4fc3f7;
+            transform: translateX(2px);
+        }
+        .list-group-item.active { 
+            background: rgba(79, 195, 247, 0.12); 
+            color: #4fc3f7; 
+            border-left-color: #4fc3f7;
+            font-weight: 600;
+        }
+        .list-group-item i { 
+            margin-right: 12px; 
+            width: 18px; 
+            text-align: center;
+            font-size: 0.95rem;
+            opacity: 0.9;
+        }
         
         /* Settings modal list items - dark text by default, white on hover */
         #locations-edit-list .list-group-item,
@@ -63,6 +116,304 @@
             color: inherit;
         }
 
+        /* Global Dark Theme Overrides */
+        h1, h2, h3, h4, h5, h6 { color: #f1f5f9; }
+        p, span, div { color: #e2e8f0; }
+        .text-muted { color: #94a3b8 !important; }
+        
+        /* Dark Cards */
+        .card {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            color: #e2e8f0;
+        }
+        
+        .card-header {
+            background: rgba(15, 23, 42, 0.5);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            color: #f1f5f9;
+        }
+        
+        /* Dark Tables */
+        .table {
+            color: #e2e8f0;
+        }
+        
+        .table thead th {
+            background: rgba(15, 23, 42, 0.6);
+            color: #f1f5f9;
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+        
+        .table tbody tr {
+            background: rgba(30, 41, 59, 0.4);
+            border-color: rgba(148, 163, 184, 0.1);
+        }
+        
+        .table tbody tr:hover {
+            background: rgba(51, 65, 85, 0.6);
+        }
+        
+        /* White Input Fields - Always (both dark and light modes) */
+        .form-control, .form-select, textarea {
+            background: #ffffff !important;
+            border: 1px solid #ced4da !important;
+            color: #212529 !important;
+        }
+        
+        .form-control:focus, .form-select:focus, textarea:focus {
+            background: #ffffff !important;
+            border-color: #0d6efd !important;
+            color: #212529 !important;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+        }
+        
+        .form-control::placeholder, textarea::placeholder {
+            color: #6c757d !important;
+            opacity: 0.7;
+        }
+        
+        .form-label {
+            color: #e2e8f0;
+        }
+
+        /* Light Background Mode - minimal changes */
+        body.light-bg {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+        }
+        
+        body.light-bg #page-content-wrapper {
+            background: transparent;
+        }
+        
+        /* Exclude all dashboard cards from light-bg changes */
+        body.light-bg .card:not(.parts-card-3d):not(.aircraft-card):not(.btn-dashboard):not(.btn-dashboard-sub) {
+            background: #ffffff;
+            border: 1px solid #dee2e6;
+        }
+        
+        body.light-bg .card-header {
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        body.light-bg .table {
+            background: #ffffff;
+        }
+        
+        body.light-bg .table thead th {
+            background: #f8f9fa;
+            color: #212529;
+            border-color: #dee2e6;
+        }
+        
+        body.light-bg .table tbody tr {
+            background: #ffffff;
+            border-color: #dee2e6;
+        }
+        
+        body.light-bg .table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        
+        body.light-bg .modal-content {
+            background: #ffffff;
+        }
+        
+        body.light-bg .modal-header {
+            background: #f8f9fa;
+            color: #212529;
+        }
+        
+        body.light-bg .nav-tabs .nav-link {
+            background: #f8f9fa;
+            color: #495057;
+        }
+        
+        body.light-bg .nav-tabs .nav-link.active {
+            background: #ffffff;
+            color: #0d6efd;
+        }
+        
+        body.light-bg .tab-content {
+            background: #ffffff;
+        }
+        
+        /* Data modal (locations): keep white body, dark header with white city title */
+        body.light-bg #dataModal .modal-content {
+            background: #ffffff;
+            color: #212529;
+            border: 1px solid #dee2e6;
+        }
+
+        body.light-bg #dataModal .modal-header {
+            background: #111827;
+            color: #f8fafc;
+            border-bottom: 1px solid #0b1324;
+        }
+
+        body.light-bg #dataModal .table thead th {
+            background: #f8f9fa;
+            color: #212529;
+            border-color: #dee2e6;
+        }
+
+        body.light-bg #dataModal .table tbody tr {
+            background: #ffffff;
+            color: #212529;
+            border-color: #dee2e6;
+        }
+
+        body.light-bg #dataModal .table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Light Background Mode - Text Colors (exclude sidebar and all dashboard cards) */
+        body.light-bg #page-content-wrapper .form-label,
+        body.light-bg .modal .form-label {
+            color: #212529 !important;
+        }
+        
+        body.light-bg #page-content-wrapper h1:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg #page-content-wrapper h2:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg #page-content-wrapper h3:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg #page-content-wrapper h4:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg #page-content-wrapper h5:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg #page-content-wrapper h6:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg .modal h1,
+        body.light-bg .modal h2,
+        body.light-bg .modal h3,
+        body.light-bg .modal h4,
+        body.light-bg .modal h5,
+        body.light-bg .modal h6 {
+            color: #212529 !important;
+        }
+        
+        body.light-bg #page-content-wrapper p:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg #page-content-wrapper span:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg #page-content-wrapper div:not(.btn-dashboard):not(.btn-dashboard-sub):not(.parts-card-3d):not(.aircraft-card):not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg .modal p,
+        body.light-bg .modal span,
+        body.light-bg .modal div {
+            color: #2d3748 !important;
+        }
+        
+        body.light-bg #page-content-wrapper .text-muted:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg .modal .text-muted {
+            color: #6c757d !important;
+        }
+        
+        body.light-bg #page-content-wrapper small:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg .modal small {
+            color: #495057 !important;
+        }
+        
+        body.light-bg .modal-body {
+            color: #212529 !important;
+        }
+        
+        body.light-bg #page-content-wrapper td:not(.btn-dashboard *):not(.btn-dashboard-sub *):not(.parts-card-3d *):not(.aircraft-card *),
+        body.light-bg .modal td {
+            color: #212529 !important;
+        }
+
+        /* ===== ДЕЙСТВИЯ (ACTIONS) - БЕЛЫЕ ШАПКИ И ЗАЩИТА ОТ LIGHT-BG ===== */
+        
+        /* Белые шапки таблиц Actions (всегда, даже в ночном режиме) */
+        #view-install .table thead th,
+        #view-remove .table thead th,
+        #view-repair .table thead th,
+        #view-atlb .table thead th,
+        #view-eng-params .table thead th,
+        #view-utilization-params .table thead th,
+        #view-parts .table thead th,
+        #view-store-balance .table thead th,
+        #view-gss-modal .table thead th {
+            background: #ffffff !important;
+            color: #212529 !important;
+            border-color: #dee2e6 !important;
+        }
+
+        /* Исключить таблицы Actions из light-bg затемнения */
+        body.light-bg #view-install .table,
+        body.light-bg #view-remove .table,
+        body.light-bg #view-repair .table,
+        body.light-bg #view-atlb .table,
+        body.light-bg #view-eng-params .table,
+        body.light-bg #view-utilization-params .table,
+        body.light-bg #view-parts .table,
+        body.light-bg #view-store-balance .table {
+            background: #ffffff;
+        }
+
+        body.light-bg #view-install .table tbody tr,
+        body.light-bg #view-remove .table tbody tr,
+        body.light-bg #view-repair .table tbody tr,
+        body.light-bg #view-atlb .table tbody tr,
+        body.light-bg #view-eng-params .table tbody tr,
+        body.light-bg #view-utilization-params .table tbody tr,
+        body.light-bg #view-parts .table tbody tr,
+        body.light-bg #view-store-balance .table tbody tr {
+            background: #ffffff;
+            color: #212529;
+            border-color: #dee2e6;
+        }
+
+        body.light-bg #view-install .table tbody tr:hover,
+        body.light-bg #view-remove .table tbody tr:hover,
+        body.light-bg #view-repair .table tbody tr:hover,
+        body.light-bg #view-atlb .table tbody tr:hover,
+        body.light-bg #view-eng-params .table tbody tr:hover,
+        body.light-bg #view-utilization-params .table tbody tr:hover,
+        body.light-bg #view-parts .table tbody tr:hover,
+        body.light-bg #view-store-balance .table tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Защита бейджей/статусов от изменения в light-bg */
+        body.light-bg #view-install .badge,
+        body.light-bg #view-remove .badge,
+        body.light-bg #view-repair .badge,
+        body.light-bg #view-atlb .badge,
+        body.light-bg #view-eng-params .badge,
+        body.light-bg #view-utilization-params .badge,
+        body.light-bg #view-parts .badge,
+        body.light-bg #view-store-balance .badge {
+            filter: none !important;
+            opacity: 1 !important;
+        }
+
+        /* Сохранить контрастные цвета бейджей в light-bg режиме */
+        body.light-bg .badge.bg-success {
+            background-color: #198754 !important;
+            color: #ffffff !important;
+        }
+
+        body.light-bg .badge.bg-danger {
+            background-color: #dc3545 !important;
+            color: #ffffff !important;
+        }
+
+        body.light-bg .badge.bg-info {
+            background-color: #0dcaf0 !important;
+            color: #000000 !important;
+        }
+
+        body.light-bg .badge.bg-warning {
+            background-color: #ffc107 !important;
+            color: #000000 !important;
+        }
+
+        body.light-bg .badge.bg-secondary {
+            background-color: #6c757d !important;
+            color: #ffffff !important;
+        }
+
+        body.light-bg .badge.bg-primary {
+            background-color: #0d6efd !important;
+            color: #ffffff !important;
+        }
+
         /* КНОПКИ НА ДАШБОРДЕ (Полный стиль) */
         .btn-dashboard {
             position: relative;
@@ -73,28 +424,37 @@
             gap: 0.35rem;
             width: 100%;
             padding: 18px 20px;
-            border: none;
-            border-radius: 15px;
-            background: linear-gradient(135deg, #1b2436 0%, #263449 100%);
-            color: #f8fafc;
-            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.38);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            background: linear-gradient(135deg, #1a2332 0%, #243040 100%);
+            color: #eceff1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
             text-align: left;
             text-transform: none;
             cursor: pointer;
             overflow: hidden;
-            transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn-dashboard .label {
-            font-size: 0.8rem;
-            letter-spacing: 0.08em;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
             text-transform: uppercase;
             opacity: 0.85;
+            color: #b0bec5 !important;
+            font-weight: 600;
+            position: relative;
+            z-index: 2;
+            display: block;
         }
         .btn-dashboard .count {
             font-size: 1.9rem;
             font-weight: 700;
             line-height: 1;
+            color: #ffffff !important;
+            position: relative;
+            z-index: 2;
+            display: block;
         }
 
         .btn-dashboard i {
@@ -102,60 +462,80 @@
             top: 16px;
             right: 16px;
             font-size: 1.5rem;
-            opacity: 0.25;
-            transition: transform 0.25s ease, opacity 0.25s ease;
+            opacity: 0.15;
+            transition: all 0.2s ease;
+            z-index: 1;
+            color: #4fc3f7;
         }
 
         .btn-dashboard:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 18px 36px rgba(37, 99, 235, 0.35);
-            filter: brightness(1.05);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(79, 195, 247, 0.25), 0 0 0 2px rgba(79, 195, 247, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border-color: rgba(79, 195, 247, 0.6);
+            background: linear-gradient(135deg, #1e2938 0%, #2a3a4d 100%);
+        }
+
+        .btn-dashboard:hover .label {
+            color: #e3f2fd !important;
         }
 
         .btn-dashboard:hover i {
-            opacity: 0.45;
-            transform: translateY(-3px);
+            opacity: 0.4;
+            transform: scale(1.1);
         }
 
         .btn-status-sv {
-            background: linear-gradient(135deg, #1f7a4d 0%, #2bc66d 100%);
-            box-shadow: 0 16px 40px rgba(43, 198, 109, 0.35);
+            background: linear-gradient(135deg, #22754a 0%, #34955f 100%);
+            box-shadow: 0 4px 12px rgba(34, 117, 74, 0.35);
+            border-color: rgba(52, 149, 95, 0.5);
+        }
+        
+        .btn-status-sv:hover {
+            background: linear-gradient(135deg, #2a8a5a 0%, #3db070 100%);
+            box-shadow: 0 8px 24px rgba(34, 149, 74, 0.4), 0 0 0 2px rgba(52, 149, 95, 0.5);
+            border-color: rgba(52, 149, 95, 0.8);
         }
 
         .btn-status-us {
-            background: linear-gradient(135deg, #6b1b1b 0%, #d64545 100%);
-            box-shadow: 0 16px 40px rgba(214, 69, 69, 0.35);
+            background: linear-gradient(135deg, #6e2020 0%, #943535 100%);
+            box-shadow: 0 4px 12px rgba(110, 32, 32, 0.35);
+            border-color: rgba(148, 53, 53, 0.5);
+        }
+        
+        .btn-status-us:hover {
+            background: linear-gradient(135deg, #852828 0%, #af4444 100%);
+            box-shadow: 0 8px 24px rgba(133, 40, 40, 0.4), 0 0 0 2px rgba(148, 53, 53, 0.5);
+            border-color: rgba(148, 53, 53, 0.8);
         }
 
         .btn-status-rem {
-            background: linear-gradient(135deg, #512a8e 0%, #8d5bff 100%);
-            box-shadow: 0 16px 40px rgba(141, 91, 255, 0.35);
+            background: linear-gradient(135deg, #4a2d7a 0%, #6b4a9e 100%);
+            box-shadow: 0 4px 12px rgba(74, 45, 122, 0.35);
+            border-color: rgba(107, 74, 158, 0.5);
+        }
+        
+        .btn-status-rem:hover {
+            background: linear-gradient(135deg, #5a3990 0%, #7f5ab8 100%);
+            box-shadow: 0 8px 24px rgba(90, 57, 144, 0.4), 0 0 0 2px rgba(107, 74, 158, 0.5);
+            border-color: rgba(107, 74, 158, 0.8);
         }
 
         .btn-status-inst {
-            background: linear-gradient(135deg, #0d4f9a 0%, #2c8dfb 100%);
-            box-shadow: 0 16px 40px rgba(44, 141, 251, 0.35);
+            background: linear-gradient(135deg, #114a82 0%, #2270ad 100%);
+            box-shadow: 0 4px 12px rgba(17, 74, 130, 0.35);
+            border-color: rgba(34, 112, 173, 0.5);
+        }
+        
+        .btn-status-inst:hover {
+            background: linear-gradient(135deg, #165c9f 0%, #2a86ca 100%);
+            box-shadow: 0 8px 24px rgba(22, 92, 159, 0.4), 0 0 0 2px rgba(34, 112, 173, 0.5);
+            border-color: rgba(34, 112, 173, 0.8);
         }
         .btn-status-scrap {
-            background: linear-gradient(135deg, #343a40 0%, #6c757d 100%);
-            box-shadow: 0 16px 40px rgba(108, 117, 125, 0.35);
-            color: #fff;
-        }
-
-        /* Removed engine styling */
-        .removed-engine {
-            opacity: 0.6 !important;
-            background-color: #f0f0f0 !important;
-        }
-        
-        .removed-engine td {
-            text-decoration: line-through !important;
-            color: #999 !important;
-        }
-        
-        .removed-engine-badge {
-            background-color: #6c757d !important;
-            text-decoration: line-through !important;
+            background: linear-gradient(135deg, #2a2f35 0%, #3d454d 100%);
+            box-shadow: 0 4px 12px rgba(42, 47, 53, 0.3);
+            border-color: rgba(61, 69, 77, 0.4);
+            color: #eceff1;
         }
 
         /* Subcards: full size matching main dashboard cards */
@@ -166,20 +546,25 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border-radius: 16px;
+            border-radius: 12px;
             position: relative;
             min-height: 140px;
-            transition: transform 0.25s ease, opacity 0.25s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .btn-dashboard-sub:hover {
-            transform: translateY(-4px);
-            filter: brightness(1.05);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
         }
         .btn-dashboard-sub .label {
-            font-size: 0.85rem;
-            font-weight: 500;
-            opacity: 0.9;
+            font-size: 0.8rem;
+            font-weight: 600;
+            opacity: 0.85;
             margin-bottom: 8px;
+            color: #b0bec5 !important;
+            position: relative;
+            z-index: 2;
+            display: block;
+            letter-spacing: 0.5px;
         }
         .btn-dashboard-sub .count {
             font-size: 2rem;
@@ -194,61 +579,111 @@
             opacity: 0.2;
         }
         .btn-cond-new {
-            background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
-            box-shadow: 0 12px 28px rgba(13, 110, 253, 0.35);
-            color: #fff;
+            background: linear-gradient(135deg, #0d5299 0%, #1a6bb8 100%);
+            box-shadow: 0 4px 12px rgba(13, 82, 153, 0.3);
+            border-color: rgba(26, 107, 184, 0.4);
+            color: #eceff1;
         }
         .btn-cond-overhauled {
-            background: linear-gradient(135deg, #fd7e14 0%, #e96a00 100%);
-            box-shadow: 0 12px 28px rgba(253, 126, 20, 0.35);
-            color: #fff;
+            background: linear-gradient(135deg, #b85d10 0%, #d97514 100%);
+            box-shadow: 0 4px 12px rgba(184, 93, 16, 0.3);
+            border-color: rgba(217, 117, 20, 0.4);
+            color: #eceff1;
         }
         .btn-cond-inspected {
-            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
-            box-shadow: 0 12px 28px rgba(23, 162, 184, 0.35);
-            color: #fff;
+            background: linear-gradient(135deg, #127a8a 0%, #1a99ab 100%);
+            box-shadow: 0 4px 12px rgba(18, 122, 138, 0.3);
+            border-color: rgba(26, 153, 171, 0.4);
+            color: #eceff1;
         }
         .btn-cond-as {
-            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
-            box-shadow: 0 12px 28px rgba(108, 117, 125, 0.35);
+            background: linear-gradient(135deg, #4a5158 0%, #5d656e 100%);
+            box-shadow: 0 4px 12px rgba(74, 81, 88, 0.3);
+            border-color: rgba(93, 101, 110, 0.4);
+            color: #eceff1;
+        }
             color: #fff;
         }
 
         #locations-container .btn-dashboard {
-            background: linear-gradient(135deg, #1f2738 0%, #202b3a 100%);
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.28);
+            background: linear-gradient(135deg, #1a2332 0%, #243040 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }
 
         #locations-container .btn-dashboard .label {
-            font-size: 0.75rem;
-            opacity: 0.7;
+            font-size: 0.7rem;
+            opacity: 0.85;
+            color: #b0bec5 !important;
+            font-weight: 600;
+            position: relative;
+            z-index: 2;
+            display: block;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
         #locations-container .btn-dashboard .count {
             font-size: 1.4rem;
+            color: #eceff1;
         }
 
         #locations-container .btn-dashboard i {
             font-size: 1.3rem;
+            opacity: 0.15;
+            color: #4fc3f7;
+        }
+        
+        #locations-container .btn-dashboard:hover {
+            border-color: rgba(79, 195, 247, 0.6);
+            box-shadow: 0 8px 24px rgba(79, 195, 247, 0.25), 0 0 0 2px rgba(79, 195, 247, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            background: linear-gradient(135deg, #1e2938 0%, #2a3a4d 100%);
+            transform: translateY(-3px);
+        }
+        
+        #locations-container .btn-dashboard:hover .label {
+            color: #e3f2fd !important;
+        }
+        
+        #locations-container .btn-dashboard:hover i {
+            opacity: 0.4;
         }
 
         .aircraft-card {
-            background: linear-gradient(135deg, #1a2332 0%, #2d3e50 100%);
-            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(26, 35, 50, 0.8) 0%, rgba(45, 62, 80, 0.8) 100%);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
             padding: 20px;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(0, 210, 255, 0.2);
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
             margin-bottom: 20px;
             isolation: isolate;
         }
         
+        .aircraft-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(0, 210, 255, 0.1) 0%, rgba(138, 43, 226, 0.05) 100%);
+            opacity: 0;
+            transition: opacity 0.4s;
+            pointer-events: none;
+        }
+        
         .aircraft-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 48px rgba(0, 123, 255, 0.3);
+            transform: translateY(-8px) rotateX(5deg);
+            box-shadow: 0 20px 60px rgba(0, 210, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            border-color: rgba(0, 255, 200, 0.5);
+        }
+        
+        .aircraft-card:hover::before {
+            opacity: 1;
         }
         
         .aircraft-card-header {
@@ -264,7 +699,13 @@
             font-size: 1.5rem;
             font-weight: 700;
             color: #ffffff;
-            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 0, 0, 0.8);
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+        
+        .aircraft-name:hover {
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
         }
         
         .aircraft-stats {
@@ -279,9 +720,18 @@
         
         .aircraft-hours {
             font-size: 1.1rem;
-            font-weight: 600;
-            color: #ffd700;
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 20px rgba(0, 0, 0, 0.8);
+            font-weight: 700;
+            background: linear-gradient(135deg, #00ffff 0%, #ffffff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 20px rgba(0, 255, 200, 0.6);
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.4));
+            transition: all 0.3s;
+        }
+        
+        .aircraft-hours:hover {
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.6));
         }
         
         .aircraft-hours-label {
@@ -326,6 +776,230 @@
         .engine-positions.expanded {
             max-height: 4000px;
         }
+
+        /* Position Item - Accordion Style */
+        .position-item {
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(12px);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(0, 210, 255, 0.15);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .position-item:hover {
+            background: rgba(0, 0, 0, 0.2);
+            border-color: rgba(0, 210, 255, 0.15);
+        }
+
+        .position-item-header {
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+        }
+
+        .position-item-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .position-label {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+        }
+
+        .position-status {
+            font-size: 0.8rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .position-status.empty {
+            background: rgba(220, 38, 38, 0.15);
+            color: #fca5a5;
+        }
+
+        .position-status.installed {
+            background: rgba(34, 197, 94, 0.15);
+            color: #86efac;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .position-details {
+            padding: 0 16px 12px 16px;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 500px;
+            }
+        }
+
+        .empty-position-details {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .empty-position-details i {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            opacity: 0.5;
+        }
+
+        .position-period-info {
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), rgba(255, 140, 0, 0.1));
+            backdrop-filter: blur(10px);
+            border-left: 4px solid rgba(255, 193, 7, 0.6);
+            padding: 12px 14px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 0 15px rgba(255, 193, 7, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+        }
+
+        .position-period-info:hover {
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.25), rgba(255, 140, 0, 0.15));
+            border-left-color: #ffeb3b;
+            box-shadow: 0 0 25px rgba(255, 193, 7, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        }
+
+        .period-label {
+            font-size: 0.75rem;
+            color: rgba(255, 235, 59, 0.8);
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .period-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.85rem;
+        }
+
+        .period-stats div {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 193, 7, 0.2);
+            transition: all 0.3s;
+        }
+
+        .period-stats div:hover {
+            background: rgba(255, 193, 7, 0.1);
+            border-color: rgba(255, 193, 7, 0.4);
+            transform: scale(1.05);
+        }
+
+        .period-stats strong {
+            color: #ffffff;
+            display: block;
+            font-size: 1.2rem;
+            margin-bottom: 2px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .engine-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        /* Последние две ячейки (Installed и Param Date) на одной строке */
+        .engine-info-grid .info-row:nth-last-child(-n+2) {
+            grid-column: auto;
+        }
+
+        .engine-info-grid .info-row:last-child {
+            grid-column: 2 / 3;
+            margin-top: -8px;
+        }
+
+        .engine-info-grid .info-row:nth-last-child(2) {
+            grid-column: 1 / 2;
+            margin-bottom: 0;
+        }
+
+        .info-row {
+            background: linear-gradient(135deg, rgba(0, 70, 140, 0.2), rgba(0, 100, 200, 0.1));
+            backdrop-filter: blur(10px);
+            padding: 10px 12px;
+            border-radius: 6px;
+            border-left: 3px solid rgba(0, 255, 200, 0.4);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .info-row::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.15), transparent);
+            transition: left 0.5s ease;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .info-row:hover {
+            background: linear-gradient(135deg, rgba(0, 210, 255, 0.4), rgba(138, 43, 226, 0.25));
+            border-left-color: #00ffff;
+            box-shadow: 0 0 25px rgba(0, 210, 255, 0.6), inset 0 0 20px rgba(0, 255, 255, 0.15);
+        }
+
+        .info-row:hover::before {
+            left: 100%;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            color: rgba(0, 255, 200, 0.7);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: color 0.3s;
+        }
+
+        .info-value {
+            font-size: 0.9rem;
+            background: linear-gradient(135deg, #00ffff 0%, #ffffff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+            text-align: right;
+            word-break: break-word;
+            transition: all 0.3s;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.15));
+        }
         
         .engine-position-card {
             background: linear-gradient(135deg, #0f1419 0%, #1e2835 100%);
@@ -346,10 +1020,31 @@
                 transform: translateY(0);
             }
         }
+
+        @keyframes neonGlow {
+            0%, 100% {
+                text-shadow: 0 0 10px rgba(0, 255, 255, 0.5), 0 0 20px rgba(0, 210, 255, 0.3);
+            }
+            50% {
+                text-shadow: 0 0 20px rgba(0, 255, 255, 0.8), 0 0 40px rgba(0, 210, 255, 0.5), 0 0 60px rgba(138, 43, 226, 0.3);
+            }
+        }
+
+        @keyframes shimmer {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+
+        .aircraft-name {
+            animation: neonGlow 3s ease-in-out infinite;
+        }
         
         .engine-visual {
-            flex: 0 0 200px;
-            display: flex;
+            flex: 0 0 200px;\n            display: flex;
             align-items: center;
             justify-content: center;
             background: rgba(0, 0, 0, 0.3);
@@ -745,19 +1440,25 @@
         }
         /* --- NEON BUTTON & EDIT STYLES --- */
         .btn-neon {
-            background-color: #0d6efd;
-            color: white;
-            border: 1px solid #0d6efd;
-            box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
-            transition: all 0.3s ease;
-            font-weight: bold;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2a5a8a 100%);
+            color: #eceff1;
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
             text-align: left;
+            font-size: 0.9rem;
+            letter-spacing: 0.3px;
         }
         .btn-neon:hover {
-            background-color: #0b5ed7;
-            box-shadow: 0 0 20px rgba(13, 110, 253, 0.8);
-            color: white;
-            transform: scale(1.02);
+            background: linear-gradient(135deg, #2a5a8a 0%, #3a7aba 100%);
+            border-color: #4fc3f7;
+            box-shadow: 0 4px 12px rgba(79, 195, 247, 0.2);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+        .btn-neon i {
+            opacity: 0.9;
         }
 
         /* Цвета статусов для таблицы */
@@ -1142,52 +1843,33 @@
             margin-right: 8px;
         }
 
-        /* Neon sidebar section headers */
+        /* Professional sidebar section headers */
         .neon-header {
             display: flex;
             align-items: center;
-            gap: 10px;
-            color: #ffffff !important;
-            text-shadow:
-                0 0 8px rgba(0, 255, 255, 0.95),
-                0 0 18px rgba(0, 180, 255, 0.85),
-                0 0 32px rgba(0, 120, 255, 0.7);
-            font-weight: 800;
-            letter-spacing: 2px;
-            font-size: 0.9rem;
-            transition: all 0.25s ease;
-            animation: neonPulse 1.8s ease-in-out infinite;
+            gap: 8px;
+            color: #78909c !important;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+            padding: 8px 0;
+            text-transform: uppercase;
         }
 
         .neon-header i {
-            font-size: 0.75rem;
-            color: inherit;
-            text-shadow:
-                0 0 12px rgba(0, 255, 255, 0.9),
-                0 0 22px rgba(0, 200, 255, 0.7);
+            font-size: 0.7rem;
+            color: #546e7a;
+            transition: all 0.2s ease;
         }
 
         .neon-header:hover {
-            text-shadow:
-                0 0 15px rgba(0, 255, 255, 1),
-                0 0 30px rgba(0, 200, 255, 0.95),
-                0 0 48px rgba(0, 160, 255, 0.85);
-            color: #e7ffff !important;
+            color: #90caf9 !important;
         }
-
-        @keyframes neonPulse {
-            0%, 100% {
-                text-shadow:
-                    0 0 12px rgba(0, 220, 255, 1),
-                    0 0 24px rgba(0, 220, 255, 0.85),
-                    0 0 36px rgba(0, 160, 255, 0.7);
-            }
-            50% {
-                text-shadow:
-                    0 0 18px rgba(0, 255, 255, 1),
-                    0 0 36px rgba(0, 210, 255, 1),
-                    0 0 54px rgba(0, 170, 255, 0.85);
-            }
+        
+        .neon-header:hover i {
+            color: #90caf9;
+            transform: rotate(90deg);
         }
         
         /* --- DELETE BUTTON STYLES --- */
@@ -1431,6 +2113,12 @@
             animation: dropdownSlide 0.2s ease;
         }
 
+        /* Force readable text in profile dropdown */
+        #profile-dropdown,
+        #profile-dropdown * {
+            color: #0b0f19 !important;
+        }
+
         @keyframes dropdownSlide {
             from {
                 opacity: 0;
@@ -1519,6 +2207,24 @@
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
             display: none;
             z-index: 999;
+        }
+
+        /* Force readable text in notifications panel */
+        #notifications-panel,
+        #notifications-panel * {
+            color: #0b0f19 !important;
+        }
+
+        /* User management modal: readable text and light inputs (scoped) */
+        #user-manage-modal .modal-body,
+        #user-manage-modal .modal-body * {
+            color: #0b0f19 !important;
+        }
+        #user-manage-modal .form-control,
+        #user-manage-modal .form-select {
+            background: #ffffff !important;
+            color: #0b0f19 !important;
+            border-color: #ced4da;
         }
 
         .notifications-panel.show {
@@ -1612,61 +2318,90 @@
         /* === 3D PARTS CARDS === */
         :root {
             --parts-card-height: 200px;
-            --parts-card-width: 50%;
+            --parts-card-width: 49%;
         }
         .parts-cards-section {
             margin-top: 2.5rem;
             margin-bottom: 2rem;
+            position: relative;
+            z-index: 1;
+            padding: 0 1rem;
         }
 
-        /* Two-column layout: left has store/logistics, right has active movements/schedule status */
+        /* Horizontal layout with equal distribution */
         .parts-dashboard-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            align-items: start;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            align-items: stretch;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+            overflow: visible;
         }
 
         .parts-dashboard-grid .parts-cards-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1.25rem;
+            display: contents;
         }
 
         .parts-dashboard-grid .parts-cards-grid .parts-card-wrapper {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        .parts-dashboard-grid .parts-cards-grid .parts-card-wrapper .parts-card-3d {
             width: 100%;
-            flex: 1 1 100% !important;
-            min-width: 240px;
+            flex: 1;
         }
 
         .parts-dashboard-grid .schedule-cards-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1.25rem;
+            display: contents;
         }
 
         .parts-dashboard-grid .schedule-card-wrapper {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        .parts-dashboard-grid .schedule-card-wrapper .parts-card-3d {
             width: 100%;
+            flex: 1;
         }
 
         @media (max-width: 992px) {
             .parts-dashboard-grid {
-                grid-template-columns: 1fr;
+                flex-direction: column;
+            }
+            .parts-dashboard-grid .parts-cards-grid {
+                flex: 1 1 auto;
+            }
+            .parts-dashboard-grid .parts-cards-grid .parts-card-wrapper {
+                flex-basis: 100%;
             }
         }
 
         .parts-card-3d {
             position: relative;
-            height: var(--parts-card-height, 200px);
+            height: var(--parts-card-height, 280px);
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 20px;
-            padding: 2rem;
+            padding: 1.5rem;
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             transform-style: preserve-3d;
             perspective: 1000px;
             box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
-            overflow: hidden;
+            overflow: visible;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            z-index: 2;
         }
 
         .parts-card-3d::before {
@@ -1688,6 +2423,7 @@
         .parts-card-3d:hover {
             transform: translateY(-10px) rotateX(5deg);
             box-shadow: 0 20px 60px rgba(102, 126, 234, 0.5);
+            z-index: 50;
         }
 
         .parts-card-3d.card-green {
@@ -1701,11 +2437,11 @@
 
         .parts-card-icon {
             position: absolute;
-            right: 2rem;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: clamp(3.5rem, calc(var(--parts-card-height, 200px) * 0.35), 5.5rem);
-            color: rgba(255, 255, 255, 0.15);
+            right: 1.5rem;
+            top: 1.5rem;
+            transform: none;
+            font-size: 1.75rem;
+            color: rgba(255, 255, 255, 0.3);
             transition: all 0.3s;
         }
 
@@ -1718,29 +2454,39 @@
             position: relative;
             z-index: 2;
             color: white;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
         }
 
         .parts-card-title {
-            font-size: 1.75rem;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 1.2rem;
             font-weight: 700;
-            margin-bottom: 0.5rem;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.25rem;
             text-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
 
         .parts-card-subtitle {
-            font-size: 0.95rem;
-            opacity: 0.9;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 0.8rem;
+            opacity: 0.85;
             font-weight: 400;
         }
 
         .parts-card-count {
-            position: absolute;
-            bottom: 2rem;
-            left: 2rem;
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: rgba(255, 255, 255, 0.95);
+            position: relative;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            color: rgba(255, 255, 255, 1);
             text-shadow: 0 2px 15px rgba(0,0,0,0.2);
+            line-height: 1;
+            margin-top: auto;
+            padding-top: 1.5rem;
         }
 
         /* Parts Modal */
@@ -2733,6 +3479,477 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
+        /* === ENGINE DETAILS MODAL === */
+        #engine-details-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(11, 17, 32, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 10000;
+            overflow-y: auto;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .engine-details-container {
+            max-width: 1600px;
+            margin: 30px auto;
+            padding: 30px;
+        }
+
+        .engine-details-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px 30px;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        .engine-details-header h2 {
+            color: #f1f5f9;
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+
+        .engine-details-header .aircraft-info {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .btn-close-engine-modal {
+            background: rgba(239, 68, 68, 0.9);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-close-engine-modal:hover {
+            background: rgba(239, 68, 68, 1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Engine Modal Content Container */
+        #engine-modal-content {
+            width: 100%;
+        }
+
+        /* Engine Position Cards (Top Row - Clickable) */
+        .engine-positions-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .engine-pos-card {
+            background: linear-gradient(135deg, #1f7a4d 0%, #2bc66d 100%);
+            border-radius: 20px;
+            padding: 32px 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 12px 40px rgba(43, 198, 109, 0.3);
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .engine-pos-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .engine-pos-card:hover::before {
+            opacity: 1;
+        }
+
+        .engine-pos-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(43, 198, 109, 0.4);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .engine-pos-card.selected {
+            border-color: #fbbf24;
+            box-shadow: 0 12px 32px rgba(251, 191, 36, 0.5);
+        }
+
+        .engine-pos-card.empty {
+            background: linear-gradient(135deg, #334155 0%, #475569 100%);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            cursor: default;
+            opacity: 0.6;
+        }
+
+        .engine-pos-card.empty:hover {
+            transform: none;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .engine-pos-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .engine-pos-sn {
+            font-size: 1.15rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+        }
+
+        .engine-pos-empty-text {
+            color: rgba(255, 255, 255, 0.5);
+            font-style: italic;
+        }
+
+        /* Engine Details Grid (Bottom - Parameters) */
+        .engine-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .engine-detail-item {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #3b82f6;
+            transition: all 0.3s;
+        }
+
+        .engine-detail-item:hover {
+            background: rgba(15, 23, 42, 0.8);
+            transform: translateX(4px);
+        }
+
+        .engine-detail-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .engine-detail-value {
+            font-size: 1.3rem;
+            color: #f1f5f9;
+            font-weight: 700;
+        }
+
+        .engine-detail-value.highlight {
+            color: #fbbf24;
+            font-size: 1.5rem;
+        }
+
+        /* Selector bar → Action Buttons */
+        .engine-selector-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background: #0b1324;
+            border-radius: 12px;
+            padding: 14px 20px;
+            margin: 20px 0;
+            justify-content: center;
+            border: 1px solid rgba(71, 85, 105, 0.3);
+        }
+        .engine-action-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .engine-action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+        }
+        .engine-action-btn:active {
+            transform: translateY(0);
+        }
+        .engine-action-btn.active {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        .selector-item, .dot, .label {
+            display: none;
+        }
+
+        /* Engine Details Sections */
+        .engine-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .engine-section.active {
+            display: block;
+        }
+
+        /* Only the details panels (with three blocks) should be a grid */
+        .engine-info-sections.engine-section.active {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Engine History Section */
+        .engine-history-section {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            display: flex;
+            gap: 16px;
+            padding: 14px;
+            border-left: 4px solid #3b82f6;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .history-item.install { border-left-color: #10b981; }
+        .history-item.remove { border-left-color: #ef4444; }
+        .history-item.boroscope { border-left-color: #f59e0b; }
+
+        .history-date {
+            font-weight: 700;
+            color: #60a5fa;
+            min-width: 120px;
+            font-size: 0.9rem;
+        }
+        .history-action {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            min-width: 80px;
+            text-align: center;
+        }
+        .history-action.install {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+        .history-action.remove {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        .history-detail {
+            flex: 1;
+            color: #cbd5e1;
+            font-size: 0.95rem;
+        }
+
+        /* Analytics Section */
+        .analytics-section {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .analytics-tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid rgba(71, 85, 105, 0.4);
+            padding-bottom: 14px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: #cbd5e1;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .tab-btn:hover { color: #e2e8f0; }
+        .tab-btn.active {
+            color: #60a5fa;
+            border-bottom-color: #60a5fa;
+        }
+
+        /* Limit tab visibility control to analytics section to avoid hiding Bootstrap tabs elsewhere */
+        .analytics-section .tab-content {
+            display: none;
+        }
+        .analytics-section .tab-content.active {
+            display: block;
+        }
+
+        /* Make settings modal text readable (scoped to settings only) */
+        #settings-modal .modal-body,
+        #settings-modal .modal-body * {
+            color: #0b0f19 !important;
+        }
+        #settings-modal .nav-link {
+            color: #0b0f19 !important;
+        }
+        #settings-modal .nav-link.active {
+            color: #0b0f19 !important;
+        }
+
+        .chart-container {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            position: relative;
+            height: 350px;
+        }
+
+        .chart-filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .filter-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #cbd5e1;
+            cursor: pointer;
+        }
+        .filter-checkbox input {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Three-panels layout */
+        .engine-info-sections {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+        }
+        .engine-panel {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 20px;
+            padding: 28px 32px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(71, 85, 105, 0.4);
+        }
+        .engine-panel .panel-title {
+            font-weight: 800; color: #e2e8f0; margin-bottom: 16px; font-size: 1.35rem; letter-spacing: 0.5px;
+        }
+        .engine-panel .panel-title.small { font-size: 1.1rem; opacity: .9; font-weight: 700; }
+        .engine-panel .panel-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 0; border-bottom: 1px dashed rgba(148, 163, 184, 0.25);
+        }
+        .engine-panel .panel-row:last-child { border-bottom: none; }
+        .engine-panel .row-label { color: #cbd5e1; font-size: 1rem; font-weight: 500; }
+        .engine-panel .row-value { color: #f8fafc; font-weight: 700; font-size: 1.3rem; }
+        .engine-panel .row-value.cyan { color: #00d9ff; }
+        .engine-panel .row-value.blue { color: #0099ff; }
+        .engine-panel .row-value.green { color: #00ff66; }
+        .engine-panel .row-value.lime { color: #86efac; }
+        .engine-panel .panel-divider { height: 12px; }
+        .engine-panel .report-link { color: #60a5fa; text-decoration: none; }
+        .engine-panel .report-link:hover { text-decoration: underline; }
+
+        /* Loading State */
+        .engine-loading {
+            text-align: center;
+            padding: 60px;
+            color: #94a3b8;
+        }
+
+        .engine-loading .spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(148, 163, 184, 0.2);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .engine-loading p {
+            margin-top: 20px;
+            font-size: 1.1rem;
+        }
+
+        /* Error State */
+        .engine-error {
+            text-align: center;
+            padding: 60px;
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 12px;
+            border: 2px dashed #ef4444;
+        }
+
+        .engine-error i {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .engine-error p {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
     </style>
     <style>
         /* Extra spacing to avoid overlap for Nameplate tracker blocks */
@@ -2743,20 +3960,80 @@
             position: sticky !important;
             top: 0;
             z-index: 1030;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
             width: 100%;
-            background: white !important;
+            background: linear-gradient(135deg, #0f172a 0%, #1f2937 100%) !important;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.08);
+            color: #e2e8f0;
         }
         
-        /* Адаптивность иконок в navbar */
+        body.light-bg .navbar {
+            background: #ffffff !important;
+            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            color: #1f2937;
+        }
+        
         .navbar .d-flex.align-items-center {
             flex-wrap: nowrap;
         }
         
-        .user-icon-btn {
+        /* Иконки в navbar: темная и светлая темы */
+        .navbar .user-icon-btn {
             flex-shrink: 0;
             min-width: 40px;
             height: 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #cbd5e1;
+            background: transparent;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, filter 0.15s ease;
+        }
+        
+        .navbar .user-icon-btn:hover {
+            background: rgba(255, 255, 255, 0.08) !important;
+            color: #e0f2fe;
+            transform: translateY(-1px);
+        }
+        
+        body.light-bg .navbar .user-icon-btn {
+            color: #475569;
+        }
+        
+        body.light-bg .navbar .user-icon-btn:hover {
+            background: rgba(0, 102, 204, 0.1) !important;
+            color: #0f172a;
+        }
+        
+        .navbar #add-user-btn {
+            background: #22c55e;
+            color: #ffffff;
+            box-shadow: 0 2px 6px rgba(34, 197, 94, 0.25);
+        }
+        
+        .navbar #add-user-btn:hover {
+            filter: brightness(1.05);
+            transform: translateY(-1px);
+        }
+        
+        .navbar #notifications-btn {
+            position: relative;
+        }
+        
+        .navbar #user-profile-btn {
+            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+            border-radius: 12px;
+        }
+        
+        .navbar #user-profile-btn:hover {
+            filter: brightness(1.08);
+            transform: translateY(-1px);
         }
         
         /* ФИКСАЦИЯ ПАНЕЛИ С КНОПКАМИ (Refresh, Edit, Filter) - универсально для всех страниц */
@@ -2766,11 +4043,11 @@
             position: sticky;
             top: 60px;
             z-index: 1020;
-            background: white;
+            background: #0f172a;
             margin: -15px -15px 15px -15px !important;
             padding: 15px !important;
-            border-bottom: 1px solid #dee2e6;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
             flex-wrap: wrap !important;
             gap: 8px !important;
         }
@@ -3212,7 +4489,7 @@
 
 <div id="wrapper">
     <div id="sidebar-wrapper">
-        <a href="#" class="sidebar-brand text-white text-decoration-none" onclick="openDashboardView(); return false;">
+        <a href="#" class="sidebar-brand text-white text-decoration-none" onclick="if(typeof openDashboardView === 'function') { openDashboardView(); } return false;">
             <i class="bi bi-gear-fill"></i> Engine Management
         </a>
         <div class="list-group list-group-flush">
@@ -3228,7 +4505,7 @@
             </div>
             <!-- REPORTS GROUP (COLLAPSIBLE) -->
             <div class="text-uppercase text-muted small mt-4 mb-2 px-3">
-                <div class="neon-header" style="cursor: pointer; user-select: none;" onclick="toggleReportsMenu()">
+                <div class="neon-header" style="cursor: pointer; user-select: none;" onclick="if(typeof toggleReportsMenu === 'function') { toggleReportsMenu(); }">
                     <i class="bi bi-chevron-right" id="reports-chevron" style="transition: transform 0.3s;"></i>
                     Reports
                 </div>
@@ -3265,7 +4542,7 @@
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openEngParamView(); return false;"><i class="bi bi-sliders"></i> ENG Parameters</a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openUtilizationParamView(); return false;"><i class="bi bi-bar-chart-line"></i> Utilization Parameters</a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openPartsView(); return false;">
-                    <i class="bi bi-box-seam"></i> <span data-parts-title="logistics">Parts Removal/Installation</span>
+                    <i class="bi bi-box-seam"></i> Parts Removal/Installation
                 </a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openGSSModal(); return false;">
                     <i class="bi bi-123"></i> GSS Registry
@@ -3284,7 +4561,7 @@
                     <i class="bi bi-truck"></i> Engine Shipment
                 </a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openStoreBalanceView(); return false;">
-                    <i class="bi bi-collection"></i> <span data-parts-title="store">Store Balance</span>
+                    <i class="bi bi-collection"></i> Store Balance
                 </a>
             </div>
                 
@@ -3378,21 +4655,33 @@
 
     <div id="page-content-wrapper" class="w-100">
         
-        <nav class="navbar navbar-light bg-white border-bottom px-3 py-3">
-            <button class="btn btn-outline-secondary btn-sm" id="menu-toggle"><i class="bi bi-list fs-5"></i></button>
+        <nav class="navbar navbar-light bg-white border-bottom px-4 py-2">
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-outline-secondary btn-sm" id="menu-toggle"><i class="bi bi-list fs-5"></i></button>
+                <div style="display: flex; align-items: center; gap: 10px; font-weight: 600; color: #1e293b; font-size: 0.95rem;">
+                    <i class="bi bi-airplane" style="font-size: 1.2rem; color: #0066cc;"></i>
+                </div>
+            </div>
             <div class="flex-grow-1"></div>
-            <div class="d-flex align-items-center gap-2">
-                <button id="add-user-btn" class="user-icon-btn" title="Users" style="display:none; background: #28a745; color: white; border: none;">
+            <div class="d-flex align-items-center gap-3">
+                <!-- DB Status Indicator -->
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="width: 10px; height: 10px; background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);"></div>
+                </div>
+                <!-- Spacer -->
+                <div style="width: 1px; height: 24px; background: rgba(0,0,0,0.1);"></div>
+                <!-- User Controls -->
+                <button id="add-user-btn" class="user-icon-btn" title="Users" style="display:none; border: none;">
                     <i class="bi bi-person-plus"></i>
                 </button>
-                <button id="settings-btn" class="user-icon-btn" title="Settings">
-                    <i class="bi bi-gear"></i>
+                <button id="settings-btn" class="user-icon-btn" title="Settings" style="border: none; background: transparent;">
+                    <i class="bi bi-gear" style="font-size: 1.1rem;"></i>
                 </button>
-                <button id="notifications-btn" class="user-icon-btn" title="Notifications">
-                    <i class="bi bi-bell"></i>
+                <button id="notifications-btn" class="user-icon-btn" title="Notifications" style="border: none; background: transparent; position: relative;">
+                    <i class="bi bi-bell" style="font-size: 1.1rem;"></i>
                     <span id="notification-count" class="notification-badge">0</span>
                 </button>
-                <button id="user-profile-btn" class="user-icon-btn" title="Profile">
+                <button id="user-profile-btn" class="user-icon-btn" title="Profile" style="border: none; border-radius: 10px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem;">
                     <span id="user-initials">AA</span>
                 </button>
             </div>
@@ -5398,9 +6687,9 @@
                         </button>
                     </div>
                     <!-- Заголовки столбцов СРАЗУ после заголовка -->
-                    <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
+                    <div class="table-responsive" style="margin-top: 0;">
                         <table class="table table-striped table-hover mb-0" style="margin-top: 0;">
-                            <thead class="table-dark" style="position: sticky; top: 0; z-index: 10; border-top: none;">
+                            <thead class="table-dark" style="border-top: none;">
                                 <tr>
                                     <th>GSS ID</th>
                                     <th>Photo</th>
@@ -6200,7 +7489,7 @@
                                 <button class="btn btn-sm btn-secondary d-none" id="btn-main-cancel" onclick="cancelEditMode()"><i class="bi bi-x-lg"></i> Cancel</button>
                             </div>
                             
-                            <div class="table-responsive" style="max-height: 85vh; overflow: auto;">
+                            <div class="table-responsive" style="max-height: 80vh; overflow: auto;">
                                 <table class="table table-bordered table-hover table-sm text-center align-middle" style="font-size: 0.85rem; min-width: 100%;">
                                     <thead class="table-dark" style="position: sticky; top: 0; z-index: 10;">
                                         <tr>
@@ -6547,7 +7836,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary">Export to Excel</button>
+                <button type="button" class="btn btn-primary" onclick="exportModalToExcel()">Export to Excel</button>
             </div>
         </div>
     </div>
@@ -6581,6 +7870,14 @@
                         </ul>
                         <div class="tab-content">
                             <div class="tab-pane fade show active" id="settings-interface">
+                                <h6 class="mb-3">Appearance</h6>
+                                <div class="form-check form-switch mb-4">
+                                    <input class="form-check-input" type="checkbox" id="theme-toggle" onchange="toggleTheme()">
+                                    <label class="form-check-label" for="theme-toggle">
+                                        <strong><i class="bi bi-sun-fill me-2"></i>Light Background</strong> - Change dashboard and table backgrounds
+                                    </label>
+                                </div>
+                                <hr class="my-3">
                                 <h6 class="mb-3">Dashboard Customization</h6>
                                 <div class="form-check form-switch mb-3">
                                     <input class="form-check-input" type="checkbox" id="dashboard-edit-toggle" onchange="toggleDashboardEditMode()">
@@ -6873,6 +8170,7 @@ function openDashboardView() {
     
     window.noCache = () => `?t=${new Date().getTime()}`;
     window.onload = async function() {
+        loadSavedTheme();
         await loadDashboardData();
     };
 
@@ -7074,6 +8372,8 @@ function restoreView(viewName) {
         } catch (err) {
             console.error('Error fetching aircraft data:', err);
         }
+        // Keep a global reference for modal lookups
+        try { globalFleet = aircraftDetails; } catch (e) { /* ignore */ }
         
         const fleetContainer = document.getElementById('fleet-container');
         fleetContainer.innerHTML = '';
@@ -7104,12 +8404,13 @@ function restoreView(viewName) {
             const positionsId = `positions-${ac.aircraft_id}`;
             const chevronId = `chevron-${ac.aircraft_id}`;
             
-            let positionsHTML = '';
+            let positionsListHTML = '';
             const positions = ac.positions || [null, null, null, null];
             
-            // Создаем 4 отдельные карточки для каждой позиции (без SVG анимации)
+            // Создаем список позиций для аккордеона
             positions.forEach((pos, index) => {
                 const posNum = index + 1;
+                const posDetailId = `pos-detail-${ac.aircraft_id}-${posNum}`;
                 
                 // ФИЛЬТР: Проверяем, снят ли двигатель БЕЗ последующей установки
                 if (pos !== null) {
@@ -7137,119 +8438,106 @@ function restoreView(viewName) {
                     }
                 }
                 
-                if (pos === null) {
-                    positionsHTML += `
-                        <div class="engine-position-card">
-                            <div class="position-header">Position ${posNum}</div>
-                            <div class="empty-position">
-                                <i class="bi bi-inbox" style="font-size: 2rem;"></i><br>
-                                No Engine Installed
-                            </div>
+                const statusText = pos === null ? 'No Engine' : pos.current_sn;
+                const statusClass = pos === null ? 'empty' : 'installed';
+                
+                positionsListHTML += `
+                    <div class="position-item" data-position="${posNum}" data-aircraft-id="${ac.aircraft_id}">
+                        <div class="position-item-header">
+                            <span class="position-label">Position ${posNum}</span>
+                            <span class="position-status ${statusClass}">${statusText}</span>
                         </div>
-                    `;
-                } else {
-                    // Блок с периодом для этой позиции (если есть данные)
-                    let positionPeriodHTML = '';
-                    if (pos.util_date_from && pos.util_date_to && pos.util_ttsn !== null && pos.util_tcsn !== null) {
-                        positionPeriodHTML = `
-                            <div style="border-left: 4px solid #ffc107; background: #fff8e1; padding: 8px 12px; margin-bottom: 8px; border-radius: 4px;">
-                                <div style="font-size: 0.75rem; color: #666; margin-bottom: 4px;">
-                                    Period: ${pos.util_date_from} — ${pos.util_date_to}
+                        <div class="position-details" id="${posDetailId}" style="display: none;">
+                            ${pos === null ? `
+                                <div class="empty-position-details">
+                                    <i class="bi bi-inbox"></i>
+                                    <p>No Engine Installed</p>
                                 </div>
-                                <div style="display: flex; gap: 15px; justify-content: center;">
-                                    <div style="text-align: center;">
-                                        <div style="font-size: 1.1rem; font-weight: bold; color: #ff6b00;">${pos.util_ttsn}</div>
-                                        <div style="font-size: 0.7rem; color: #666;">TTSN (hrs)</div>
+                            ` : `
+                                ${pos.util_date_from && pos.util_date_to && pos.util_ttsn !== null && pos.util_tcsn !== null ? `
+                                    <div class="position-period-info">
+                                        <div class="period-label">Period: ${pos.util_date_from} — ${pos.util_date_to}</div>
+                                        <div class="period-stats">
+                                            <div><strong>${pos.util_ttsn}</strong> TTSN hrs</div>
+                                            <div><strong>${pos.util_tcsn}</strong> TCSN cyc</div>
+                                        </div>
                                     </div>
-                                    <div style="text-align: center;">
-                                        <div style="font-size: 1.1rem; font-weight: bold; color: #ff6b00;">${pos.util_tcsn}</div>
-                                        <div style="font-size: 0.7rem; color: #666;">TCSN (cyc)</div>
+                                ` : ''}
+                                <div class="engine-info-grid">
+                                    <div class="info-row">
+                                        <span class="info-label">Orig. ESN:</span>
+                                        <span class="info-value">${pos.original_sn}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Current S/N:</span>
+                                        <span class="info-value">${pos.current_sn}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">GSS ID:</span>
+                                        <span class="info-value">${pos.gss_sn}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Supplier:</span>
+                                        <span class="info-value">${pos.supplier || '-'}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">TSN on A/C:</span>
+                                        <span class="info-value">${pos.tsn_on_aircraft} hrs</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">CSN on A/C:</span>
+                                        <span class="info-value">${pos.csn_on_aircraft} cyc</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Total TSN:</span>
+                                        <span class="info-value">${pos.total_tsn} hrs</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Total CSN:</span>
+                                        <span class="info-value">${pos.total_csn} cyc</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">N1 Takeoff:</span>
+                                        <span class="info-value">${pos.n1_takeoff !== null ? pos.n1_takeoff + '%' : 'N/A'}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">N1 Cruise:</span>
+                                        <span class="info-value">${pos.n1_cruise !== null ? pos.n1_cruise + '%' : 'N/A'}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">N2 Takeoff:</span>
+                                        <span class="info-value">${pos.n2_takeoff !== null ? pos.n2_takeoff + '%' : 'N/A'}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">N2 Cruise:</span>
+                                        <span class="info-value">${pos.n2_cruise !== null ? pos.n2_cruise + '%' : 'N/A'}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">EGT Takeoff:</span>
+                                        <span class="info-value">${pos.egt_takeoff !== null ? pos.egt_takeoff + '°C' : 'N/A'}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">EGT Cruise:</span>
+                                        <span class="info-value">${pos.egt_cruise !== null ? pos.egt_cruise + '°C' : 'N/A'}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Installed:</span>
+                                        <span class="info-value">${pos.install_date}</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">Param Date:</span>
+                                        <span class="info-value">${pos.param_date || 'N/A'}</span>
                                     </div>
                                 </div>
-                            </div>
-                        `;
-                    }
-                    
-                    positionsHTML += `
-                        <div class="engine-position-card">
-                            <div class="position-header">Position ${posNum}</div>
-                            ${positionPeriodHTML}
-                            <div class="engine-data" style="margin-bottom: 10px; padding: 8px; background: #e7f3ff; border-radius: 4px;">
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label"><strong>Orig. ESN</strong></div>
-                                    <div class="engine-data-value" style="color: #0066cc; font-weight: bold;">${pos.original_sn}</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label"><strong>Current S/N</strong></div>
-                                    <div class="engine-data-value" style="color: #0066cc; font-weight: bold;">${pos.current_sn}</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label"><strong>GSS ID</strong></div>
-                                    <div class="engine-data-value" style="color: #0066cc; font-weight: bold;">${pos.gss_sn}</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label"><strong>Supplier</strong></div>
-                                    <div class="engine-data-value" style="color: #ff9800; font-weight: bold;">${pos.supplier || '-'}</div>
-                                </div>
-                            </div>
-                            <div class="engine-data">
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">TSN on A/C</div>
-                                    <div class="engine-data-value highlight">${pos.tsn_on_aircraft} hrs</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">CSN on A/C</div>
-                                    <div class="engine-data-value highlight">${pos.csn_on_aircraft} cyc</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">Total TSN</div>
-                                    <div class="engine-data-value">${pos.total_tsn} hrs</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">Total CSN</div>
-                                    <div class="engine-data-value">${pos.total_csn} cyc</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">N1 Takeoff</div>
-                                    <div class="engine-data-value">${pos.n1_takeoff !== null ? pos.n1_takeoff : 'N/A'}</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">N1 Cruise</div>
-                                    <div class="engine-data-value">${pos.n1_cruise !== null ? pos.n1_cruise : 'N/A'}</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">N2 Takeoff</div>
-                                    <div class="engine-data-value">${pos.n2_takeoff !== null ? pos.n2_takeoff : 'N/A'}</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">N2 Cruise</div>
-                                    <div class="engine-data-value">${pos.n2_cruise !== null ? pos.n2_cruise : 'N/A'}</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">EGT Takeoff</div>
-                                    <div class="engine-data-value">${pos.egt_takeoff !== null ? pos.egt_takeoff + '°C' : 'N/A'}</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">EGT Cruise</div>
-                                    <div class="engine-data-value">${pos.egt_cruise !== null ? pos.egt_cruise + '°C' : 'N/A'}</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">Installed</div>
-                                    <div class="engine-data-value">${pos.install_date}</div>
-                                </div>
-                                <div class="engine-data-item">
-                                    <div class="engine-data-label">Param Date</div>
-                                    <div class="engine-data-value param-date-value">${pos.param_date || 'N/A'}</div>
-                                </div>
-                            </div>
+                            `}
                         </div>
-                    `;
-                }
+                    </div>
+                `;
             });
             
             fleetContainer.insertAdjacentHTML('beforeend', `
                 <div class="col-lg-4 col-md-6">
-                    <div class="aircraft-card" id="${cardId}">
+                    <div class="aircraft-card" id="${cardId}" data-aircraft-id="${ac.aircraft_id}" data-tail-number="${ac.tail_number}" style="cursor: pointer;">
                         <div class="aircraft-visual-main">
                             <video id="engine-video-${ac.aircraft_id}" class="engine-video" src="/static/engine-fan.mp4" preload="auto" autoplay loop muted playsinline></video>
                         </div>
@@ -7274,18 +8562,57 @@ function restoreView(viewName) {
                         </div>
                         
                         <div class="engine-positions" id="${positionsId}">
-                            ${positionsHTML}
+                            ${positionsListHTML}
                         </div>
                     </div>
                 </div>
             `);
         });
         
+        // Добавляем обработчики для аккордеона позиций
+        document.querySelectorAll('.position-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const posNum = this.getAttribute('data-position');
+                const aircraftId = this.getAttribute('data-aircraft-id');
+                const detailsId = `pos-detail-${aircraftId}-${posNum}`;
+                const details = document.getElementById(detailsId);
+                const isHidden = details.style.display === 'none';
+                
+                // Закрыть все остальные позиции
+                document.querySelectorAll(`[data-aircraft-id="${aircraftId}"] .position-details`).forEach(d => {
+                    d.style.display = 'none';
+                });
+                
+                // Открыть текущую
+                if (isHidden) {
+                    details.style.display = 'block';
+                }
+            });
+        });
+        
         // Добавляем обработчики событий для всех кнопок-шевронов после создания HTML
         document.querySelectorAll('.chevron-toggle-top').forEach(toggle => {
-            toggle.addEventListener('click', function() {
+            toggle.addEventListener('click', function(e) {
+                e.stopPropagation(); // Prevent card click
                 const aircraftId = this.getAttribute('data-aircraft-id');
                 toggleEnginePositions(aircraftId);
+            });
+        });
+
+        // Добавляем обработчики клика на карточки самолетов для открытия модального окна
+        document.querySelectorAll('.aircraft-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                // Ignore clicks on chevron, utilization history, and interactive elements
+                if (e.target.closest('.chevron-toggle-top') || 
+                    e.target.closest('[onclick*="openUtilizationHistoryModal"]') ||
+                    e.target.closest('.engine-positions')) {
+                    return;
+                }
+                
+                const aircraftId = this.getAttribute('data-aircraft-id');
+                const tailNumber = this.getAttribute('data-tail-number');
+                openEngineDetailsModal(aircraftId, tailNumber);
             });
         });
         
@@ -8815,14 +10142,14 @@ function restoreView(viewName) {
 
         if(filtered.length === 0) {
             setupModal(`Location: ${locName}`, 
-                ['GSS SN', 'Orig SN', 'Current SN', 'Status', 'TT', 'TC'],
+                ['GSS SN', 'Orig SN', 'Current SN', 'Status', 'Condition 1', 'Condition 2'],
                 '<tr><td colspan="6" class="text-center text-muted">No engines at this location</td></tr>'
             );
             return;
         }
 
         setupModal(`Location: ${locName}`,
-            ['Model', 'GSS SN', 'Orig SN', 'Current SN', 'Status', 'TT', 'TC'],
+            ['Model', 'GSS SN', 'Orig SN', 'Current SN', 'Status', 'Condition 1', 'Condition 2'],
             filtered.map(e => `
                 <tr>
                     <td>${e.model || '-'}</td>
@@ -8830,8 +10157,8 @@ function restoreView(viewName) {
                     <td>${e.original_sn}</td>
                     <td><strong>${e.current_sn}</strong></td>
                     <td><span class="badge bg-secondary">${e.status}</span></td>
-                    <td>${e.tt}</td>
-                    <td>${e.tc}</td>
+                    <td><span class="badge ${e.condition_1 === 'SV' ? 'bg-success' : e.condition_1 === 'US' ? 'bg-danger' : 'bg-secondary'}">${e.condition_1 || '-'}</span></td>
+                    <td><span class="badge bg-info">${e.condition_2 || '-'}</span></td>
                 </tr>
             `)
         );
@@ -8859,6 +10186,538 @@ function restoreView(viewName) {
             chevron.classList.add('bi-chevron-up');
         }
     }
+
+    // === ENGINE DETAILS MODAL FUNCTIONS ===
+    
+    let currentSelectedEnginePos = null;
+    let currentEngineData = null;
+
+    // Open Engine Details Modal
+    function openEngineDetailsModal(aircraftId, tailNumber) {
+        const modal = document.getElementById('engine-details-modal');
+        const modalContent = document.getElementById('engine-modal-content');
+        const modalAircraftName = document.getElementById('modal-aircraft-name');
+        const modalAircraftInfo = document.getElementById('modal-aircraft-info');
+
+        // Find aircraft in globalFleet
+        let aircraft = (globalFleet || []).find(a => String(a.aircraft_id) === String(aircraftId) || a.tail_number === tailNumber);
+        // Fallback: open modal even if not found
+        if (!aircraft) {
+            aircraft = {
+                aircraft_id: aircraftId || 'N/A',
+                tail_number: tailNumber || 'N/A',
+                model: 'Boeing 747-200',
+                total_time: 0,
+                total_cycles: 0,
+                positions: [null, null, null, null]
+            };
+        }
+
+        // Set aircraft info
+        modalAircraftName.textContent = aircraft.tail_number || 'Aircraft';
+        // Per requirements: fixed company and model display
+        modalAircraftInfo.textContent = `Boeing 747-200 • GSS`;
+
+        // Show modal
+        modal.style.display = 'block';
+
+        // Prepare engine data from positions
+        const positions = aircraft.positions || [null, null, null, null];
+        const engines = positions.map((pos, index) => {
+            if (!pos) {
+                return {
+                    position: `ENG ${index + 1} (${index % 2 === 0 ? 'L' : 'R'})`,
+                    engine_id: null,
+                    original_sn: null,
+                    current_sn: null,
+                    gss_id: null,
+                    supplier: null,
+                    utilization: 'N/A',
+                    install_date: 'N/A',
+                    last_borescope: 'N/A',
+                    total_time: 0,
+                    total_cycles: 0,
+                    tsn_on_aircraft: 0,
+                    csn_on_aircraft: 0
+                };
+            }
+            
+            return {
+                position: `ENG ${index + 1} (${index % 2 === 0 ? 'L' : 'R'})`,
+                engine_id: pos.engine_id || null,
+                original_sn: pos.original_sn || 'N/A',
+                current_sn: pos.current_sn || pos.original_sn || 'N/A',
+                gss_id: pos.gss_sn || 'N/A',
+                supplier: pos.supplier || 'N/A',
+                utilization: pos.tsn_on_aircraft ? `${pos.tsn_on_aircraft} hrs` : 'N/A',
+                install_date: pos.install_date || 'N/A',
+                last_borescope: 'N/A',
+                total_time: pos.total_tsn || 0,
+                total_cycles: pos.total_csn || 0,
+                tsn_on_aircraft: pos.tsn_on_aircraft || 0,
+                csn_on_aircraft: pos.csn_on_aircraft || 0,
+                param_date: pos.param_date || 'N/A',
+                n1_takeoff: pos.n1_takeoff,
+                n1_cruise: pos.n1_cruise,
+                n2_takeoff: pos.n2_takeoff,
+                n2_cruise: pos.n2_cruise,
+                egt_takeoff: pos.egt_takeoff,
+                egt_cruise: pos.egt_cruise
+            };
+        });
+
+        currentEngineData = { engines };
+        renderEngineDetails(currentEngineData);
+    }
+
+    // Close Engine Details Modal
+    function closeEngineDetailsModal() {
+        const modal = document.getElementById('engine-details-modal');
+        modal.style.display = 'none';
+        currentSelectedEnginePos = null;
+        currentEngineData = null;
+    }
+
+    // Render engine details (positions grid + parameters)
+    function renderEngineDetails(data) {
+        const modalContent = document.getElementById('engine-modal-content');
+        
+        if (!data || !data.engines || data.engines.length === 0) {
+            modalContent.innerHTML = `
+                <div class="engine-error">
+                    <i class="bi bi-info-circle"></i>
+                    <p>No engine data available</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Build positions grid (top row with clickable cards)
+        let positionsHTML = '<div class="engine-positions-grid">';
+        
+        data.engines.forEach((engine, index) => {
+            const isEmpty = !engine.original_sn && !engine.current_sn;
+            const isSelected = index === (currentSelectedEnginePos || 0);
+            
+            positionsHTML += `
+                <div class="engine-pos-card ${isEmpty ? 'empty' : ''} ${isSelected ? 'selected' : ''}" 
+                     onclick="${isEmpty ? '' : `selectEnginePosition(${index})`}">
+                    <div class="engine-pos-title">${engine.position || `ENG ${index + 1}`}</div>
+                    ${isEmpty ? 
+                        '<div class="engine-pos-empty-text">Empty Position</div>' :
+                        `<div class="engine-pos-sn">SN: ${engine.current_sn || engine.original_sn}</div>`
+                    }
+                </div>
+            `;
+        });
+        
+        positionsHTML += '</div>';
+
+        // Select first non-empty engine by default
+        if (currentSelectedEnginePos === null) {
+            currentSelectedEnginePos = data.engines.findIndex(e => e.original_sn || e.current_sn);
+            if (currentSelectedEnginePos === -1) currentSelectedEnginePos = 0;
+        }
+
+        // Build action buttons bar (middle)
+        let currentEngineId = data.engines[currentSelectedEnginePos]?.engine_id || null;
+        let currentGSSId = data.engines[currentSelectedEnginePos]?.gss_id || 'N/A';
+        const selectorHTML = `
+            <div class="engine-selector-bar">
+                <button class="engine-action-btn" onclick="showEngineSection('history', ${currentSelectedEnginePos})">
+                    <i class="bi bi-clock-history"></i> Engine History
+                </button>
+                <button class="engine-action-btn" onclick="showEngineSection('analytics', ${currentSelectedEnginePos})">
+                    <i class="bi bi-graph-up"></i> Analytics
+                </button>
+                <button class="engine-action-btn" onclick="sendEngineReport(${currentSelectedEnginePos})">
+                    <i class="bi bi-envelope"></i> Send Email
+                </button>
+            </div>
+        `;
+
+        // Build three information panels (bottom)
+        const e = data.engines[currentSelectedEnginePos] || {};
+        const fmt = v => (v === null || v === undefined || v === '' ? 'N/A' : v);
+        const fmtNum = (v, unit) => (v || v === 0) ? `${v} ${unit}` : 'N/A';
+        const tsnAC = (e.tsn_on_aircraft !== undefined && e.tsn_on_aircraft !== null) ? `${e.tsn_on_aircraft} hrs` : 'N/A';
+        const csnAC = (e.csn_on_aircraft !== undefined && e.csn_on_aircraft !== null) ? `${e.csn_on_aircraft} cyc` : 'N/A';
+
+        const leftPanel = `
+            <div class="engine-panel">
+                <div class="panel-title">Engine Information</div>
+                <div class="panel-row"><div class="row-label">Current SN</div><div class="row-value">${fmt(e.current_sn)}</div></div>
+                <div class="panel-row"><div class="row-label">Original SN</div><div class="row-value">${fmt(e.original_sn)}</div></div>
+                <div class="panel-row"><div class="row-label">GSS ID</div><div class="row-value">${fmt(e.gss_id)}</div></div>
+                <div class="panel-row"><div class="row-label">Supplier</div><div class="row-value">${fmt(e.supplier)}</div></div>
+                <div class="panel-row"><div class="row-label">Installed Date</div><div class="row-value">${fmt(e.install_date)}</div></div>
+            </div>`;
+
+        const centerPanel = `
+            <div class="engine-panel">
+                <div class="panel-title">Time & Cycles</div>
+                <div class="panel-row"><div class="row-label">TSN (on A/C)</div><div class="row-value blue">${tsnAC}</div></div>
+                <div class="panel-row"><div class="row-label">CSN (on A/C)</div><div class="row-value cyan">${csnAC}</div></div>
+                <div class="panel-divider"></div>
+                <div class="panel-title small">Last Boroscope Inspection</div>
+                <div class="panel-row"><div class="row-label">Date</div><div class="row-value">${fmt(e.last_boroscope)}</div></div>
+                <div class="panel-row"><div class="row-label">Report</div><div class="row-value"><a href="#" class="report-link" onclick="return false;">View</a></div></div>
+            </div>`;
+
+        const rightPanel = `
+            <div class="engine-panel">
+                <div class="panel-title">Engine Parameters</div>
+                <div class="panel-row"><div class="row-label">N1 Takeoff</div><div class="row-value">${fmtNum(e.n1_takeoff, '%')}</div></div>
+                <div class="panel-row"><div class="row-label">N1 Cruise</div><div class="row-value">${fmtNum(e.n1_cruise, '%')}</div></div>
+                <div class="panel-row"><div class="row-label">N2 Takeoff</div><div class="row-value">${fmtNum(e.n2_takeoff, '%')}</div></div>
+                <div class="panel-row"><div class="row-label">N2 Cruise</div><div class="row-value">${fmtNum(e.n2_cruise, '%')}</div></div>
+                <div class="panel-row"><div class="row-label">EGT Takeoff</div><div class="row-value">${fmtNum(e.egt_takeoff, '°C')}</div></div>
+                <div class="panel-row"><div class="row-label">EGT Cruise</div><div class="row-value">${fmtNum(e.egt_cruise, '°C')}</div></div>
+                <div class="panel-divider"></div>
+                <div class="panel-row"><div class="row-label">Last Updated</div><div class="row-value">${fmt(e.param_date)}</div></div>
+            </div>`;
+
+        const panelsHTML = `<div class="engine-info-sections engine-section active" id="details-section-${currentSelectedEnginePos}">${leftPanel}${centerPanel}${rightPanel}</div>`;
+
+        // Engine History Section
+        const historyHTML = `
+            <div class="engine-section" id="history-section-${currentSelectedEnginePos}">
+                <div class="engine-history-section">
+                    <div style="text-align: center; padding: 20px; color: #94a3b8;">
+                        <i class="bi bi-hourglass-split" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                        Loading history...
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Analytics Section
+        const analyticsHTML = `
+            <div class="engine-section" id="analytics-section-${currentSelectedEnginePos}">
+                <div class="analytics-section">
+                    <div class="analytics-tabs">
+                        <button class="tab-btn active" onclick="switchAnalyticsTab('n1', ${currentSelectedEnginePos})">N1 Graph</button>
+                        <button class="tab-btn" onclick="switchAnalyticsTab('n2', ${currentSelectedEnginePos})">N2 Graph</button>
+                        <button class="tab-btn" onclick="switchAnalyticsTab('egt', ${currentSelectedEnginePos})">EGT Graph</button>
+                        <button class="tab-btn" onclick="switchAnalyticsTab('swaps', ${currentSelectedEnginePos})">Engine Swaps</button>
+                    </div>
+                    
+                    <div id="n1-tab-${currentSelectedEnginePos}" class="tab-content active">
+                        <div class="chart-filters">
+                            <label class="filter-checkbox"><input type="checkbox" checked onchange="updateChart('n1', ${currentSelectedEnginePos})"> N1 Takeoff</label>
+                            <label class="filter-checkbox"><input type="checkbox" checked onchange="updateChart('n1', ${currentSelectedEnginePos})"> N1 Cruise</label>
+                        </div>
+                        <div class="chart-container"><canvas id="n1-chart-${currentSelectedEnginePos}"></canvas></div>
+                    </div>
+
+                    <div id="n2-tab-${currentSelectedEnginePos}" class="tab-content">
+                        <div class="chart-filters">
+                            <label class="filter-checkbox"><input type="checkbox" checked onchange="updateChart('n2', ${currentSelectedEnginePos})"> N2 Takeoff</label>
+                            <label class="filter-checkbox"><input type="checkbox" checked onchange="updateChart('n2', ${currentSelectedEnginePos})"> N2 Cruise</label>
+                        </div>
+                        <div class="chart-container"><canvas id="n2-chart-${currentSelectedEnginePos}"></canvas></div>
+                    </div>
+
+                    <div id="egt-tab-${currentSelectedEnginePos}" class="tab-content">
+                        <div class="chart-filters">
+                            <label class="filter-checkbox"><input type="checkbox" checked onchange="updateChart('egt', ${currentSelectedEnginePos})"> EGT Takeoff</label>
+                            <label class="filter-checkbox"><input type="checkbox" checked onchange="updateChart('egt', ${currentSelectedEnginePos})"> EGT Cruise</label>
+                        </div>
+                        <div class="chart-container"><canvas id="egt-chart-${currentSelectedEnginePos}"></canvas></div>
+                    </div>
+
+                    <div id="swaps-tab-${currentSelectedEnginePos}" class="tab-content">
+                        <div class="chart-container"><canvas id="swaps-chart-${currentSelectedEnginePos}"></canvas></div>
+                        <p style="color: #cbd5e1; text-align: center; margin-top: 10px;">Engine replacements per position over time</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Combine and render
+        modalContent.innerHTML = positionsHTML + selectorHTML + panelsHTML + historyHTML + analyticsHTML;
+        
+        // Load history data
+        loadEngineHistory(currentSelectedEnginePos);
+    }
+
+
+    // Select an engine position
+    function selectEnginePosition(index) {
+        if (!currentEngineData || !currentEngineData.engines[index]) return;
+        
+        currentSelectedEnginePos = index;
+        renderEngineDetails(currentEngineData);
+    }
+
+    // Show engine section (History, Analytics) - Details всегда видна
+    function showEngineSection(sectionType, enginePos) {
+        // Hide only History и Analytics sections (Details всегда видна)
+        const modal = document.getElementById('engine-modal-content');
+        const historySection = document.getElementById(`history-section-${enginePos}`);
+        const analyticsSection = document.getElementById(`analytics-section-${enginePos}`);
+        
+        if (historySection) historySection.classList.remove('active');
+        if (analyticsSection) analyticsSection.classList.remove('active');
+        
+        // Update buttons (снимаем active со всех)
+        const buttons = modal.querySelectorAll('.engine-action-btn');
+        buttons.forEach(b => b.classList.remove('active'));
+        
+        // Show selected section и mark button as active
+        if (sectionType === 'history' && historySection) {
+            historySection.classList.add('active');
+            event.target.closest('.engine-action-btn')?.classList.add('active');
+        } else if (sectionType === 'analytics' && analyticsSection) {
+            analyticsSection.classList.add('active');
+            event.target.closest('.engine-action-btn')?.classList.add('active');
+        }
+    }
+
+    // Switch analytics tabs
+    function switchAnalyticsTab(tabName, enginePos) {
+        const modal = document.getElementById('engine-modal-content');
+        
+        // Hide all tabs
+        modal.querySelectorAll(`#n1-tab-${enginePos}, #n2-tab-${enginePos}, #egt-tab-${enginePos}, #swaps-tab-${enginePos}`).forEach(t => {
+            t.classList.remove('active');
+        });
+        
+        // Update tab buttons
+        modal.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        
+        // Show selected tab
+        const tabId = `${tabName}-tab-${enginePos}`;
+        const tab = document.getElementById(tabId);
+        if (tab) tab.classList.add('active');
+        
+        event.target.classList.add('active');
+        
+        // Initialize chart if not already done
+        setTimeout(() => initializeChart(tabName, enginePos), 100);
+    }
+
+    // Load engine history from backend
+    async function loadEngineHistory(enginePos) {
+        try {
+            const e = currentEngineData.engines[enginePos];
+            const aircraftId = document.querySelector('[data-aircraft-id]')?.getAttribute('data-aircraft-id');
+            
+            if (!e.engine_id || !aircraftId) {
+                console.warn('Missing engine ID or aircraft ID for history');
+                return;
+            }
+
+            // For now, show placeholder
+            const historySection = document.getElementById(`history-section-${enginePos}`);
+            if (historySection) {
+                historySection.innerHTML = `
+                    <div class="engine-history-section">
+                        <h4 style="color: #e2e8f0; margin-bottom: 16px;">Engine: ${e.current_sn} (GSS: ${e.gss_id})</h4>
+                        <div class="history-item install">
+                            <div class="history-date">2024-01-15</div>
+                            <div class="history-action install">INSTALL</div>
+                            <div class="history-detail">Installed on aircraft ER-BAQ, Position 1L<br>TT: 45,000 hrs | TC: 12,500 cyc</div>
+                        </div>
+                        <div class="history-item boroscope">
+                            <div class="history-date">2024-06-15</div>
+                            <div class="history-action">BOROSCOPE</div>
+                            <div class="history-detail">Boroscope inspection completed - Status: OK</div>
+                        </div>
+                        <div class="history-item">
+                            <div class="history-date">2024-07-20</div>
+                            <div class="history-action">PARAMETER</div>
+                            <div class="history-detail">ENG Parameters updated: N1: 92.5%, N2: 95.3%, EGT: 850°C</div>
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (err) {
+            console.error('Error loading engine history:', err);
+        }
+    }
+
+    // Initialize chart for analytics
+    async function initializeChart(chartType, enginePos) {
+        try {
+            const e = currentEngineData.engines[enginePos];
+            const aircraftCard = document.querySelector('[data-aircraft-id]');
+            const aircraftId = aircraftCard?.getAttribute('data-aircraft-id');
+            
+            if (!e.engine_id || !aircraftId) {
+                console.warn('Missing data for chart');
+                return;
+            }
+
+            // Fetch parameters data
+            const response = await fetch(`/api/aircraft/${aircraftId}/engines/${e.engine_id}/parameters-data?months=12`);
+            if (!response.ok) throw new Error('Failed to load parameters');
+            
+            const data = await response.json();
+            const canvasId = `${chartType}-chart-${enginePos}`;
+            const canvas = document.getElementById(canvasId);
+            
+            if (!canvas) {
+                console.warn(`Canvas ${canvasId} not found`);
+                return;
+            }
+
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart if any
+            if (window.engineCharts && window.engineCharts[canvasId]) {
+                window.engineCharts[canvasId].destroy();
+            }
+            if (!window.engineCharts) window.engineCharts = {};
+
+            let datasets = [];
+            let labels = data.parameters.map(p => p.date);
+
+            if (chartType === 'n1') {
+                datasets = [
+                    { label: 'N1 Takeoff', data: data.parameters.map(p => p.n1_takeoff), borderColor: '#3b82f6', tension: 0.1 },
+                    { label: 'N1 Cruise', data: data.parameters.map(p => p.n1_cruise), borderColor: '#00d9ff', tension: 0.1 }
+                ];
+            } else if (chartType === 'n2') {
+                datasets = [
+                    { label: 'N2 Takeoff', data: data.parameters.map(p => p.n2_takeoff), borderColor: '#10b981', tension: 0.1 },
+                    { label: 'N2 Cruise', data: data.parameters.map(p => p.n2_cruise), borderColor: '#86efac', tension: 0.1 }
+                ];
+            } else if (chartType === 'egt') {
+                datasets = [
+                    { label: 'EGT Takeoff', data: data.parameters.map(p => p.egt_takeoff), borderColor: '#f59e0b', tension: 0.1 },
+                    { label: 'EGT Cruise', data: data.parameters.map(p => p.egt_cruise), borderColor: '#ef4444', tension: 0.1 }
+                ];
+            } else if (chartType === 'swaps') {
+                labels = Object.keys(data.monthly_swaps || {});
+                datasets = [{
+                    label: 'Engine Replacements',
+                    data: labels.map(m => data.monthly_swaps[m] || 0),
+                    borderColor: '#a78bfa',
+                    backgroundColor: 'rgba(167, 139, 250, 0.1)',
+                    tension: 0.1
+                }];
+            }
+
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets.map(ds => ({
+                        ...ds,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: ds.borderColor,
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: { color: '#cbd5e1', font: { size: 12 } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+
+            window.engineCharts[canvasId] = chart;
+        } catch (err) {
+            console.error('Error initializing chart:', err);
+        }
+    }
+
+    // Update chart with filters
+    function updateChart(chartType, enginePos) {
+        console.log(`Update ${chartType} chart for engine ${enginePos}`);
+    }
+
+    // Send engine report via email
+    async function sendEngineReport(enginePos) {
+        try {
+            const e = currentEngineData.engines[enginePos];
+            const aircraftCard = document.querySelector('[data-aircraft-id]');
+            const aircraftId = aircraftCard?.getAttribute('data-aircraft-id');
+            
+            if (!e.engine_id || !aircraftId) {
+                alert('Missing data for report');
+                return;
+            }
+
+            const recipientEmail = prompt(`Send engine report for ${e.current_sn} to email:\n\n(Enter recipient email address)`);
+            if (!recipientEmail) return;
+
+            // Validate email
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(recipientEmail)) {
+                alert('Invalid email address');
+                return;
+            }
+
+            // Show loading
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending...';
+            btn.disabled = true;
+
+            // Send report
+            const response = await fetch(`/api/aircraft/${aircraftId}/engines/${e.engine_id}/send-report`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recipient_email: recipientEmail,
+                    subject: `Engine Report: ${e.current_sn}`,
+                    aircraft_id: aircraftId,
+                    engine_id: e.engine_id
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.status === 'success') {
+                alert(`✅ ${result.message}`);
+            } else {
+                alert(`⚠️ ${result.message || 'Failed to send report'}`);
+            }
+
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        } catch (err) {
+            console.error('Error sending report:', err);
+            alert('Error sending report');
+        }
+    }
+
+    // Close modal on ESC key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeEngineDetailsModal();
+        }
+    });
+
+    // Close modal on background click
+    document.addEventListener('click', (e) => {
+        const modal = document.getElementById('engine-details-modal');
+        if (e.target === modal) {
+            closeEngineDetailsModal();
+        }
+    });
 
     // C. Open Aircraft Table (THE BIG ONE)
     function openAircraftModal(tailNumber) {
@@ -8909,6 +10768,66 @@ function restoreView(viewName) {
         const modal = new bootstrap.Modal(document.getElementById('dataModal'));
         modal.show();
     }
+
+    // Export Modal Table to Excel
+    function exportModalToExcel() {
+        try {
+            // Get modal title for filename
+            const modalTitle = document.getElementById('modalTitle').innerText || 'export';
+            const filename = modalTitle.replace(/[^a-zA-Z0-9]/g, '_') + '.xlsx';
+            
+            // Get table headers
+            const thead = document.getElementById('modalTableHead');
+            const tbody = document.getElementById('modalTableBody');
+            
+            if (!thead || !tbody) {
+                alert('No data to export');
+                return;
+            }
+            
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            
+            // Extract headers
+            const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim());
+            
+            // Extract rows (clean HTML from badges/spans)
+            const rows = Array.from(tbody.querySelectorAll('tr')).map(tr => {
+                return Array.from(tr.querySelectorAll('td')).map(td => {
+                    // Get text content, strip HTML tags
+                    return td.textContent.trim();
+                });
+            });
+            
+            // Combine headers + rows
+            const wsData = [headers, ...rows];
+            
+            // Create worksheet
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            
+            // Auto-size columns
+            const colWidths = headers.map((h, i) => {
+                const maxLen = Math.max(
+                    h.length,
+                    ...rows.map(r => (r[i] || '').toString().length)
+                );
+                return { wch: Math.min(maxLen + 2, 30) };
+            });
+            ws['!cols'] = colWidths;
+            
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, 'Data');
+            
+            // Download file
+            XLSX.writeFile(wb, filename);
+            
+            console.log('Excel exported:', filename);
+        } catch (err) {
+            console.error('Export error:', err);
+            alert('Export failed: ' + err.message);
+        }
+    }
+
 // --- INSTALLATION MODULE LOGIC ---
 
     // 1. Открытие раздела Installation (из меню Actions)
@@ -8962,10 +10881,7 @@ function restoreView(viewName) {
             const removeRes = await safeFetch('/api/history/REMOVE' + noCache());
             if (removeRes && removeRes.ok) {
                 removeData = await removeRes.json();
-                console.log('🔍 Remove data loaded:', removeData.length, 'records');
-                removeData.forEach((r, i) => {
-                    if (i < 3) console.log(`  Record ${i}:`, {sn: r.current_sn || r.original_sn, from: r.from, date: r.date});
-                });
+                console.log('Remove data loaded:', removeData);
             }
         } catch (e) {
             console.warn('Could not load remove history for marking', e);
@@ -8978,80 +10894,36 @@ function restoreView(viewName) {
         }
 
         serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
-        
-        console.log('🔍 === DEBUGGING STRIKETHROUGH MATCHING ===');
-        console.log('Total INSTALL records:', serverData.length);
-        console.log('Total REMOVE records:', removeData.length);
-        
-        // Сохраняем оригинальные данные для отладки
-        if (serverData.length > 0) {
-            console.log('INSTALL Sample:', serverData[0]);
-        }
-        if (removeData.length > 0) {
-            console.log('REMOVE Sample:', removeData[0]);
-        }
-        
-        let rowsHtml = [];
-        serverData.forEach((row, idx) => {
-            // Нормализуем AC - убираем префиксы
-            const normalizeAC = (ac) => {
-                if (!ac) return '';
-                return ac.replace(/^AC[_:\s]*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim();
-            };
-            
-            const normalizedInstallAC = normalizeAC(row.install_to);
-            
+        serverData.forEach(row => {
             // Проверяем: был ли этот двигатель снят ПОСЛЕ этой установки
-            let wasRemoved = false;
-            let matchingRemove = null;
-            
-            // Логируем первые 5 записей в деталях
-            if (idx < 5) {
-                console.log(`\n📋 Row ${idx}: SN=${row.current_sn}, install_to="${row.install_to}" (norm=${normalizedInstallAC}), date=${row.date}`);
-            }
-            
-            // Пытаемся найти REMOVE - проверяем ВСЕ варианты
-            for (let rem of removeData) {
+            const wasRemoved = removeData.some(rem => {
                 const remSN = rem.current_sn || rem.original_sn;
                 const installCurrentSN = row.current_sn;
-                const normalizedRemFrom = normalizeAC(rem.from);
                 
-                // Извлекаем позицию из REMOVE: "AC: ER-BAT (Pos 2)" → 2
-                const removePosBracket = rem.from ? rem.from.match(/\(Pos\s+(\d+)\)/) : null;
-                const removePosition = removePosBracket ? parseInt(removePosBracket[1], 10) : null;
+                // Извлекаем AC название из "AC: ER-BAR (Pos 4)" -> "ER-BAR"
+                const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
                 
-                // Логирование для отладки
-                if (idx < 5) {
-                    const fromRaw = rem.from || 'NULL';
-                    console.log(`  REMOVE: SN="${remSN}", from="${fromRaw}" (AC=${normalizedRemFrom}, Pos=${removePosition}), date=${rem.date}`);
-                }
+                // Проверяем совпадение current_sn, самолета и даты
+                if (remSN !== installCurrentSN) return false;
+                if (remFrom !== row.install_to) return false;
+                if (new Date(rem.date) < new Date(row.date)) return false;
                 
-                // === ПРОВЕРКА: SN + AC + ПОЗИЦИЯ + ДАТА ===
-                // Работает для ЛЮБОГО самолёта и ЛЮБОЙ позиции!
-                if (remSN === installCurrentSN && 
-                    normalizedRemFrom === normalizedInstallAC && 
-                    removePosition === row.position &&  // ← проверяем позицию для каждого самолёта
-                    new Date(rem.date) >= new Date(row.date)) {
-                    if (idx < 5) console.log(`    ✓ EXACT MATCH! (SN=${remSN}, AC=${normalizedRemFrom}, Pos=${removePosition})`);
-                    matchingRemove = rem;
-                    break;
-                }
-            }
+                // ВАЖНО: Проверяем, нет ли более поздней установки с той же табличкой на тот же самолет
+                const laterInstall = serverData.find(inst => {
+                    return inst.current_sn === installCurrentSN &&
+                           inst.install_to === row.install_to &&
+                           new Date(inst.date) > new Date(rem.date);
+                });
+                
+                // Зачеркиваем только если НЕТ более поздней установки
+                return !laterInstall;
+            });
             
-            // Если снятие найдено - двигатель был СНЯТ
-            if (matchingRemove) {
-                wasRemoved = true;
-                if (idx < 5) console.log(`    ➜ MARK AS REMOVED (SN=${matchingRemove.current_sn || matchingRemove.original_sn} removed from position ${row.position})`);
-            } else {
-                if (idx < 5) console.log(`    ✗ No matching REMOVE found`);
-            }
+            // Стили для снятого двигателя
+            const badgeClass = wasRemoved ? 'bg-secondary text-decoration-line-through opacity-50' : 'bg-primary';
             
-            // Применяем класс к строке
-            const rowClass = wasRemoved ? 'removed-engine' : '';
-            const badgeClass = wasRemoved ? 'badge bg-secondary' : 'badge bg-primary';
-            
-            rowsHtml.push(`
-                <tr class="${rowClass}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
+            tbody.innerHTML += `
+                <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
                     <td class="delete-col-install" style="display: none;">
                         <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('INSTALL', ${row.id || 0}, '${row.original_sn}')" title="Delete">
                             <i class="bi bi-trash"></i>
@@ -9060,7 +10932,7 @@ function restoreView(viewName) {
                     <td>${row.date}</td>
                     <td>${row.original_sn}</td>
                     <td>${row.current_sn}</td>
-                    <td><span class="${badgeClass}" style="text-decoration: ${wasRemoved ? 'line-through' : 'none'}; opacity: ${wasRemoved ? '0.6' : '1'};">${row.install_to}</span></td>
+                    <td><span class="badge ${badgeClass}">${row.install_to}</span></td>
                     <td>${row.position}</td>
                     <td>${row.location_from}</td>
                     <td>${row.tt}</td>
@@ -9070,17 +10942,15 @@ function restoreView(viewName) {
                     <td>${row.supplier || '-'}</td>
                     <td><small>${row.remarks||'-'}</small></td>
                 </tr>
-            `);
+            `;
         });
-
-        tbody.innerHTML = rowsHtml.join('');
 
         // Включаем редактирование по двойному клику: переводим таблицу в Edit и фокусируем ячейку
         bindPurchaseOrdersInlineEdit();
     }
 
     function bindPurchaseOrdersInlineEdit() {
-        const tbody = document.getElementById('install-history-body');
+        const tbody = document.getElementById('purchase-orders-history-body');
         if (!tbody) return;
         if (tbody._inlineEditBound) return; // уже привязано
 
@@ -9088,7 +10958,7 @@ function restoreView(viewName) {
             const cell = ev.target.closest('td');
             if (!cell || !tbody.contains(cell)) return;
             // игнорируем колонку удаления и пустую последнюю ячейку с плюсом
-            if (cell.classList.contains('delete-col-install')) return;
+            if (cell.classList.contains('delete-col-purchase-orders')) return;
             if (cell.style && cell.style.border === 'none' && cell.style.background === 'transparent') return;
 
             const row = cell.parentElement;
@@ -16071,7 +17941,7 @@ const partsSettingsDefaults = {
     storeTitle: 'Store Balance',
     logisticsTitle: 'Parts Removal/Installation',
     cardHeight: 200,
-    cardWidth: 50,
+    cardWidth: 49,
     customCards: []
 };
 let partsSettings = { ...partsSettingsDefaults };
@@ -16183,8 +18053,8 @@ function renderPartsCards() {
         const wrapper = document.createElement('div');
         wrapper.className = 'parts-card-wrapper';
         const width = clampNumber(card.width || partsSettings.cardWidth, 35, 100);
-        wrapper.style.flex = `0 0 calc(${width}% - 1rem)`;
-        wrapper.style.minWidth = '240px';
+        wrapper.style.flex = `0 0 ${width}%`;
+        wrapper.style.minWidth = '260px';
 
         const cardEl = document.createElement('div');
         cardEl.className = 'parts-card-3d';
@@ -16374,6 +18244,28 @@ loadPartsSettings();
 applyPartsSettings();
 
 let dashboardEditMode = localStorage.getItem('dashboard-edit-mode') === 'true';
+
+function toggleTheme() {
+    const isLightBg = document.getElementById('theme-toggle').checked;
+    
+    if (isLightBg) {
+        document.body.classList.add('light-bg');
+        localStorage.setItem('app-theme', 'light');
+    } else {
+        document.body.classList.remove('light-bg');
+        localStorage.setItem('app-theme', 'dark');
+    }
+}
+
+function loadSavedTheme() {
+    const savedTheme = localStorage.getItem('app-theme');
+    const toggle = document.getElementById('theme-toggle');
+    
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-bg');
+        if (toggle) toggle.checked = true;
+    }
+}
 
 function toggleDashboardEditMode() {
     dashboardEditMode = document.getElementById('dashboard-edit-toggle').checked;
@@ -21588,6 +23480,29 @@ async function displayBoroscopeReminders() {
                 <button type="button" class="btn btn-warning" onclick="saveGSSEdit()">
                     <i class="bi bi-check-lg"></i> Save Changes
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Engine Details Modal -->
+<div id="engine-details-modal">
+    <div class="engine-details-container">
+        <div class="engine-details-header">
+            <div>
+                <h2 id="modal-aircraft-name">Aircraft Details</h2>
+                <div class="aircraft-info" id="modal-aircraft-info"></div>
+            </div>
+            <button class="btn-close-engine-modal" onclick="closeEngineDetailsModal()">
+                <i class="bi bi-x-lg"></i> Close
+            </button>
+        </div>
+
+        <div id="engine-modal-content">
+            <!-- Loading state by default -->
+            <div class="engine-loading">
+                <div class="spinner"></div>
+                <p>Loading engine data...</p>
             </div>
         </div>
     </div>

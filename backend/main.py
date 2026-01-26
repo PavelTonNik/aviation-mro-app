@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, status, Request
+﻿from fastapi import FastAPI, Depends, HTTPException, Query, status, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -12,6 +12,10 @@ from pathlib import Path
 import hashlib
 import secrets
 import os
+from passlib.context import CryptContext
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 try:
     from . import models, database
@@ -375,7 +379,7 @@ def startup_event():
         admin_user = db.query(models.User).filter(models.User.username == "admin").first()
         if not admin_user:
             print("🚀 Creating default admin user...")
-            hashed_password = hashlib.sha256("admin123".encode()).hexdigest()
+            hashed_password = hash_password("admin123")
             admin_user = models.User(
                 username="admin",
                 password_hash=hashed_password,
@@ -396,13 +400,13 @@ def startup_event():
             if admin_user.role != "admin":
                 admin_user.role = "admin"
                 changed = True
-            if not getattr(admin_user, "password_hash", None) or len(admin_user.password_hash) != 64:
-                admin_user.password_hash = hashlib.sha256("admin123".encode()).hexdigest()
-                changed = True
+            # Reset admin password to SHA-256(admin123) to avoid broken bcrypt backend
+            admin_user.password_hash = hash_password("admin123")
+            changed = True
             # Optional forced reset via environment for Render deployments
             reset_env = (os.getenv("RESET_ADMIN_PASSWORD", "0") or "0").lower()
             if reset_env in ("1", "true", "yes"):
-                admin_user.password_hash = hashlib.sha256("admin123".encode()).hexdigest()
+                admin_user.password_hash = hash_password("admin123")
                 changed = True
             if not admin_user.first_name:
                 admin_user.first_name = "Admin"
@@ -412,7 +416,7 @@ def startup_event():
                 changed = True
             if changed:
                 db.commit()
-                print("🔧 Admin user normalized (role/active/password).")
+                print("🔧 Admin user normalized (role/active/password reset to admin123).")
         
         # Create default test user Maxim
         maxim_user = db.query(models.User).filter(models.User.username == "Maxim").first()
@@ -1228,14 +1232,25 @@ class LocationCreateSchema(BaseModel):
 
 # === UTILITY FUNCTIONS FOR AUTH ===
 
+# Initialize password context for bcrypt (kept for compatibility if hashes exist)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 def hash_password(password: str) -> str:
-    """Hash password using SHA-256"""
+    """Hash password using SHA-256 (bcrypt backend is currently broken in env)."""
     return hashlib.sha256(password.encode()).hexdigest()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password"""
-    return hash_password(plain_password) == hashed_password
+    """Verify password; prefer SHA-256, fallback to bcrypt if hash isn't SHA."""
+    if not hashed_password:
+        return False
+    # If looks like SHA-256 hex, check directly (avoids broken bcrypt backend)
+    if len(hashed_password) == 64:
+        return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception:
+        return False
 
 
 def resolve_actor_name(db: Session, user_id: Optional[int], fallback: str = "User") -> str:
@@ -1592,7 +1607,7 @@ def delete_recent_actions(range_key: str = Query("all", alias="range"), db: Sess
     cutoff = None
 
     if ranges[range_key] is not None:
-        cutoff = datetime.utcnow() - timedelta(days=ranges[range_key])
+        cutoff = datetime.now(timezone.utc) - timedelta(days=ranges[range_key])
         query = query.filter(models.Notification.created_at <= cutoff)
 
     deleted_count = query.delete()
@@ -1940,6 +1955,99 @@ def get_aircraft_by_tail_number(tail_number: str, db: Session = Depends(get_db))
     except Exception as e:
         print(f"❌ Error in get_aircraft_by_tail_number: {e}")
         return {"error": str(e)}, 500
+
+@app.get("/api/aircraft/{aircraft_id}/engines")
+def get_aircraft_engines(aircraft_id: int, db: Session = Depends(get_db)):
+    """Get detailed engine information for a specific aircraft by ID"""
+    try:
+        # Get aircraft
+        aircraft = db.query(models.Aircraft).filter(
+            models.Aircraft.id == aircraft_id
+        ).first()
+        
+        if not aircraft:
+            raise HTTPException(status_code=404, detail="Aircraft not found")
+        
+        # Get all installed engines for this aircraft
+        engines_on_wing = db.query(models.Engine).filter(
+            models.Engine.aircraft_id == aircraft.id,
+            models.Engine.status == "INSTALLED"
+        ).order_by(models.Engine.position).all()
+        
+        # Create 4 positions (ENG 1-4)
+        engine_positions = []
+        for pos in [1, 2, 3, 4]:
+            # Find engine at this position
+            engine = next((e for e in engines_on_wing if e.position == pos), None)
+            
+            if engine:
+                # Get latest borescope inspection (safely)
+                latest_borescope = None
+                try:
+                    latest_borescope = db.query(models.BoroscopeSchedule).filter(
+                        models.BoroscopeSchedule.engine_id == engine.id
+                    ).order_by(models.BoroscopeSchedule.inspection_date.desc()).first()
+                except:
+                    pass
+                
+                # Get GSS assignment (safely)
+                gss_assignment = None
+                try:
+                    gss_assignment = db.query(models.GSSAssignment).filter(
+                        models.GSSAssignment.original_sn == engine.original_sn
+                    ).first()
+                except:
+                    pass
+                
+                # Calculate utilization from install snapshot
+                utilization = None
+                if engine.total_time is not None and engine.tsn_at_install is not None:
+                    utilization = round(engine.total_time - engine.tsn_at_install, 1)
+                
+                engine_positions.append({
+                    "position": f"ENG {pos} ({'L' if pos in [1, 3] else 'R'})",
+                    "engine_id": engine.id,
+                    "original_sn": engine.original_sn or "N/A",
+                    "current_sn": engine.current_sn or engine.original_sn or "N/A",
+                    "gss_id": gss_assignment.gss_sn if gss_assignment else None,
+                    "model": engine.model or "N/A",
+                    "total_time": round(engine.total_time, 1) if engine.total_time else 0.0,
+                    "total_cycles": engine.total_cycles or 0,
+                    "utilization": f"{utilization} hrs" if utilization else "N/A",
+                    "install_date": engine.install_date.strftime("%Y-%m-%d") if engine.install_date else "N/A",
+                    "supplier": "N/A",
+                    "last_borescope": latest_borescope.inspection_date.strftime("%Y-%m-%d") if latest_borescope else "N/A",
+                    "status": engine.status
+                })
+            else:
+                # Empty position
+                engine_positions.append({
+                    "position": f"ENG {pos} ({'L' if pos in [1, 3] else 'R'})",
+                    "engine_id": None,
+                    "original_sn": None,
+                    "current_sn": None,
+                    "gss_id": None,
+                    "model": None,
+                    "total_time": 0,
+                    "total_cycles": 0,
+                    "utilization": "N/A",
+                    "install_date": "N/A",
+                    "supplier": None,
+                    "last_borescope": "N/A",
+                    "status": "EMPTY"
+                })
+        
+        return {
+            "aircraft_id": aircraft.id,
+            "tail_number": aircraft.tail_number,
+            "model": aircraft.model,
+            "engines": engine_positions
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in get_aircraft_engines: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.patch("/api/aircraft/{tail_number}")
 def update_aircraft_by_tail_number(tail_number: str, data: AircraftUpdateSchema, db: Session = Depends(get_db)):
@@ -2966,7 +3074,7 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
     # SNAPSHOT для отслеживания наработки на конкретном самолете
     eng.tsn_at_install = data.tt
     eng.csn_at_install = data.tc
-    eng.install_date = install_dt or datetime.utcnow()
+    eng.install_date = install_dt or datetime.now(timezone.utc)
     
     db.commit()
     db.refresh(eng)  # Обновляем объект двигателя после commit
@@ -3603,7 +3711,7 @@ def get_flight_history(db: Session = Depends(get_db)):
 
             atlb_ref = log.atlb_ref or extract_atlb_ref(log.comments) or ""
 
-            log_date = log.date or datetime.utcnow()
+            log_date = log.date or datetime.now(timezone.utc)
 
             rows.append({
                 "id": log.id,
@@ -3721,7 +3829,7 @@ def add_utilization(data: UtilizationSchema, db: Session = Depends(get_db)):
         if not route_display:
             route_display = "Maintenance Entry"
 
-    log_date = parse_input_date(data.date) or datetime.utcnow()
+    log_date = parse_input_date(data.date) or datetime.now(timezone.utc)
 
     new_log = models.ActionLog(
         action_type=models.ActionType.FLIGHT,
@@ -3840,7 +3948,7 @@ def get_atlb_history(db: Session = Depends(get_db)):
             else:
                 flight_leg = placeholder
 
-            log_date = log.date or datetime.utcnow()
+            log_date = log.date or datetime.now(timezone.utc)
 
             block_out_display = sanitize_time_input(log.block_out_str) or placeholder
             block_in_display = sanitize_time_input(log.block_in_str) or placeholder
@@ -3897,7 +4005,7 @@ def save_atlb(data: ATLBSchema, db: Session = Depends(get_db)):
     if not atlb_no:
         raise HTTPException(status_code=400, detail="ATLB sheet number is required")
 
-    log_date = parse_input_date(data.date) or datetime.utcnow()
+    log_date = parse_input_date(data.date) or datetime.now(timezone.utc)
 
     maintenance_only = bool(data.maintenance_only)
 
@@ -4958,7 +5066,7 @@ def create_history_record(action_type: str, data: ActionLogCreateSchema, db: Ses
         if data.snapshot_tc is not None:
             engine.total_cycles = data.snapshot_tc
             engine.csn_at_install = data.snapshot_tc
-        engine.install_date = parsed_date or datetime.utcnow()
+        engine.install_date = parsed_date or datetime.now(timezone.utc)
 
     db.add(log)
     db.commit()
@@ -5097,7 +5205,7 @@ def create_utilization_parameter(data: UtilizationParameterSchema, db: Session =
                 eng.total_time = data.ttsn
             if data.tcsn is not None:
                 eng.total_cycles = data.tcsn
-            eng.last_param_update = datetime.utcnow()
+            eng.last_param_update = datetime.now(timezone.utc)
             db.commit()
             db.refresh(eng)
     
@@ -5178,7 +5286,7 @@ def update_utilization_parameter(param_id: int, data: UtilizationParameterSchema
                 eng.total_time = data.ttsn
             if data.tcsn is not None:
                 eng.total_cycles = data.tcsn
-            eng.last_param_update = datetime.utcnow()
+            eng.last_param_update = datetime.now(timezone.utc)
             db.commit()
             db.refresh(eng)
     
@@ -5243,7 +5351,7 @@ def login(credentials: LoginSchema, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=403, detail="User account is disabled")
     
-    # Update last login
+    # Update last login (store naive UTC to match DB schema)
     user.last_login = datetime.utcnow()
     db.commit()
     
@@ -5889,7 +5997,7 @@ def apply_nameplate_action(data: dict, db: Session = Depends(get_db)):
                 engine_orig_sn=eng.original_sn,
                 aircraft_tail=target_aircraft_tail,
                 position=target_position,
-                installed_date=installed_date or datetime.utcnow().date().isoformat(),
+                installed_date=installed_date or datetime.now(timezone.utc).date().isoformat(),
                 removed_date=None,
                 location_type=location_type,
                 action_note="install",
@@ -5909,7 +6017,7 @@ def apply_nameplate_action(data: dict, db: Session = Depends(get_db)):
                 nameplate_sn=nameplate_sn,
                 gss_id=primary_gss_id or None,
                 engine_orig_sn=primary_engine_sn or None,
-                removed_date=removed_date or datetime.utcnow().date().isoformat(),
+                removed_date=removed_date or datetime.now(timezone.utc).date().isoformat(),
                 location_type=location_type,
                 action_note="remove",
                 performed_by=performed_by,
@@ -5926,7 +6034,7 @@ def apply_nameplate_action(data: dict, db: Session = Depends(get_db)):
                 nameplate_sn=nameplate_sn,
                 gss_id=primary_gss_id or None,
                 engine_orig_sn=primary_engine_sn or None,
-                installed_date=installed_date or datetime.utcnow().date().isoformat(),
+                installed_date=installed_date or datetime.now(timezone.utc).date().isoformat(),
                 location_type=location_type,
                 aircraft_tail=target_aircraft_tail,
                 position=target_position,
@@ -5958,7 +6066,7 @@ def apply_nameplate_action(data: dict, db: Session = Depends(get_db)):
                 engine_model=eng1.model,
                 gss_id=eng1.gss_sn,
                 engine_orig_sn=eng1.original_sn,
-                installed_date=installed_date or datetime.utcnow().date().isoformat(),
+                installed_date=installed_date or datetime.now(timezone.utc).date().isoformat(),
                 location_type=location_type,
                 action_note="swap",
                 performed_by=performed_by,
@@ -6023,7 +6131,7 @@ def execute_nameplate_action(data: dict, db: Session = Depends(get_db)):
                 engine_orig_sn=eng1.original_sn,
                 aircraft_tail=data.get("aircraft_from"),
                 position=data.get("position_from"),
-                installed_date=data.get("date") or datetime.utcnow().date().isoformat(),
+                installed_date=data.get("date") or datetime.now(timezone.utc).date().isoformat(),
                 action_note="swap",
                 performed_by=data.get("performed_by"),
                 notes=f"Swapped: {eng1.gss_sn}({old_sn1}↔{old_sn2}) with {eng2.gss_sn}({old_sn2}↔{old_sn1})",
@@ -6054,7 +6162,7 @@ def execute_nameplate_action(data: dict, db: Session = Depends(get_db)):
                 engine_orig_sn=eng.original_sn,
                 aircraft_tail=data.get("aircraft_from"),
                 position=data.get("position_from"),
-                removed_date=data.get("date") or datetime.utcnow().date().isoformat(),
+                removed_date=data.get("date") or datetime.now(timezone.utc).date().isoformat(),
                 location_type=data.get("sent_to"),
                 action_note="remove",
                 performed_by=data.get("performed_by"),
@@ -6097,7 +6205,7 @@ def execute_nameplate_action(data: dict, db: Session = Depends(get_db)):
                 engine_orig_sn=eng.original_sn,
                 aircraft_tail=ac_to,
                 position=pos_to,
-                installed_date=data.get("date") or datetime.utcnow().date().isoformat(),
+                installed_date=data.get("date") or datetime.now(timezone.utc).date().isoformat(),
                 location_type="Aircraft",
                 action_note="install",
                 performed_by=data.get("performed_by"),
@@ -6193,7 +6301,7 @@ def get_schedule_stats(db: Session = Depends(get_db)):
         ).count()
         
         # Arriving soon (next 7 days)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         next_week = now + timedelta(days=7)
         
         # Use separate conditions to handle potential type issues
@@ -6455,7 +6563,7 @@ def update_schedule(shipment_id: int, data: dict, db: Session = Depends(get_db))
                             f"category={shipment.part_category or 'N/A'}; "
                             f"tracking={shipment.tracking_number or 'N/A'}"
                         ),
-                        received_date=shipment.actual_delivery_date or datetime.utcnow()
+                        received_date=shipment.actual_delivery_date or datetime.now(timezone.utc)
                     )
                     db.add(store_item)
                     
@@ -6616,7 +6724,7 @@ def get_logistics_movements(db: Session = Depends(get_db)):
         ).count()
         
         # Location changes (last 24 hours)
-        yesterday = datetime.utcnow() - timedelta(days=1)
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
         location_changes = db.query(models.ActionLog).filter(
             models.ActionLog.action_type == "SHIP",
             models.ActionLog.created_at >= yesterday
@@ -7010,4 +7118,319 @@ def delete_gss_assignment(
     except Exception as e:
         print(f"❌ Error in delete_gss_assignment: {e}")
         db.rollback()
+        raise HTTPException(500, f"Server error: {str(e)}")
+
+
+# ==================== MODAL ENGINE HISTORY & ANALYTICS ====================
+
+@app.get("/api/aircraft/{aircraft_id}/engines/{engine_id}/modal-history")
+def get_engine_modal_history(aircraft_id: int, engine_id: int, db: Session = Depends(get_db)):
+    """
+    Возвращает историю двигателя для модального окна:
+    - Установки/снятие с самолетов
+    - Боroscope инспекции
+    - Запчасти установленные
+    """
+    try:
+        engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
+        if not engine:
+            raise HTTPException(404, "Engine not found")
+
+        aircraft = db.query(models.Aircraft).filter(models.Aircraft.id == aircraft_id).first()
+        if not aircraft:
+            raise HTTPException(404, "Aircraft not found")
+
+        # 1. ACTION LOGS (INSTALL, REMOVE)
+        logs = db.query(models.ActionLog).filter(
+            models.ActionLog.engine_id == engine_id,
+            models.ActionLog.action_type.in_(["INSTALL", "REMOVE"])
+        ).order_by(models.ActionLog.date.asc()).all()
+
+        history_items = []
+        for log in logs:
+            if log.action_type == "INSTALL":
+                history_items.append({
+                    "date": log.date.strftime('%Y-%m-%d') if log.date else "N/A",
+                    "action": "INSTALL",
+                    "aircraft": log.to_aircraft or "Unknown",
+                    "position": log.position,
+                    "tt_at_install": log.snapshot_tt or 0,
+                    "tc_at_install": log.snapshot_tc or 0,
+                    "description": f"Installed on {log.to_aircraft} at position {log.position}"
+                })
+            elif log.action_type == "REMOVE":
+                history_items.append({
+                    "date": log.date.strftime('%Y-%m-%d') if log.date else "N/A",
+                    "action": "REMOVE",
+                    "aircraft": log.from_location or "Unknown",
+                    "position": log.position,
+                    "tt_at_removal": log.snapshot_tt or 0,
+                    "tc_at_removal": log.snapshot_tc or 0,
+                    "condition": log.condition_1_at_removal or "SV",
+                    "description": f"Removed from {log.from_location} (Condition: {log.condition_1_at_removal or 'N/A'})"
+                })
+
+        # 2. BORESCOPE INSPECTIONS
+        boroscopes = db.query(models.BoroscopeInspection).filter(
+            models.BoroscopeInspection.serial_number == engine.original_sn
+        ).order_by(models.BoroscopeInspection.date.desc()).all()
+
+        for boroscope in boroscopes:
+            history_items.append({
+                "date": boroscope.date or "N/A",
+                "action": "BOROSCOPE",
+                "aircraft": boroscope.aircraft,
+                "position": boroscope.position,
+                "inspector": boroscope.inspector,
+                "work_type": boroscope.work_type,
+                "comment": boroscope.comment or "",
+                "link": boroscope.link or "",
+                "description": f"Borescope inspection by {boroscope.inspector} ({boroscope.work_type})"
+            })
+
+        # 3. PARTS INSTALLED
+        parts = db.query(models.Part).filter(models.Part.engine_id == engine_id).all()
+        for part in parts:
+            history_items.append({
+                "date": "N/A",
+                "action": "PART_INSTALLED",
+                "part_name": part.name,
+                "part_number": part.part_number,
+                "part_sn": part.serial_number or "N/A",
+                "description": f"Part installed: {part.name} ({part.part_number})"
+            })
+
+        # Сортируем по дате (новые сверху)
+        history_items.sort(key=lambda x: x.get('date', ''), reverse=True)
+
+        return {
+            "engine_sn": engine.original_sn,
+            "engine_current_sn": engine.current_sn,
+            "gss_id": engine.gss_sn or "N/A",
+            "model": engine.model or "N/A",
+            "status": engine.status or "N/A",
+            "condition_1": engine.condition_1 or "N/A",
+            "condition_2": engine.condition_2 or "N/A",
+            "total_time": engine.total_time or 0,
+            "total_cycles": engine.total_cycles or 0,
+            "history": history_items
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in get_engine_modal_history: {e}")
+        raise HTTPException(500, f"Server error: {str(e)}")
+
+
+@app.get("/api/aircraft/{aircraft_id}/engines/{engine_id}/parameters-data")
+def get_engine_parameters_data(aircraft_id: int, engine_id: int, months: int = 12, db: Session = Depends(get_db)):
+    """
+    Возвращает историю параметров двигателя для графиков:
+    - N1 Takeoff/Cruise
+    - N2 Takeoff/Cruise
+    - EGT Takeoff/Cruise
+    - Engine swap history за последние месяцы
+    """
+    try:
+        engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
+        if not engine:
+            raise HTTPException(404, "Engine not found")
+
+        aircraft = db.query(models.Aircraft).filter(models.Aircraft.id == aircraft_id).first()
+        if not aircraft:
+            raise HTTPException(404, "Aircraft not found")
+
+        # 1. ENGINE PARAMETERS (N1, N2, EGT)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=months*30)
+        
+        param_history = db.query(models.EngineParameterHistory).filter(
+            models.EngineParameterHistory.engine_id == engine_id,
+            models.EngineParameterHistory.date >= cutoff_date
+        ).order_by(models.EngineParameterHistory.date.asc()).all()
+
+        parameters_data = []
+        for param in param_history:
+            parameters_data.append({
+                "date": param.date.strftime('%Y-%m-%d') if param.date else "N/A",
+                "n1_takeoff": param.n1_takeoff,
+                "n1_cruise": param.n1_cruise,
+                "n2_takeoff": param.n2_takeoff,
+                "n2_cruise": param.n2_cruise,
+                "egt_takeoff": param.egt_takeoff,
+                "egt_cruise": param.egt_cruise
+            })
+
+        # 2. ENGINE SWAP HISTORY за этот период
+        swap_history = db.query(models.ActionLog).filter(
+            models.ActionLog.to_aircraft == aircraft.tail_number,
+            models.ActionLog.action_type == "INSTALL",
+            models.ActionLog.date >= cutoff_date
+        ).order_by(models.ActionLog.date.asc()).all()
+
+        swap_timeline = {}
+        for log in swap_history:
+            date_key = log.date.strftime('%Y-%m-%d') if log.date else "N/A"
+            if log.position not in swap_timeline:
+                swap_timeline[log.position] = []
+            swap_timeline[log.position].append(date_key)
+
+        # Считаем количество swap'ов за месяцы
+        monthly_swaps = {}
+        for log in swap_history:
+            if log.position == engine.position or log.position is None:
+                month_key = log.date.strftime('%Y-%m') if log.date else "N/A"
+                if month_key not in monthly_swaps:
+                    monthly_swaps[month_key] = 0
+                monthly_swaps[month_key] += 1
+
+        return {
+            "engine_sn": engine.original_sn,
+            "engine_current_sn": engine.current_sn,
+            "gss_id": engine.gss_sn or "N/A",
+            "parameters": parameters_data,
+            "swap_timeline": swap_timeline,
+            "monthly_swaps": monthly_swaps,
+            "total_swaps": len(swap_history)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in get_engine_parameters_data: {e}")
+        raise HTTPException(500, f"Server error: {str(e)}")
+
+
+# ==================== EMAIL REPORTING ====================
+
+class EmailReportRequest(BaseModel):
+    recipient_email: str
+    subject: str = "Engine Report"
+    aircraft_id: int
+    engine_id: int
+
+@app.post("/api/aircraft/{aircraft_id}/engines/{engine_id}/send-report")
+def send_engine_report_email(
+    aircraft_id: int,
+    engine_id: int,
+    request_data: EmailReportRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Отправляет отчет о двигателе на email (Outlook/SMTP)
+    """
+    try:
+        engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
+        if not engine:
+            raise HTTPException(404, "Engine not found")
+
+        aircraft = db.query(models.Aircraft).filter(models.Aircraft.id == aircraft_id).first()
+        if not aircraft:
+            raise HTTPException(404, "Aircraft not found")
+
+        # Получаем историю
+        logs = db.query(models.ActionLog).filter(
+            models.ActionLog.engine_id == engine_id,
+            models.ActionLog.action_type.in_(["INSTALL", "REMOVE"])
+        ).order_by(models.ActionLog.date.asc()).all()
+
+        # Формируем HTML письма
+        history_html = "<ul style='color: #333;'>"
+        for log in logs:
+            if log.action_type == "INSTALL":
+                history_html += f"<li><strong>{log.date.strftime('%Y-%m-%d')}</strong> - INSTALL на {log.to_aircraft} (Позиция {log.position})</li>"
+            elif log.action_type == "REMOVE":
+                history_html += f"<li><strong>{log.date.strftime('%Y-%m-%d')}</strong> - REMOVE с {log.from_location}</li>"
+
+        history_html += "</ul>"
+
+        email_body = f"""
+        <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; background-color: #f5f5f5; }}
+                    .container {{ background-color: white; padding: 20px; border-radius: 8px; max-width: 600px; margin: 0 auto; }}
+                    h1 {{ color: #333; }}
+                    h2 {{ color: #0066cc; }}
+                    .info {{ background-color: #f0f8ff; padding: 10px; border-left: 4px solid #0066cc; margin: 10px 0; }}
+                    .footer {{ color: #999; font-size: 12px; margin-top: 20px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Engine Report</h1>
+                    
+                    <h2>Aircraft Information</h2>
+                    <div class="info">
+                        <p><strong>Tail Number:</strong> {aircraft.tail_number}</p>
+                        <p><strong>Model:</strong> {aircraft.model}</p>
+                        <p><strong>Total Time:</strong> {aircraft.total_time} hrs</p>
+                    </div>
+                    
+                    <h2>Engine Information</h2>
+                    <div class="info">
+                        <p><strong>Original SN:</strong> {engine.original_sn}</p>
+                        <p><strong>Current SN:</strong> {engine.current_sn or 'N/A'}</p>
+                        <p><strong>GSS ID:</strong> {engine.gss_sn or 'N/A'}</p>
+                        <p><strong>Model:</strong> {engine.model or 'N/A'}</p>
+                        <p><strong>Status:</strong> {engine.status or 'N/A'}</p>
+                        <p><strong>Total Time:</strong> {engine.total_time} hrs</p>
+                        <p><strong>Total Cycles:</strong> {engine.total_cycles}</p>
+                    </div>
+                    
+                    <h2>Installation History</h2>
+                    {history_html}
+                    
+                    <div class="footer">
+                        <p>Report generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
+                        <p>Aviation Engine Management System</p>
+                    </div>
+                </div>
+            </body>
+        </html>
+        """
+
+        # SMTP конфигурация для Outlook
+        # Примечание: Требуется включить "Allow less secure apps" или использовать App Password
+        smtp_server = os.getenv("OUTLOOK_SMTP_SERVER", "smtp-mail.outlook.com")
+        smtp_port = int(os.getenv("OUTLOOK_SMTP_PORT", "587"))
+        sender_email = os.getenv("OUTLOOK_EMAIL", "")
+        sender_password = os.getenv("OUTLOOK_PASSWORD", "")
+
+        if not sender_email or not sender_password:
+            print("⚠️ Outlook credentials not configured in environment variables")
+            return {
+                "status": "warning",
+                "message": "Email not sent - OUTLOOK_EMAIL and OUTLOOK_PASSWORD not configured",
+                "note": "Set environment variables to enable email sending"
+            }
+
+        # Отправляем письмо
+        try:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = request_data.subject
+            msg['From'] = sender_email
+            msg['To'] = request_data.recipient_email
+
+            msg.attach(MIMEText(email_body, 'html'))
+
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.send_message(msg)
+            server.quit()
+
+            print(f"✅ Email sent to {request_data.recipient_email}")
+            return {
+                "status": "success",
+                "message": f"Report sent to {request_data.recipient_email}"
+            }
+
+        except smtplib.SMTPAuthenticationError:
+            raise HTTPException(500, "SMTP authentication failed - check credentials")
+        except smtplib.SMTPException as e:
+            raise HTTPException(500, f"SMTP error: {str(e)}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in send_engine_report_email: {e}")
         raise HTTPException(500, f"Server error: {str(e)}")
