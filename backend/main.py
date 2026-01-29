@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, Depends, HTTPException, Query, status, Request
+﻿from fastapi import FastAPI, Depends, HTTPException, Query, status, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -178,6 +178,14 @@ def startup_event():
                 conn.execute(text("ALTER TABLE borescope_inspections ADD COLUMN comment TEXT"))
                 conn.commit()
                 print("✅ Added borescope comment column")
+            except:
+                pass  # Column already exists
+
+            # Add inspection_report column if missing
+            try:
+                conn.execute(text("ALTER TABLE borescope_inspections ADD COLUMN inspection_report JSON"))
+                conn.commit()
+                print("✅ Added inspection_report column")
             except:
                 pass  # Column already exists
         
@@ -1038,6 +1046,7 @@ class BoroscopeSchema(BaseModel):
     inspector: str
     comment: Optional[str] = ""
     link: Optional[str] = ""
+    inspection_report: Optional[dict] = None  # Данные фото и другие отчеты
 
 # ============================================
 # GSS ASSIGNMENT SCHEMAS
@@ -4239,7 +4248,20 @@ def get_borescope_history(db: Session = Depends(get_db)):
     try:
         inspections = db.query(models.BoroscopeInspection).order_by(models.BoroscopeInspection.date.desc()).all()
         result = []
+        print("\n" + "="*60)
+        print(f"📥 LOADING BORESCOPE HISTORY ({len(inspections)} records)")
+        print("="*60)
         for insp in inspections:
+            report = insp.inspection_report
+            print(f"\nID {insp.id}:")
+            print(f"  inspection_report type: {type(report)}")
+            print(f"  inspection_report value: {report}")
+            if report:
+                if isinstance(report, dict):
+                    photos = report.get('photos', [])
+                    print(f"  Photos: {len(photos) if isinstance(photos, list) else 'NOT A LIST'}")
+                elif isinstance(report, str):
+                    print(f"  WARNING: inspection_report is STRING, not DICT!")
             result.append({
                 "id": insp.id,
                 "date": insp.date,
@@ -4250,7 +4272,8 @@ def get_borescope_history(db: Session = Depends(get_db)):
                 "gss_id": insp.gss_id,
                 "inspector": insp.inspector,
                 "comment": insp.comment,
-                "link": insp.link
+                "link": insp.link,
+                "inspection_report": insp.inspection_report or {"photos": []}  # Если NULL, возвращаем пустой объект с фото массивом
             })
         return result
     except Exception as e:
@@ -4258,23 +4281,121 @@ def get_borescope_history(db: Session = Depends(get_db)):
         return []
 
 @app.post("/api/history/BORESCOPE")
-def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get_db)):
+async def create_borescope_inspection(
+    date: str = Form(...),
+    aircraft: str = Form(...),
+    serial_number: str = Form(...),
+    position: str = Form(""),
+    work_type: str = Form("All Engine"),
+    gss_id: str = Form(""),
+    inspector: str = Form(...),
+    comment: str = Form(""),
+    link: str = Form(""),
+    photo_labels: str = Form("[]"),  # JSON string with labels
+    photos: list[UploadFile] = File([]),  # List of uploaded photo files
+    db: Session = Depends(get_db)
+):
+    """
+    Create borescope inspection with photos uploaded to R2
+    Photos are stored in Cloudflare R2, only URLs saved in database
+    """
     try:
-        print(f"📝 Creating borescope inspection: {data.dict()}")
+        from backend.r2_storage import upload_photo_to_r2, test_r2_connection
+        import json
+        
+        print("\n" + "="*60)
+        print("📝 SAVING BORESCOPE INSPECTION (R2 STORAGE)")
+        print("="*60)
+        print(f"Date: {date}")
+        print(f"Aircraft: {aircraft}")
+        print(f"Serial: {serial_number}")
+        print(f"Inspector: {inspector}")
+        print(f"Photos received: {len(photos)}")
+        print(f"Photo labels: {photo_labels}")
+        
+        # Validate required fields
+        if not all([date, aircraft, serial_number, work_type, inspector]):
+            raise HTTPException(status_code=400, detail="Missing required fields")
+        
+        # Create inspection record first (to get ID)
         new_inspection = models.BoroscopeInspection(
-            date=data.date,
-            aircraft=data.aircraft,
-            serial_number=data.serial_number,
-            position=data.position,
-            work_type=data.work_type,
-            gss_id=data.gss_id,
-            inspector=data.inspector,
-            comment=data.comment,
-            link=data.link
+            date=date,
+            aircraft=aircraft,
+            serial_number=serial_number,
+            position=position,
+            work_type=work_type,
+            gss_id=gss_id,
+            inspector=inspector,
+            comment=comment,
+            link=link,
+            inspection_report=None  # Will be updated after photo upload
         )
         db.add(new_inspection)
         db.commit()
         db.refresh(new_inspection)
+        
+        inspection_id = new_inspection.id
+        print(f"✅ Inspection created with ID: {inspection_id}")
+        
+        # Parse photo labels
+        try:
+            labels = json.loads(photo_labels) if photo_labels else []
+        except:
+            labels = []
+        
+        # Upload photos to R2 and build inspection_report
+        photo_data = []
+        if photos and len(photos) > 0:
+            print(f"\n📤 Uploading {len(photos)} photos to R2...")
+            
+            # Test R2 connection
+            if not test_r2_connection():
+                raise HTTPException(status_code=500, detail="R2 storage connection failed")
+            
+            # Upload each photo
+            for idx, file in enumerate(photos):
+                if file and file.filename:
+                    # Read file bytes
+                    file_bytes = await file.read()
+                    
+                    # Determine photo row and position
+                    photo_row_idx = idx // 2  # 0, 0, 1, 1, 2, 2...
+                    photo_num = (idx % 2) + 1  # 1, 2, 1, 2, 1, 2...
+                    
+                    # Get label for this row
+                    label = labels[photo_row_idx] if photo_row_idx < len(labels) else f"Photo {photo_row_idx + 1}"
+                    
+                    # Upload to R2
+                    photo_url = upload_photo_to_r2(file_bytes, inspection_id, photo_row_idx, photo_num)
+                    
+                    # Add to photo_data
+                    # Ensure row exists
+                    while len(photo_data) <= photo_row_idx:
+                        photo_data.append({"label": "", "photo1": None, "photo2": None})
+                    
+                    photo_data[photo_row_idx]["label"] = label
+                    if photo_num == 1:
+                        photo_data[photo_row_idx]["photo1"] = photo_url
+                    else:
+                        photo_data[photo_row_idx]["photo2"] = photo_url
+                    
+                    print(f"  ✅ Photo {idx + 1}: {file.filename} → {photo_url}")
+        
+        # Update inspection_report with photo URLs
+        inspection_report = {"photos": photo_data}
+        new_inspection.inspection_report = inspection_report
+        db.commit()
+        db.refresh(new_inspection)
+        
+        print(f"\n✅ SAVED TO DATABASE:")
+        print(f"   ID: {inspection_id}")
+        print(f"   Photos in R2: {len(photo_data)}")
+        print("="*60 + "\n")
+        
+        return {"id": inspection_id, "message": "Borescope inspection created successfully", "photos": len(photo_data)}
+        
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Error creating borescope inspection: {e}")
         import traceback
@@ -4282,16 +4403,47 @@ def create_borescope_inspection(data: BoroscopeSchema, db: Session = Depends(get
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to create inspection: {str(e)}")
 
-    # Log action
-    create_notification(
-        db,
-        action_type="created",
-        entity_type="borescope",
-        entity_id=new_inspection.id,
-        message=f"Бороскопия: борт {data.aircraft}, двигатель {data.serial_number}, позиция {data.position or '-'} (инспектор {data.inspector or '-'})",
-        performed_by="User"
-    )
-    return {"status": "ok", "id": new_inspection.id}
+@app.delete("/api/history/BORESCOPE/{inspection_id}")
+def delete_borescope_inspection(inspection_id: int, db: Session = Depends(get_db)):
+    """
+    Delete borescope inspection and remove photos from R2 storage
+    """
+    try:
+        from backend.r2_storage import delete_photo_from_r2
+        
+        # Find inspection
+        inspection = db.query(models.BoroscopeInspection).filter(models.BoroscopeInspection.id == inspection_id).first()
+        if not inspection:
+            raise HTTPException(status_code=404, detail="Inspection not found")
+        
+        print(f"\n🗑️ Deleting borescope inspection ID: {inspection_id}")
+        
+        # Delete photos from R2 if they exist
+        deleted_photos = 0
+        if inspection.inspection_report and isinstance(inspection.inspection_report, dict):
+            photos = inspection.inspection_report.get('photos', [])
+            if isinstance(photos, list):
+                for photo_row in photos:
+                    if isinstance(photo_row, dict):
+                        for key in ['photo1', 'photo2']:
+                            photo_url = photo_row.get(key)
+                            if photo_url and photo_url.startswith('http'):
+                                if delete_photo_from_r2(photo_url):
+                                    deleted_photos += 1
+        
+        # Delete from database
+        db.delete(inspection)
+        db.commit()
+        
+        print(f"✅ Deleted inspection {inspection_id} and {deleted_photos} photos from R2\n")
+        return {"message": f"Inspection deleted successfully ({deleted_photos} photos removed from R2)"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error deleting borescope inspection: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete inspection: {str(e)}")
 
 # --- BOROSCOPE SCHEDULE API ---
 

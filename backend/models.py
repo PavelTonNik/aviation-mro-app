@@ -1,5 +1,5 @@
 # backend/models.py
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, Date
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, Date, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -223,6 +223,7 @@ class BoroscopeInspection(Base):
     link = Column(String, nullable=True)
     comment = Column(String, nullable=True)
     work_type = Column(String, nullable=False, default='All Engine')  # HPT, LPT, All Engine
+    inspection_report = Column(JSON, nullable=True)  # Хранение данных фото и других отчетов
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class BoroscopeSchedule(Base):
