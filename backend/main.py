@@ -19,9 +19,11 @@ from email.mime.multipart import MIMEMultipart
 
 try:
     from . import models, database
+    from . import r2_storage
 except ImportError:  # fallback when running as a standalone script
     import models
     import database
+    import r2_storage
 
 def _sync_engine_status_from_history(db):
     """
@@ -2138,6 +2140,37 @@ def save_aircraft_utilization(data: AircraftUtilizationSchema, db: Session = Dep
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/aircraft-utilization")
+def get_aircraft_utilization(aircraft: str = None, db: Session = Depends(get_db)):
+    """Get latest aircraft utilization data"""
+    try:
+        query = db.query(models.AircraftUtilizationHistory)
+        
+        if aircraft:
+            query = query.join(models.Aircraft).filter(
+                models.Aircraft.tail_number == aircraft
+            )
+        
+        records = query.order_by(models.AircraftUtilizationHistory.date.desc()).all()
+        
+        result = []
+        for record in records:
+            result.append({
+                "id": record.id,
+                "aircraft_id": record.aircraft_id,
+                "aircraft": record.aircraft_data.tail_number if record.aircraft_data else None,
+                "date": record.date.isoformat() if record.date else None,
+                "tsn": record.tsn or 0,
+                "csn": record.csn or 0,
+                "current_total_hrs": record.tsn or 0,
+                "current_cycles": record.csn or 0
+            })
+        
+        return result
+    except Exception as e:
+        print(f"Error fetching aircraft utilization: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/aircraft-utilization-history")
 def get_aircraft_utilization_history(aircraft: str = None, db: Session = Depends(get_db)):
     """Get aircraft utilization history"""
@@ -4241,6 +4274,44 @@ def get_parameter_history(engine_id: int = None, db: Session = Depends(get_db)):
 def get_parameter_history_alias(engine_id: int = None, db: Session = Depends(get_db)):
     return get_parameter_history(engine_id=engine_id, db=db)
 
+# Simple endpoint for fetching engine parameters (used by Borescope Reports)
+@app.get("/api/eng-parameters")
+def get_eng_parameters(serial_number: str = None, db: Session = Depends(get_db)):
+    """Get latest engine parameters, optionally filtered by serial number"""
+    try:
+        query = db.query(models.EngineParameterHistory)
+        
+        if serial_number:
+            query = query.join(models.Engine).filter(
+                (models.Engine.current_sn == serial_number) | 
+                (models.Engine.original_sn == serial_number)
+            )
+        
+        history = query.order_by(models.EngineParameterHistory.date.desc()).all()
+        
+        result = []
+        for h in history:
+            eng = h.engine
+            result.append({
+                "id": h.id,
+                "date": h.date.isoformat() if h.date else None,
+                "engine_serial_number": eng.current_sn if eng else "Unknown",
+                "engine_sn": eng.current_sn if eng else "Unknown",
+                "aircraft": eng.aircraft.tail_number if eng and eng.aircraft else None,
+                "position": eng.position if eng else None,
+                "n1_takeoff": h.n1_takeoff,
+                "n2_takeoff": h.n2_takeoff,
+                "egt_takeoff": h.egt_takeoff,
+                "n1_cruise": h.n1_cruise,
+                "n2_cruise": h.n2_cruise,
+                "egt_cruise": h.egt_cruise
+            })
+        
+        return result
+    except Exception as e:
+        print(f"Error fetching eng parameters: {str(e)}")
+        return []
+
 # --- BORESCOPE INSPECTIONS API ---
 
 @app.get("/api/history/BORESCOPE")
@@ -4292,7 +4363,7 @@ async def create_borescope_inspection(
     comment: str = Form(""),
     link: str = Form(""),
     photo_labels: str = Form("[]"),  # JSON string with labels
-    photos: list[UploadFile] = File([]),  # List of uploaded photo files
+    photos: Optional[List[UploadFile]] = File(None),  # Uploaded photo files (can be None)
     db: Session = Depends(get_db)
 ):
     """
@@ -4300,7 +4371,6 @@ async def create_borescope_inspection(
     Photos are stored in Cloudflare R2, only URLs saved in database
     """
     try:
-        from backend.r2_storage import upload_photo_to_r2, test_r2_connection
         import json
         
         print("\n" + "="*60)
@@ -4310,7 +4380,7 @@ async def create_borescope_inspection(
         print(f"Aircraft: {aircraft}")
         print(f"Serial: {serial_number}")
         print(f"Inspector: {inspector}")
-        print(f"Photos received: {len(photos)}")
+        print(f"Photos received: {len(photos) if photos else 0}")
         print(f"Photo labels: {photo_labels}")
         
         # Validate required fields
@@ -4340,7 +4410,8 @@ async def create_borescope_inspection(
         # Parse photo labels
         try:
             labels = json.loads(photo_labels) if photo_labels else []
-        except:
+        except Exception as e:
+            print(f"⚠️ Failed to parse photo_labels: {e}")
             labels = []
         
         # Upload photos to R2 and build inspection_report
@@ -4349,37 +4420,43 @@ async def create_borescope_inspection(
             print(f"\n📤 Uploading {len(photos)} photos to R2...")
             
             # Test R2 connection
-            if not test_r2_connection():
+            if not r2_storage.test_r2_connection():
                 raise HTTPException(status_code=500, detail="R2 storage connection failed")
             
             # Upload each photo
             for idx, file in enumerate(photos):
-                if file and file.filename:
-                    # Read file bytes
-                    file_bytes = await file.read()
-                    
-                    # Determine photo row and position
-                    photo_row_idx = idx // 2  # 0, 0, 1, 1, 2, 2...
-                    photo_num = (idx % 2) + 1  # 1, 2, 1, 2, 1, 2...
-                    
-                    # Get label for this row
-                    label = labels[photo_row_idx] if photo_row_idx < len(labels) else f"Photo {photo_row_idx + 1}"
-                    
-                    # Upload to R2
-                    photo_url = upload_photo_to_r2(file_bytes, inspection_id, photo_row_idx, photo_num)
-                    
-                    # Add to photo_data
-                    # Ensure row exists
-                    while len(photo_data) <= photo_row_idx:
-                        photo_data.append({"label": "", "photo1": None, "photo2": None})
-                    
-                    photo_data[photo_row_idx]["label"] = label
-                    if photo_num == 1:
-                        photo_data[photo_row_idx]["photo1"] = photo_url
-                    else:
-                        photo_data[photo_row_idx]["photo2"] = photo_url
-                    
-                    print(f"  ✅ Photo {idx + 1}: {file.filename} → {photo_url}")
+                try:
+                    if file and file.filename:
+                        # Read file bytes
+                        file_bytes = await file.read()
+                        
+                        # Determine photo row and position
+                        photo_row_idx = idx // 2  # 0, 0, 1, 1, 2, 2...
+                        photo_num = (idx % 2) + 1  # 1, 2, 1, 2, 1, 2...
+                        
+                        # Get label for this row
+                        label = labels[photo_row_idx] if photo_row_idx < len(labels) else f"Photo {photo_row_idx + 1}"
+                        
+                        # Upload to R2
+                        photo_url = r2_storage.upload_photo_to_r2(file_bytes, inspection_id, photo_row_idx, photo_num)
+                        
+                        # Add to photo_data
+                        # Ensure row exists
+                        while len(photo_data) <= photo_row_idx:
+                            photo_data.append({"label": "", "photo1": None, "photo2": None})
+                        
+                        photo_data[photo_row_idx]["label"] = label
+                        if photo_num == 1:
+                            photo_data[photo_row_idx]["photo1"] = photo_url
+                        else:
+                            photo_data[photo_row_idx]["photo2"] = photo_url
+                        
+                        print(f"  ✅ Photo {idx + 1}: {file.filename} → {photo_url}")
+                except Exception as e:
+                    print(f"  ❌ Error uploading photo {idx + 1}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Continue with other photos even if one fails
         
         # Update inspection_report with photo URLs
         inspection_report = {"photos": photo_data}
@@ -4397,11 +4474,13 @@ async def create_borescope_inspection(
     except HTTPException:
         raise
     except Exception as e:
+        # Log and return JSON error to avoid HTML response
         print(f"❌ Error creating borescope inspection: {e}")
         import traceback
         traceback.print_exc()
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to create inspection: {str(e)}")
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=500, content={"detail": f"Failed to create inspection: {str(e)}"})
 
 @app.delete("/api/history/BORESCOPE/{inspection_id}")
 def delete_borescope_inspection(inspection_id: int, db: Session = Depends(get_db)):
@@ -4409,8 +4488,6 @@ def delete_borescope_inspection(inspection_id: int, db: Session = Depends(get_db
     Delete borescope inspection and remove photos from R2 storage
     """
     try:
-        from backend.r2_storage import delete_photo_from_r2
-        
         # Find inspection
         inspection = db.query(models.BoroscopeInspection).filter(models.BoroscopeInspection.id == inspection_id).first()
         if not inspection:
@@ -4428,7 +4505,7 @@ def delete_borescope_inspection(inspection_id: int, db: Session = Depends(get_db
                         for key in ['photo1', 'photo2']:
                             photo_url = photo_row.get(key)
                             if photo_url and photo_url.startswith('http'):
-                                if delete_photo_from_r2(photo_url):
+                                if r2_storage.delete_photo_from_r2(photo_url):
                                     deleted_photos += 1
         
         # Delete from database
@@ -7584,3 +7661,73 @@ def send_engine_report_email(
     except Exception as e:
         print(f"❌ Error in send_engine_report_email: {e}")
         raise HTTPException(500, f"Server error: {str(e)}")
+
+
+# ===== BORESCOPE REPORT EXPORT =====
+@app.get("/api/borescope-photo-proxy/{photo_path:path}")
+async def get_borescope_photo_proxy(photo_path: str):
+    """
+    Proxy endpoint для загрузки фотографий боресокпа из R2 storage.
+    Избегает CORS ошибок при экспорте в Word.
+    photo_path - это полный URL из R2 (например: https://pub-...r2.dev/borescope/123/file.jpg)
+    """
+    try:
+        from fastapi.responses import Response
+        from urllib.parse import unquote
+        
+        # Декодируем путь
+        photo_path = unquote(photo_path)
+        
+        print(f"📥 Received photo request: {photo_path}")
+        
+        # Извлекаем путь файла из R2 URL
+        # Формат: https://pub-XXX.r2.dev/borescope/123/file.jpg
+        # Нужно: borescope/123/file.jpg
+        if 'r2.dev/' in photo_path:
+            # Берем все после r2.dev/
+            file_path = photo_path.split('r2.dev/')[-1]
+        elif photo_path.startswith('borescope/'):
+            # Уже правильный путь
+            file_path = photo_path
+        else:
+            # Пытаемся найти borescope/ в пути
+            if 'borescope/' in photo_path:
+                file_path = photo_path[photo_path.index('borescope/'):]
+            else:
+                print(f"❌ Invalid photo path format: {photo_path}")
+                raise HTTPException(400, f"Invalid photo path: {photo_path}")
+        
+        print(f"🔍 Loading from R2: {file_path}")
+        
+        # Загружаем файл из R2
+        file_content = r2_storage.get_file(file_path)
+        if not file_content:
+            print(f"❌ Photo not found in R2: {file_path}")
+            raise HTTPException(404, f"Photo not found: {file_path}")
+        
+        print(f"✅ Photo loaded: {len(file_content)} bytes")
+        
+        # Определяем тип контента
+        if file_path.lower().endswith(('.jpg', '.jpeg')):
+            media_type = "image/jpeg"
+        elif file_path.lower().endswith('.png'):
+            media_type = "image/png"
+        else:
+            media_type = "image/jpeg"  # По умолчанию
+        
+        # Возвращаем как Response с байтами
+        return Response(
+            content=file_content,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": "inline",
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error in get_borescope_photo_proxy: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Error loading photo: {str(e)}")

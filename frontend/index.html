@@ -4,6 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aviation Engine Management</title>
+    <script>
+        // Global helpers available to all scripts
+        function noCache() { return `?t=${Date.now()}`; }
+        window.noCache = window.noCache || noCache;
+
+        window.getDeletedEngineIds = window.getDeletedEngineIds || function() {
+            try {
+                const ids = localStorage.getItem('engine-deleted-ids');
+                return ids ? JSON.parse(ids) : [];
+            } catch (e) {
+                return [];
+            }
+        };
+        var getDeletedEngineIds = window.getDeletedEngineIds;
+    </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -12,6 +27,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <!-- SheetJS for Excel Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- PDF Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     
     <style>
         html { overflow-y: auto; overflow-x: hidden; }
@@ -397,7 +415,7 @@
 
         body.light-bg .badge.bg-info {
             background-color: #0dcaf0 !important;
-            color: #000000 !important;
+            color: #ffffff !important;
         }
 
         body.light-bg .badge.bg-warning {
@@ -413,6 +431,55 @@
         body.light-bg .badge.bg-primary {
             background-color: #0d6efd !important;
             color: #ffffff !important;
+        }
+
+        /* Белый текст для всех статусов в таблице при дневном режиме */
+        body.light-bg .badge {
+            color: #ffffff !important;
+        }
+
+        body.light-bg .badge.bg-info,
+        body.light-bg .badge.bg-warning {
+            color: #000000 !important;
+        }
+
+        /* Дополнительная защита для всех статусов и условий в light-bg */
+        body.light-bg [class*="bg-success"],
+        body.light-bg [class*="bg-danger"],
+        body.light-bg [class*="bg-primary"],
+        body.light-bg [class*="bg-warning"] {
+            background-color: inherit !important;
+            color: inherit !important;
+        }
+
+        /* Защита иконок статусов */
+        body.light-bg .badge.bg-success::before,
+        body.light-bg .badge.bg-success::after,
+        body.light-bg .badge.bg-danger::before,
+        body.light-bg .badge.bg-danger::after,
+        body.light-bg .badge.bg-primary::before,
+        body.light-bg .badge.bg-primary::after,
+        body.light-bg .badge.bg-warning::before,
+        body.light-bg .badge.bg-warning::after {
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        /* Защита статусных кнопок на дашборде */
+        body.light-bg .btn-dashboard.btn-status-sv,
+        body.light-bg .btn-dashboard.btn-status-us,
+        body.light-bg .btn-dashboard.btn-status-rem,
+        body.light-bg .btn-dashboard.btn-status-inst {
+            opacity: 1 !important;
+            filter: none !important;
+        }
+
+        /* Защита текста в статусных кнопках */
+        body.light-bg .btn-dashboard.btn-status-sv .label,
+        body.light-bg .btn-dashboard.btn-status-us .label,
+        body.light-bg .btn-dashboard.btn-status-rem .label,
+        body.light-bg .btn-dashboard.btn-status-inst .label {
+            color: white !important;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
         }
 
         /* КНОПКИ НА ДАШБОРДЕ (Полный стиль) */
@@ -532,6 +599,56 @@
             box-shadow: 0 8px 24px rgba(22, 92, 159, 0.4), 0 0 0 2px rgba(34, 112, 173, 0.5);
             border-color: rgba(34, 112, 173, 0.8);
         }
+
+        /* Защита статусных кнопок от light-bg темы */
+        body.light-bg .btn-status-sv {
+            background: linear-gradient(135deg, #22754a 0%, #34955f 100%) !important;
+            box-shadow: 0 4px 12px rgba(34, 117, 74, 0.35) !important;
+            border-color: rgba(52, 149, 95, 0.5) !important;
+        }
+        
+        body.light-bg .btn-status-sv:hover {
+            background: linear-gradient(135deg, #2a8a5a 0%, #3db070 100%) !important;
+            box-shadow: 0 8px 24px rgba(34, 149, 74, 0.4), 0 0 0 2px rgba(52, 149, 95, 0.5) !important;
+            border-color: rgba(52, 149, 95, 0.8) !important;
+        }
+
+        body.light-bg .btn-status-us {
+            background: linear-gradient(135deg, #6e2020 0%, #943535 100%) !important;
+            box-shadow: 0 4px 12px rgba(110, 32, 32, 0.35) !important;
+            border-color: rgba(148, 53, 53, 0.5) !important;
+        }
+        
+        body.light-bg .btn-status-us:hover {
+            background: linear-gradient(135deg, #852828 0%, #af4444 100%) !important;
+            box-shadow: 0 8px 24px rgba(133, 40, 40, 0.4), 0 0 0 2px rgba(148, 53, 53, 0.5) !important;
+            border-color: rgba(148, 53, 53, 0.8) !important;
+        }
+
+        body.light-bg .btn-status-rem {
+            background: linear-gradient(135deg, #4a2d7a 0%, #6b4a9e 100%) !important;
+            box-shadow: 0 4px 12px rgba(74, 45, 122, 0.35) !important;
+            border-color: rgba(107, 74, 158, 0.5) !important;
+        }
+        
+        body.light-bg .btn-status-rem:hover {
+            background: linear-gradient(135deg, #5a3990 0%, #7f5ab8 100%) !important;
+            box-shadow: 0 8px 24px rgba(90, 57, 144, 0.4), 0 0 0 2px rgba(107, 74, 158, 0.5) !important;
+            border-color: rgba(107, 74, 158, 0.8) !important;
+        }
+
+        body.light-bg .btn-status-inst {
+            background: linear-gradient(135deg, #114a82 0%, #2270ad 100%) !important;
+            box-shadow: 0 4px 12px rgba(17, 74, 130, 0.35) !important;
+            border-color: rgba(34, 112, 173, 0.5) !important;
+        }
+        
+        body.light-bg .btn-status-inst:hover {
+            background: linear-gradient(135deg, #165c9f 0%, #2a86ca 100%) !important;
+            box-shadow: 0 8px 24px rgba(22, 92, 159, 0.4), 0 0 0 2px rgba(34, 112, 173, 0.5) !important;
+            border-color: rgba(34, 112, 173, 0.8) !important;
+        }
+
         .btn-status-scrap {
             background: linear-gradient(135deg, #2a2f35 0%, #3d454d 100%);
             box-shadow: 0 4px 12px rgba(42, 47, 53, 0.3);
@@ -1625,6 +1742,7 @@
 
         .engine-btn-menu.show .engine-menu-item-manuals { transition-delay: 0.02s; }
         .engine-btn-menu.show .engine-menu-item-reports { transition-delay: 0.08s; }
+        .engine-btn-menu.show .engine-menu-item-borescope-reports { transition-delay: 0.12s; }
         .engine-btn-menu.show .engine-menu-item-folders { transition-delay: 0.14s; }
 
         /* === SECOND LEVEL RADIAL MENU (Reports submenu) === */
@@ -1696,6 +1814,212 @@
         .reports-radial-menu.show .reports-menu-item-engine-reports { transition-delay: 0.06s; }
         .reports-radial-menu.show .reports-menu-item-purchase { transition-delay: 0.10s; }
         .reports-radial-menu.show .reports-menu-item-nameplate { transition-delay: 0.14s; }
+
+        /* === SECOND LEVEL RADIAL MENU (Manuals submenu) === */
+        .manuals-radial-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 340px;
+            height: 340px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease;
+        }
+
+        .manuals-radial-menu.show {
+            opacity: 1;
+            pointer-events: auto;
+            visibility: visible;
+        }
+
+        .manuals-menu-item {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 80px;
+            height: 80px;
+            border-radius: 14px;
+            background: rgba(100, 180, 255, 0.08);
+            border: 1px solid rgba(100, 180, 255, 0.35);
+            color: #ecfaff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            font-size: 0.75rem;
+            box-shadow: 0 0 16px rgba(100, 180, 255, 0.2);
+            backdrop-filter: blur(6px);
+            opacity: 0;
+            pointer-events: none;
+            --angle: 0deg;
+            --radius: 110px;
+            --scale: 0.55;
+            cursor: pointer;
+            transform: translate(-50%, -50%) rotate(var(--angle)) translate(var(--radius)) rotate(calc(var(--angle) * -1)) scale(var(--scale));
+            transition: opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+            transform-origin: center;
+        }
+
+        .manuals-radial-menu.show .manuals-menu-item {
+            opacity: 1;
+            pointer-events: auto;
+            --scale: 1;
+        }
+
+        .manuals-menu-item:hover {
+            box-shadow: 0 0 24px rgba(100, 180, 255, 0.5);
+            border-color: rgba(100, 180, 255, 0.75);
+            background: rgba(100, 180, 255, 0.12);
+        }
+
+        .manuals-menu-item i {
+            font-size: 1.4rem;
+        }
+
+        .manuals-radial-menu.show .manuals-menu-item-boeing { transition-delay: 0.02s; }
+        .manuals-radial-menu.show .manuals-menu-item-gecards { transition-delay: 0.06s; }
+
+        /* === THIRD LEVEL RADIAL MENU (Aircraft selector for Borescope Reports) === */
+        .aircraft-selector-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 340px;
+            height: 340px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            display: none;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .aircraft-selector-menu.show {
+            display: flex;
+            pointer-events: auto;
+        }
+
+        .aircraft-menu-item {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 80px;
+            height: 80px;
+            border-radius: 14px;
+            background: rgba(255, 150, 100, 0.08);
+            border: 1px solid rgba(255, 150, 100, 0.35);
+            color: #ecfaff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            font-size: 0.75rem;
+            box-shadow: 0 0 16px rgba(255, 150, 100, 0.2);
+            backdrop-filter: blur(6px);
+            opacity: 0;
+            pointer-events: none;
+            --angle: 0deg;
+            --radius: 110px;
+            --scale: 0.55;
+            cursor: pointer;
+            transform: translate(-50%, -50%) rotate(var(--angle)) translate(var(--radius)) rotate(calc(var(--angle) * -1)) scale(var(--scale));
+            transition: opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+            transform-origin: center;
+        }
+
+        .aircraft-selector-menu.show .aircraft-menu-item {
+            opacity: 1;
+            pointer-events: auto;
+            --scale: 1;
+        }
+
+        .aircraft-menu-item:hover {
+            box-shadow: 0 0 24px rgba(255, 150, 100, 0.5);
+            border-color: rgba(255, 150, 100, 0.75);
+            background: rgba(255, 150, 100, 0.12);
+        }
+
+        .aircraft-menu-item i {
+            font-size: 1.4rem;
+        }
+
+        .aircraft-selector-menu.show .aircraft-item-bar { transition-delay: 0.02s; }
+        .aircraft-selector-menu.show .aircraft-item-baq { transition-delay: 0.06s; }
+        .aircraft-selector-menu.show .aircraft-item-bat { transition-delay: 0.10s; }
+
+        /* === FOURTH LEVEL RADIAL MENU (Positions selector) === */
+        .positions-selector-menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 340px;
+            height: 340px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            display: none;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .positions-selector-menu.show {
+            display: flex;
+            pointer-events: auto;
+        }
+
+        .position-menu-item {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 80px;
+            height: 80px;
+            border-radius: 14px;
+            background: rgba(150, 255, 150, 0.08);
+            border: 1px solid rgba(150, 255, 150, 0.35);
+            color: #ecfaff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            font-size: 0.75rem;
+            box-shadow: 0 0 16px rgba(150, 255, 150, 0.2);
+            backdrop-filter: blur(6px);
+            opacity: 0;
+            pointer-events: none;
+            --angle: 0deg;
+            --radius: 110px;
+            --scale: 0.55;
+            cursor: pointer;
+            transform: translate(-50%, -50%) rotate(var(--angle)) translate(var(--radius)) rotate(calc(var(--angle) * -1)) scale(var(--scale));
+            transition: opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+            transform-origin: center;
+        }
+
+        .positions-selector-menu.show .position-menu-item {
+            opacity: 1;
+            pointer-events: auto;
+            --scale: 1;
+        }
+
+        .position-menu-item:hover {
+            box-shadow: 0 0 24px rgba(150, 255, 150, 0.5);
+            border-color: rgba(150, 255, 150, 0.75);
+            background: rgba(150, 255, 150, 0.12);
+        }
+
+        .position-menu-item i {
+            font-size: 1.4rem;
+        }
+
+        .positions-selector-menu.show .position-item-1 { transition-delay: 0.02s; }
+        .positions-selector-menu.show .position-item-2 { transition-delay: 0.06s; }
+        .positions-selector-menu.show .position-item-3 { transition-delay: 0.10s; }
+        .positions-selector-menu.show .position-item-4 { transition-delay: 0.14s; }
+        .positions-selector-menu.show .position-item-all { transition-delay: 0.18s; }
 
         .engine-fan {
             position: relative;
@@ -1895,16 +2219,14 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), 
-                              url('/static/assets/login-bg.jpg');
-            background-attachment: fixed;
-            background-position: center;
-            background-size: cover;
-            background-repeat: no-repeat;
+            background: url('/static/assets/login-bg.jpg') center / cover no-repeat fixed;
+            background-color: #1a1a1a;
             display: none;
             justify-content: center;
             align-items: center;
             z-index: 9999;
+            will-change: background;
+            contain: layout style paint;
         }
         
         .login-modal.show {
@@ -2105,7 +2427,7 @@
             border-radius: 12px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
             display: none;
-            z-index: 999;
+            z-index: 10001;
         }
 
         .profile-dropdown.show {
@@ -2206,7 +2528,7 @@
             border-radius: 12px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
             display: none;
-            z-index: 999;
+            z-index: 10000;
         }
 
         /* Force readable text in notifications panel */
@@ -4236,6 +4558,8 @@
             -webkit-overflow-scrolling: touch;
         }
     </style>
+    <!-- Preload login background for faster loading -->
+    <link rel="preload" as="image" href="/static/assets/login-bg.jpg" media="(prefers-reduced-motion: no-preference)">
 </head>
 <body>
 
@@ -4245,7 +4569,7 @@
         <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 20% 50%, rgba(79, 195, 247, 0.03) 0%, transparent 50%), radial-gradient(ellipse at 80% 50%, rgba(71, 184, 255, 0.03) 0%, transparent 50%); animation: subtle-shift 8s ease-in-out infinite;"></div>
         
         <!-- Main container -->
-        <div style="position: relative; display: flex; flex-direction: column; align-items: center; gap: 50px; z-index: 10;">
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 50px; z-index: 10; text-align: center;">
             
             <!-- 3D GSS Title -->
             <div id="preloader-title-gss" style="
@@ -5011,13 +5335,17 @@
                         </span>
                     </button>
                     <div class="engine-btn-menu" id="engine-btn-menu">
-                        <button type="button" class="engine-menu-item engine-menu-item-manuals" style="--angle: -90deg;" onclick="handleEngineMenuSelection('manuals')">
+                        <button type="button" class="engine-menu-item engine-menu-item-manuals" style="--angle: -90deg;" onclick="toggleManualsSubmenu()">
                             <i class="bi bi-journal-bookmark-fill"></i>
                             <span>Manuals</span>
                         </button>
                         <button type="button" class="engine-menu-item engine-menu-item-reports" style="--angle: 150deg;" onclick="toggleReportsSubmenu()">
                             <i class="bi bi-graph-up"></i>
                             <span>Reports</span>
+                        </button>
+                        <button type="button" class="engine-menu-item engine-menu-item-borescope-reports" style="--angle: 210deg;" onclick="toggleBoroscopeReportsSubmenu()">
+                            <i class="bi bi-camera-reels"></i>
+                            <span>Borescope<br>Reports</span>
                         </button>
                         <button type="button" class="engine-menu-item engine-menu-item-folders" style="--angle: 30deg;" onclick="handleEngineMenuSelection('folders')">
                             <i class="bi bi-folder2-open"></i>
@@ -5041,6 +5369,58 @@
                             <button type="button" class="reports-menu-item reports-menu-item-nameplate" style="--angle: 270deg;" onclick="showNameplateTrackerView()">
                                 <i class="bi bi-tag"></i>
                                 <span>Nameplate</span>
+                            </button>
+                        </div>
+
+                        <!-- SECOND LEVEL RADIAL MENU for Manuals -->
+                        <div class="manuals-radial-menu" id="manuals-radial-menu">
+                            <button type="button" class="manuals-menu-item manuals-menu-item-boeing" style="--angle: 0deg;" onclick="openManualsBoeing()">
+                                <i class="bi bi-file-pdf"></i>
+                                <span>747-200</span>
+                            </button>
+                            <button type="button" class="manuals-menu-item manuals-menu-item-gecards" style="--angle: 180deg;" onclick="openManualsGECards()">
+                                <i class="bi bi-card-text"></i>
+                                <span>GE Cards</span>
+                            </button>
+                        </div>
+
+                        <!-- THIRD LEVEL RADIAL MENU for Aircraft Selection -->
+                        <div class="aircraft-selector-menu" id="aircraft-selector-menu">
+                            <button type="button" class="aircraft-menu-item aircraft-item-bar" style="--angle: 0deg;" onclick="selectAircraft('ER-BAR')">
+                                <i class="bi bi-airplane"></i>
+                                <span>ER-BAR</span>
+                            </button>
+                            <button type="button" class="aircraft-menu-item aircraft-item-baq" style="--angle: 120deg;" onclick="selectAircraft('ER-BAQ')">
+                                <i class="bi bi-airplane"></i>
+                                <span>ER-BAQ</span>
+                            </button>
+                            <button type="button" class="aircraft-menu-item aircraft-item-bat" style="--angle: 240deg;" onclick="selectAircraft('ER-BAT')">
+                                <i class="bi bi-airplane"></i>
+                                <span>ER-BAT</span>
+                            </button>
+                        </div>
+
+                        <!-- FOURTH LEVEL RADIAL MENU for Positions Selection -->
+                        <div class="positions-selector-menu" id="positions-selector-menu">
+                            <button type="button" class="position-menu-item position-item-1" style="--angle: 0deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 1)">
+                                <i class="bi bi-1-circle-fill"></i>
+                                <span>Position 1</span>
+                            </button>
+                            <button type="button" class="position-menu-item position-item-2" style="--angle: 72deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 2)">
+                                <i class="bi bi-2-circle-fill"></i>
+                                <span>Position 2</span>
+                            </button>
+                            <button type="button" class="position-menu-item position-item-3" style="--angle: 144deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 3)">
+                                <i class="bi bi-3-circle-fill"></i>
+                                <span>Position 3</span>
+                            </button>
+                            <button type="button" class="position-menu-item position-item-4" style="--angle: 216deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 4)">
+                                <i class="bi bi-4-circle-fill"></i>
+                                <span>Position 4</span>
+                            </button>
+                            <button type="button" class="position-menu-item position-item-all" style="--angle: 288deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 'ALL')">
+                                <i class="bi bi-asterisk"></i>
+                                <span>ALL</span>
                             </button>
                         </div>
                     </div>
@@ -5616,7 +5996,7 @@
                                 <div class="card-body">
                                     <form id="form-borescope">
                                         <div class="row mb-3">
-                                            <div class="col-md-3">
+                                            <div class="col-md-2">
                                                 <label class="form-label small fw-bold">Дата <span class="text-danger">*</span></label>
                                                 <input type="date" class="form-control" id="bore-date" required>
                                             </div>
@@ -5625,27 +6005,31 @@
                                                 <input type="time" class="form-control" id="bore-time" placeholder="HH:MM">
                                             </div>
                                             <div class="col-md-3">
-                                                <label class="form-label small fw-bold">Самолет <span class="text-danger">*</span></label>
-                                                <select class="form-select" id="bore-aircraft" required onchange="onAircraftChange()">
-                                                    <option value="">Выберите...</option>
-                                                </select>
+                                                <label class="form-label small fw-bold">Orig SN <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" id="bore-orig-sn" placeholder="Original S/N" required onchange="onOrigSNChange()" list="bore-orig-sn-list">
+                                                <datalist id="bore-orig-sn-list"></datalist>
                                             </div>
-                                            <div class="col-md-4">
-                                                <label class="form-label small fw-bold">Серийник <span class="text-danger">*</span></label>
-                                                <input type="text" class="form-control" id="bore-serial" placeholder="Engine S/N" required onchange="onSerialNumberChange()" list="bore-serial-list">
-                                                <datalist id="bore-serial-list"></datalist>
+                                            <div class="col-md-2">
+                                                <label class="form-label small fw-bold">Current SN</label>
+                                                <input type="text" class="form-control" id="bore-current-sn" placeholder="Current S/N" readonly>
                                             </div>
-                                        </div>
-
-                                        <div class="row mb-3">
                                             <div class="col-md-3">
                                                 <label class="form-label small fw-bold">GSS ID</label>
                                                 <input type="text" class="form-control" id="bore-gss" placeholder="GSS-xxxxx">
                                             </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-bold">Самолет</label>
+                                                <select class="form-select" id="bore-aircraft" disabled>
+                                                    <option value="">-- будет заполнено --</option>
+                                                </select>
+                                            </div>
                                             <div class="col-md-3">
-                                                <label class="form-label small fw-bold">Позиция <span class="text-danger">*</span></label>
-                                                <select class="form-select" id="bore-position" required>
-                                                    <option value="">Выберите...</option>
+                                                <label class="form-label small fw-bold">Позиция</label>
+                                                <select class="form-select" id="bore-position" disabled>
+                                                    <option value="">-- будет заполнено --</option>
                                                     <option value="1">Позиция 1</option>
                                                     <option value="2">Позиция 2</option>
                                                     <option value="3">Позиция 3</option>
@@ -7574,8 +7958,8 @@
                                 <button class="btn btn-sm btn-secondary d-none" id="btn-main-cancel" onclick="cancelEditMode()"><i class="bi bi-x-lg"></i> Cancel</button>
                             </div>
                             
-                            <div class="table-responsive" style="max-height: 80vh; overflow: auto;">
-                                <table class="table table-bordered table-hover table-sm text-center align-middle" style="font-size: 0.85rem; min-width: 100%;">
+                            <div class="table-responsive" style="max-height: 80vh; overflow: auto; position: relative;">
+                                <table class="table table-bordered table-hover table-sm text-center align-middle" style="font-size: 0.85rem; min-width: 100%; position: relative; z-index: 1;">
                                     <thead class="table-dark" style="position: sticky; top: 0; z-index: 10;">
                                         <tr>
                                             <th class="delete-col" style="width: 50px; min-width: 50px; display: none;">
@@ -7614,7 +7998,7 @@
                 </div>
                 
                 <!-- Выдвижная панель фильтра -->
-                <div id="engine-filter-panel" class="position-fixed" style="right: -400px; top: 0; width: 400px; height: 100vh; background: white; border-left: 1px solid #ddd; box-shadow: -2px 0 8px rgba(0,0,0,0.1); z-index: 1000; transition: right 0.3s ease; padding: 20px; overflow-y: auto;">
+                <div id="engine-filter-panel" class="position-fixed" style="right: -400px; top: 0; width: 400px; height: 100vh; background: white; border-left: 1px solid #ddd; box-shadow: -2px 0 8px rgba(0,0,0,0.1); z-index: 9999; transition: right 0.3s ease; padding: 20px; overflow-y: auto;">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <h5 class="mb-0">Filter Engines</h5>
                         <button class="btn btn-close" onclick="toggleEngineFilter()"></button>
@@ -8137,6 +8521,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // Define noCache early so it's available to all functions
+    window.noCache = window.noCache || (() => `?t=${new Date().getTime()}`);
+    
     // --- 1. Sidebar Toggle ---
 
     const wrapper = document.getElementById("wrapper");
@@ -8252,8 +8639,8 @@ function openDashboardView() {
     
     // Делаем функцию доступной в консоли браузера
     window.clearDeletedEngineIds = clearDeletedEngineIds;
+    window.getDeletedEngineIds = getDeletedEngineIds;
     
-    window.noCache = () => `?t=${new Date().getTime()}`;
     window.onload = async function() {
         loadSavedTheme();
         await loadDashboardData();
@@ -8467,11 +8854,11 @@ function restoreView(viewName) {
         let removeData = [];
         let installData = [];
         try {
-            const removeRes = await safeFetch('/api/history/REMOVE' + noCache());
+            const removeRes = await safeFetch('/api/history/REMOVE' + window.noCache());
             if (removeRes && removeRes.ok) {
                 removeData = await removeRes.json();
             }
-            const installRes = await safeFetch('/api/history/INSTALL' + noCache());
+            const installRes = await safeFetch('/api/history/INSTALL' + window.noCache());
             if (installRes && installRes.ok) {
                 installData = await installRes.json();
             }
@@ -9025,7 +9412,7 @@ function restoreView(viewName) {
 
         async function renderShipmentModal(container) {
                 container.innerHTML = '<div class="text-muted">Loading shipment history…</div>';
-                let res = await safeFetch('/api/history/SHIP' + noCache());
+                let res = await safeFetch('/api/history/SHIP' + window.noCache());
                 if (!res || !res.ok) res = await safeFetch('/api/history/SHIP');
                 if (!res || !res.ok) { container.innerHTML = '<div class="text-danger">Unable to load shipment records</div>'; return; }
                 let data = []; try { data = await res.json(); } catch { data = []; }
@@ -9054,7 +9441,7 @@ function restoreView(viewName) {
 
         async function renderInstallModal(container) {
                 container.innerHTML = '<div class="text-muted">Loading installation history…</div>';
-                let res = await safeFetch('/api/history/INSTALL' + noCache());
+                let res = await safeFetch('/api/history/INSTALL' + window.noCache());
                 if (!res || !res.ok) res = await safeFetch('/api/history/INSTALL');
                 if (!res || !res.ok) { container.innerHTML = '<div class="text-danger">Unable to load installations</div>'; return; }
                 let data = []; try { data = await res.json(); } catch { data = []; }
@@ -9087,7 +9474,7 @@ function restoreView(viewName) {
 
         async function renderRemoveModal(container) {
                 container.innerHTML = '<div class="text-muted">Loading removal history…</div>';
-                let res = await safeFetch('/api/history/REMOVE' + noCache());
+                let res = await safeFetch('/api/history/REMOVE' + window.noCache());
                 if (!res || !res.ok) res = await safeFetch('/api/history/REMOVE');
                 if (!res || !res.ok) { container.innerHTML = '<div class="text-danger">Unable to load removals</div>'; return; }
                 let data = []; try { data = await res.json(); } catch { data = []; }
@@ -9119,7 +9506,7 @@ function restoreView(viewName) {
 
         async function renderRepairModal(container) {
                 container.innerHTML = '<div class="text-muted">Loading repair history…</div>';
-                let res = await safeFetch('/api/history/REPAIR' + noCache());
+                let res = await safeFetch('/api/history/REPAIR' + window.noCache());
                 if (!res || !res.ok) res = await safeFetch('/api/history/REPAIR');
                 if (!res || !res.ok) { container.innerHTML = '<div class="text-danger">Unable to load repairs</div>'; return; }
                 let data = []; try { data = await res.json(); } catch { data = []; }
@@ -9149,7 +9536,7 @@ function restoreView(viewName) {
 
         async function renderPartsModal(container) {
                 container.innerHTML = '<div class="text-muted">Loading parts logistics…</div>';
-                let res = await safeFetch('/api/history/PARTS' + noCache());
+                let res = await safeFetch('/api/history/PARTS' + window.noCache());
                 if (!res || !res.ok) res = await safeFetch('/api/history/PARTS');
                 if (!res || !res.ok) { container.innerHTML = '<div class="text-danger">Unable to load parts records</div>'; return; }
                 let data = []; try { data = await res.json(); } catch { data = []; }
@@ -9180,7 +9567,7 @@ function restoreView(viewName) {
 
         async function renderEnginesListModal(container) {
                 container.innerHTML = '<div class="text-muted">Loading engines…</div>';
-                let res = await safeFetch('/api/engines' + noCache());
+                let res = await safeFetch('/api/engines' + window.noCache());
                 if (!res || !res.ok) res = await safeFetch('/api/engines');
                 if (!res || !res.ok) { container.innerHTML = '<div class="text-danger">Unable to load engines</div>'; return; }
                 let data = []; try { data = await res.json(); } catch { data = []; }
@@ -11190,7 +11577,7 @@ function restoreView(viewName) {
         if (!tbody) return;
         tbody.innerHTML = '<tr><td colspan="17" class="text-center text-muted py-3">Loading…</td></tr>';
 
-        let res = await safeFetch('/api/history/INSTALL' + noCache());
+        let res = await safeFetch('/api/history/INSTALL' + window.noCache());
         if (!res || !res.ok) res = await safeFetch('/api/history/INSTALL');
 
         if (!res || !res.ok) {
@@ -11205,7 +11592,7 @@ function restoreView(viewName) {
         // Загружаем Remove actions для проверки
         let removeData = [];
         try {
-            const removeRes = await safeFetch('/api/history/REMOVE' + noCache());
+            const removeRes = await safeFetch('/api/history/REMOVE' + window.noCache());
             if (removeRes && removeRes.ok) {
                 removeData = await removeRes.json();
                 console.log('Remove data loaded:', removeData);
@@ -11309,7 +11696,7 @@ function restoreView(viewName) {
 // 4. Подготовка формы (Загрузка SV двигателей)
     async function prepareInstallForm() {
         // Всегда грузим свежие данные без кеша, чтобы список был актуальным
-        let res = await safeFetch('/api/engines' + noCache());
+        let res = await safeFetch('/api/engines' + window.noCache());
         
         let engines = [];
         try { engines = res && res.ok ? await res.json() : []; } catch { engines = []; }
@@ -11549,7 +11936,7 @@ function restoreView(viewName) {
         if (!tbody) return;
         tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Loading engines...</td></tr>';
 
-        let res = await safeFetch('/api/engines' + noCache());
+        let res = await safeFetch('/api/engines' + window.noCache());
         if (!res || !res.ok) res = await safeFetch('/api/engines');
 
         if (!res || !res.ok) {
@@ -11612,8 +11999,8 @@ function restoreView(viewName) {
         modal.show();
 
         // Параллельно загружаем данные двигателя и его историю
-        let engineRes = await safeFetch(`/api/engines/${engineId}` + noCache());
-        let historyRes = await safeFetch(`/api/engines/${engineId}/history` + noCache());
+        let engineRes = await safeFetch(`/api/engines/${engineId}` + window.noCache());
+        let historyRes = await safeFetch(`/api/engines/${engineId}/history` + window.noCache());
         if (!engineRes || !engineRes.ok || !historyRes || !historyRes.ok) {
             modalBody.innerHTML = `
                 <div class="timeline-no-data">
@@ -11945,7 +12332,7 @@ function restoreView(viewName) {
                 modal.show();
                 return;
             }
-            const res = await safeFetch(config.endpoint + noCache());
+            const res = await safeFetch(config.endpoint + window.noCache());
             if (!res || !res.ok) throw new Error('Failed to load data');
             
             let data = await res.json();
@@ -12314,7 +12701,7 @@ function restoreView(viewName) {
         if (!tbody) return;
         tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Loading…</td></tr>';
 
-        let res = await safeFetch('/api/history/BORESCOPE' + noCache());
+        let res = await safeFetch('/api/history/BORESCOPE' + window.noCache());
         if (!res || !res.ok) res = await safeFetch('/api/history/BORESCOPE');
 
         if (!res || !res.ok) {
@@ -12370,7 +12757,7 @@ function restoreView(viewName) {
                     <td>${row.work_type || 'All Engine'}</td>
                     <td>${row.gss_id || '-'}</td>
                     <td>${row.inspector || '-'}</td>
-                    <td>${row.comment || '-'} ${photoIcon}</td>
+                    <td>${row.comment || '-'}</td>
                     <td data-key="link">${linkHtml}</td>
                 </tr>
             `;
@@ -12380,7 +12767,7 @@ function restoreView(viewName) {
     // Показать полный report при клике на строку
     async function showBoroscopeInspectionDetails(rowId) {
         // Загружаем данные инспекции с сервера
-        const res = await safeFetch(`/api/history/BORESCOPE${noCache()}`);
+        const res = await safeFetch(`/api/history/BORESCOPE${window.noCache()}`);
         if (!res || !res.ok) {
             showErrorNotification('Failed to load inspection details');
             return;
@@ -12438,7 +12825,7 @@ function restoreView(viewName) {
         
         try {
             // 1. Загружаем список двигателей
-            const engineRes = await safeFetch(`/api/engines${noCache()}`);
+            const engineRes = await safeFetch(`/api/engines${window.noCache()}`);
             if (engineRes && engineRes.ok) {
                 const engines = await engineRes.json();
                 const engine = engines.find(e => 
@@ -12448,15 +12835,17 @@ function restoreView(viewName) {
                 
                 if (engine) {
                     // 2. Загружаем историю INSTALL используя НОВУЮ логику
-                    const installRes = await safeFetch(`/api/history/INSTALL${noCache()}`);
+                    const installRes = await safeFetch(`/api/history/INSTALL${window.noCache()}`);
                     if (installRes && installRes.ok) {
                         const allInstallations = await installRes.json();
                         
-                        // Фильтруем установки для этого двигателя
+                        // Фильтруем установки для этого двигателя (используем ПРАВИЛЬНЫЕ имена полей!)
                         const engineInstalls = allInstallations.filter(inst => {
-                            const matchSN = (inst.serial_number === engine.original_sn || inst.serial_number === engine.current_sn);
-                            const isInstall = (inst.to_location && inst.to_location !== 'STORAGE' && inst.to_location !== 'SHOP');
-                            return matchSN && isInstall;
+                            const matchSN = (inst.original_sn === engine.original_sn || 
+                                           inst.current_sn === engine.current_sn ||
+                                           inst.original_sn === engine.current_sn ||
+                                           inst.current_sn === engine.original_sn);
+                            return matchSN && inst.install_to === engine.aircraft;
                         }).sort((a, b) => new Date(b.date) - new Date(a.date));
                         
                         const latestInstall = engineInstalls.length > 0 ? engineInstalls[0] : null;
@@ -12483,8 +12872,9 @@ function restoreView(viewName) {
                 <div class="row">
                     <div class="col-md-6">
                         <p><strong>Date:</strong> <span>${inspection.date || '—'}</span></p>
-                        <p><strong>Serial Number:</strong> <span>${inspection.serial_number || '—'}</span></p>
+                        <p><strong>Orig S/N:</strong> <span>${inspection.serial_number || '—'}</span></p>
                         <p><strong>GSS ID:</strong> <span>${inspection.gss_id || '—'}</span></p>
+                        <p><strong>Aircraft:</strong> <span style="font-weight: bold; color: #0066cc;">${inspection.aircraft || '—'}</span></p>
                         <p><strong>Position:</strong> <span>${inspection.position || '—'}</span></p>
                     </div>
                     <div class="col-md-6">
@@ -12504,12 +12894,8 @@ function restoreView(viewName) {
             const csnOnAC = totalCsn - csnAtInstall;
             
             reportHtml += `
-                        <p><strong>Installation Date:</strong> <span>${inst.date || '—'}</span></p>
-                        <p><strong>Supplier:</strong> <span>${inst.from_location || '—'}</span></p>
-                        <p><strong>Total TSN:</strong> <span>${totalTsn}</span></p>
-                        <p><strong>Total CSN:</strong> <span>${totalCsn}</span></p>
-                        <p><strong>TSN (on A/C):</strong> <span style="font-weight: bold; color: #0066cc;">${tsnOnAC}</span></p>
-                        <p><strong>CSN (on A/C):</strong> <span style="font-weight: bold; color: #0066cc;">${csnOnAC}</span></p>
+                        <p><strong>Installation Date:</strong> <span style="color: #d9534f;">${inst.date || '—'}</span></p>
+                        <p><strong>Supplier:</strong> <span>${inst.location_from || inst.supplier || '—'}</span></p>
             `;
         } else {
             reportHtml += `
@@ -12577,7 +12963,7 @@ function restoreView(viewName) {
                         <div class="col-md-6 mb-2">
                             <div class="border rounded p-2">
                                 <img src="${photoRow.photo1}" class="img-fluid rounded" style="max-height: 300px; width: 100%; object-fit: contain; cursor: pointer;" 
-                                     onclick="window.open(this.src)" title="Click to view full size">
+                                     onclick="openBorescopePhoto(this.src)" title="Click to view full size">
                                 <p class="text-center text-muted small mt-1">Photo 1</p>
                             </div>
                         </div>
@@ -12589,7 +12975,7 @@ function restoreView(viewName) {
                         <div class="col-md-6 mb-2">
                             <div class="border rounded p-2">
                                 <img src="${photoRow.photo2}" class="img-fluid rounded" style="max-height: 300px; width: 100%; object-fit: contain; cursor: pointer;" 
-                                     onclick="window.open(this.src)" title="Click to view full size">
+                                     onclick="openBorescopePhoto(this.src)" title="Click to view full size">
                                 <p class="text-center text-muted small mt-1">Photo 2</p>
                             </div>
                         </div>
@@ -12642,6 +13028,23 @@ function restoreView(viewName) {
         modal.addEventListener('hidden.bs.modal', () => modal.remove());
     }
 
+    function openBorescopePhoto(src) {
+        const overlay = document.getElementById('borescope-photo-overlay');
+        const img = document.getElementById('borescope-photo-img');
+        if (overlay && img) {
+            img.src = src;
+            overlay.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeBorescopePhoto() {
+        const overlay = document.getElementById('borescope-photo-overlay');
+        if (!overlay) return;
+        overlay.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
     // Выделить строку при клике
     function highlightRow(row) {
         // Удаляем выделение с предыдущих строк
@@ -12651,11 +13054,19 @@ function restoreView(viewName) {
         // Выделяем текущую строку
         row.style.background = '#e7f1ff';
         
-        // Показываем детали инспекции
-        const rowId = parseInt(row.getAttribute('data-log-id'));
-        if (rowId) {
-            showBoroscopeInspectionDetails(rowId);
+        // Проверяем режим Edit: если кнопка Edit скрыта (содержит d-none) - мы В РЕЖИМЕ EDIT
+        const editBtn = document.getElementById('btn-borescope-edit');
+        const isEditMode = editBtn && editBtn.classList.contains('d-none');
+        
+        // Показываем детали инспекции ТОЛЬКО вне режима Edit
+        if (!isEditMode) {
+            // Вне режима Edit: показываем модальное окно с репортом
+            const rowId = parseInt(row.getAttribute('data-log-id'));
+            if (rowId) {
+                showBoroscopeInspectionDetails(rowId);
+            }
         }
+        // В режиме Edit: ничего не делаем, только выделяем строку (чтобы можно было выбрать через чекбокс)
     }
 
     // Очистить и вернуться из режима редактирования borescope
@@ -12663,56 +13074,93 @@ function restoreView(viewName) {
         document.getElementById('form-borescope').reset();
         clearBoroscopeReport();
         clearInspectionPhotosTable();
+        
+        // Сбрасываем Aircraft и Position в начальное состояние
+        const acSelect = document.getElementById('bore-aircraft');
+        const posSelect = document.getElementById('bore-position');
+        
+        if (acSelect) {
+            acSelect.innerHTML = '<option value="">-- будет заполнено --</option>';
+            acSelect.disabled = true;
+        }
+        
+        if (posSelect) {
+            posSelect.value = '';
+            posSelect.disabled = true;
+        }
     }
 
     async function prepareBoroscopeForm() {
-        try {
-            const acRes = await fetch('/api/dashboard/aircraft-details' + noCache());
-            if (!acRes.ok) throw new Error('Failed to fetch aircraft');
-            
-            const aircrafts = await acRes.json();
-            
-            const acSelect = document.getElementById('bore-aircraft');
-            acSelect.innerHTML = '<option value="">Выберите...</option>';
-            
-            if (Array.isArray(aircrafts)) {
-                aircrafts.forEach(ac => {
-                    acSelect.innerHTML += `<option value="${ac.tail_number}">${ac.tail_number}</option>`;
-                });
-            }
-        } catch (err) {
-            console.error('Error loading aircraft for Borescope:', err);
-            // Fallback - добавляем стандартные самолеты
-            const acSelect = document.getElementById('bore-aircraft');
-            acSelect.innerHTML = `
-                <option value="">Выберите...</option>
-                <option value="ER-BAT">ER-BAT</option>
-                <option value="ER-BAR">ER-BAR</option>
-                <option value="ER-BAQ">ER-BAQ</option>
-            `;
+        // Aircraft теперь автозаполняется при выборе Orig SN
+        const acSelect = document.getElementById('bore-aircraft');
+        if (acSelect) {
+            acSelect.innerHTML = '<option value="">-- будет заполнено --</option>';
+            acSelect.disabled = true;
         }
 
-        // Заполняем список серийников из всех двигателей
+        // ✅ ИСПОЛЬЗУЕМ ТОЛЬКО /api/engines (ТЕКУЩИЕ установки!)
         try {
-            const engineRes = await fetch('/api/engines' + noCache());
-            if (engineRes.ok) {
-                const engines = await engineRes.json();
-                const serialList = document.getElementById('bore-serial-list');
-                if (serialList) {
-                    const serials = new Set();
-                    if (Array.isArray(engines)) {
-                        engines.forEach(engine => {
-                            if (engine.original_sn) serials.add(String(engine.original_sn).trim());
-                            if (engine.current_sn) serials.add(String(engine.current_sn).trim());
-                        });
-                    }
-                    serialList.innerHTML = '';
-                    Array.from(serials).filter(Boolean).sort().forEach(sn => {
-                        const option = document.createElement('option');
-                        option.value = sn;
-                        serialList.appendChild(option);
+            const engineRes = await fetch('/api/engines' + window.noCache());
+            if (!engineRes.ok) throw new Error('Failed to load engines');
+            
+            const engines = await engineRes.json();
+            
+            const origSnList = document.getElementById('bore-orig-sn-list');
+            if (origSnList) {
+                const origSnMap = new Map();
+                
+                if (Array.isArray(engines)) {
+                    engines.forEach(engine => {
+                        const originalSN = engine.original_sn ? String(engine.original_sn).trim() : null;
+                        const currentSN = engine.current_sn ? String(engine.current_sn).trim() : null;
+                        const isInstalled = engine.aircraft && engine.position;
+                        
+                        // ✅ В датализте только ORIGINAL SN (как value)
+                        // Если установлен - показываем информацию об установке и Current SN
+                        if (originalSN && !origSnMap.has(originalSN)) {
+                            if (isInstalled) {
+                                // Пример: "747-474 (ER-BAR Pos 1) [Current: 121-212]"
+                                const label = currentSN 
+                                    ? `${originalSN} (${engine.aircraft} Pos ${engine.position}) [Current: ${currentSN}]`
+                                    : `${originalSN} (${engine.aircraft} Pos ${engine.position})`;
+                                
+                                origSnMap.set(originalSN, {
+                                    value: originalSN,
+                                    label: label,
+                                    aircraft: engine.aircraft,
+                                    position: engine.position,
+                                    currentSN: currentSN
+                                });
+                            } else {
+                                // Не установлен - просто Orig SN
+                                origSnMap.set(originalSN, {
+                                    value: originalSN,
+                                    label: originalSN,
+                                    aircraft: null,
+                                    position: null,
+                                    currentSN: null
+                                });
+                            }
+                        }
                     });
                 }
+                
+                // Сохраняем для использования в onOrigSNChange()
+                window.boroscopeOrigSnData = origSnMap;
+                
+                // Добавляем в датализт
+                origSnList.innerHTML = '';
+                Array.from(origSnMap.values())
+                    .sort((a, b) => a.label.localeCompare(b.label))
+                    .forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item.value;
+                        option.label = item.label;
+                        option.textContent = item.label;
+                        origSnList.appendChild(option);
+                    });
+                
+                console.log('✅ Borescope Orig SN datalist updated with', origSnMap.size, 'engines');
             }
         } catch (err) {
             console.warn('Error loading engine serials for Borescope:', err);
@@ -12729,10 +13177,19 @@ function restoreView(viewName) {
     }
 
     async function submitBoroscopeForm() {
+        if (window.borescopeSaveInProgress) return;
+        window.borescopeSaveInProgress = true;
+        const saveBtn = document.querySelector('button[onclick="submitBoroscopeForm()"]');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.dataset.originalText = saveBtn.innerText;
+            saveBtn.innerText = 'Saving...';
+        }
         const date = document.getElementById('bore-date').value;
         const time = document.getElementById('bore-time').value;
         const aircraft = document.getElementById('bore-aircraft').value;
-        const serial = document.getElementById('bore-serial').value;
+        const origSN = document.getElementById('bore-orig-sn').value;
+        const currentSN = document.getElementById('bore-current-sn').value;
         const positionField = document.getElementById('bore-position');
         const position = positionField ? positionField.value : '';
         const workType = document.getElementById('bore-work-type').value;
@@ -12742,9 +13199,17 @@ function restoreView(viewName) {
         const link = document.getElementById('bore-link').value;
         
         // Валидация обязательных полей
-        const positionRequired = positionField ? !positionField.disabled : true;
-        if (!date || !aircraft || !serial || (!position && positionRequired) || !workType || !inspector) {
-            showErrorNotification("Please fill all required fields: Date, Aircraft, Serial Number, Position, Work Type, Inspector");
+        if (!date || !origSN || !workType || !inspector) {
+            showErrorNotification("Заполните обязательные поля: Date, Orig SN, Work Type, Inspector");
+            window.borescopeSaveInProgress = false;
+            const saveBtn = document.querySelector('button[onclick="submitBoroscopeForm()"]');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                if (saveBtn.dataset.originalText) {
+                    saveBtn.innerText = saveBtn.dataset.originalText;
+                    delete saveBtn.dataset.originalText;
+                }
+            }
             return;
         }
         
@@ -12759,7 +13224,7 @@ function restoreView(viewName) {
         const formData = new FormData();
         formData.append('date', dateTimeValue);
         formData.append('aircraft', aircraft);
-        formData.append('serial_number', serial);
+        formData.append('serial_number', origSN);  // Backend ожидает serial_number
         formData.append('position', position);
         formData.append('work_type', workType);
         formData.append('gss_id', gss || '');
@@ -12837,6 +13302,16 @@ function restoreView(viewName) {
         } catch (error) {
             showErrorNotification(`Error: ${error.message}`);
             console.error('Borescope save error:', error);
+        } finally {
+            window.borescopeSaveInProgress = false;
+            const saveBtn = document.querySelector('button[onclick="submitBoroscopeForm()"]');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                if (saveBtn.dataset.originalText) {
+                    saveBtn.innerText = saveBtn.dataset.originalText;
+                    delete saveBtn.dataset.originalText;
+                }
+            }
         }
     }
 
@@ -12847,7 +13322,7 @@ function restoreView(viewName) {
         
         // При выборе самолета можем загрузить его параметры для расчета TSN/CSN
         try {
-            const res = await fetch(`/api/dashboard/aircraft-details${noCache()}`);
+            const res = await fetch(`/api/dashboard/aircraft-details${window.noCache()}`);
             if (!res.ok) return;
             const aircrafts = await res.json();
             const selectedAc = aircrafts.find(a => a.tail_number === aircraft);
@@ -12860,82 +13335,122 @@ function restoreView(viewName) {
         }
     }
 
-    // Обработчик выбора серийника - загружает данные установки и двигателя
-    async function onSerialNumberChange() {
-        const serialNumber = document.getElementById('bore-serial').value;
+    // ✅ НОВАЯ функция: Обработчик выбора Orig SN
+    async function onOrigSNChange() {
+        const origSN = document.getElementById('bore-orig-sn').value;
+        const currentSnField = document.getElementById('bore-current-sn');
         const posSelect = document.getElementById('bore-position');
         const gssField = document.getElementById('bore-gss');
-        if (!serialNumber) {
-            // Очищаем report если серийник пуст
+        const aircraftSelect = document.getElementById('bore-aircraft');
+        
+        // Очищаем поля
+        if (currentSnField) currentSnField.value = '';
+        if (posSelect) {
+            posSelect.value = '';
+            posSelect.disabled = true;
+        }
+        if (aircraftSelect) {
+            aircraftSelect.value = '';
+            aircraftSelect.disabled = true;
+        }
+        if (gssField) gssField.value = '';
+        
+        if (!origSN) {
             clearBoroscopeReport();
-            if (posSelect) {
-                posSelect.value = '';
-                posSelect.disabled = true;
-            }
-            if (gssField) gssField.value = '';
             return;
         }
         
         try {
-            // 1. Ищем двигатель в Master Engine List
+            // 1. Получаем данные из датализта (уже загружены)
+            const origSnData = window.boroscopeOrigSnData?.get(origSN);
+            if (!origSnData) {
+                console.warn('Orig SN not found in datalist:', origSN);
+                clearBoroscopeReport();
+                return;
+            }
+            
+            // 2. Ищем двигатель в API
             const engRes = await fetch(`/api/engines${noCache()}`);
             if (!engRes.ok) throw new Error('Failed to load engines');
             const engines = await engRes.json();
             
-            const engine = engines.find(e => 
-                e.original_sn === serialNumber || 
-                e.current_sn === serialNumber
-            );
-            
+            const engine = engines.find(e => e.original_sn === origSN);
             if (!engine) {
-                console.warn('Engine not found:', serialNumber);
+                console.warn('Engine not found for Orig SN:', origSN);
                 clearBoroscopeReport();
-                if (posSelect) {
-                    posSelect.value = '';
-                    posSelect.disabled = true;
-                }
-                if (gssField) gssField.value = '';
                 return;
             }
 
-            // Автоподстановка GSS ID
+            // 3. Автозаполняем Current SN
+            if (currentSnField && engine.current_sn) {
+                currentSnField.value = engine.current_sn;
+            }
+
+            // 4. Автоподстановка GSS ID
             if (gssField) {
                 gssField.value = engine.gss_sn || engine.gss_id || '';
             }
             
-            // 2. Ищем текущую установку этого двигателя
-            const installRes = await fetch(`/api/history/INSTALL${noCache()}`);
-            if (!installRes.ok) throw new Error('Failed to load installations');
-            const installations = await installRes.json();
+            // 5. Для Report Summary загружаем данные об установке
+            let installationData = null;
+            if (engine.aircraft && engine.position) {
+                try {
+                    const installRes = await fetch(`/api/history/INSTALL${noCache()}`);
+                    if (installRes.ok) {
+                        const installations = await installRes.json();
+                        // Ищем установку этого двигателя на ТЕКУЩИЙ самолет
+                        installationData = installations
+                            .filter(inst => {
+                                return (inst.original_sn === engine.original_sn || 
+                                        inst.current_sn === engine.current_sn ||
+                                        inst.original_sn === engine.current_sn ||
+                                        inst.current_sn === engine.original_sn) &&
+                                       inst.install_to === engine.aircraft;
+                            })
+                            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+                    }
+                } catch (e) {
+                    console.warn('Could not load installation history:', e);
+                }
+            }
             
-            // Находим последнюю установку этого двигателя на самолет
-            const currentInstall = installations
-                .filter(inst => 
-                    inst.engine_original_sn === engine.original_sn || 
-                    inst.engine_current_sn === engine.current_sn
-                )
-                .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-            
-            // 3. Сохраняем данные для использования в report
+            // 6. Сохраняем данные для использования в report
             window.boroscopeEngineData = {
                 engine: engine,
-                installation: currentInstall,
-                selectedSN: serialNumber
+                installation: installationData,
+                selectedOrigSN: origSN
             };
             
-            // 4. Если двигатель установлен, заполняем position автоматически
-            if (posSelect) {
-                const isInstalled = engine.status === 'INSTALLED' && currentInstall && currentInstall.position;
+            // 7. Проверяем текущую установку
+            const isInstalled = engine.aircraft && engine.position;
+            
+            if (aircraftSelect) {
                 if (isInstalled) {
-                    posSelect.disabled = false;
-                    posSelect.value = currentInstall.position;
+                    aircraftSelect.innerHTML = `<option value="${engine.aircraft}">${engine.aircraft}</option>`;
+                    aircraftSelect.value = engine.aircraft;
+                    aircraftSelect.disabled = true;
+                } else {
+                    aircraftSelect.innerHTML = '<option value="">-- не установлен --</option>';
+                    aircraftSelect.value = '';
+                    aircraftSelect.disabled = true;
+                }
+            }
+            
+            if (posSelect) {
+                if (isInstalled) {
+                    posSelect.value = String(engine.position);
+                    posSelect.disabled = true;
                 } else {
                     posSelect.value = '';
                     posSelect.disabled = true;
                 }
             }
             
-            // 5. Обновляем report блок
+            console.log('✅ Orig SN Selected:', origSN);
+            console.log('   Current SN:', engine.current_sn);
+            console.log('   Aircraft:', engine.aircraft, 'Position:', engine.position);
+            
+            // 8. Обновляем report блок
             updateBoroscopeReport();
             
         } catch (error) {
@@ -12951,9 +13466,11 @@ function restoreView(viewName) {
         if (!reportDiv) return;
         
         const date = document.getElementById('bore-date').value;
-        const serialNumber = document.getElementById('bore-serial').value;
+        const origSN = document.getElementById('bore-orig-sn').value;
+        const currentSN = document.getElementById('bore-current-sn').value;
         const gssId = document.getElementById('bore-gss').value;
         const position = document.getElementById('bore-position').value;
+        const aircraft = document.getElementById('bore-aircraft').value;
         
         const engineData = window.boroscopeEngineData;
         
@@ -12963,8 +13480,10 @@ function restoreView(viewName) {
                 <div class="row">
                     <div class="col-md-6">
                         <p><strong>Date:</strong> <span id="report-date">${date || '—'}</span></p>
-                        <p><strong>Serial Number:</strong> <span id="report-sn">${serialNumber || '—'}</span></p>
+                        <p><strong>Orig S/N:</strong> <span id="report-orig-sn">${origSN || '—'}</span></p>
+                        <p><strong>Current S/N:</strong> <span id="report-current-sn">${currentSN || '—'}</span></p>
                         <p><strong>GSS ID:</strong> <span id="report-gss">${gssId || '—'}</span></p>
+                        <p><strong>Aircraft:</strong> <span id="report-aircraft" style="font-weight: bold; color: #0066cc;">${aircraft || '—'}</span></p>
                         <p><strong>Position:</strong> <span id="report-position">${position || '—'}</span></p>
                     </div>
                     <div class="col-md-6">
@@ -12974,27 +13493,20 @@ function restoreView(viewName) {
             const inst = engineData.installation;
             const eng = engineData.engine;
             
-            // Вычисляем TSN/CSN на самолете
-            const tsnAtInstall = inst.snapshot_tt || 0;
-            const csnAtInstall = inst.snapshot_tc || 0;
-            const totalTsn = eng.total_tsn || 0;
-            const totalCsn = eng.total_csn || 0;
-            
-            const tsnOnAC = totalTsn - tsnAtInstall;
-            const csnOnAC = totalCsn - csnAtInstall;
-            
+            // ✅ Показываем дату установки и поставщика (Aircraft и Position уже показаны выше)
             html += `
-                        <p><strong>Installation Date:</strong> <span>${inst.date || '—'}</span></p>
-                        <p><strong>Supplier:</strong> <span>${inst.from_location || '—'}</span></p>
-                        <p><strong>Total TSN:</strong> <span>${totalTsn}</span></p>
-                        <p><strong>Total CSN:</strong> <span>${totalCsn}</span></p>
-                        <p><strong>TSN (on A/C):</strong> <span style="font-weight: bold; color: #0066cc;">${tsnOnAC}</span></p>
-                        <p><strong>CSN (on A/C):</strong> <span style="font-weight: bold; color: #0066cc;">${csnOnAC}</span></p>
+                        <p><strong>Installation Date:</strong> <span style="color: #d9534f;">${inst.date || '—'}</span></p>
+                        <p><strong>Supplier:</strong> <span>${inst.location_from || inst.supplier || '—'}</span></p>
             `;
-        } else {
+        } else if (engineData && engineData.engine) {
+            // Двигатель найден но не установлен на самолет
             html += `
                         <p class="text-muted">Engine not currently installed on aircraft</p>
                         <p class="text-muted">Only Serial Number and GSS ID available</p>
+            `;
+        } else {
+            html += `
+                        <p class="text-muted">Select an engine to see details</p>
             `;
         }
         
@@ -17693,6 +18205,35 @@ function restoreView(viewName) {
             return;
         }
 
+        // Проверяем если открыто какое субменю - закрываем только его
+        const reportsSubmenu = document.getElementById('reports-radial-menu');
+        const manualsSubmenu = document.getElementById('manuals-radial-menu');
+        const aircraftSubmenu = document.getElementById('aircraft-selector-menu');
+        const positionsSubmenu = document.getElementById('positions-selector-menu');
+        
+        if (reportsSubmenu && reportsSubmenu.classList.contains('show')) {
+            hideReportsSubmenu();
+            return;
+        }
+        
+        if (manualsSubmenu && manualsSubmenu.classList.contains('show')) {
+            hideManualsSubmenu();
+            return;
+        }
+
+        if (positionsSubmenu && positionsSubmenu.classList.contains('show')) {
+            hidePositionsSubmenu();
+            // Return to aircraft menu
+            const aircraftMenu = document.getElementById('aircraft-selector-menu');
+            if (aircraftMenu) aircraftMenu.classList.add('show');
+            return;
+        }
+
+        if (aircraftSubmenu && aircraftSubmenu.classList.contains('show')) {
+            hideBoroscopeReportsSubmenu();
+            return;
+        }
+
         engineClickCount += 1;
 
         if (engineClickTimer) {
@@ -17787,14 +18328,757 @@ function restoreView(viewName) {
         }
     }
 
+    // === MANUALS SUBMENU FUNCTIONS ===
+    function toggleManualsSubmenu() {
+        const submenu = document.getElementById('manuals-radial-menu');
+        if (submenu) {
+            submenu.classList.toggle('show');
+        }
+    }
+
+    function hideManualsSubmenu() {
+        const submenu = document.getElementById('manuals-radial-menu');
+        if (submenu) {
+            submenu.classList.remove('show');
+        }
+    }
+
+    function openManualsBoeing() {
+        hideManualsSubmenu();
+        toggleEngineMenu(false);
+        // Open Boeing 747-200 manuals
+        window.open('#', '_blank');
+    }
+
+    function openManualsGECards() {
+        hideManualsSubmenu();
+        toggleEngineMenu(false);
+        // GE Cards - placeholder for now
+        alert('GE Cards section coming soon!');
+    }
+
+    // === BORESCOPE REPORTS FUNCTIONS ===
+    function toggleBoroscopeReportsSubmenu() {
+        const submenu = document.getElementById('aircraft-selector-menu');
+        const reportsMenu = document.querySelector('.reports-radial-menu');
+        
+        if (submenu) {
+            const isHidden = submenu.style.display === 'none' || getComputedStyle(submenu).display === 'none';
+            submenu.style.display = isHidden ? 'flex' : 'none';
+            submenu.classList.toggle('show', isHidden);
+            
+            // Hide Reports menu when showing aircraft menu
+            if (reportsMenu) {
+                reportsMenu.style.display = isHidden ? 'none' : 'flex';
+                reportsMenu.classList.toggle('show', !isHidden);
+            }
+        }
+    }
+
+    function hideBoroscopeReportsSubmenu() {
+        const aircraftMenu = document.getElementById('aircraft-selector-menu');
+        const positionsMenu = document.getElementById('positions-selector-menu');
+        const reportsMenu = document.querySelector('.reports-radial-menu');
+        
+        if (aircraftMenu) { aircraftMenu.style.display = 'none'; aircraftMenu.classList.remove('show'); }
+        if (positionsMenu) { positionsMenu.style.display = 'none'; positionsMenu.classList.remove('show'); }
+        if (reportsMenu) { reportsMenu.style.display = 'flex'; reportsMenu.classList.add('show'); }
+    }
+
+    function selectAircraft(aircraft) {
+        window.selectedAircraft = aircraft;
+        const aircraftMenu = document.getElementById('aircraft-selector-menu');
+        const positionsMenu = document.getElementById('positions-selector-menu');
+        
+        if (aircraftMenu) { aircraftMenu.style.display = 'none'; aircraftMenu.classList.remove('show'); }
+        if (positionsMenu) { positionsMenu.style.display = 'flex'; positionsMenu.classList.add('show'); }
+    }
+
+    function hidePositionsSubmenu() {
+        const positionsMenu = document.getElementById('positions-selector-menu');
+        const aircraftMenu = document.getElementById('aircraft-selector-menu');
+        
+        if (positionsMenu) { positionsMenu.style.display = 'none'; positionsMenu.classList.remove('show'); }
+        if (aircraftMenu) { aircraftMenu.style.display = 'flex'; aircraftMenu.classList.add('show'); }
+    }
+
+    async function loadBoroscopeReportData(aircraft, position) {
+        try {
+            // Hide the aircraft menu and position menu
+            const aircraftMenu = document.querySelector('.aircraft-selector-menu');
+            const positionsMenu = document.querySelector('.positions-selector-menu');
+            if (aircraftMenu) aircraftMenu.style.display = 'none';
+            if (positionsMenu) positionsMenu.style.display = 'none';
+            
+            // Show reports menu (go back one level)
+            const reportsMenu = document.querySelector('.reports-radial-menu');
+            if (reportsMenu) reportsMenu.style.display = 'flex';
+            
+            const positions = position === 'ALL' ? [1, 2, 3, 4] : [position];
+            const reportData = {
+                aircraft: aircraft,
+                positions: []
+            };
+
+            // Load all necessary data with error handling (don't fail on 404/405)
+            const fetchSafe = (url) => fetch(url).then(r => {
+                if (!r.ok) {
+                    console.warn(`API ${url} returned ${r.status}, using empty data`);
+                    return [];
+                }
+                return r.json();
+            }).catch(e => {
+                console.warn(`Failed to fetch ${url}:`, e);
+                return [];
+            });
+
+            const [engines, installations, utilization, engParams, borescope, dashboardData] = await Promise.all([
+                fetchSafe(`/api/engines${noCache()}`),
+                fetchSafe(`/api/history/INSTALL${noCache()}`),
+                fetchSafe(`/api/aircraft-utilization${noCache()}`),
+                fetchSafe(`/api/eng-parameters${noCache()}`),
+                fetchSafe(`/api/history/BORESCOPE${noCache()}`),
+                fetchSafe(`/api/dashboard/aircraft-details${noCache()}`)
+            ]);
+
+            // Handle API responses that wrap data in object
+            const utilizationData = Array.isArray(utilization) ? utilization : (utilization.data || []);
+            const engParamsData = Array.isArray(engParams) ? engParams : (engParams.data || []);
+            const boroscopeData = Array.isArray(borescope) ? borescope : (borescope.data || []);
+            const enginesData = Array.isArray(engines) ? engines : (engines.data || []);
+            const installationsData = Array.isArray(installations) ? installations : (installations.data || []);
+
+            // Get latest utilization for the aircraft (use defaults if not found)
+            const latestUtil = utilizationData
+                .filter(u => u.aircraft === aircraft)
+                .sort((a, b) => new Date(b.date) - new Date(a.date))[0] || {
+                aircraft: aircraft,
+                current_total_hrs: 0,
+                current_cycles: 0,
+                date: new Date().toISOString()
+            };
+
+            // Collect data for each position (skip empty positions)
+            for (const pos of positions) {
+                const posData = await collectPositionData(
+                    aircraft, pos, enginesData, installationsData, utilizationData, 
+                    engParamsData, boroscopeData, latestUtil, dashboardData
+                );
+                if (posData) reportData.positions.push(posData);
+            }
+
+            if (reportData.positions.length === 0) {
+                alert('No engines found for selected position(s)');
+                return;
+            }
+
+            openBoroscopeReportsModal(reportData);
+        } catch (error) {
+            console.error('Error loading borescope report data:', error);
+            alert('Error loading report data: ' + error.message);
+        }
+    }
+
+    async function collectPositionData(aircraft, position, engines, installations, utilization, engParams, borescope, latestUtil, dashboardData) {
+        try {
+            console.log(`\n📍 Collecting data for ${aircraft} Position ${position}`);
+            
+            // ✅ ПРИОРИТЕТ: используем dashboard данные (там только УСТАНОВЛЕННЫЕ двигатели!)
+            const dashboardDataArray = Array.isArray(dashboardData) ? dashboardData : (dashboardData?.data || []);
+            const aircraftInDashboard = dashboardDataArray.find(ac => ac.tail_number === aircraft);
+            
+            // Если самолета нет в dashboard или нет positions для него - пропускаем
+            if (!aircraftInDashboard || !aircraftInDashboard.positions) {
+                console.log(`⚠️ Aircraft ${aircraft} not found in dashboard data - skipping`);
+                return null;
+            }
+            
+            // Ищем двигатель на этой позиции из dashboard (positions - это массив [pos1, pos2, pos3, pos4])
+            // Position 1 = index 0, Position 2 = index 1, etc
+            const positionIndex = position - 1;
+            const engineOnPosition = aircraftInDashboard.positions[positionIndex];
+            
+            // Если двигателя нет на этой позиции в dashboard - позиция пустая!
+            if (!engineOnPosition || !engineOnPosition.original_sn) {
+                console.log(`❌ Position ${position} is EMPTY (no engine in dashboard) - skipping`);
+                return null;
+            }
+            
+            console.log(`✅ Found engine on position ${position}:`, {
+                original_sn: engineOnPosition.original_sn,
+                current_sn: engineOnPosition.current_sn,
+                tsn_on_aircraft: engineOnPosition.tsn_on_aircraft
+            });
+            
+            // ⚠️ ПРОВЕРКА: если позиция 4 и tsn_on_aircraft === aircraft_total, это удаленный двигатель!
+            // Position 4 с tsn=105400 = aircraft total означает что это был первоначальный двигатель и снят
+            if (position === 4 && 
+                engineOnPosition.tsn_on_aircraft === aircraftInDashboard.total_time) {
+                console.log(`❌ Position 4 appears to be DELETED (TSN=Aircraft total) - skipping`);
+                return null;
+            }
+            
+            // 2. Ищем ПОСЛЕДНИЙ borescope inspection для этого двигателя
+            const matchingSN = engineOnPosition.original_sn || engineOnPosition.current_sn;
+            const latestBorescope = borescope && borescope.length > 0 ?
+                borescope
+                    .filter(b => {
+                        // Ищем по Orig SN (как мы сохраняем в inspection.serial_number)
+                        return b.serial_number === matchingSN || 
+                               b.serial_number === engineOnPosition.original_sn ||
+                               b.serial_number === engineOnPosition.current_sn;
+                    })
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))[0] : null;
+            
+            console.log(`📸 Borescope inspection:`, latestBorescope ? {
+                date: latestBorescope.date,
+                work_type: latestBorescope.work_type,
+                inspector: latestBorescope.inspector,
+                has_photos: !!latestBorescope.inspection_report
+            } : 'NOT FOUND');
+            
+            // 3. Ищем ПОСЛЕДНЮЮ установку для получения информации об установке
+            // ✅ ИСПРАВЛЕНО: используем правильные поля из installation records
+            const installationRecord = installations
+                .filter(inst => 
+                    (inst.original_sn === engineOnPosition.original_sn || 
+                     inst.current_sn === engineOnPosition.current_sn) &&
+                    inst.install_to === aircraft &&
+                    (inst.position === position || inst.position === String(position))
+                )
+                .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+            
+            console.log(`📦 Installation record:`, installationRecord ? {
+                date: installationRecord.date,
+                location_from: installationRecord.location_from,
+                ac_ttsn: installationRecord.ac_ttsn,
+                ac_tcsn: installationRecord.ac_tcsn
+            } : 'NOT FOUND');
+            
+            // 4. TSN/CSN на самолете (уже есть в engineOnPosition из dashboard!)
+            let tsn_on_ac = engineOnPosition.tsn_on_aircraft || 0;
+            let csn_on_ac = engineOnPosition.csn_on_aircraft || 0;
+            let till_date = latestUtil.date;
+            
+            console.log(`✅ Using dashboard TSN/CSN:`, { tsn_on_ac, csn_on_ac });
+            
+            // 5. Ищем ПОСЛЕДНИЕ eng parameters для этого двигателя
+            const latestEngParams = engParams && engParams.length > 0 ?
+                engParams
+                    .filter(p => 
+                        p.engine_serial_number === matchingSN || 
+                        p.engine_sn === matchingSN ||
+                        p.serial_number === matchingSN
+                    )
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))[0] : null;
+            
+            // 6. Формируем данные позиции
+            return {
+                position: position,
+                currentSN: engineOnPosition.current_sn,
+                originalSN: engineOnPosition.original_sn,
+                installDate: installationRecord ? installationRecord.date : '—',
+                supplier: installationRecord ? (installationRecord.location_from || '—') : '—',
+                tsn: tsn_on_ac,
+                csn: csn_on_ac,
+                tillDate: till_date,
+                engParams: latestEngParams,
+                borescope: latestBorescope  // ✅ ПОСЛЕДНИЙ borescope с фотографиями!
+            };
+        } catch (error) {
+            console.error('Error collecting position data:', error);
+            return null;
+        }
+    }
+
+    function openBoroscopeReportsModal(reportData) {
+        const modal = document.getElementById('borescope-reports-modal');
+        const title = document.getElementById('report-aircraft-title');
+        const container = document.getElementById('report-content-container');
+
+        title.textContent = reportData.aircraft;
+        
+        let html = '';
+        for (const posData of reportData.positions) {
+            html += generatePositionHTML(posData);
+        }
+
+        container.innerHTML = html;
+        modal.style.display = 'block';
+        window.currentReportData = reportData;
+        window.boroscopeReportOpen = true;
+        
+        // Hide all menus
+        const aircraftMenu = document.getElementById('aircraft-selector-menu');
+        const positionsMenu = document.getElementById('positions-selector-menu');
+        const reportsMenu = document.querySelector('.reports-radial-menu');
+        const engineMenu = document.querySelector('.engine-btn-menu');
+        
+        if (aircraftMenu) aircraftMenu.style.display = 'none';
+        if (positionsMenu) positionsMenu.style.display = 'none';
+        if (reportsMenu) reportsMenu.style.display = 'none';
+        if (engineMenu) engineMenu.style.display = 'none';
+    }
+
+    function generatePositionHTML(posData) {
+        let html = `
+            <div style="border: 2px solid #4fc3f7; border-radius: 8px; padding: 12px 15px; margin-bottom: 8px;">
+                <h2 style="color: #4fc3f7; text-decoration: underline; margin: 0 0 10px 0; padding-bottom: 6px; font-size: 16pt; border-bottom: 2px solid #4fc3f7;">POSITION #${posData.position}</h2>
+                
+                <table style="width: 100%; margin-bottom: 12px; border-collapse: collapse; font-size: 13px;">
+                    <tr style="background: #f5f5f5;">
+                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Current S/N:</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.currentSN}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Original S/N:</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.originalSN}</td>
+                    </tr>
+                    <tr style="background: #f5f5f5;">
+                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Installation Date:</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.installDate}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Supplier:</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.supplier}</td>
+                    </tr>
+                    <tr style="background: #f5f5f5;">
+                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">TSN and CSN (on A/C):</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">TSN ${posData.tsn} CSN ${posData.csn} (till: ${posData.tillDate})</td>
+                    </tr>
+                </table>
+        `;
+
+        // ENG Parameters
+        if (posData.engParams) {
+            html += `
+                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">ENG Parameters (Date: <span style="color: #0066cc;">${posData.engParams.date || 'N/A'}</span>):</h3>
+                <ul style="margin: 4px 0; padding-left: 18px; color: #000; font-size: 12px; line-height: 1.3;">
+                    <li>N1 Take Off: <strong>${posData.engParams.n1_takeoff || 'N/A'}</strong>%</li>
+                    <li>N1 Cruise: <strong>${posData.engParams.n1_cruise || 'N/A'}</strong>%</li>
+                    <li>N2 Take Off: <strong>${posData.engParams.n2_takeoff || 'N/A'}</strong>%</li>
+                    <li>N2 Cruise: <strong>${posData.engParams.n2_cruise || 'N/A'}</strong>%</li>
+                    <li>EGT Take Off: <strong>${posData.engParams.egt_takeoff || 'N/A'}</strong> C</li>
+                    <li>EGT Cruise: <strong>${posData.engParams.egt_cruise || 'N/A'}</strong> C</li>
+                </ul>
+            `;
+        } else {
+            html += `
+                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">ENG Parameters:</h3>
+                <p style="color: #999; margin: 0; font-size: 12px;">No ENG parameters data available</p>
+            `;
+        }
+
+        // Borescope Report
+        if (posData.borescope) {
+            html += `
+                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">Borescope Report (Latest: <span style="color: #0066cc;">${posData.borescope.date || 'N/A'}</span>):</h3>
+                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong>Inspector:</strong> <span style="font-weight: bold;">${posData.borescope.inspector || 'N/A'}</span></p>
+                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong>Work Type:</strong> <span style="font-weight: bold;">${posData.borescope.work_type || 'N/A'}</span></p>
+                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong>Comment:</strong> <span style="font-weight: bold;">${posData.borescope.comment || 'N/A'}</span></p>
+                
+                <h4 style="color: #000; margin: 8px 0 4px 0; font-size: 13px;">PHOTOS:</h4>
+            `;
+
+            // Парсим inspection_report если это строка JSON
+            let inspectionReport = posData.borescope.inspection_report;
+            if (typeof inspectionReport === 'string') {
+                try {
+                    inspectionReport = JSON.parse(inspectionReport);
+                } catch (e) {
+                    console.warn('Failed to parse inspection_report:', e);
+                    inspectionReport = null;
+                }
+            }
+
+            // Display photos in table format (Label | Photo 1 | Photo 2)
+            if (inspectionReport && typeof inspectionReport === 'object') {
+                const photos = inspectionReport.photos || [];
+                if (photos.length > 0) {
+                    html += '<table style="width: 100%; border-collapse: collapse; margin-top: 6px;">';
+                    for (const photo of photos) {
+                        html += `
+                            <tr style="border: 1px solid #ddd;">
+                                <td style="width: 10%; padding: 5px 6px; border-right: 1px solid #ddd; text-align: center; font-weight: bold; color: #000; font-size: 12px;">${photo.label || 'Photo'}</td>
+                                <td style="width: 45%; padding: 5px 6px; border-right: 1px solid #ddd; text-align: center;">
+                                    ${photo.photo1 ? `<img src="${photo.photo1}" style="max-width: 100%; max-height: 120px; cursor: pointer;" onclick="openBoroscopePhoto('${photo.photo1}');">` : ''}
+                                </td>
+                                <td style="width: 45%; padding: 5px 6px; text-align: center;">
+                                    ${photo.photo2 ? `<img src="${photo.photo2}" style="max-width: 100%; max-height: 120px; cursor: pointer;" onclick="openBoroscopePhoto('${photo.photo2}');">` : ''}
+                                </td>
+                            </tr>
+                        `;
+                    }
+                    html += '</table>';
+                } else {
+                    html += '<p style="color: #999; margin: 0; font-size: 12px;">No photos available</p>';
+                }
+            } else {
+                html += '<p style="color: #999; margin: 0; font-size: 12px;">No photos available</p>';
+            }
+        } else {
+            html += `
+                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">Borescope Report:</h3>
+                <p style="color: #999; margin: 0; font-size: 12px;">No borescope inspection data available</p>
+            `;
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    function closeBoroscopeReportsModal() {
+        const modal = document.getElementById('borescope-reports-modal');
+        if (modal) modal.style.display = 'none';
+        window.currentReportData = null;
+        window.boroscopeReportOpen = false;
+        
+        // Restore engine menu and hide all submenus
+        const engineMenu = document.querySelector('.engine-btn-menu');
+        const aircraftMenu = document.getElementById('aircraft-selector-menu');
+        const positionsMenu = document.getElementById('positions-selector-menu');
+        const reportsMenu = document.querySelector('.reports-radial-menu');
+        
+        if (engineMenu) engineMenu.style.display = 'flex';
+        if (aircraftMenu) aircraftMenu.style.display = 'none';
+        if (positionsMenu) positionsMenu.style.display = 'none';
+        if (reportsMenu) reportsMenu.style.display = 'none';
+    }
+
+    function closeBoroscopeReportsModalOnBgClick(event) {
+        // Закрыть только если клик был на фон (саму модаль), а не на внутреннее содержимое
+        if (event.target.id === 'borescope-reports-modal') {
+            closeBoroscopeReportsModal();
+        }
+    }
+
+    async function exportReportToWord() {
+        const reportData = window.currentReportData;
+        if (!reportData) {
+            alert('No report data to export');
+            return;
+        }
+
+        alert('Preparing document with photos... Please wait.');
+        
+        const container = document.getElementById('report-content-container');
+        let html = container.innerHTML;
+
+        // В Word увеличиваем изображения на 20% (216x158)
+        html = html.replace(/<img([^>]*?)>/g, (match, attrs) => {
+            if (attrs.includes('width=') || attrs.includes('height=')) {
+                return match;
+            }
+            return `<img${attrs} width="216" height="158">`;
+        });
+        
+        // Удаляем все onclick и data-атрибуты
+        html = html.replace(/onclick="[^"]*"/g, '');
+        html = html.replace(/data-photo-url="[^"]*"/g, '');
+        html = html.replace(/class="borescope-photo"/g, '');
+
+        
+        // Находим все img src с R2 URL и заменяем на proxy
+        // Паттерн: src="https://pub-...r2.dev/borescope/..."
+        const r2UrlPattern = /src="(https:\/\/pub-[^"]+\.r2\.dev\/[^"]+)"/g;
+        let match;
+        const r2ToProxyMap = new Map();
+        
+        while ((match = r2UrlPattern.exec(html)) !== null) {
+            const originalUrl = match[1];
+            const proxyUrl = `/api/borescope-photo-proxy/${encodeURIComponent(originalUrl)}`;
+            r2ToProxyMap.set(originalUrl, proxyUrl);
+        }
+        
+        console.log(`Found ${r2ToProxyMap.size} R2 images to replace with proxy`);
+        
+        // Заменяем все R2 URL на proxy URL
+        for (const [originalUrl, proxyUrl] of r2ToProxyMap.entries()) {
+            html = html.replace(`src="${originalUrl}"`, `src="${proxyUrl}"`);
+            console.log(`Replaced: ${originalUrl.substring(0, 60)}... -> ${proxyUrl.substring(0, 60)}...`);
+        }
+        
+        // Теперь загружаем все изображения (уже через proxy) и конвертируем в base64
+        const allImgRegex = /<img[^>]*src="([^"]*)"[^>]*>/g;
+        const imageUrls = [];
+        
+        while ((match = allImgRegex.exec(html)) !== null) {
+            imageUrls.push(match[1]);
+        }
+        
+        console.log(`Loading ${imageUrls.length} images through proxy...`);
+        
+        for (const url of imageUrls) {
+            try {
+                console.log(`Loading: ${url.substring(0, 80)}...`);
+                const response = await fetch(url, { 
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const reader = new FileReader();
+                    
+                    await new Promise((resolve) => {
+                        reader.onloadend = () => {
+                            const base64 = reader.result;
+                            html = html.replace(`src="${url}"`, `src="${base64}"`);
+                            console.log(`✅ Embedded image: ${url.substring(0, 60)}...`);
+                            resolve();
+                        };
+                        reader.onerror = () => {
+                            console.warn(`FileReader error for: ${url}`);
+                            resolve();
+                        };
+                        reader.readAsDataURL(blob);
+                    });
+                } else {
+                    console.warn(`⚠️ Server returned ${response.status} for ${url}`);
+                }
+            } catch (e) {
+                console.warn(`Error loading ${url}: ${e.message}`);
+            }
+        }
+        
+        const fullHtml = `
+            <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 10px; }
+                        h1 { font-size: 28pt; font-weight: bold; color: black; text-align: center; margin-bottom: 30px; }
+                        h2 { 
+                            font-size: 16pt; 
+                            font-weight: bold; 
+                            color: #4fc3f7; 
+                            text-decoration: underline; 
+                            margin-top: 20px;
+                            padding: 20px;
+                            border: 6px solid #4fc3f7;
+                            border-radius: 5px;
+                        }
+                        h3, h4 { 
+                            color: #000; 
+                            margin-top: 15px; 
+                            padding: 12px;
+                            background: #f0f8ff;
+                            border-left: 5px solid #4fc3f7;
+                        }
+                        table { 
+                            width: 100%; 
+                            border-collapse: collapse; 
+                            margin: 15px 0;
+                            border: 5px solid #4fc3f7;
+                        }
+                        td { 
+                            border: 5px solid #4fc3f7; 
+                            padding: 20px;
+                        }
+                        .label { font-weight: bold; }
+                        img { 
+                            width: 216px !important; 
+                            height: 158px !important;
+                            display: block;
+                            margin: 5px auto;
+                            border: 2px solid #e0e0e0;
+                            border-radius: 4px;
+                        }
+                        div[style*="border: 2px solid #4fc3f7"], div[style*="border: 5px solid #4fc3f7"] {
+                            border: 6px solid #4fc3f7 !important;
+                            padding: 25px !important;
+                            margin: 10px 0 !important;
+                            width: 100% !important;
+                            box-sizing: border-box !important;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>${reportData.aircraft}</h1>
+                    ${html}
+                </body>
+            </html>
+        `;
+
+        const blob = new Blob([fullHtml], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Aircraft_Report_${reportData.aircraft}_${new Date().toLocaleDateString()}.doc`;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        console.log('✅ Export complete');
+    }
+
+    async function exportReportToPDF() {
+        const reportData = window.currentReportData;
+        if (!reportData) {
+            alert('No report data to export');
+            return;
+        }
+
+        // Show loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #333; color: #fff; padding: 20px 40px; border-radius: 8px; z-index: 10000; font-weight: bold; font-size: 16px;';
+        loadingDiv.textContent = 'Generating PDF...';
+        document.body.appendChild(loadingDiv);
+
+        try {
+            const container = document.getElementById('report-content-container');
+            if (!container) {
+                throw new Error('Report container not found');
+            }
+
+            // Clone the container to modify it
+            const clonedContainer = container.cloneNode(true);
+            
+            // Replace all R2 image URLs with proxy URLs and convert to base64
+            const images = clonedContainer.querySelectorAll('img');
+            console.log('Found images:', images.length);
+            
+            const imagePromises = Array.from(images).map(async (img) => {
+                try {
+                    let imgUrl = img.src;
+                    console.log('Processing image:', imgUrl);
+                    
+                    // If it's an R2 URL, extract the path correctly
+                    if (imgUrl && imgUrl.includes('pub-5e14ffe')) {
+                        // Extract everything after pub-5e14ffe...r2.dev/
+                        const match = imgUrl.match(/r2\.dev\/(.+)$/);
+                        if (match) {
+                            const filePath = match[1];
+                            imgUrl = `/api/borescope-photo-proxy/${filePath}`;
+                            console.log('Converted to proxy URL:', imgUrl);
+                        }
+                    }
+                    
+                    // If it's not a data URL, fetch and convert to base64
+                    if (!imgUrl.startsWith('data:')) {
+                        const response = await fetch(imgUrl);
+                        if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
+                        const blob = await response.blob();
+                        const reader = new FileReader();
+                        return new Promise((resolve) => {
+                            reader.onload = () => {
+                                img.src = reader.result;
+                                console.log('Image converted to base64');
+                                resolve();
+                            };
+                            reader.onerror = () => {
+                                console.error('FileReader error');
+                                resolve();
+                            };
+                            reader.readAsDataURL(blob);
+                        });
+                    }
+                } catch (error) {
+                    console.warn('Error loading image:', error);
+                }
+            });
+            
+            await Promise.all(imagePromises);
+            console.log('All images converted to base64');
+            
+            // Add page breaks between positions - каждая позиция с новой страницы
+            const positionDivs = clonedContainer.querySelectorAll('div[style*="border: 2px solid #4fc3f7"]');
+            positionDivs.forEach((div, index) => {
+                // Каждая позиция начинается с новой страницы
+                div.style.pageBreakBefore = 'always';
+                // Разрешаем контенту распределяться естественно
+                div.style.pageBreakInside = 'auto';
+            });
+
+            // Create wrapper
+            const wrapper = document.createElement('div');
+            wrapper.id = 'pdf-wrapper-' + Date.now();
+            wrapper.style.cssText = 'background: white; font-family: Arial, sans-serif;';
+            
+            // Title (большими буквами по центру, первая страница)
+            const title = document.createElement('div');
+            title.style.cssText = 'text-align: center; padding: 100px 20px 50px 20px; page-break-after: always;';
+            title.innerHTML = `<h1 style="font-size: 48pt; font-weight: bold; color: #000; margin: 0; letter-spacing: 3px;">${reportData.aircraft}</h1>`;
+            
+            // Content wrapper (со второй страницы, с начала страницы)
+            const contentWrapper = document.createElement('div');
+            contentWrapper.style.cssText = 'padding: 5px 10px;';
+            contentWrapper.appendChild(clonedContainer);
+            
+            wrapper.appendChild(title);
+            wrapper.appendChild(contentWrapper);
+            
+            document.body.appendChild(wrapper);
+
+            const opt = {
+                margin: [8, 8, 8, 8],
+                filename: `${reportData.aircraft}_report_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: { 
+                    scale: 2, 
+                    logging: true, 
+                    useCORS: true, 
+                    allowTaint: true,
+                    backgroundColor: '#ffffff'
+                },
+                jsPDF: { 
+                    orientation: 'portrait', 
+                    unit: 'mm', 
+                    format: 'a4',
+                    compress: true
+                },
+                pagebreak: { mode: 'css' }
+            };
+
+            console.log('Starting PDF generation...');
+            // Generate PDF
+            const pdfBlob = await html2pdf().set(opt).from(wrapper).outputPdf('blob');
+            
+            console.log('PDF generated successfully, size:', pdfBlob.size);
+            
+            // Clean up
+            document.body.removeChild(wrapper);
+            document.body.removeChild(loadingDiv);
+
+            // Open PDF in new browser window (standard way)
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            const pdfWindow = window.open(pdfUrl, '_blank');
+            
+            if (!pdfWindow) {
+                alert('Could not open PDF. Please check your popup blocker.');
+                // Fallback: offer download
+                const link = document.createElement('a');
+                link.href = pdfUrl;
+                link.download = opt.filename;
+                link.click();
+            }
+
+        } catch (error) {
+            console.error('PDF generation error:', error);
+            if (document.body.contains(loadingDiv)) {
+                document.body.removeChild(loadingDiv);
+            }
+            alert('Error generating PDF: ' + error.message);
+        }
+    }
+
+    function printBoroscopeReport() {
+        const modal = document.getElementById('borescope-reports-modal');
+        const printWindow = window.open('', '', 'height=600,width=800');
+        printWindow.document.write(modal.innerHTML);
+        printWindow.document.close();
+        printWindow.print();
+    }
+
     function showBoroscopeReport() {
         hideReportsSubmenu();
-        toggleEngineMenu(false);
-        // Scroll to borescope section
-        const boroscopeSection = document.getElementById('boroscope-section');
-        if (boroscopeSection) {
-            boroscopeSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        const engineMenu = document.querySelector('.engine-btn-menu');
+        const reportsMenu = document.querySelector('.reports-radial-menu');
+        const aircraftMenu = document.getElementById('aircraft-selector-menu');
+        const positionsMenu = document.getElementById('positions-selector-menu');
+
+        if (engineMenu) engineMenu.style.display = 'flex';
+        if (reportsMenu) { reportsMenu.style.display = 'none'; reportsMenu.classList.remove('show'); }
+        if (positionsMenu) { positionsMenu.style.display = 'none'; positionsMenu.classList.remove('show'); }
+        if (aircraftMenu) { aircraftMenu.style.display = 'flex'; aircraftMenu.classList.add('show'); }
     }
 
     function showEngineReportsView() {
@@ -24704,6 +25988,49 @@ async function displayBoroscopeReminders() {
         </div>
     </div>
 </div>
+
+<!-- MODAL FOR BORESCOPE REPORTS -->
+<div id="borescope-reports-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 9998; overflow-y: auto; padding: 20px;" onclick="closeBoroscopeReportsModalOnBgClick(event)">
+    <div style="max-width: 900px; margin: 0 auto; background: white; border-radius: 12px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h1 id="report-aircraft-title" style="font-size: 32px; font-weight: bold; color: #000; margin: 0;"></h1>
+            <button onclick="closeBoroscopeReportsModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #999;">×</button>
+        </div>
+        <div id="report-content-container" style="min-height: 400px;"></div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+            <button onclick="exportReportToWord()" style="padding: 10px 20px; background: #4fc3f7; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Export to Word</button>
+            <button onclick="exportReportToPDF()" style="padding: 10px 20px; background: #ff7043; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Export to PDF</button>
+            <button onclick="printBoroscopeReport()" style="padding: 10px 20px; background: #66bb6a; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Print</button>
+            <button onclick="closeBoroscopeReportsModal()" style="padding: 10px 20px; background: #999; color: white; border: none; border-radius: 6px; cursor: pointer;">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Fullscreen Photo Viewer -->
+<div id="borescope-photo-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 9999; align-items: center; justify-content: center;">
+    <img id="borescope-photo-img" style="max-width: 90%; max-height: 90%; object-fit: contain;" onclick="event.stopPropagation();">
+    <button onclick="closeBorescopePhoto()" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 36px; cursor: pointer;">×</button>
+</div>
+
+<script>
+// Initialize photo overlay handlers
+document.addEventListener('DOMContentLoaded', function() {
+    const photoOverlay = document.getElementById('borescope-photo-overlay');
+    if (photoOverlay) {
+        // Close on overlay click
+        photoOverlay.addEventListener('click', (e) => {
+            if (e.target === photoOverlay) closeBorescopePhoto();
+        });
+        
+        // Close on ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && photoOverlay.style.display !== 'none') {
+                closeBorescopePhoto();
+            }
+        });
+    }
+});
+</script>
 
 </body>
 </html>
