@@ -15455,8 +15455,8 @@ function restoreView(viewName) {
             <td data-key="gss"><input type="text" class="editing-input" placeholder="GSS ID"></td>
             <td data-key="price"><input type="number" class="editing-input" step="0.01" value=""></td>
             <td data-key="status"><select class="editing-input"><option value="">-</option><option>INSTALLED</option><option>REMOVED</option></select></td>
-            <td data-key="condition-1"><select class="editing-input"><option>-</option><option>SV</option><option>US</option><option>Scrap</option></select></td>
-            <td data-key="condition-2"><select class="editing-input"><option>-</option><option>New</option><option>Overhauled</option><option>Repaired</option><option>Inspected tested</option><option>As removed</option></select></td>
+            <td data-key="condition-1"><select class="editing-input"><option value="-">-</option><option>SV</option><option>US</option><option>Scrap</option></select></td>
+            <td data-key="condition-2"><select class="editing-input"><option value="-">-</option><option>New</option><option>Overhauled</option><option>Repaired</option><option>Inspected tested</option><option>As removed</option></select></td>
             <td data-key="tt"><input type="number" class="editing-input" value="0"></td>
             <td data-key="tc"><input type="number" class="editing-input" value="0"></td>
             <td data-key="location"><select class="editing-input location-select"></select></td>
@@ -15512,8 +15512,8 @@ function restoreView(viewName) {
                 gss_sn: gssInput ? gssInput.value || originalSN : originalSN,
                 price: priceInput ? parseFloat(priceInput.value) || null : null,
                 status: statusInput ? (statusInput.value ? statusInput.value.trim() : '-') : '-',
-                condition_1: condition1Input ? (condition1Input.value ? condition1Input.value.trim() : 'SV') : 'SV',
-                condition_2: condition2Input ? (condition2Input.value ? condition2Input.value.trim() : 'New') : 'New',
+                condition_1: condition1Input ? (condition1Input.value ? condition1Input.value.trim() : '-') : '-',
+                condition_2: condition2Input ? (condition2Input.value ? condition2Input.value.trim() : '-') : '-',
                 total_time: ttInput ? parseFloat(ttInput.value) || 0 : 0,
                 total_cycles: tcInput ? parseInt(tcInput.value) || 0 : 0,
                 location_id: locationInput ? parseInt(locationInput.value) || null : null,
@@ -15630,7 +15630,8 @@ function restoreView(viewName) {
                 tcMin: document.getElementById('engine-tc-min')?.value || '',
                 tcMax: document.getElementById('engine-tc-max')?.value || '',
                 remarksFilter: document.getElementById('engine-remarks-filter')?.value || '',
-                hasPhoto: document.getElementById('engine-has-photo')?.checked || false
+                hasPhoto: document.getElementById('engine-has-photo')?.checked || false,
+                searchFilter: document.getElementById('main-engine-search')?.value || ''
             };
             
             await loadMainTable();
@@ -15666,6 +15667,12 @@ function restoreView(viewName) {
                     document.getElementById('engine-remarks-filter').value = savedFilters.remarksFilter;
                 if (document.getElementById('engine-has-photo'))
                     document.getElementById('engine-has-photo').checked = savedFilters.hasPhoto;
+                
+                // Восстанавливаем простой поиск
+                if (savedFilters.searchFilter && document.getElementById('main-engine-search')) {
+                    document.getElementById('main-engine-search').value = savedFilters.searchFilter;
+                    filterTable('main-engine-body', 'main-engine-search');
+                }
                 
                 // Переприменяем фильтры
                 applyEngineFilters();
