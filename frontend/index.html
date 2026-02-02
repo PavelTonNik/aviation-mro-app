@@ -8029,7 +8029,7 @@
                                                     <i class="bi bi-trash text-danger" title="Delete / Select"></i>
                                                 </div>
                                             </th>
-                                            <th style="min-width: 90px;">Date</th>
+                                            <th style="min-width: 50px;"><i class="bi bi-list-ol"></i></th>
                                             <th style="min-width: 80px;">Model</th>
                                             <th style="min-width: 100px;">Current SN</th>
                                             <th style="min-width: 100px;">Orig. ESN</th>
@@ -15198,7 +15198,7 @@ function restoreView(viewName) {
                             </button>
                         </div>
                     </td>
-                    <td data-key="date">${installDate}</td>
+                    <td data-key="date" class="text-center fw-bold">${idx + 1}</td>
                     <td data-key="model">${model}</td>
                     <td data-key="csn" class="fw-bold text-primary">${currentSN}</td>
                     <td data-key="esn">${originalSN}</td>
