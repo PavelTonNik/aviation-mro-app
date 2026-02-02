@@ -328,6 +328,13 @@ def startup_event():
                         ) THEN
                             ALTER TABLE action_logs ADD COLUMN condition_1_at_removal VARCHAR;
                         END IF;
+                        
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='engines' AND column_name='installed_plate_sn'
+                        ) THEN
+                            ALTER TABLE engines ADD COLUMN installed_plate_sn VARCHAR(50);
+                        END IF;
                     END $$;
                 """))
                 db.commit()
@@ -348,6 +355,7 @@ def startup_event():
     ensure_sqlite_column("action_logs", "maintenance_type TEXT")
     ensure_sqlite_column("engines", "condition_1 TEXT DEFAULT 'SV'")
     ensure_sqlite_column("engines", "condition_2 TEXT DEFAULT 'New'")
+    ensure_sqlite_column("engines", "installed_plate_sn VARCHAR(50)")
     ensure_sqlite_column("action_logs", "condition_1_at_removal TEXT")
     ensure_sqlite_column("action_logs", "block_time_str TEXT")
     ensure_sqlite_column("action_logs", "flight_time_str TEXT")
@@ -931,6 +939,7 @@ class RemoveSchema(BaseModel):
     ttsn_ac: Optional[float] = None
     tcsn_ac: Optional[int] = None
     remarks: Optional[str] = ""
+    installed_plate_sn: Optional[str] = None  # Шильдик, установленный на снятый двигатель
 
 
 class RepairSchema(BaseModel):
@@ -2385,26 +2394,36 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
 # УДАЛЕНИЕ ДВИГАТЕЛЯ
 @app.delete("/api/engines/{engine_id}")
 def delete_engine(engine_id: int, db: Session = Depends(get_db)):
-    # Находим двигатель
-    engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
-    if not engine:
-        raise HTTPException(404, "Engine not found")
-    
-    # Проверяем, не установлен ли двигатель на самолет
-    if engine.status == "INSTALLED":
-        raise HTTPException(400, "Cannot delete engine that is installed on aircraft. Remove it first.")
-    
-    # Сохраняем информацию для лога
-    engine_sn = engine.original_sn
-    
-    # Удаляем все связанные логи (опционально, можно оставить для истории)
-    # db.query(models.ActionLog).filter(models.ActionLog.engine_id == engine_id).delete()
-    
-    # Удаляем двигатель
-    db.delete(engine)
-    db.commit()
-    
-    return {"message": f"Engine {engine_sn} deleted successfully"}
+    try:
+        # Находим двигатель
+        engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
+        if not engine:
+            raise HTTPException(404, "Engine not found")
+        
+        # Проверяем, не установлен ли двигатель на самолет
+        if engine.status == "INSTALLED":
+            raise HTTPException(400, "Cannot delete engine that is installed on aircraft. Remove it first.")
+        
+        # Сохраняем информацию для лога
+        engine_sn = engine.original_sn
+        
+        # Удаляем все связанные логи (необходимо для foreign key constraint)
+        db.query(models.ActionLog).filter(models.ActionLog.engine_id == engine_id).delete()
+        
+        # Удаляем связанные части если есть
+        db.query(models.Part).filter(models.Part.engine_id == engine_id).delete()
+        
+        # Удаляем двигатель
+        db.delete(engine)
+        db.commit()
+        
+        return {"message": f"Engine {engine_sn} deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error deleting engine {engine_id}: {e}")
+        raise HTTPException(500, f"Failed to delete engine: {str(e)}")
 
 # ОБНОВЛЕНИЕ ДВИГАТЕЛЯ
 @app.put("/api/engines/{engine_id}")
@@ -3273,19 +3292,36 @@ def get_remove_history(db: Session = Depends(get_db)):
         for l in logs:
             orig_sn = l.engine.original_sn if l.engine else "Deleted"
             curr_sn = l.engine.current_sn if l.engine else "-"
+            gss_sn = l.engine.gss_sn if l.engine else "-"
+            installed_plate = l.engine.installed_plate_sn if l.engine else "-"
+            
+            # Получаем информацию о ВС откуда был снят двигатель
+            to_aircraft = "-"
+            if l.engine and l.engine.aircraft_id:
+                aircraft = db.query(models.Aircraft).filter(models.Aircraft.id == l.engine.aircraft_id).first()
+                if aircraft:
+                    to_aircraft = aircraft.name
+            
             res.append({
                 "id": l.id,
                 "date": l.date.strftime("%Y-%m-%d"),
                 "original_sn": orig_sn,
                 "current_sn": curr_sn,
+                "gss_id": gss_sn,
                 "from": l.from_location or "-",
                 "to": l.to_location or "-",
+                "to_aircraft": to_aircraft,
                 "remarks": l.comments,
+                "comments": l.comments,  # для reason в details
+                "condition_1_at_removal": l.condition_1_at_removal or "-",
+                "installed_plate_sn": installed_plate,
                 "ttsn": l.ttsn,
                 "tcsn": l.tcsn,
                 "ttsn_ac": l.ttsn_ac,
                 "tcsn_ac": l.tcsn_ac,
-                "remarks_removal": l.remarks_removal
+                "remarks_removal": l.remarks_removal,
+                "user": l.user or "-",
+                "created_by": l.user or "-"
             })
         return res
     except Exception as e:
@@ -3345,6 +3381,8 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     eng.location_id = dest_loc.id
     eng.status = "REMOVED" # Меняем статус
     eng.condition_1 = data.condition_1  # Обновляем техсостояние
+    eng.removed_from = from_txt  # Сохраняем откуда сняли
+    eng.installed_plate_sn = data.installed_plate_sn  # Сохраняем установленный шильдик
 
     # Закрываем активную установку (is_active = False) для этого двигателя
     active_install = db.query(models.ActionLog).filter(

@@ -88,6 +88,7 @@ class Engine(Base):
     photo_url = Column(String, nullable=True) # Ссылка на фото
     remarks = Column(String, nullable=True) # Примечания/комментарии
     removed_from = Column(String, nullable=True) # Место откуда снят двигатель
+    installed_plate_sn = Column(String, nullable=True) # Шильдик, установленный на снятый двигатель
     
     # Параметры двигателя (для мониторинга)
     n1_takeoff = Column(Float, nullable=True)

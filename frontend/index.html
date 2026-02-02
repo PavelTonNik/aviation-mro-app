@@ -402,7 +402,7 @@
             opacity: 1 !important;
         }
 
-        /* Сохранить контрастные цвета бейджей в light-bg режиме */
+        /* Сохранить контрастные цвета бейджей в light-bg режиме с белым текстом */
         body.light-bg .badge.bg-success {
             background-color: #198754 !important;
             color: #ffffff !important;
@@ -420,7 +420,7 @@
 
         body.light-bg .badge.bg-warning {
             background-color: #ffc107 !important;
-            color: #000000 !important;
+            color: #ffffff !important;
         }
 
         body.light-bg .badge.bg-secondary {
@@ -433,23 +433,48 @@
             color: #ffffff !important;
         }
 
-        /* Белый текст для всех статусов в таблице при дневном режиме */
+        body.light-bg .badge.bg-light {
+            background-color: #f8f9fa !important;
+            color: #ffffff !important;
+        }
+
+        body.light-bg .badge.bg-dark {
+            background-color: #212529 !important;
+            color: #ffffff !important;
+        }
+
+        /* Белый текст для всех остальных цветных элементов при дневном режиме */
         body.light-bg .badge {
             color: #ffffff !important;
         }
 
-        body.light-bg .badge.bg-info,
-        body.light-bg .badge.bg-warning {
-            color: #000000 !important;
+        /* Убрать черный текст если есть */
+        body.light-bg .badge.text-dark {
+            color: #ffffff !important;
         }
 
-        /* Дополнительная защита для всех статусов и условий в light-bg */
+        /* Убрать text-dark из всех бейджей */
+        body.light-bg .badge:not(.bg-light.text-dark) {
+            color: #ffffff !important;
+        }
+
+        /* Глобальный переопредел для всех span с bg-* классами */
+        body.light-bg span[class*="bg-success"],
+        body.light-bg span[class*="bg-danger"],
+        body.light-bg span[class*="bg-primary"],
+        body.light-bg span[class*="bg-warning"],
+        body.light-bg span[class*="bg-info"],
+        body.light-bg span[class*="bg-secondary"] {
+            color: #ffffff !important;
+        }
+        /* Дополнительная защита для всех статусов и условий в light-bg - ТОЛЬКО БЕЛЫЙ ТЕКСТ */
         body.light-bg [class*="bg-success"],
         body.light-bg [class*="bg-danger"],
         body.light-bg [class*="bg-primary"],
-        body.light-bg [class*="bg-warning"] {
-            background-color: inherit !important;
-            color: inherit !important;
+        body.light-bg [class*="bg-warning"],
+        body.light-bg [class*="bg-info"],
+        body.light-bg [class*="bg-secondary"] {
+            color: #ffffff !important;
         }
 
         /* Защита иконок статусов */
@@ -480,6 +505,18 @@
         body.light-bg .btn-dashboard.btn-status-inst .label {
             color: white !important;
             text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+        }
+
+        /* Решающее правило - белый текст везде в light-bg режиме */
+        body.light-bg .badge,
+        body.light-bg span[class*="bg-"] {
+            color: #ffffff !important;
+        }
+
+        /* Убить все попытки text-dark */
+        body.light-bg .badge.text-dark,
+        body.light-bg .text-dark {
+            color: #ffffff !important;
         }
 
         /* КНОПКИ НА ДАШБОРДЕ (Полный стиль) */
@@ -5822,6 +5859,14 @@
                                                 <input type="hidden" id="rem-engine-id">
                                             </div>
                                             <div class="col-md-4">
+                                                <label class="form-label small fw-bold">GSS ID</label>
+                                                <input type="text" class="form-control" id="rem-gss-id" readonly style="background-color: #e9ecef; cursor: default;">
+                                                <small class="text-muted">Автоматически определяется по двигателю</small>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-12">
                                                 <label class="form-label small fw-bold">Current Position</label>
                                                 <input type="text" class="form-control" id="rem-loc-from">
                                             </div>
@@ -5883,6 +5928,14 @@
 
                                         <div class="row mb-3">
                                             <div class="col-md-12">
+                                                <label class="form-label small fw-bold">Installed Plate SN</label>
+                                                <input type="text" class="form-control" id="rem-installed-plate-sn" placeholder="SN of nameplate being installed on removed engine...">
+                                                <small class="text-muted">Серийник шильдика, который установят на этот снятый двигатель</small>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
+                                            <div class="col-md-12">
                                                 <label class="form-label small fw-bold">Remarks</label>
                                                 <textarea class="form-control" id="rem-remarks" rows="3"></textarea>
                                             </div>
@@ -5907,10 +5960,17 @@
                 
                 <div class="card shadow-sm">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="input-group" style="max-width: 300px;">
-                                <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
-                                <input type="text" class="form-control border-start-0 ps-0" id="engine-reports-search" placeholder="Search engine..." onkeyup="filterTable('engine-reports-body', 'engine-reports-search')">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="d-flex gap-2">
+                                <div class="input-group" style="max-width: 300px;">
+                                    <span class="input-group-text bg-white text-muted" title="Search by Serial Number"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control border-start-0 ps-0" id="engine-reports-search" placeholder="Search by S/N..." onkeyup="filterEngineReports()">
+                                </div>
+                                
+                                <div class="input-group" style="max-width: 300px;">
+                                    <span class="input-group-text bg-white text-muted" title="Search by GSS ID"><i class="bi bi-tag-fill"></i></span>
+                                    <input type="text" class="form-control border-start-0 ps-0" id="engine-reports-gss-search" placeholder="Search by GSS ID..." onkeyup="filterEngineReports()">
+                                </div>
                             </div>
                             <a href="#" class="btn btn-sm btn-primary" onclick="loadEngineReportsList(); return false;" role="button"><i class="bi bi-arrow-clockwise"></i> Refresh</a>
                         </div>
@@ -5921,6 +5981,7 @@
                                     <th style="width: 50px;">#</th>
                                     <th>Original S/N</th>
                                     <th>Current S/N</th>
+                                    <th>GSS ID</th>
                                     <th>Status</th>
                                     <th>Aircraft</th>
                                     <th>Location</th>
@@ -9428,7 +9489,7 @@ function restoreView(viewName) {
                                             <td>${row.date || '-'}</td>
                                             <td><strong>${row.current_sn || '-'}</strong> <small class="text-muted">(${row.original_sn || '-'})</small></td>
                                             <td>${row.from || '-'}</td>
-                                            <td><span class="badge bg-info text-dark">${row.to || '-'}</span></td>
+                                            <td><span class="badge bg-info text-white">${row.to || '-'}</span></td>
                                             <td>${row.remarks || '-'}</td>
                                         </tr>
                                     `).join('')}
@@ -11934,13 +11995,13 @@ function restoreView(viewName) {
     async function loadEngineReportsList() {
         const tbody = document.getElementById('engine-reports-body');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Loading engines...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">Loading engines...</td></tr>';
 
         let res = await safeFetch('/api/engines' + window.noCache());
         if (!res || !res.ok) res = await safeFetch('/api/engines');
 
         if (!res || !res.ok) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-3">Unable to load engines</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-3">Unable to load engines</td></tr>';
             return;
         }
 
@@ -11948,7 +12009,7 @@ function restoreView(viewName) {
         try { engines = await res.json(); } catch { engines = []; }
 
         if (!Array.isArray(engines) || engines.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No engines found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No engines found</td></tr>';
             return;
         }
 
@@ -11968,6 +12029,7 @@ function restoreView(viewName) {
                     <td>${idx + 1}</td>
                     <td><strong>${eng.original_sn}</strong></td>
                     <td>${eng.current_sn}</td>
+                    <td>${eng.gss_sn || '-'}</td>
                     <td><span class="badge bg-${statusClass}">${eng.status}</span></td>
                     <td>${eng.aircraft || '-'}</td>
                     <td>${eng.location}</td>
@@ -14383,7 +14445,7 @@ function restoreView(viewName) {
                     <td>${row.engine_model || '-'}</td>
                     <td>${row.gss_id || '-'}</td>
                     <td>${row.from}</td>
-                    <td><span class="badge bg-info text-dark">${row.to}</span></td>
+                    <td><span class="badge bg-info text-white">${row.to}</span></td>
                     <td>${row.remarks || '-'}</td>
                 </tr>
             `;
@@ -14553,6 +14615,10 @@ function restoreView(viewName) {
             const ttsnAcText = row.ttsn_ac !== null && row.ttsn_ac !== undefined ? `${row.ttsn_ac}` : '-';
             const tcsnAcText = row.tcsn_ac !== null && row.tcsn_ac !== undefined ? `${row.tcsn_ac}` : '-';
             const remarksRemovalText = row.remarks_removal ? `${row.remarks_removal}` : '-';
+            const conditionText = row.condition_1_at_removal || '-';
+            const gssIdText = row.gss_id || '-';
+            const installedPlateText = row.installed_plate_sn || '-';
+            
             tbody.innerHTML += `
                 <tr class="${isTest}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}" onclick="toggleRemovalDetails(this)" style="cursor: pointer;">
                     <td class="delete-col-remove" style="display: none;">
@@ -14567,15 +14633,42 @@ function restoreView(viewName) {
                     <td>${row.remarks||'-'}</td>
                 </tr>
                 <tr class="removal-details-row" style="display: none;">
-                    <td colspan="6" class="bg-light p-3">
-                        <div class="row">
-                            <div class="col-md-3"><strong>TTSN (Engine):</strong> ${ttsnText}</div>
-                            <div class="col-md-3"><strong>TCSN (Engine):</strong> ${tcsnText}</div>
-                            <div class="col-md-3"><strong>TTSN (AC):</strong> ${ttsnAcText}</div>
-                            <div class="col-md-3"><strong>TCSN (AC):</strong> ${tcsnAcText}</div>
-                        </div>
-                        <div class="row mt-2">
-                            <div class="col-md-12"><strong>Remarks:</strong> ${remarksRemovalText}</div>
+                    <td colspan="6" class="bg-light p-4">
+                        <div class="container-fluid">
+                            <h6 class="mb-3 border-bottom pb-2"><i class="bi bi-info-circle"></i> Engine Removal Details</h6>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-3"><strong>Date:</strong> <span class="badge bg-info text-white">${row.date || '-'}</span></div>
+                                <div class="col-md-3"><strong>Original SN:</strong> <span class="text-monospace">${row.original_sn || '-'}</span></div>
+                                <div class="col-md-3"><strong>Current SN:</strong> <span class="text-monospace">${row.current_sn || '-'}</span></div>
+                                <div class="col-md-3"><strong>GSS ID:</strong> <span class="badge bg-primary text-white">${gssIdText}</span></div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-4"><strong>From Aircraft:</strong> <span class="badge bg-secondary text-white">${row.to_aircraft || '-'}</span></div>
+                                <div class="col-md-4"><strong>From Location:</strong> <span class="badge bg-secondary text-white">${row.from || '-'}</span></div>
+                                <div class="col-md-4"><strong>Sent To:</strong> <span class="badge bg-success text-white">${row.to || '-'}</span></div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-3"><strong>TTSN (Engine):</strong> <span class="badge bg-warning text-white">${ttsnText}</span></div>
+                                <div class="col-md-3"><strong>TCSN (Engine):</strong> <span class="badge bg-warning text-white">${tcsnText}</span></div>
+                                <div class="col-md-3"><strong>TTSN (Aircraft):</strong> <span class="badge bg-warning text-white">${ttsnAcText}</span></div>
+                                <div class="col-md-3"><strong>TCSN (Aircraft):</strong> <span class="badge bg-warning text-white">${tcsnAcText}</span></div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-4"><strong>Condition 1:</strong> <span class="badge bg-info text-white">${conditionText}</span></div>
+                                <div class="col-md-4"><strong>Installed Plate SN:</strong> <span class="text-monospace">${installedPlateText}</span></div>
+                                <div class="col-md-4"><strong>Reason:</strong> <span>${row.comments || '-'}</span></div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <strong>Remarks:</strong>
+                                    <p class="border-start ps-3 text-muted">${remarksRemovalText}</p>
+                                </div>
+                            </div>
                         </div>
                     </td>
                 </tr>`;
@@ -14636,6 +14729,7 @@ function restoreView(viewName) {
             if (!val) {
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
+                document.getElementById('rem-gss-id').value = '';
                 document.getElementById('rem-aircraft').value = '';
                 document.getElementById('rem-aircraft').disabled = true;
                 document.getElementById('rem-aircraft').classList.remove('border-success');
@@ -14649,6 +14743,7 @@ function restoreView(viewName) {
                 this.value = '';
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
+                document.getElementById('rem-gss-id').value = '';
                 document.getElementById('rem-aircraft').value = '';
                 document.getElementById('rem-aircraft').disabled = true;
                 document.getElementById('rem-aircraft').classList.remove('border-success');
@@ -14661,6 +14756,7 @@ function restoreView(viewName) {
                 this.value = '';
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
+                document.getElementById('rem-gss-id').value = '';
                 document.getElementById('rem-aircraft').value = '';
                 document.getElementById('rem-aircraft').disabled = true;
                 document.getElementById('rem-aircraft').classList.remove('border-success');
@@ -14673,6 +14769,7 @@ function restoreView(viewName) {
                 this.value = '';
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
+                document.getElementById('rem-gss-id').value = '';
                 document.getElementById('rem-aircraft').value = '';
                 document.getElementById('rem-aircraft').disabled = true;
                 document.getElementById('rem-aircraft').classList.remove('border-success');
@@ -14682,6 +14779,7 @@ function restoreView(viewName) {
             // Все проверки пройдены - заполняем поля
             document.getElementById('rem-engine-id').value = found.id;
             document.getElementById('rem-loc-from').value = found.location;
+            document.getElementById('rem-gss-id').value = found.gss_sn || '-';
             
             const acSelect = document.getElementById('rem-aircraft');
             acSelect.value = found.aircraft;
@@ -14752,7 +14850,8 @@ function restoreView(viewName) {
             ttsn_ac: parseFloat(document.getElementById('rem-ttsn-ac').value) || null,
             tcsn_ac: parseInt(document.getElementById('rem-tcsn-ac').value) || null,
             remarks: document.getElementById('rem-remarks').value,
-            condition_1: document.getElementById('rem-condition-1').value
+            condition_1: document.getElementById('rem-condition-1').value,
+            installed_plate_sn: document.getElementById('rem-installed-plate-sn').value || null
         };
 
         try {
@@ -15009,22 +15108,22 @@ function restoreView(viewName) {
             'SV': 'bg-success',
             'US': 'bg-danger',
             'Scrap': 'bg-dark',
-            '-': 'bg-light text-dark'
+            '-': 'bg-light'
         };
-        return colorMap[condition] || 'bg-light text-dark';
+        return colorMap[condition] || 'bg-light';
     }
     
     function getCondition2BadgeColor(condition) {
         const colorMap = {
             'New': 'bg-success',
             'Overhauled': 'bg-primary',
-            'Repaired': 'bg-warning text-dark',
-            'Inspected tested': 'bg-info text-dark',
+            'Repaired': 'bg-warning',
+            'Inspected tested': 'bg-info',
             'As removed': 'bg-secondary',
             'AS': 'bg-secondary',
-            '-': 'bg-light text-dark'
+            '-': 'bg-light'
         };
-        return colorMap[condition] || 'bg-light text-dark';
+        return colorMap[condition] || 'bg-light';
     }
     
     function renderEngineTable(engines) {
@@ -15055,7 +15154,7 @@ function restoreView(viewName) {
             if(eng.status === 'US') badge = 'bg-danger';
             if(eng.status === 'INSTALLED') badge = 'bg-primary';
             if(eng.status === 'REMOVED') badge = 'bg-warning';
-            if(!eng.status || eng.status === '') { badge = 'bg-light text-dark'; statusText = '-'; }
+            if(!eng.status || eng.status === '') { badge = 'bg-light'; statusText = '-'; }
 
             const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank"><i class="bi bi-image"></i></a>` : '-';
             const model = eng.model || '-';
@@ -15108,9 +15207,21 @@ function restoreView(viewName) {
                         onmouseleave="hideGSSTooltip()"
                         onmousemove="if(gssTooltip) { gssTooltip.style.left = (event.clientX + 15) + 'px'; gssTooltip.style.top = (event.clientY + 15) + 'px'; }">${gssSN}</td>
                     <td data-key="price">${price}</td>
-                    <td data-key="status"><span class="badge ${badge}">${statusText}</span></td>
-                    <td data-key="condition-1"><span class="badge ${getCondition1BadgeColor(condition1)}">${condition1}</span></td>
-                    <td data-key="condition-2"><span class="badge ${getCondition2BadgeColor(condition2)}">${condition2}</span></td>
+                    <td data-key="status">
+                        ${eng.status === 'REMOVED' ? 
+                            `<span class="badge ${badge} text-white" 
+                                   data-bs-toggle="tooltip" 
+                                   data-bs-placement="top" 
+                                   data-bs-html="true"
+                                   title="<strong>GSS ID:</strong> ${gssSN}<br><strong>Original SN:</strong> ${originalSN}<br><strong>Previous Current SN:</strong> ${currentSN}<br><strong>Removed From:</strong> ${removedFrom || 'N/A'}<br><strong>Installed Plate:</strong> ${eng.installed_plate_sn || 'N/A'}"
+                                   style="cursor: help;">
+                               ${statusText}
+                             </span>` 
+                            : `<span class="badge ${badge} text-white">${statusText}</span>`
+                        }
+                    </td>
+                    <td data-key="condition-1"><span class="badge ${getCondition1BadgeColor(condition1)} text-white">${condition1}</span></td>
+                    <td data-key="condition-2"><span class="badge ${getCondition2BadgeColor(condition2)} text-white">${condition2}</span></td>
                     <td data-key="tt">${tt}</td>
                     <td data-key="tc">${tc}</td>
                     <td data-key="location" data-location-id="${eng.location_id || ''}">${location}</td>
@@ -15124,6 +15235,11 @@ function restoreView(viewName) {
         
         tb.innerHTML = rowsHTML;
         console.log('Table rendered with', engines.length, 'rows');
+        
+        // Initialize Bootstrap tooltips for REMOVED status badges
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(tooltipEl => {
+            new bootstrap.Tooltip(tooltipEl);
+        });
     }
 
     // --- EDIT MODE LOGIC ---
@@ -15360,9 +15476,17 @@ function restoreView(viewName) {
                             let errorMsg = 'Create failed';
                             try {
                                 const error = await response.json();
-                                errorMsg += `: ${error.detail || response.statusText}`;
+                                const errorDetail = error.detail || response.statusText;
+                                
+                                // Проверяем дублирование Original SN
+                                if (errorDetail.includes('duplicate key') && errorDetail.includes('original_sn')) {
+                                    const match = errorDetail.match(/Key \(original_sn\)=\(([^)]+)\)/);
+                                    const duplicateSN = match ? match[1] : originalSN;
+                                    errorMsg = `❌ Cannot create: Original SN "${duplicateSN}" already exists!\n\n💡 Each engine must have a unique Original SN.`;
+                                } else {
+                                    errorMsg += `: ${errorDetail}`;
+                                }
                             } catch {
-                                // If JSON parsing fails, use status text
                                 errorMsg += `: ${response.status} ${response.statusText}`;
                             }
                             throw new Error(errorMsg);
@@ -15382,9 +15506,17 @@ function restoreView(viewName) {
                             let errorMsg = `Update failed for engine ${engineId}`;
                             try {
                                 const error = await response.json();
-                                errorMsg += `: ${error.detail || response.statusText}`;
+                                const errorDetail = error.detail || response.statusText;
+                                
+                                // Проверяем дублирование Original SN
+                                if (errorDetail.includes('duplicate key') && errorDetail.includes('original_sn')) {
+                                    const match = errorDetail.match(/Key \(original_sn\)=\(([^)]+)\)/);
+                                    const duplicateSN = match ? match[1] : originalSN;
+                                    errorMsg = `❌ Cannot save: Original SN "${duplicateSN}" already exists in another engine!\n\n💡 Each engine must have a unique Original SN.`;
+                                } else {
+                                    errorMsg += `: ${errorDetail}`;
+                                }
                             } catch {
-                                // If JSON parsing fails, use status text
                                 errorMsg += `: ${response.status} ${response.statusText}`;
                             }
                             throw new Error(errorMsg);
@@ -17589,7 +17721,7 @@ function restoreView(viewName) {
             let badge = 'bg-secondary';
             if(r.action==='INSTALLED') badge='bg-success';
             if(r.action==='REMOVED') badge='bg-danger';
-            if(r.action==='SWAP') badge='bg-warning text-dark';
+            if(r.action==='SWAP') badge='bg-warning';
 
             const safeSerialNumber = escapeHtml(r.serial_number || '');
             tb.innerHTML += `
@@ -17659,7 +17791,7 @@ function restoreView(viewName) {
             const atlbLabel = r.ref ? `<strong>${escapeHtml(r.ref)}</strong>` : '<span class="text-muted">—</span>';
             const totalTtsn = escapeHtml(r.total_ttsn || '0:00');
             const totalTcsn = escapeHtml(String(r.total_tcsn ?? 0));
-            const maintenanceBadge = r.maintenance ? '<span class="badge bg-warning text-dark">Maintenance</span>' : '';
+            const maintenanceBadge = r.maintenance ? '<span class="badge bg-warning text-white">Maintenance</span>' : '';
 
             tb.innerHTML += `
                 <tr data-log-id="${r.id || 0}" class="${r.maintenance ? 'table-warning' : ''}">
@@ -18510,11 +18642,9 @@ function restoreView(viewName) {
                 tsn_on_aircraft: engineOnPosition.tsn_on_aircraft
             });
             
-            // ⚠️ ПРОВЕРКА: если позиция 4 и tsn_on_aircraft === aircraft_total, это удаленный двигатель!
-            // Position 4 с tsn=105400 = aircraft total означает что это был первоначальный двигатель и снят
-            if (position === 4 && 
-                engineOnPosition.tsn_on_aircraft === aircraftInDashboard.total_time) {
-                console.log(`❌ Position 4 appears to be DELETED (TSN=Aircraft total) - skipping`);
+            // ⚠️ Проверка удаленного двигателя (только при явном флаге)
+            if (position === 4 && (engineOnPosition.is_deleted === true || engineOnPosition.deleted === true)) {
+                console.log(`❌ Position 4 is marked as DELETED - skipping`);
                 return null;
             }
             
