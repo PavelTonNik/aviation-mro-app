@@ -402,6 +402,46 @@
             opacity: 1 !important;
         }
 
+        /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+        /* ГЛОБАЛЬНЫЕ ПРАВИЛА - БЕЛЫЙ ТЕКСТ ВО ВСЕХ СТАТУСАХ ВЕЗДЕ */
+        /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+        
+        /* Белый текст для всех бейджей везде */
+        .badge {
+            color: #ffffff !important;
+        }
+
+        .badge.bg-success,
+        .badge.bg-danger,
+        .badge.bg-primary,
+        .badge.bg-warning,
+        .badge.bg-info,
+        .badge.bg-secondary,
+        .badge.bg-light,
+        .badge.bg-dark {
+            color: #ffffff !important;
+        }
+
+        /* Белый текст для всех элементов с bg-* классами */
+        [class*="bg-success"],
+        [class*="bg-danger"],
+        [class*="bg-primary"],
+        [class*="bg-warning"],
+        [class*="bg-info"],
+        [class*="bg-secondary"] {
+            color: #ffffff !important;
+        }
+
+        /* Убрать попытки использовать черный текст */
+        .text-dark,
+        .badge.text-dark {
+            color: #ffffff !important;
+        }
+
+        /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+        /* ДОПОЛНИТЕЛЬНЫЕ ПРАВИЛА ДЛЯ ДНЕВНОГО РЕЖИМА */
+        /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+        
         /* Сохранить контрастные цвета бейджей в light-bg режиме с белым текстом */
         body.light-bg .badge.bg-success {
             background-color: #198754 !important;
@@ -476,6 +516,19 @@
         body.light-bg [class*="bg-secondary"] {
             color: #ffffff !important;
         }
+
+        /* Решающее правило - белый текст везде в light-bg режиме */
+        body.light-bg .badge,
+        body.light-bg span[class*="bg-"] {
+            color: #ffffff !important;
+        }
+
+        /* Убить все попытки text-dark */
+        body.light-bg .badge.text-dark,
+        body.light-bg .text-dark {
+            color: #ffffff !important;
+        }
+
 
         /* Защита иконок статусов */
         body.light-bg .badge.bg-success::before,
@@ -8009,14 +8062,21 @@
                 <div id="tab-main-list">
                     <div class="card shadow-sm">
                         <div class="card-body">
-                            <!-- Кнопки управления -->
-                            <div class="d-flex justify-content-end mb-2 gap-2" style="overflow-x: auto; flex-wrap: nowrap;">
-                                <button class="btn btn-sm btn-primary" onclick="loadMainTable()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
-                                <button class="btn btn-sm btn-warning" id="btn-main-edit" onclick="toggleEditMode()"><i class="bi bi-pencil-square"></i> Edit Table</button>
-                                <button class="btn btn-sm btn-info" id="btn-main-filter" onclick="toggleEngineFilter()" title="Filter"><i class="bi bi-funnel"></i> Filter</button>
-                                <button class="btn btn-sm btn-danger d-none" id="btn-main-delete-selected" onclick="bulkDeleteSelected()"><i class="bi bi-trash3"></i> Delete Selected</button>
-                                <button class="btn btn-sm btn-success d-none" id="btn-main-save" onclick="saveEditMode()"><i class="bi bi-check-lg"></i> Save Changes</button>
-                                <button class="btn btn-sm btn-secondary d-none" id="btn-main-cancel" onclick="cancelEditMode()"><i class="bi bi-x-lg"></i> Cancel</button>
+                            <!-- Поиск и Кнопки управления -->
+                            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                                <div class="input-group" style="max-width: 350px;">
+                                    <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control border-start-0 ps-0" id="main-engine-search" placeholder="Search S/N, Model, GSS, Location, Remarks..." onkeyup="filterTable('main-engine-body', 'main-engine-search')" title="Search by Serial Number, Model, GSS ID, Location, Remarks, or Removed From">
+                                </div>
+                                
+                                <div class="d-flex gap-2" style="overflow-x: auto; flex-wrap: nowrap;">
+                                    <button class="btn btn-sm btn-primary" onclick="loadMainTable()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                    <button class="btn btn-sm btn-warning" id="btn-main-edit" onclick="toggleEditMode()"><i class="bi bi-pencil-square"></i> Edit Table</button>
+                                    <button class="btn btn-sm btn-info" id="btn-main-filter" onclick="toggleEngineFilter()" title="Filter"><i class="bi bi-funnel"></i> Filter</button>
+                                    <button class="btn btn-sm btn-danger d-none" id="btn-main-delete-selected" onclick="bulkDeleteSelected()"><i class="bi bi-trash3"></i> Delete Selected</button>
+                                    <button class="btn btn-sm btn-success d-none" id="btn-main-save" onclick="saveEditMode()"><i class="bi bi-check-lg"></i> Save Changes</button>
+                                    <button class="btn btn-sm btn-secondary d-none" id="btn-main-cancel" onclick="cancelEditMode()"><i class="bi bi-x-lg"></i> Cancel</button>
+                                </div>
                             </div>
                             
                             <div class="table-responsive" style="max-height: 80vh; overflow: auto; position: relative;">
@@ -15210,6 +15270,7 @@ function restoreView(viewName) {
                     <td data-key="status">
                         ${eng.status === 'REMOVED' ? 
                             `<span class="badge ${badge} text-white" 
+                                   style="color: #ffffff !important;"
                                    data-bs-toggle="tooltip" 
                                    data-bs-placement="top" 
                                    data-bs-html="true"
@@ -15217,11 +15278,11 @@ function restoreView(viewName) {
                                    style="cursor: help;">
                                ${statusText}
                              </span>` 
-                            : `<span class="badge ${badge} text-white">${statusText}</span>`
+                            : `<span class="badge ${badge} text-white" style="color: #ffffff !important;">${statusText}</span>`
                         }
                     </td>
-                    <td data-key="condition-1"><span class="badge ${getCondition1BadgeColor(condition1)} text-white">${condition1}</span></td>
-                    <td data-key="condition-2"><span class="badge ${getCondition2BadgeColor(condition2)} text-white">${condition2}</span></td>
+                    <td data-key="condition-1"><span class="badge ${getCondition1BadgeColor(condition1)} text-white" style="color: #ffffff !important;">${condition1}</span></td>
+                    <td data-key="condition-2"><span class="badge ${getCondition2BadgeColor(condition2)} text-white" style="color: #ffffff !important;">${condition2}</span></td>
                     <td data-key="tt">${tt}</td>
                     <td data-key="tc">${tc}</td>
                     <td data-key="location" data-location-id="${eng.location_id || ''}">${location}</td>
@@ -15553,7 +15614,63 @@ function restoreView(viewName) {
             
             // Даем серверу время обновить данные, затем перезагружаем таблицу
             await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Сохраняем параметры фильтра перед перезагрузкой
+            const savedFilters = {
+                userFilter: document.getElementById('engine-user-filter')?.value || '',
+                dateFilter: document.getElementById('engine-date-filter')?.value || '',
+                statusFilter: document.getElementById('engine-status-filter')?.value || '',
+                modelFilter: document.getElementById('engine-model-filter')?.value || '',
+                esnFilter: document.getElementById('engine-esn-filter')?.value || '',
+                gssFilter: document.getElementById('engine-gss-filter')?.value || '',
+                locationFilter: document.getElementById('engine-location-filter')?.value || '',
+                removedFilter: document.getElementById('engine-removed-filter')?.value || '',
+                ttMin: document.getElementById('engine-tt-min')?.value || '',
+                ttMax: document.getElementById('engine-tt-max')?.value || '',
+                tcMin: document.getElementById('engine-tc-min')?.value || '',
+                tcMax: document.getElementById('engine-tc-max')?.value || '',
+                remarksFilter: document.getElementById('engine-remarks-filter')?.value || '',
+                hasPhoto: document.getElementById('engine-has-photo')?.checked || false
+            };
+            
             await loadMainTable();
+            
+            // Переприменяем фильтры если были установлены
+            if (Object.values(savedFilters).some(v => v !== '' && v !== false)) {
+                // Восстанавливаем значения фильтров
+                if (savedFilters.userFilter && document.getElementById('engine-user-filter')) 
+                    document.getElementById('engine-user-filter').value = savedFilters.userFilter;
+                if (savedFilters.dateFilter && document.getElementById('engine-date-filter'))
+                    document.getElementById('engine-date-filter').value = savedFilters.dateFilter;
+                if (savedFilters.statusFilter && document.getElementById('engine-status-filter'))
+                    document.getElementById('engine-status-filter').value = savedFilters.statusFilter;
+                if (savedFilters.modelFilter && document.getElementById('engine-model-filter'))
+                    document.getElementById('engine-model-filter').value = savedFilters.modelFilter;
+                if (savedFilters.esnFilter && document.getElementById('engine-esn-filter'))
+                    document.getElementById('engine-esn-filter').value = savedFilters.esnFilter;
+                if (savedFilters.gssFilter && document.getElementById('engine-gss-filter'))
+                    document.getElementById('engine-gss-filter').value = savedFilters.gssFilter;
+                if (savedFilters.locationFilter && document.getElementById('engine-location-filter'))
+                    document.getElementById('engine-location-filter').value = savedFilters.locationFilter;
+                if (savedFilters.removedFilter && document.getElementById('engine-removed-filter'))
+                    document.getElementById('engine-removed-filter').value = savedFilters.removedFilter;
+                if (savedFilters.ttMin && document.getElementById('engine-tt-min'))
+                    document.getElementById('engine-tt-min').value = savedFilters.ttMin;
+                if (savedFilters.ttMax && document.getElementById('engine-tt-max'))
+                    document.getElementById('engine-tt-max').value = savedFilters.ttMax;
+                if (savedFilters.tcMin && document.getElementById('engine-tc-min'))
+                    document.getElementById('engine-tc-min').value = savedFilters.tcMin;
+                if (savedFilters.tcMax && document.getElementById('engine-tc-max'))
+                    document.getElementById('engine-tc-max').value = savedFilters.tcMax;
+                if (savedFilters.remarksFilter && document.getElementById('engine-remarks-filter'))
+                    document.getElementById('engine-remarks-filter').value = savedFilters.remarksFilter;
+                if (document.getElementById('engine-has-photo'))
+                    document.getElementById('engine-has-photo').checked = savedFilters.hasPhoto;
+                
+                // Переприменяем фильтры
+                applyEngineFilters();
+            }
+            
             await loadDashboardData();
             
         } catch (error) {
@@ -15576,7 +15693,14 @@ function restoreView(viewName) {
         const selAll = document.getElementById('select-all-delete');
         if (selAll) selAll.checked = false;
         
-        loadMainTable();
+        // Проверяем есть ли активные фильтры и переприменяем их если нужно
+        const statusFilter = document.getElementById('engine-status-filter')?.value || '';
+        if (statusFilter || document.getElementById('engine-model-filter')?.value || 
+            document.getElementById('engine-gss-filter')?.value) {
+            applyEngineFilters(); // Переприменяем фильтры если были
+        } else {
+            loadMainTable(); // Иначе загружаем всё
+        }
     }
 
     // Выделение всех чекбоксов в колонке удаления
@@ -22072,6 +22196,37 @@ function attachStoreBalanceColumnResizers() {
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🔧 DOMContentLoaded event fired');
+    
+    // ===== ПРИМЕНИТЬ БЕЛЫЙ ТЕКСТ КО ВСЕМ БЕЙДЖАМ =====
+    // Принудительно переопределяем стили для бейджей
+    const badgeStyleFix = document.createElement('style');
+    badgeStyleFix.textContent = `
+        .badge { color: #ffffff !important; }
+        .badge * { color: #ffffff !important; }
+        [class*="bg-success"], [class*="bg-danger"], [class*="bg-primary"], 
+        [class*="bg-warning"], [class*="bg-info"], [class*="bg-secondary"],
+        [class*="bg-light"], [class*="bg-dark"] { 
+            color: #ffffff !important; 
+        }
+        .text-dark { color: #ffffff !important; }
+        span[class*="bg-"] { color: #ffffff !important; }
+    `;
+    document.head.appendChild(badgeStyleFix);
+    
+    // Мутация обсервер для новых бейджей
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach(() => {
+            document.querySelectorAll('.badge, [class*="bg-success"], [class*="bg-danger"], [class*="bg-primary"]').forEach(el => {
+                el.style.color = '#ffffff !important';
+            });
+        });
+    });
+    observer.observe(document.body, { 
+        childList: true, 
+        subtree: true, 
+        attributes: true, 
+        attributeFilter: ['class', 'style'] 
+    });
     
     // Initialize resizers after short delay
     setTimeout(() => {
