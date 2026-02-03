@@ -137,6 +137,7 @@ class ActionLog(Base):
     to_location = Column(String, nullable=True)
     to_aircraft = Column(String, nullable=True)  # Для INSTALL: tail number самолета
     position = Column(Integer, nullable=True)     # Для INSTALL: позиция двигателя
+    current_sn = Column(String, nullable=True)    # Для INSTALL: Current SN установленный на двигатель
     
     # Снапшот наработки на момент действия (ВАЖНО для истории!)
     snapshot_tt = Column(Float, nullable=True)

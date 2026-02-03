@@ -5635,11 +5635,18 @@
                                 <div class="card-body">
                                     <form id="form-install">
                                         <div class="row mb-3">
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label class="form-label small fw-bold">Date <span class="text-danger">*</span></label>
                                                 <input type="date" class="form-control" id="in-date" required>
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
+                                                <label class="form-label small fw-bold">GSS ID <span class="text-danger">*</span></label>
+                                                <input class="form-control" list="gss-options" id="in-gss-input" placeholder="Type GSS ID..." required>
+                                                <datalist id="gss-options">
+                                                    <!-- Сюда JS загрузит варианты GSS ID -->
+                                                </datalist>
+                                            </div>
+                                            <div class="col-md-3">
                                                 <label class="form-label small fw-bold">Engine (Orig SN) <span class="text-danger">*</span></label>
                                                 
                                                 <!-- ЗАМЕНА: Вместо select используем input + datalist -->
@@ -5651,7 +5658,7 @@
                                                 <!-- Скрытое поле, куда мы запишем ID двигателя для отправки на сервер -->
                                                 <input type="hidden" id="in-engine-id">
                                             </div>
-                                            <div class="col-md-4">
+                                            <div class="col-md-3">
                                                 <label class="form-label small fw-bold">Current SN</label>
                                                 <!-- Убрали readonly и bg-light, теперь можно писать -->
                                                 <input type="text" class="form-control" id="in-cur-sn" placeholder="Enter Current SN">
@@ -8876,8 +8883,62 @@ function restoreView(viewName) {
     }
 }
 
+// ============ Tooltip для Previous Current SN при Installation ============
+let currentTooltipTimeout;
+async function showInstallTooltip(event, engineId) {
+    clearTimeout(currentTooltipTimeout);
+    
+    try {
+        // Загружаем historию этого двигателя
+        const res = await fetch(`/api/history/INSTALL?engine_id=${engineId}`);
+        const history = res.ok ? await res.json() : [];
+        
+        if (history.length === 0) {
+            return;
+        }
+        
+        // Берем последнюю (самую свежую) установку
+        const lastInstall = history[0];
+        const previousCurrentSn = lastInstall.current_sn || '-';
+        
+        // Создаем tooltip
+        const tooltip = document.createElement('div');
+        tooltip.id = 'install-tooltip';
+        tooltip.style.cssText = `
+            position: fixed;
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 10000;
+            pointer-events: none;
+            white-space: nowrap;
+            max-width: 300px;
+        `;
+        tooltip.innerHTML = `<strong>Current S/N:</strong> ${previousCurrentSn}`;
+        
+        document.body.appendChild(tooltip);
+        
+        // Позиционируем tooltip
+        const rect = event.target.getBoundingClientRect();
+        tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+        tooltip.style.top = (rect.top - 35) + 'px';
+        
+    } catch (e) {
+        console.warn('Error loading install history for tooltip:', e);
+    }
+}
 
-
+function hideInstallTooltip() {
+    clearTimeout(currentTooltipTimeout);
+    currentTooltipTimeout = setTimeout(() => {
+        const tooltip = document.getElementById('install-tooltip');
+        if (tooltip) {
+            tooltip.remove();
+        }
+    }, 200);
+}
 
     let _dashboardLoading = false;
     async function loadDashboardData() {
@@ -9033,12 +9094,13 @@ function restoreView(viewName) {
                 
                 const statusText = pos === null ? 'No Engine' : pos.current_sn;
                 const statusClass = pos === null ? 'empty' : 'installed';
+                const tooltipAttr = pos === null ? '' : `onmouseenter="showInstallTooltip(event, ${pos.id})" onmouseleave="hideInstallTooltip()"`;
                 
                 positionsListHTML += `
                     <div class="position-item" data-position="${posNum}" data-aircraft-id="${ac.aircraft_id}">
                         <div class="position-item-header">
                             <span class="position-label">Position ${posNum}</span>
-                            <span class="position-status ${statusClass}">${statusText}</span>
+                            <span class="position-status ${statusClass}" ${tooltipAttr}>${statusText}</span>
                         </div>
                         <div class="position-details" id="${posDetailId}" style="display: none;">
                             ${pos === null ? `
@@ -11813,61 +11875,162 @@ function restoreView(viewName) {
 
         tbody._inlineEditBound = true;
     }
+
+// ============ ШАГ 2-4: Функции для GSS ID и Engine datalists ============
+
+// Глобальные обработчики для повторного подвешивания
+let gssInputHandler = function() {
+    if (window.installableEngines) {
+        onGssInputChange(window.installableEngines);
+    }
+};
+
+let engineInputHandler = function() {
+    if (!window.installableEngines) return;
+    const selectedEngine = window.installableEngines.find(e => e.original_sn === this.value);
+    if (!selectedEngine) {
+        showErrorNotification('Engine not found! Please select from the list of available engines.');
+        this.value = '';
+        document.getElementById('in-engine-id').value = '';
+        document.getElementById('in-cur-sn').value = '';
+    } else {
+        // Проверяем, что двигатель уже INSTALLED - это недопустимо для Installation
+        if (selectedEngine.status === 'INSTALLED') {
+            const aircraftInfo = selectedEngine.aircraft ? ` on aircraft ${selectedEngine.aircraft}` : ' on some aircraft';
+            showErrorNotification(`❌ Engine ${selectedEngine.original_sn} CANNOT be installed! This engine is already INSTALLED${aircraftInfo}. Please select a different engine or remove this one first.`);
+            this.value = '';
+            document.getElementById('in-engine-id').value = '';
+            document.getElementById('in-cur-sn').value = '';
+            return;
+        }
+        // Проверяем пригодность по condition_1 (SV / US / SCRAPED)
+        if (selectedEngine.condition_1 !== 'SV') {
+            showErrorNotification(`❌ Engine ${selectedEngine.original_sn} cannot be installed! condition_1 is ${selectedEngine.condition_1}, must be SV (Serviceable).`);
+            this.value = '';
+            document.getElementById('in-engine-id').value = '';
+            document.getElementById('in-cur-sn').value = '';
+            return;
+        }
+        // Если GSS пусто и у двигателя есть GSS - автозаполняем
+        const gssField = document.getElementById('in-gss-input');
+        if (!gssField.value.trim() && selectedEngine.gss_sn) {
+            gssField.value = selectedEngine.gss_sn;
+        }
+        document.getElementById('in-engine-id').value = selectedEngine.id;
+        // Current SN не заполняем автоматически - только ручной ввод!
+    }
+};
+
+// ШАГ 2: Заполнить datalist с GSS ID
+function loadGSSDatalist(engines) {
+    const gssMap = new Map(); // Уникальные GSS ID с их двигателями
+    const gssOptions = document.getElementById('gss-options');
+    gssOptions.innerHTML = '';
+    
+    engines.forEach(eng => {
+        if (eng.gss_sn) {
+            if (!gssMap.has(eng.gss_sn)) {
+                gssMap.set(eng.gss_sn, eng); // Берем первый двигатель с этим GSS
+            }
+        }
+    });
+    
+    Array.from(gssMap.entries()).sort().forEach(([gssId, eng]) => {
+        const option = document.createElement('option');
+        option.value = gssId;
+        // Формат: "GSS: ID | Orig: SN | Current: SN"
+        const display = `GSS: ${gssId} | Orig: ${eng.original_sn} | Current: ${eng.current_sn || 'N/A'}`;
+        option.text = display;
+        gssOptions.appendChild(option);
+    });
+}
+
+// ШАГ 3: Заполнить datalist с Engine (с опциональной фильтрацией по GSS)
+function loadEngineDatalist(engines, filterGss = null) {
+    const engineOptions = document.getElementById('engine-options');
+    engineOptions.innerHTML = '';
+    
+    let filtered = engines;
+    if (filterGss) {
+        filtered = engines.filter(e => e.gss_sn === filterGss);
+    }
+    
+    filtered.forEach(eng => {
+        const option = document.createElement('option');
+        option.value = eng.original_sn;
+        // Формат: "Orig: SN | GSS: ID | Current: SN"
+        const display = `Orig: ${eng.original_sn} | GSS: ${eng.gss_sn || 'N/A'} | Current: ${eng.current_sn || 'N/A'}`;
+        option.text = display;
+        engineOptions.appendChild(option);
+    });
+}
+
+// ШАГ 4: Обработчик для поля GSS ID (фильтрует Engine, автозаполняет если одно совпадение)
+function onGssInputChange(engines) {
+    const gssValue = document.getElementById('in-gss-input').value.trim();
+    if (!gssValue) {
+        // Если GSS пусто - показываем все двигатели
+        loadEngineDatalist(engines, null);
+        return;
+    }
+    
+    // Фильтруем двигатели по GSS ID
+    const matchingEngines = engines.filter(e => e.gss_sn === gssValue);
+    
+    if (matchingEngines.length === 0) {
+        loadEngineDatalist(engines, null);
+    } else if (matchingEngines.length === 1) {
+        // Если один двигатель - автозаполняем поле Engine
+        loadEngineDatalist(engines, gssValue);
+        const singleEngine = matchingEngines[0];
+        document.getElementById('in-engine-input').value = singleEngine.original_sn;
+        document.getElementById('in-engine-id').value = singleEngine.id;
+    } else {
+        // Если несколько - показываем отфильтрованные
+        loadEngineDatalist(engines, gssValue);
+    }
+}
+
     // 5. Отправка формы (Save)
 // 4. Подготовка формы (Загрузка SV двигателей)
     async function prepareInstallForm() {
         // Всегда грузим свежие данные без кеша, чтобы список был актуальным
         let res = await safeFetch('/api/engines' + window.noCache());
         
-        let engines = [];
-        try { engines = res && res.ok ? await res.json() : []; } catch { engines = []; }
+        let allEngines = [];
+        try { allEngines = res && res.ok ? await res.json() : []; } catch { allEngines = []; }
         const deletedIds = getDeletedEngineIds();
-        // Отбираем только не удалённые и пригодные по condition_1
-        engines = Array.isArray(engines)
-            ? engines.filter(e => !deletedIds.includes(e.id) && e.condition_1 === 'SV')
+        
+        // Загружаем ВСЕ двигатели (кроме удаленных)
+        allEngines = Array.isArray(allEngines)
+            ? allEngines.filter(e => !deletedIds.includes(e.id))
             : [];
         
-        installableEngines = engines; // <--- ВАЖНО: Сохраняем данные в глобальную переменную
+        // Отбираем только пригодные для установки двигатели:
+        // condition_1 === 'SV' И status !== 'INSTALLED' И status !== 'SCRAPED'
+        const installableEngines = allEngines.filter(e => 
+            e.condition_1 === 'SV' && 
+            e.status !== 'INSTALLED' && 
+            e.status !== 'SCRAPED'
+        );
         
-        const datalist = document.getElementById('engine-options'); // Ищем datalist
-        datalist.innerHTML = ''; 
+        window.installableEngines = installableEngines; // Сохраняем в глобальную переменную
         
-        engines.forEach(eng => {
-            // Заполняем варианты для поиска
-            datalist.innerHTML += `<option value="${eng.original_sn}">${eng.current_sn} (Loc: ${eng.location})</option>`;
-        });
+        // ШАГ 2: Загружаем GSS datalist из пригодных двигателей
+        loadGSSDatalist(installableEngines);
         
-        // Добавляем валидацию при вводе
+        // ШАГ 3: Загружаем Engine datalist только из пригодных двигателей
+        loadEngineDatalist(installableEngines, null);
+        
+        // ШАГ 4: Подвешиваем обработчик для GSS ID (используем глобальный обработчик)
+        const gssInput = document.getElementById('in-gss-input');
+        gssInput.removeEventListener('input', gssInputHandler);
+        gssInput.addEventListener('input', gssInputHandler);
+        
+        // ШАГ 5: Подвешиваем обработчик для Engine (используем глобальный обработчик)
         const engineInput = document.getElementById('in-engine-input');
-        engineInput.addEventListener('change', function() {
-            const selectedEngine = engines.find(e => e.original_sn === this.value);
-            if (!selectedEngine) {
-                showErrorNotification('Engine not found! Please select from the list of available engines.');
-                this.value = '';
-                document.getElementById('in-engine-id').value = '';
-                document.getElementById('in-cur-sn').value = '';
-            } else {
-                // Проверяем, что двигатель уже INSTALLED - это недопустимо для Installation
-                if (selectedEngine.status === 'INSTALLED') {
-                    const aircraftInfo = selectedEngine.aircraft ? ` on aircraft ${selectedEngine.aircraft}` : ' on some aircraft';
-                    showErrorNotification(`❌ Engine ${selectedEngine.original_sn} CANNOT be installed! This engine is already INSTALLED${aircraftInfo}. Please select a different engine or remove this one first.`);
-                    this.value = '';
-                    document.getElementById('in-engine-id').value = '';
-                    document.getElementById('in-cur-sn').value = '';
-                    return;
-                }
-                // Проверяем пригодность по condition_1 (SV / US / SCRAPED)
-                if (selectedEngine.condition_1 !== 'SV') {
-                    showErrorNotification(`❌ Engine ${selectedEngine.original_sn} cannot be installed! condition_1 is ${selectedEngine.condition_1}, must be SV (Serviceable).`);
-                    this.value = '';
-                    document.getElementById('in-engine-id').value = '';
-                    document.getElementById('in-cur-sn').value = '';
-                    return;
-                }
-                document.getElementById('in-engine-id').value = selectedEngine.id;
-                document.getElementById('in-cur-sn').value = selectedEngine.current_sn;
-            }
-        });
+        engineInput.removeEventListener('change', engineInputHandler);
+        engineInput.addEventListener('change', engineInputHandler);
     }
     // Guard flag to prevent double-submit
     let _installSubmitting = false;
@@ -11876,6 +12039,7 @@ function restoreView(viewName) {
         if (_installSubmitting) { return; }
         
         const date = document.getElementById('in-date').value;
+        const gssInputVal = document.getElementById('in-gss-input').value.trim();
         const engInputVal = document.getElementById('in-engine-input').value;
         const engId = document.getElementById('in-engine-id').value;
         const acId = document.getElementById('in-ac').value;
@@ -11887,23 +12051,41 @@ function restoreView(viewName) {
             return; 
         }
         
-        // Проверка что двигатель выбран из списка
+        // ✓ Проверка что GSS ID заполнен (обязательное поле)
+        if(!gssInputVal) {
+            showErrorNotification("GSS ID is required. Please select a GSS ID from the list.");
+            return;
+        }
+        
+        // ✓ Проверка что двигатель выбран из списка
         if(!engId || engId === '0' || engId === '' || !engInputVal) {
-            showErrorNotification("Please select an engine from the list. You cannot add engines that are not in the system.");
+            showErrorNotification("Engine is required. Please select an engine from the list.");
             return;
         }
         
         // Проверка что выбранный двигатель есть в списке доступных
-        const selectedEngine = installableEngines.find(e => e.id === parseInt(engId));
+        const selectedEngine = window.installableEngines.find(e => e.id === parseInt(engId));
         if (!selectedEngine) {
             showErrorNotification("Selected engine not found in available engines list!");
             return;
         }
         
-        // Проверка пригодности двигателя по condition_1
-        if (selectedEngine.condition_1 !== 'SV') {
-            showErrorNotification(`Engine ${selectedEngine.original_sn} cannot be installed! condition_1 is ${selectedEngine.condition_1}. Only engines with condition_1 SV (Serviceable) can be installed.`);
+        // ✓ Проверка что двигатель не INSTALLED
+        if (selectedEngine.status === 'INSTALLED') {
+            const aircraftInfo = selectedEngine.aircraft ? ` on aircraft ${selectedEngine.aircraft}` : '';
+            showErrorNotification(`❌ Engine ${selectedEngine.original_sn} cannot be installed! This engine is already INSTALLED${aircraftInfo}.`);
             return;
+        }
+        
+        // ✓ Проверка пригодности двигателя по condition_1 (только SV)
+        if (selectedEngine.condition_1 !== 'SV') {
+            showErrorNotification(`❌ Engine ${selectedEngine.original_sn} cannot be installed! condition_1 is ${selectedEngine.condition_1}, must be SV (Serviceable).`);
+            return;
+        }
+        
+        // ✓ Мягкая проверка соответствия GSS ↔ Engine (предупреждение, не блокировка)
+        if (selectedEngine.gss_sn && selectedEngine.gss_sn !== gssInputVal) {
+            console.warn(`⚠️ WARNING: Selected GSS (${gssInputVal}) does not match engine GSS (${selectedEngine.gss_sn}). This is allowed but unusual.`);
         }
         
         // ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - устанавливаем флаг и показываем загрузку
@@ -14658,15 +14840,25 @@ function restoreView(viewName) {
         if (!res || !res.ok) res = await safeFetch('/api/history/REMOVE');
 
         let serverData = [];
-        try { serverData = res && res.ok ? await res.json() : []; } catch { serverData = []; }
+        try { 
+            serverData = res && res.ok ? await res.json() : []; 
+            console.log('🔍 REMOVE History from server:', serverData);
+        } catch { 
+            console.warn('⚠️ Error parsing REMOVE history:', arguments);
+            serverData = []; 
+        }
+        
         const allData = [...localTestRemoves, ...serverData];
+        console.log('📊 All REMOVE data (local + server):', allData);
         
         tbody.innerHTML = '';
         if(allData.length === 0) {
+            console.warn('⚠️ No REMOVE history found');
             tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No history found</td></tr>';
             return;
         }
         
+        console.log('✅ Rendering REMOVE history - ' + allData.length + ' records');
         allData.sort((a, b) => (b.id || 0) - (a.id || 0));
         allData.forEach(row => {
             const isTest = row.isTest ? 'table-warning' : '';
@@ -14677,7 +14869,9 @@ function restoreView(viewName) {
             const remarksRemovalText = row.remarks_removal ? `${row.remarks_removal}` : '-';
             const conditionText = row.condition_1_at_removal || '-';
             const gssIdText = row.gss_id || '-';
-            const installedPlateText = row.installed_plate_sn || '-';
+            const installedPlateText = row.installed_plate_sn || row.current_sn || '-';
+            
+            console.log('📝 Rendering row:', row);
             
             tbody.innerHTML += `
                 <tr class="${isTest}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}" onclick="toggleRemovalDetails(this)" style="cursor: pointer;">
@@ -14688,8 +14882,8 @@ function restoreView(viewName) {
                     </td>
                     <td>${row.date}</td>
                     <td><strong>${row.current_sn || row.original_sn}</strong></td>
-                    <td>${row.from}</td>
-                    <td><span class="badge bg-success">${row.to}</span></td>
+                    <td>${row.to_aircraft || row.from || '-'}</td>
+                    <td><span class="badge bg-success">${row.to || '-'}</span></td>
                     <td>${row.remarks||'-'}</td>
                 </tr>
                 <tr class="removal-details-row" style="display: none;">
@@ -14911,7 +15105,8 @@ function restoreView(viewName) {
             tcsn_ac: parseInt(document.getElementById('rem-tcsn-ac').value) || null,
             remarks: document.getElementById('rem-remarks').value,
             condition_1: document.getElementById('rem-condition-1').value,
-            installed_plate_sn: document.getElementById('rem-installed-plate-sn').value || null
+            installed_plate_sn: document.getElementById('rem-installed-plate-sn').value || null,
+            current_sn: document.getElementById('rem-installed-plate-sn').value || null  // Отправляем как current_sn
         };
 
         try {

@@ -94,23 +94,24 @@ def _sync_engine_status_from_history(db):
                     
             elif last_action.action_type == "REMOVE":
                 # После REMOVE двигатель должен быть снят с борта
-                new_status = last_action.condition_1_at_removal or "SV"
+                # ⚠️ Status ВСЕГДА "REMOVED", а condition_1 = то что выбрал пользователь (SV, US и т.д.)
+                condition_value = last_action.condition_1_at_removal or "SV"
                 
-                if (engine.status == new_status and 
+                if (engine.status == "REMOVED" and 
                     engine.aircraft_id is None and
                     engine.position is None and
-                    engine.condition_1 == new_status):
+                    engine.condition_1 == condition_value):
                     current_state_matches = True
                 else:
                     # Нужна синхронизация - двигатель должен быть снят с борта
                     old_state = f"status={engine.status}, aircraft_id={engine.aircraft_id}, pos={engine.position}, cond_1={engine.condition_1}"
                     
-                    engine.status = new_status
-                    engine.condition_1 = new_status
+                    engine.status = "REMOVED"
+                    engine.condition_1 = condition_value
                     engine.aircraft_id = None
                     engine.position = None
                     
-                    new_state = f"status={new_status}, aircraft_id=None, pos=None, cond_1={new_status}"
+                    new_state = f"status=REMOVED, aircraft_id=None, pos=None, cond_1={condition_value}"
                     changes_log.append(f"Engine {engine.gss_sn or engine.id}: REMOVE - {old_state} → {new_state}")
                     engines_to_sync.append(engine)
         
@@ -253,6 +254,12 @@ def startup_event():
                             WHERE table_name='action_logs' AND column_name='supplier'
                         ) THEN
                             ALTER TABLE action_logs ADD COLUMN supplier VARCHAR(255);
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='action_logs' AND column_name='current_sn'
+                        ) THEN
+                            ALTER TABLE action_logs ADD COLUMN current_sn VARCHAR;
                         END IF;
                         -- Ensure new Shipment columns exist
                         IF NOT EXISTS (
@@ -940,6 +947,7 @@ class RemoveSchema(BaseModel):
     tcsn_ac: Optional[int] = None
     remarks: Optional[str] = ""
     installed_plate_sn: Optional[str] = None  # Шильдик, установленный на снятый двигатель
+    current_sn: Optional[str] = None  # Новый Current SN при снятии (Installed Plate)
 
 
 class RepairSchema(BaseModel):
@@ -2413,6 +2421,9 @@ def delete_engine(engine_id: int, db: Session = Depends(get_db)):
         # Удаляем связанные части если есть
         db.query(models.Part).filter(models.Part.engine_id == engine_id).delete()
         
+        # Удаляем историю параметров двигателя если есть
+        db.query(models.EngineParameterHistory).filter(models.EngineParameterHistory.engine_id == engine_id).delete()
+        
         # Удаляем двигатель
         db.delete(engine)
         db.commit()
@@ -3016,10 +3027,17 @@ def delete_history_record(action_type: str, log_id: int, deleted_by: str = Query
 
 # 1. Получить историю установок (Вся информация)
 @app.get("/api/history/INSTALL")
-def get_install_history(db: Session = Depends(get_db)):
+def get_install_history(db: Session = Depends(get_db), engine_id: int = None):
     try:
         # Берем логи только типа INSTALL
-        logs = db.query(models.ActionLog).filter(models.ActionLog.action_type == "INSTALL").order_by(models.ActionLog.date.desc()).all()
+        query = db.query(models.ActionLog).filter(models.ActionLog.action_type == "INSTALL")
+        
+        # Опциональная фильтрация по engine_id
+        if engine_id:
+            query = query.filter(models.ActionLog.engine_id == engine_id)
+        
+        logs = query.order_by(models.ActionLog.date.desc()).all()
+        
         def _safe_float(val):
             try:
                 return float(val) if val not in (None, "") else None
@@ -3036,7 +3054,8 @@ def get_install_history(db: Session = Depends(get_db)):
         for l in logs:
             # Если двигатель удален, пишем заглушку
             orig_sn = l.engine.original_sn if l.engine else "Deleted"
-            curr_sn = l.engine.current_sn if l.engine else "-"
+            # ВАЖНО: Используем current_sn из ActionLog (который был сохранен при установке)
+            curr_sn = l.current_sn or (l.engine.current_sn if l.engine else "-")
             
             # Определяем статус установки
             install_status = "INSTALLED" if l.is_active else "REMOVED"
@@ -3147,6 +3166,7 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
         from_location=from_loc,
         to_aircraft=ac.tail_number,
         position=data.position,
+        current_sn=data.current_sn or eng.current_sn,  # Сохраняем Current SN в историю
         snapshot_tt=data.tt,
         snapshot_tc=data.tc,
         block_time_str=str(data.ac_ttsn) if data.ac_ttsn is not None else None,
@@ -3295,12 +3315,9 @@ def get_remove_history(db: Session = Depends(get_db)):
             gss_sn = l.engine.gss_sn if l.engine else "-"
             installed_plate = l.engine.installed_plate_sn if l.engine else "-"
             
-            # Получаем информацию о ВС откуда был снят двигатель
-            to_aircraft = "-"
-            if l.engine and l.engine.aircraft_id:
-                aircraft = db.query(models.Aircraft).filter(models.Aircraft.id == l.engine.aircraft_id).first()
-                if aircraft:
-                    to_aircraft = aircraft.name
+            # ВАЖНО: Используем to_aircraft из ActionLog (tail_number самолета откуда снимали)
+            # Потому что после REMOVE engine.aircraft_id = None, info потеряется
+            to_aircraft = l.to_aircraft or "-"
             
             res.append({
                 "id": l.id,
@@ -3320,8 +3337,8 @@ def get_remove_history(db: Session = Depends(get_db)):
                 "ttsn_ac": l.ttsn_ac,
                 "tcsn_ac": l.tcsn_ac,
                 "remarks_removal": l.remarks_removal,
-                "user": l.user or "-",
-                "created_by": l.user or "-"
+                "user": l.performed_by or "-",
+                "created_by": l.performed_by or "-"
             })
         return res
     except Exception as e:
@@ -3372,8 +3389,16 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
 
     # Запоминаем, откуда сняли (с самолета)
     from_txt = "Unknown"
+    to_aircraft_tail = "Unknown"
     if eng.aircraft:
         from_txt = f"AC: {eng.aircraft.tail_number} (Pos {eng.position})"
+        to_aircraft_tail = eng.aircraft.tail_number  # Сохраняем tail_number для ActionLog
+    
+    # Обновляем Current SN если передан Installed Plate
+    if data.current_sn and data.current_sn.strip():
+        eng.current_sn = data.current_sn.strip()
+    elif data.installed_plate_sn and data.installed_plate_sn.strip():
+        eng.current_sn = data.installed_plate_sn.strip()
 
     # Логика: Отвязываем от самолета, привязываем к локации
     eng.aircraft_id = None
@@ -3399,7 +3424,9 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         action_type="REMOVE",
         engine_id=eng.id,
         from_location=from_txt,
+        to_aircraft=to_aircraft_tail,  # Сохраняем tail_number самолета откуда был снят
         to_location=dest_loc.name,
+        current_sn=eng.current_sn or eng.original_sn,  # Сохраняем новый Current SN (Installed Plate)
         condition_1_at_removal=data.condition_1,
         comments=data.reason,
         date=datetime.now(),
