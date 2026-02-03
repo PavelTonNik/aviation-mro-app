@@ -11792,32 +11792,42 @@ function hideInstallTooltip() {
 
         serverData.sort((a, b) => (b.id || 0) - (a.id || 0));
         serverData.forEach(row => {
-            // Проверяем: был ли этот двигатель снят ПОСЛЕ этой установки
+            // Улучшенная логика зачеркивания с Fallback (Engine ID -> GSS ID -> Legacy)
             const wasRemoved = removeData.some(rem => {
+                // 1. По дате: Снятие должно быть ПОЗЖЕ или в тот же день, что и Установка
+                if (new Date(rem.date) < new Date(row.date)) return false;
+
+                // 2. Идентификация двигателя:
+                
+                // A. Engine ID (Самый надежный - первичный ключ неизменен)
+                if (row.engine_id && rem.engine_id) {
+                    return row.engine_id == rem.engine_id;
+                }
+                
+                // B. GSS ID (Если Engine ID нет - fallback, например для старых/внешних данных)
+                // GSS ID должен быть валидным (не "-", не пустой)
+                if (row.gss_id && rem.gss_id && 
+                    row.gss_id !== '-' && rem.gss_id !== '-' &&
+                    row.gss_id.trim() !== '' && rem.gss_id.trim() !== '') {
+                    return row.gss_id == rem.gss_id;
+                }
+
+                // C. Legacy Match (Если нет ID - по Current SN + Самолет)
+                // Только если GSS недоступен
                 const remSN = rem.current_sn || rem.original_sn;
                 const installCurrentSN = row.current_sn;
-                
-                // Извлекаем AC название из "AC: ER-BAR (Pos 4)" -> "ER-BAR"
+                // "AC: ER-BAR (Pos 4)" -> "ER-BAR"
                 const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
                 
-                // Проверяем совпадение current_sn, самолета и даты
-                if (remSN !== installCurrentSN) return false;
-                if (remFrom !== row.install_to) return false;
-                if (new Date(rem.date) < new Date(row.date)) return false;
+                if (remSN === installCurrentSN && remFrom === row.install_to) {
+                     return true;
+                }
                 
-                // ВАЖНО: Проверяем, нет ли более поздней установки с той же табличкой на тот же самолет
-                const laterInstall = serverData.find(inst => {
-                    return inst.current_sn === installCurrentSN &&
-                           inst.install_to === row.install_to &&
-                           new Date(inst.date) > new Date(rem.date);
-                });
-                
-                // Зачеркиваем только если НЕТ более поздней установки
-                return !laterInstall;
+                return false;
             });
             
             // Стили для снятого двигателя
-            const badgeClass = wasRemoved ? 'bg-secondary text-decoration-line-through opacity-50' : 'bg-primary';
+            const badgeClass = wasRemoved ? 'bg-secondary text-decoration-line-through opacity-50 text-white' : 'bg-primary text-white';
             
             tbody.innerHTML += `
                 <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
@@ -11829,7 +11839,7 @@ function hideInstallTooltip() {
                     <td>${row.date}</td>
                     <td>${row.original_sn}</td>
                     <td>${row.current_sn}</td>
-                    <td><span class="badge ${badgeClass}">${row.install_to}</span></td>
+                    <td><span class="badge ${badgeClass}" style="color: #ffffff !important;">${row.install_to}</span></td>
                     <td>${row.position}</td>
                     <td>${row.location_from}</td>
                     <td>${row.tt}</td>
@@ -14883,7 +14893,7 @@ function onGssInputChange(engines) {
                     <td>${row.date}</td>
                     <td><strong>${row.current_sn || row.original_sn}</strong></td>
                     <td>${row.to_aircraft || row.from || '-'}</td>
-                    <td><span class="badge bg-success">${row.to || '-'}</span></td>
+                    <td><span class="badge bg-success text-white" style="color: #ffffff !important;">${row.to || '-'}</span></td>
                     <td>${row.remarks||'-'}</td>
                 </tr>
                 <tr class="removal-details-row" style="display: none;">
