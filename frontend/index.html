@@ -11804,23 +11804,31 @@ function hideInstallTooltip() {
                     return row.engine_id == rem.engine_id;
                 }
                 
-                // B. GSS ID (Если Engine ID нет - fallback, например для старых/внешних данных)
-                // GSS ID должен быть валидным (не "-", не пустой)
+                // B. GSS ID (Если Engine ID нет - fallback)
                 if (row.gss_id && rem.gss_id && 
                     row.gss_id !== '-' && rem.gss_id !== '-' &&
                     row.gss_id.trim() !== '' && rem.gss_id.trim() !== '') {
-                    return row.gss_id == rem.gss_id;
+                    if (row.gss_id.trim() == rem.gss_id.trim()) return true;
                 }
 
-                // C. Legacy Match (Если нет ID - по Current SN + Самолет)
-                // Только если GSS недоступен
-                const remSN = rem.current_sn || rem.original_sn;
-                const installCurrentSN = row.current_sn;
-                // "AC: ER-BAR (Pos 4)" -> "ER-BAR"
-                const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
+                // C. Legacy Match (fallback)
+                const remSN = (rem.current_sn || rem.original_sn || '').trim();
+                const installCurrentSN = (row.current_sn || '').trim();
                 
-                if (remSN === installCurrentSN && remFrom === row.install_to) {
-                     return true;
+                // "AC: ER-BAR (Pos 4)" -> "ER-BAR"
+                // Также очищаем регистр и пробелы
+                let remFrom = rem.from ? rem.from.replace(/^AC:\s*/i, '').replace(/\s*\(Pos\s+\d+\)/i, '').trim() : '';
+                // Если remFrom пустой или '-', ставим пустую строку для унификации
+                if (remFrom === '-') remFrom = '';
+
+                // То же самое для install_to
+                let installTo = row.install_to ? row.install_to.trim() : '';
+                
+                if (remSN.toUpperCase() === installCurrentSN.toUpperCase()) {
+                    // Если самолет совпадает ИЛИ если в записи о снятии нет данных о самолете (пусто или '-')
+                    if (remFrom.toUpperCase() === installTo.toUpperCase() || remFrom === '') {
+                        return true;
+                    }
                 }
                 
                 return false;

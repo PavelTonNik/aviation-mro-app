@@ -3329,8 +3329,22 @@ def get_remove_history(db: Session = Depends(get_db)):
             installed_plate = l.engine.installed_plate_sn if l.engine else "-"
             
             # ВАЖНО: Используем to_aircraft из ActionLog (tail_number самолета откуда снимали)
-            # Потому что после REMOVE engine.aircraft_id = None, info потеряется
-            to_aircraft = l.to_aircraft or "-"
+            # Если нет - пробуем распарсить from_location
+            
+            to_aircraft = l.to_aircraft
+            if not to_aircraft or to_aircraft == "Unknown":
+                # Пытаемся извлечь из from_location ("AC: ER-BAR (Pos 1)")
+                if l.from_location and "AC:" in l.from_location:
+                    try:
+                        # "AC: ER-BAR (Pos 1)" -> "ER-BAR"
+                        import re
+                        match = re.search(r"AC:\s*([A-Za-z0-9-]+)", l.from_location)
+                        if match:
+                            to_aircraft = match.group(1)
+                    except:
+                        pass
+            
+            to_aircraft = to_aircraft or "-"
             
             res.append({
                 "id": l.id,
@@ -3403,11 +3417,14 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
 
     # Запоминаем, откуда сняли (с самолета)
     from_txt = "Unknown"
-    to_aircraft_tail = "Unknown"
+    to_aircraft_tail = None # Изначально NULL
+    
     if eng.aircraft:
         from_txt = f"AC: {eng.aircraft.tail_number} (Pos {eng.position})"
         to_aircraft_tail = eng.aircraft.tail_number  # Сохраняем tail_number для ActionLog
-    
+    elif eng.location: # Если снимаем со склада (ошибка логики, но на всякий случай)
+        from_txt = eng.location.name
+
     # Обновляем Current SN если передан Installed Plate
     if data.current_sn and data.current_sn.strip():
         eng.current_sn = data.current_sn.strip()
