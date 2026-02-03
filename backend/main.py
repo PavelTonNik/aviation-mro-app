@@ -3056,15 +3056,18 @@ def get_install_history(db: Session = Depends(get_db), engine_id: int = None):
             orig_sn = l.engine.original_sn if l.engine else "Deleted"
             # ВАЖНО: Используем current_sn из ActionLog (который был сохранен при установке)
             curr_sn = l.current_sn or (l.engine.current_sn if l.engine else "-")
+            gss_sn = l.engine.gss_sn if l.engine else "-"
             
             # Определяем статус установки
             install_status = "INSTALLED" if l.is_active else "REMOVED"
             
             res.append({
                 "id": l.id,
+                "engine_id": l.engine_id,
                 "date": l.date.strftime("%Y-%m-%d"),
                 "original_sn": orig_sn,
                 "current_sn": curr_sn,
+                "gss_id": gss_sn,
                 "install_to": l.to_aircraft, 
                 "position": l.position,
                 "location_from": l.from_location,
@@ -3311,7 +3314,7 @@ def get_remove_history(db: Session = Depends(get_db)):
         res = []
         for l in logs:
             orig_sn = l.engine.original_sn if l.engine else "Deleted"
-            curr_sn = l.engine.current_sn if l.engine else "-"
+            curr_sn = l.current_sn or (l.engine.current_sn if l.engine else "-")
             gss_sn = l.engine.gss_sn if l.engine else "-"
             installed_plate = l.engine.installed_plate_sn if l.engine else "-"
             
@@ -3321,6 +3324,7 @@ def get_remove_history(db: Session = Depends(get_db)):
             
             res.append({
                 "id": l.id,
+                "engine_id": l.engine_id,
                 "date": l.date.strftime("%Y-%m-%d"),
                 "original_sn": orig_sn,
                 "current_sn": curr_sn,
