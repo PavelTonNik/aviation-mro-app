@@ -2467,14 +2467,24 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         engine.condition_1 = data.condition_1 if data.condition_1 and data.condition_1.strip() and data.condition_1 != '-' else "SV"
         engine.condition_2 = data.condition_2 if data.condition_2 and data.condition_2.strip() and data.condition_2 != '-' else "New"
         
-        # НЕ меняем status и location если двигатель в "системном" статусе (INSTALLED, REMOVED, REPAIRED)
+        # Улучшенная логика обновления статуса и локации
         protected_statuses = ["INSTALLED", "REMOVED", "REPAIRED"]
+        
+        # 1. Обновление статуса
         if engine.status not in protected_statuses:
-            # Разрешаем только INSTALLED/REMOVED/'-'. Любые другие значения маппим на '-'.
+            # Если статус обычный - можно менять на разрешенные
             status_value = data.status if data.status and data.status.strip() else "-"
             allowed_statuses = ["INSTALLED", "REMOVED", "-"]
             engine.status = status_value if status_value in allowed_statuses else "-"
-            if data.location_id:
+        # Если статус защищен (INSTALLED/REMOVED) - мы его НЕ меняем через Edit (только через Action)
+
+        # 2. Обновление локации
+        # Если двигатель УСТАНОВЛЕН - локация должна быть None (привязка к самолету)
+        if engine.status == "INSTALLED":
+            engine.location_id = None
+        else:
+            # Для всех остальных статусов (REMOVED, -, SV...) можно менять локацию
+            if data.location_id is not None:
                 engine.location_id = data.location_id
         engine.total_time = data.total_time
         engine.total_cycles = data.total_cycles
