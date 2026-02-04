@@ -883,7 +883,7 @@
         }
         
         .aircraft-card:hover {
-            transform: translateY(-8px) rotateX(5deg);
+            transform: translateY(-8px);
             box-shadow: 0 20px 60px rgba(0, 210, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
             border-color: rgba(0, 255, 200, 0.5);
         }
@@ -1834,6 +1834,20 @@
         .engine-btn-menu.show .engine-menu-item-reports { transition-delay: 0.08s; }
         .engine-btn-menu.show .engine-menu-item-borescope-reports { transition-delay: 0.12s; }
         .engine-btn-menu.show .engine-menu-item-folders { transition-delay: 0.14s; }
+
+        /* Hide main menu items when aircraft selector is shown */
+        .engine-btn-menu.aircraft-selector-active > .engine-menu-item {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transform: translate(-50%, -50%) rotate(var(--angle)) translate(var(--radius)) rotate(calc(var(--angle) * -1)) scale(0.5) !important;
+        }
+
+        /* Hide main menu items when reports submenu is shown */
+        .engine-btn-menu.reports-submenu-active > .engine-menu-item {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transform: translate(-50%, -50%) rotate(var(--angle)) translate(var(--radius)) rotate(calc(var(--angle) * -1)) scale(0.5) !important;
+        }
 
         /* === SECOND LEVEL RADIAL MENU (Reports submenu) === */
         .reports-radial-menu {
@@ -5492,25 +5506,25 @@
 
                         <!-- FOURTH LEVEL RADIAL MENU for Positions Selection -->
                         <div class="positions-selector-menu" id="positions-selector-menu">
-                            <button type="button" class="position-menu-item position-item-1" style="--angle: 0deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 1)">
+                            <button type="button" class="position-menu-item position-item-all" style="--angle: 0deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 'ALL')">
+                                <i class="bi bi-asterisk"></i>
+                                <span>ALL</span>
+                            </button>
+                            <button type="button" class="position-menu-item position-item-1" style="--angle: 72deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 1)">
                                 <i class="bi bi-1-circle-fill"></i>
                                 <span>Position 1</span>
                             </button>
-                            <button type="button" class="position-menu-item position-item-2" style="--angle: 72deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 2)">
+                            <button type="button" class="position-menu-item position-item-2" style="--angle: 144deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 2)">
                                 <i class="bi bi-2-circle-fill"></i>
                                 <span>Position 2</span>
                             </button>
-                            <button type="button" class="position-menu-item position-item-3" style="--angle: 144deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 3)">
+                            <button type="button" class="position-menu-item position-item-3" style="--angle: 216deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 3)">
                                 <i class="bi bi-3-circle-fill"></i>
                                 <span>Position 3</span>
                             </button>
-                            <button type="button" class="position-menu-item position-item-4" style="--angle: 216deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 4)">
+                            <button type="button" class="position-menu-item position-item-4" style="--angle: 288deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 4)">
                                 <i class="bi bi-4-circle-fill"></i>
                                 <span>Position 4</span>
-                            </button>
-                            <button type="button" class="position-menu-item position-item-all" style="--angle: 288deg;" onclick="loadBoroscopeReportData(window.selectedAircraft, 'ALL')">
-                                <i class="bi bi-asterisk"></i>
-                                <span>ALL</span>
                             </button>
                         </div>
                     </div>
@@ -7270,34 +7284,32 @@
 
                 <!-- History Table -->
                 <div class="card shadow mt-4">
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center mb-0 pb-0">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center" style="margin-bottom: 0; padding-bottom: 12px;">
                         <h5 class="mb-0"><i class="bi bi-clock-history"></i> GSS Assignment History</h5>
                         <button class="btn btn-sm btn-outline-light" onclick="loadGSSHistory()">
                             <i class="bi bi-arrow-clockwise"></i> Refresh
                         </button>
                     </div>
-                    <!-- Заголовки столбцов СРАЗУ после заголовка -->
-                    <div class="table-responsive" style="margin-top: 0;">
-                        <table class="table table-striped table-hover mb-0" style="margin-top: 0;">
-                            <thead class="table-dark" style="border-top: none;">
-                                <tr>
-                                    <th>GSS ID</th>
-                                    <th>Photo</th>
-                                    <th>Original SN</th>
-                                    <th>Current SN</th>
-                                    <th>Model</th>
-                                    <th>Location</th>
-                                    <th>Assigned By</th>
-                                    <th>Date</th>
-                                    <th>Remarks</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="gss-history-tbody">
-                                <tr><td colspan="10" class="text-center text-muted">No assignments yet</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    
+                    <table class="table table-striped table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>GSS ID</th>
+                                <th>Photo</th>
+                                <th>Original SN</th>
+                                <th>Current SN</th>
+                                <th>Model</th>
+                                <th>Location</th>
+                                <th>Assigned By</th>
+                                <th>Date</th>
+                                <th>Remarks</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gss-history-tbody">
+                            <tr><td colspan="10" class="text-center text-muted">No assignments yet</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -17781,7 +17793,7 @@ function onGssInputChange(engines) {
                 const condText = (item.condition || '').trim();
                 const condStatus = window.conditionStatuses?.find(s => s.name === condText);
                 const condColor = condStatus ? condStatus.color : '#6c757d';
-                const condHtml = condText ? `<span class="cond-badge" style="background-color: ${condColor}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;" data-value="${escapeHtml(condText)}">${escapeHtml(condText)}</span>` : `<span data-value=""></span>`;
+                const condHtml = condText ? `<span class="cond-badge" style="background-color: ${condColor}; color: white !important; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;" data-value="${escapeHtml(condText)}">${escapeHtml(condText)}</span>` : `<span data-value=""></span>`;
 
                 tbody.innerHTML += `
                     <tr data-log-id="${item.id}">
@@ -18767,6 +18779,16 @@ function onGssInputChange(engines) {
         } else {
             menu.classList.remove('show');
             button.classList.remove('menu-open');
+            
+            // Full cleanup of all submenus when closing main menu
+            hideReportsSubmenu();
+            hideManualsSubmenu();
+            const aircraftMenu = document.getElementById('aircraft-selector-menu');
+            const positionsMenu = document.getElementById('positions-selector-menu');
+            if (aircraftMenu) { aircraftMenu.style.display = 'none'; aircraftMenu.classList.remove('show'); }
+            if (positionsMenu) { positionsMenu.style.display = 'none'; positionsMenu.classList.remove('show'); }
+            menu.classList.remove('aircraft-selector-active');
+            menu.classList.remove('reports-submenu-active');
         }
     }
 
@@ -18792,15 +18814,34 @@ function onGssInputChange(engines) {
     // === REPORTS SUBMENU FUNCTIONS ===
     function toggleReportsSubmenu() {
         const submenu = document.getElementById('reports-radial-menu');
+        const mainMenu = document.getElementById('engine-btn-menu');
         if (submenu) {
-            submenu.classList.toggle('show');
+            const isShowing = submenu.classList.contains('show');
+            
+            if (isShowing) {
+                // Close Reports submenu
+                submenu.classList.remove('show');
+                if (mainMenu) {
+                    mainMenu.classList.remove('reports-submenu-active');
+                }
+            } else {
+                // Open Reports submenu
+                submenu.classList.add('show');
+                if (mainMenu) {
+                    mainMenu.classList.add('reports-submenu-active');
+                }
+            }
         }
     }
 
     function hideReportsSubmenu() {
         const submenu = document.getElementById('reports-radial-menu');
+        const mainMenu = document.getElementById('engine-btn-menu');
         if (submenu) {
             submenu.classList.remove('show');
+        }
+        if (mainMenu) {
+            mainMenu.classList.remove('reports-submenu-active');
         }
     }
 
@@ -18837,11 +18878,17 @@ function onGssInputChange(engines) {
     function toggleBoroscopeReportsSubmenu() {
         const submenu = document.getElementById('aircraft-selector-menu');
         const reportsMenu = document.querySelector('.reports-radial-menu');
+        const mainMenu = document.getElementById('engine-btn-menu');
         
         if (submenu) {
             const isHidden = submenu.style.display === 'none' || getComputedStyle(submenu).display === 'none';
             submenu.style.display = isHidden ? 'flex' : 'none';
             submenu.classList.toggle('show', isHidden);
+            
+            // Hide main menu items when showing aircraft menu
+            if (mainMenu) {
+                mainMenu.classList.toggle('aircraft-selector-active', isHidden);
+            }
             
             // Hide Reports menu when showing aircraft menu
             if (reportsMenu) {
@@ -18855,19 +18902,26 @@ function onGssInputChange(engines) {
         const aircraftMenu = document.getElementById('aircraft-selector-menu');
         const positionsMenu = document.getElementById('positions-selector-menu');
         const reportsMenu = document.querySelector('.reports-radial-menu');
+        const mainMenu = document.getElementById('engine-btn-menu');
         
         if (aircraftMenu) { aircraftMenu.style.display = 'none'; aircraftMenu.classList.remove('show'); }
         if (positionsMenu) { positionsMenu.style.display = 'none'; positionsMenu.classList.remove('show'); }
         if (reportsMenu) { reportsMenu.style.display = 'flex'; reportsMenu.classList.add('show'); }
+        if (mainMenu) {
+            mainMenu.classList.remove('aircraft-selector-active');
+            mainMenu.classList.add('reports-submenu-active');
+        }
     }
 
     function selectAircraft(aircraft) {
         window.selectedAircraft = aircraft;
         const aircraftMenu = document.getElementById('aircraft-selector-menu');
         const positionsMenu = document.getElementById('positions-selector-menu');
+        const mainMenu = document.getElementById('engine-btn-menu');
         
         if (aircraftMenu) { aircraftMenu.style.display = 'none'; aircraftMenu.classList.remove('show'); }
         if (positionsMenu) { positionsMenu.style.display = 'flex'; positionsMenu.classList.add('show'); }
+        if (mainMenu) { mainMenu.classList.add('aircraft-selector-active'); }
     }
 
     function hidePositionsSubmenu() {
@@ -18883,8 +18937,10 @@ function onGssInputChange(engines) {
             // Hide the aircraft menu and position menu
             const aircraftMenu = document.querySelector('.aircraft-selector-menu');
             const positionsMenu = document.querySelector('.positions-selector-menu');
+            const mainMenu = document.getElementById('engine-btn-menu');
             if (aircraftMenu) aircraftMenu.style.display = 'none';
             if (positionsMenu) positionsMenu.style.display = 'none';
+            if (mainMenu) mainMenu.classList.remove('aircraft-selector-active');
             
             // Show reports menu (go back one level)
             const reportsMenu = document.querySelector('.reports-radial-menu');
@@ -18993,7 +19049,8 @@ function onGssInputChange(engines) {
             }
             
             // 2. Ищем ПОСЛЕДНИЙ borescope inspection для этого двигателя
-            const matchingSN = engineOnPosition.original_sn || engineOnPosition.current_sn;
+            const matchingSN = (engineOnPosition.current_sn || engineOnPosition.original_sn || '').trim();
+            const altSN = (engineOnPosition.original_sn || engineOnPosition.current_sn || '').trim();
             const latestBorescope = borescope && borescope.length > 0 ?
                 borescope
                     .filter(b => {
@@ -19036,21 +19093,36 @@ function onGssInputChange(engines) {
             
             console.log(`✅ Using dashboard TSN/CSN:`, { tsn_on_ac, csn_on_ac });
             
-            // 5. Ищем ПОСЛЕДНИЕ eng parameters для этого двигателя
-            const latestEngParams = engParams && engParams.length > 0 ?
-                engParams
-                    .filter(p => 
-                        p.engine_serial_number === matchingSN || 
-                        p.engine_sn === matchingSN ||
-                        p.serial_number === matchingSN
-                    )
-                    .sort((a, b) => new Date(b.date) - new Date(a.date))[0] : null;
+            // 5. Ищем ПОСЛЕДНИЕ eng parameters по самолету и позиции (приоритет)
+            let latestEngParams = null;
+            if (engineOnPosition && (engineOnPosition.n1_takeoff || engineOnPosition.n2_takeoff || engineOnPosition.egt_takeoff)) {
+                // Берем прямо из dashboard (самая свежая запись по позиции)
+                latestEngParams = {
+                    date: engineOnPosition.param_date || 'N/A',
+                    n1_takeoff: engineOnPosition.n1_takeoff,
+                    n2_takeoff: engineOnPosition.n2_takeoff,
+                    egt_takeoff: engineOnPosition.egt_takeoff,
+                    n1_cruise: engineOnPosition.n1_cruise,
+                    n2_cruise: engineOnPosition.n2_cruise,
+                    egt_cruise: engineOnPosition.egt_cruise
+                };
+            } else if (engParams && engParams.length > 0) {
+                latestEngParams = engParams
+                    .filter(p => {
+                        const ac = (p.aircraft || '').trim();
+                        const pos = p.position;
+                        if (!ac || !pos) return false;
+                        return ac === aircraft && (pos === position || pos === String(position));
+                    })
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))[0] || null;
+            }
             
             // 6. Формируем данные позиции
             return {
                 position: position,
                 currentSN: engineOnPosition.current_sn,
                 originalSN: engineOnPosition.original_sn,
+                gssId: engineOnPosition.gss_sn || engineOnPosition.gss_id || 'N/A',
                 installDate: installationRecord ? installationRecord.date : '—',
                 supplier: installationRecord ? (installationRecord.location_from || '—') : '—',
                 tsn: tsn_on_ac,
@@ -19103,6 +19175,10 @@ function onGssInputChange(engines) {
                     <tr style="background: #f5f5f5;">
                         <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Current S/N:</strong></td>
                         <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.currentSN}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">GSS ID:</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.gssId || 'N/A'}</td>
                     </tr>
                     <tr>
                         <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Original S/N:</strong></td>
@@ -19207,15 +19283,22 @@ function onGssInputChange(engines) {
         window.currentReportData = null;
         window.boroscopeReportOpen = false;
         
-        // Restore engine menu and hide all submenus
+        // Restore the menu to the position selector level (keep aircraft and positions menus visible)
         const engineMenu = document.querySelector('.engine-btn-menu');
         const aircraftMenu = document.getElementById('aircraft-selector-menu');
         const positionsMenu = document.getElementById('positions-selector-menu');
         const reportsMenu = document.querySelector('.reports-radial-menu');
         
-        if (engineMenu) engineMenu.style.display = 'flex';
-        if (aircraftMenu) aircraftMenu.style.display = 'none';
-        if (positionsMenu) positionsMenu.style.display = 'none';
+        if (engineMenu) {
+            engineMenu.style.display = 'flex';
+            engineMenu.classList.add('aircraft-selector-active');
+        }
+        // Keep aircraft and positions menus open at the level where report was opened
+        if (aircraftMenu) aircraftMenu.style.display = 'flex';
+        if (positionsMenu) {
+            positionsMenu.style.display = 'flex';
+            positionsMenu.classList.add('show');
+        }
         if (reportsMenu) reportsMenu.style.display = 'none';
     }
 
@@ -19548,6 +19631,10 @@ function onGssInputChange(engines) {
         const reportsMenu = document.querySelector('.reports-radial-menu');
         const aircraftMenu = document.getElementById('aircraft-selector-menu');
         const positionsMenu = document.getElementById('positions-selector-menu');
+
+        if (engineMenu) {
+            engineMenu.classList.add('aircraft-selector-active');
+        }
 
         if (engineMenu) engineMenu.style.display = 'flex';
         if (reportsMenu) { reportsMenu.style.display = 'none'; reportsMenu.classList.remove('show'); }
@@ -25875,7 +25962,23 @@ async function displayBoroscopeReminders() {
         function renderGSSHistoryTable(data) {
             const tbody = document.getElementById('gss-history-tbody');
             
-            // Полная очистка tbody - удаляем все до последнего элемента
+            if (!tbody) {
+                console.error('GSS tbody element not found!');
+                return;
+            }
+            
+            // ПРИНУДИТЕЛЬНО перемещаем tbody после thead
+            const table = tbody.closest('table');
+            const thead = table?.querySelector('thead');
+            if (table && thead) {
+                // Удаляем tbody из текущего места
+                tbody.remove();
+                // Вставляем его после thead
+                thead.after(tbody);
+                console.log('tbody moved after thead');
+            }
+            
+            // Полная очистка tbody
             tbody.innerHTML = '';
             
             if (!data || data.length === 0) {
@@ -25883,9 +25986,16 @@ async function displayBoroscopeReminders() {
                 return;
             }
 
-            // Только после очистки начинаем добавлять новые данные
+            // Сортируем данные по дате (новые сначала)
+            const sortedData = [...data].sort((a, b) => {
+                const dateA = new Date(a.assigned_date || 0);
+                const dateB = new Date(b.assigned_date || 0);
+                return dateB - dateA;
+            });
+
+            // Формируем HTML строк
             let rowsHTML = '';
-            data.forEach(item => {
+            sortedData.forEach(item => {
                 let photoHtml = '-';
                 if (item.photo_filename) {
                     photoHtml = `<img src="/uploads/gss_photos/${item.photo_filename}" class="gss-photo-thumb" onclick="viewPhoto('/uploads/gss_photos/${item.photo_filename}')" alt="GSS Photo">`;
@@ -25922,7 +26032,7 @@ async function displayBoroscopeReminders() {
             });
 
             tbody.innerHTML = rowsHTML;
-            console.log('Rendered', data.length, 'rows in GSS history');
+            console.log('Rendered', sortedData.length, 'rows in GSS history, tbody parent:', tbody.parentElement?.tagName);
         }
 
         function viewPhoto(photoUrl) {
@@ -26263,6 +26373,17 @@ async function displayBoroscopeReminders() {
 /* ============================================
    GSS REGISTRY STYLES
    ============================================ */
+
+/* Принудительно устанавливаем правильный порядок элементов таблицы */
+#gss-history-tbody {
+    display: table-row-group;
+}
+
+#gss-history-tbody + thead,
+thead:has(+ #gss-history-tbody) {
+    display: table-header-group;
+}
+
 .gss-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));

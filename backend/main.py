@@ -2133,6 +2133,7 @@ def save_aircraft_utilization(data: AircraftUtilizationSchema, db: Session = Dep
         # Update aircraft totals
         aircraft.total_time = data.total_time
         aircraft.total_cycles = data.total_cycles
+        db.commit()
         
         # Save to history
         history = models.AircraftUtilizationHistory(
@@ -2145,6 +2146,17 @@ def save_aircraft_utilization(data: AircraftUtilizationSchema, db: Session = Dep
         db.add(history)
         db.commit()
         db.refresh(history)
+        
+        # Также сохраняем в UtilizationParameter без периода, чтобы дашборд мог пересчитать TSN on A/C
+        util_param = models.UtilizationParameter(
+            aircraft=aircraft.tail_number,
+            date=parsed_date,
+            ttsn=data.total_time,
+            tcsn=data.total_cycles,
+            period=False  # Это общий налет, не период
+        )
+        db.add(util_param)
+        db.commit()
         
         return {
             "message": "Aircraft utilization saved successfully",
@@ -2175,12 +2187,12 @@ def get_aircraft_utilization(aircraft: str = None, db: Session = Depends(get_db)
             result.append({
                 "id": record.id,
                 "aircraft_id": record.aircraft_id,
-                "aircraft": record.aircraft_data.tail_number if record.aircraft_data else None,
+                "aircraft": record.aircraft.tail_number if record.aircraft else None,
                 "date": record.date.isoformat() if record.date else None,
-                "tsn": record.tsn or 0,
-                "csn": record.csn or 0,
-                "current_total_hrs": record.tsn or 0,
-                "current_cycles": record.csn or 0
+                "tsn": record.total_time or 0,
+                "csn": record.total_cycles or 0,
+                "current_total_hrs": record.total_time or 0,
+                "current_cycles": record.total_cycles or 0
             })
         
         return result
