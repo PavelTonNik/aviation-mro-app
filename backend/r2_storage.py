@@ -19,15 +19,22 @@ R2_SECRET_KEY = os.getenv('R2_SECRET_KEY', 'a6c09057302bc6cd80851b8c64cab4c74e54
 R2_BUCKET = os.getenv('R2_BUCKET', 'borescope-photos')
 R2_PUBLIC_URL = os.getenv('R2_PUBLIC_URL', 'https://pub-5e14ffe08d36478ab37dd33a0222a43e.r2.dev')
 
-# Initialize S3 client for R2
-s3_client = boto3.client(
-    's3',
-    endpoint_url=R2_ENDPOINT,
-    aws_access_key_id=R2_ACCESS_KEY,
-    aws_secret_access_key=R2_SECRET_KEY,
-    config=Config(signature_version='s3v4'),
-    region_name='auto'
-)
+# S3 client initialized lazily to avoid errors on import
+_s3_client = None
+
+def get_s3_client():
+    """Get or create S3 client for R2"""
+    global _s3_client
+    if _s3_client is None:
+        _s3_client = boto3.client(
+            's3',
+            endpoint_url=R2_ENDPOINT,
+            aws_access_key_id=R2_ACCESS_KEY,
+            aws_secret_access_key=R2_SECRET_KEY,
+            config=Config(signature_version='s3v4'),
+            region_name='auto'
+        )
+    return _s3_client
 
 def optimize_image(image_bytes: bytes, max_size_mb: float = 2.0, quality: int = 85) -> bytes:
     """
@@ -96,7 +103,7 @@ def upload_photo_to_r2(file_bytes: bytes, inspection_id: int, photo_index: int, 
         filename = f"borescope/{inspection_id}/{timestamp}_{photo_index}_{photo_num}_{unique_id}.jpg"
         
         # Upload to R2
-        s3_client.put_object(
+        get_s3_client().put_object(
             Bucket=R2_BUCKET,
             Key=filename,
             Body=optimized_bytes,
@@ -132,7 +139,7 @@ def delete_photo_from_r2(photo_url: str) -> bool:
         filename = photo_url.replace(R2_PUBLIC_URL + '/', '')
         
         # Delete from R2
-        s3_client.delete_object(
+        get_s3_client().delete_object(
             Bucket=R2_BUCKET,
             Key=filename
         )
@@ -157,7 +164,7 @@ def get_file(file_path: str) -> bytes:
         print(f"🔽 Downloading from R2: {file_path}")
         
         # Download from R2
-        response = s3_client.get_object(
+        response = get_s3_client().get_object(
             Bucket=R2_BUCKET,
             Key=file_path
         )
@@ -186,7 +193,7 @@ def test_r2_connection() -> bool:
     """
     try:
         # Try to list objects in bucket
-        response = s3_client.list_objects_v2(Bucket=R2_BUCKET, MaxKeys=1)
+        response = get_s3_client().list_objects_v2(Bucket=R2_BUCKET, MaxKeys=1)
         print(f"✅ R2 connection successful! Bucket: {R2_BUCKET}")
         return True
     except ClientError as e:
