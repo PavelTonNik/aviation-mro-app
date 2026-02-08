@@ -13591,10 +13591,27 @@ function onGssInputChange(engines) {
 
     async function prepareBoroscopeForm() {
         // Aircraft теперь автозаполняется при выборе Orig SN
+        // ⚠️ НЕ СБРАСЫВАЕМ aircraft если уже заполнен!
         const acSelect = document.getElementById('bore-aircraft');
-        if (acSelect) {
+        const posSelect = document.getElementById('bore-position');
+        
+        // Сохраняем текущие значения если они есть
+        const savedAircraft = acSelect?.dataset.confirmedValue || acSelect?.value;
+        const savedPosition = posSelect?.dataset.confirmedValue || posSelect?.value;
+        
+        if (acSelect && (!savedAircraft || savedAircraft === '')) {
             acSelect.innerHTML = '<option value="">-- будет заполнено --</option>';
             acSelect.disabled = true;
+        } else if (acSelect && savedAircraft) {
+            // Восстанавливаем сохраненное значение
+            acSelect.innerHTML = `<option value="${savedAircraft}">${savedAircraft}</option>`;
+            acSelect.value = savedAircraft;
+            acSelect.disabled = true;
+        }
+        
+        if (posSelect && savedPosition) {
+            posSelect.value = savedPosition;
+            posSelect.disabled = true;
         }
 
         // ✅ ИСПОЛЬЗУЕМ ТОЛЬКО /api/engines (ТЕКУЩИЕ установки!)
@@ -13928,10 +13945,13 @@ function onGssInputChange(engines) {
                     aircraftSelect.innerHTML = `<option value="${engine.aircraft}">${engine.aircraft}</option>`;
                     aircraftSelect.value = engine.aircraft;
                     aircraftSelect.disabled = true;
+                    // Сохраняем в data-атрибут для защиты от потери
+                    aircraftSelect.dataset.confirmedValue = engine.aircraft;
                 } else {
                     aircraftSelect.innerHTML = '<option value="">-- не установлен --</option>';
                     aircraftSelect.value = '';
                     aircraftSelect.disabled = true;
+                    delete aircraftSelect.dataset.confirmedValue;
                 }
             }
             
@@ -13939,9 +13959,12 @@ function onGssInputChange(engines) {
                 if (isInstalled) {
                     posSelect.value = String(engine.position);
                     posSelect.disabled = true;
+                    // Сохраняем в data-атрибут для защиты от потери
+                    posSelect.dataset.confirmedValue = String(engine.position);
                 } else {
                     posSelect.value = '';
                     posSelect.disabled = true;
+                    delete posSelect.dataset.confirmedValue;
                 }
             }
             
@@ -19394,11 +19417,11 @@ function onGssInputChange(engines) {
         if (posData.borescope) {
             html += `
                 <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">Borescope Report (Latest: <span style="color: #0066cc;">${posData.borescope.date || 'N/A'}</span>):</h3>
-                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong>Inspector:</strong> <span style="font-weight: bold;">${posData.borescope.inspector || 'N/A'}</span></p>
-                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong>Work Type:</strong> <span style="font-weight: bold;">${posData.borescope.work_type || 'N/A'}</span></p>
-                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong>Comment:</strong> <span style="font-weight: bold;">${posData.borescope.comment || 'N/A'}</span></p>
+                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong style="color: #000;">Inspector:</strong> <span style="font-weight: bold; color: #000;">${posData.borescope.inspector || 'N/A'}</span></p>
+                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong style="color: #000;">Work Type:</strong> <span style="font-weight: bold; color: #000;">${posData.borescope.work_type || 'N/A'}</span></p>
+                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong style="color: #000;">Comment:</strong> <span style="font-weight: bold; color: #000;">${posData.borescope.comment || 'N/A'}</span></p>
                 
-                <h4 style="color: #000; margin: 8px 0 4px 0; font-size: 13px;">PHOTOS:</h4>
+                <h4 style="color: #000; margin: 8px 0 4px 0; font-size: 13px; font-weight: bold;">PHOTOS:</h4>
             `;
 
             // Парсим inspection_report если это строка JSON
