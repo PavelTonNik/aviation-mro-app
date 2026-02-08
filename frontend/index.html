@@ -19422,10 +19422,10 @@ function onGssInputChange(engines) {
                             <tr style="border: 1px solid #ddd;">
                                 <td style="width: 10%; padding: 5px 6px; border-right: 1px solid #ddd; text-align: center; font-weight: bold; color: #000; font-size: 12px;">${photo.label || 'Photo'}</td>
                                 <td style="width: 45%; padding: 5px 6px; border-right: 1px solid #ddd; text-align: center;">
-                                    ${photo.photo1 ? `<img src="${photo.photo1}" style="max-width: 100%; max-height: 120px; cursor: pointer;" onclick="openBoroscopePhoto('${photo.photo1}');">` : ''}
+                                    ${photo.photo1 ? `<img src="${photo.photo1}" style="max-width: 100%; max-height: 120px; cursor: pointer;" onclick="openBorescopePhoto(this.src);">` : ''}
                                 </td>
                                 <td style="width: 45%; padding: 5px 6px; text-align: center;">
-                                    ${photo.photo2 ? `<img src="${photo.photo2}" style="max-width: 100%; max-height: 120px; cursor: pointer;" onclick="openBoroscopePhoto('${photo.photo2}');">` : ''}
+                                    ${photo.photo2 ? `<img src="${photo.photo2}" style="max-width: 100%; max-height: 120px; cursor: pointer;" onclick="openBorescopePhoto(this.src);">` : ''}
                                 </td>
                             </tr>
                         `;
@@ -19692,8 +19692,11 @@ function onGssInputChange(engines) {
             // Add page breaks between positions - каждая позиция с новой страницы
             const positionDivs = clonedContainer.querySelectorAll('div[style*="border: 2px solid #4fc3f7"]');
             positionDivs.forEach((div, index) => {
-                // Каждая позиция начинается с новой страницы
-                div.style.pageBreakBefore = 'always';
+                // Первая позиция начинается сразу после титула (не нужен page break)
+                // Остальные позиции - с новой страницы
+                if (index > 0) {
+                    div.style.pageBreakBefore = 'always';
+                }
                 // Разрешаем контенту распределяться естественно
                 div.style.pageBreakInside = 'auto';
             });
@@ -26807,7 +26810,7 @@ thead:has(+ #gss-history-tbody) {
 </div>
 
 <!-- Fullscreen Photo Viewer -->
-<div id="borescope-photo-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 10060; align-items: center; justify-content: center;">
+<div id="borescope-photo-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 10200; align-items: center; justify-content: center;">
     <img id="borescope-photo-img" style="max-width: 90%; max-height: 90%; object-fit: contain;" onclick="event.stopPropagation();">
     <button onclick="closeBorescopePhoto()" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 36px; cursor: pointer;">×</button>
 </div>
