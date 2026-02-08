@@ -5708,7 +5708,8 @@
                                         <div class="row mb-3">
                                             <div class="col-md-6">
                                                 <label class="form-label small fw-bold">TTSN (Engine) <span class="text-danger">*</span></label>
-                                                <input type="number" step="0.1" class="form-control" id="in-tt" required>
+                                                <input type="text" class="form-control" id="in-tt" required placeholder="e.g. 10399:34 or 10399.57">
+                                                <small class="text-muted">Format: HH:MM or decimal</small>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label small fw-bold">TCSN (Engine) <span class="text-danger">*</span></label>
@@ -5719,7 +5720,8 @@
                                         <div class="row mb-3">
                                             <div class="col-md-6">
                                                 <label class="form-label small fw-bold">TTSN (Aircraft)</label>
-                                                <input type="number" step="0.1" class="form-control" id="in-ac-ttsn" placeholder="Optional">
+                                                <input type="text" class="form-control" id="in-ac-ttsn" placeholder="e.g. 103999:34 or 103999.57">
+                                                <small class="text-muted">Format: HH:MM or decimal</small>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label small fw-bold">TCSN (Aircraft)</label>
@@ -5963,7 +5965,8 @@
                                         <div class="row mb-3">
                                             <div class="col-md-6">
                                                 <label class="form-label small fw-bold">TTSN (Engine) <span class="text-danger">*</span></label>
-                                                <input type="number" step="0.1" class="form-control" id="rem-ttsn" required>
+                                                <input type="text" class="form-control" id="rem-ttsn" required placeholder="e.g. 10399:34 or 10399.57">
+                                                <small class="text-muted">Format: HH:MM or decimal</small>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label small fw-bold">TCSN (Engine) <span class="text-danger">*</span></label>
@@ -5974,7 +5977,8 @@
                                         <div class="row mb-3">
                                             <div class="col-md-6">
                                                 <label class="form-label small fw-bold">TTSN (Aircraft)</label>
-                                                <input type="number" step="0.1" class="form-control" id="rem-ttsn-ac">
+                                                <input type="text" class="form-control" id="rem-ttsn-ac" placeholder="e.g. 103999:34 or 103999.57">
+                                                <small class="text-muted">Format: HH:MM or decimal</small>
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label small fw-bold">TCSN (Aircraft)</label>
@@ -7831,7 +7835,8 @@
                                 <div class="row mb-3">
                                     <div class="col-md-4">
                                         <label class="small fw-bold">Total A/C TTSN *</label>
-                                        <input type="number" step="0.1" class="form-control" id="aircraft-util-ttsn" required placeholder="Введите TTSN самолета">
+                                        <input type="text" class="form-control" id="aircraft-util-ttsn" required placeholder="e.g. 103999:34 or 103999.57">
+                                        <small class="text-muted">Format: HH:MM or decimal</small>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="small fw-bold">Total A/C TCSN *</label>
@@ -8705,6 +8710,11 @@ function openDashboardView() {
         toggleEngineMenu(false);
         
         updateHistory('dashboard');
+
+        // Обновить данные дашборда при открытии
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+        }
     
 }
     // --- Notification Functions ---
@@ -9044,22 +9054,6 @@ function hideInstallTooltip() {
         const fleetContainer = document.getElementById('fleet-container');
         fleetContainer.innerHTML = '';
         
-        // Загружаем Remove И Install actions для правильной фильтрации
-        let removeData = [];
-        let installData = [];
-        try {
-            const removeRes = await safeFetch('/api/history/REMOVE' + window.noCache());
-            if (removeRes && removeRes.ok) {
-                removeData = await removeRes.json();
-            }
-            const installRes = await safeFetch('/api/history/INSTALL' + window.noCache());
-            if (installRes && installRes.ok) {
-                installData = await installRes.json();
-            }
-        } catch (e) {
-            console.warn('Could not load history for filtering', e);
-        }
-        
         // Теперь всегда показываем карточки, даже с нулевыми данными
         if (aircraftDetails.length === 0) {
             console.warn('No aircraft data from API, but cards will still be displayed');
@@ -9078,35 +9072,12 @@ function hideInstallTooltip() {
                 const posNum = index + 1;
                 const posDetailId = `pos-detail-${ac.aircraft_id}-${posNum}`;
                 
-                // ФИЛЬТР: Проверяем, снят ли двигатель БЕЗ последующей установки
-                if (pos !== null) {
-                    const wasRemovedFinally = removeData.some(rem => {
-                        const remSN = rem.current_sn || rem.original_sn;
-                        const posSN = pos.current_sn;
-                        const remFrom = rem.from ? rem.from.replace(/^AC:\s*/, '').replace(/\s*\(Pos\s+\d+\)/, '').trim() : '';
-                        
-                        if (remSN !== posSN || remFrom !== ac.tail_number) return false;
-                        
-                        // Проверяем: есть ли более поздняя установка с той же табличкой на этот самолет
-                        const laterInstall = installData.find(inst => {
-                            return inst.current_sn === posSN &&
-                                   inst.install_to === ac.tail_number &&
-                                   new Date(inst.date) > new Date(rem.date);
-                        });
-                        
-                        // Считаем снятым только если НЕТ более поздней установки
-                        return !laterInstall;
-                    });
-                    
-                    // Если окончательно снят - показываем пустую позицию
-                    if (wasRemovedFinally) {
-                        pos = null;
-                    }
-                }
+                // БЕЗ фильтра - просто показываем то, что вернул бэкенд
+                // Бэкенд уже отфильтровал и вернул только INSTALLED двигатели
                 
                 const statusText = pos === null ? 'No Engine' : pos.current_sn;
                 const statusClass = pos === null ? 'empty' : 'installed';
-                const tooltipAttr = pos === null ? '' : `onmouseenter="showInstallTooltip(event, ${pos.id})" onmouseleave="hideInstallTooltip()"`;
+                const tooltipAttr = pos === null ? '' : `onmouseenter="showInstallTooltip(event, ${pos.engine_id})" onmouseleave="hideInstallTooltip()"`;
                 
                 positionsListHTML += `
                     <div class="position-item" data-position="${posNum}" data-aircraft-id="${ac.aircraft_id}">
@@ -9149,11 +9120,11 @@ function hideInstallTooltip() {
                                     </div>
                                     <div class="info-row">
                                         <span class="info-label">TSN on A/C:</span>
-                                        <span class="info-value">${pos.tsn_on_aircraft} hrs</span>
+                                        <span class="info-value">${formatFlightTime(pos.tsn_on_aircraft || 0)} hrs</span>
                                     </div>
                                     <div class="info-row">
                                         <span class="info-label">CSN on A/C:</span>
-                                        <span class="info-value">${pos.csn_on_aircraft} cyc</span>
+                                        <span class="info-value">${pos.csn_on_aircraft || 0} cyc</span>
                                     </div>
                                     <div class="info-row">
                                         <span class="info-label">Total TSN:</span>
@@ -9212,7 +9183,7 @@ function hideInstallTooltip() {
                         <div class="aircraft-card-header">
                             <div class="aircraft-name">${ac.tail_number}</div>
                             <div class="aircraft-stats">
-                                <div class="aircraft-hours">${ac.total_time || 0} hrs</div>
+                                <div class="aircraft-hours">${formatFlightTime(ac.total_time || 0)} hrs</div>
                                 <div class="aircraft-hours-label">Total Time</div>
                                 <div class="aircraft-hours" style="font-size: 0.9rem; margin-top: 4px;">${ac.total_cycles || 0} cyc</div>
                             </div>
@@ -11629,36 +11600,58 @@ function hideInstallTooltip() {
     });
 
     // C. Open Aircraft Table (THE BIG ONE)
-    function openAircraftModal(tailNumber) {
-        const ac = globalFleet.find(a => a.tail_number === tailNumber);
-        if (!ac) return;
+    async function openAircraftModal(tailNumber) {
+        // Fetch fresh data from API instead of using stale globalFleet
+        try {
+            const res = await fetch(`/api/aircraft/${tailNumber}`);
+            if (!res.ok) {
+                showErrorNotification(`Failed to load aircraft data: ${res.status}`);
+                return;
+            }
+            const ac = await res.json();
+            
+            // Columns requested: Date, Pos, Orig SN, GSS SN, Current SN, Loc From, TT, TC, N1 TO, N1 CR, N2 TO, N2 CR, Remarks
+            const headers = [
+                'Date', 'Pos', 'Orig SN', 'GSS SN', 'Current SN', 'Loc From', 
+                'TT', 'TC', 'N1 TO', 'N1 CR', 'N2 TO', 'N2 CR', 'Remarks'
+            ];
 
-        // Columns requested: Date, Pos, Orig SN, GSS SN, Current SN, Loc From, TT, TC, N1 TO, N1 CR, N2 TO, N2 CR, Remarks
-        const headers = [
-            'Date', 'Pos', 'Orig SN', 'GSS SN', 'Current SN', 'Loc From', 
-            'TT', 'TC', 'N1 TO', 'N1 CR', 'N2 TO', 'N2 CR', 'Remarks'
-        ];
+            // Build rows from positions data
+            let rows = [];
+            if (ac.positions && ac.positions.length > 0) {
+                rows = ac.positions.map(pos => {
+                    if (!pos) {
+                        return `<tr><td colspan="13" class="text-center text-muted">No engine installed</td></tr>`;
+                    }
+                    return `
+                        <tr>
+                            <td>${pos.install_date}</td>
+                            <td><strong>${pos.position}</strong></td>
+                            <td>${pos.original_sn}</td>
+                            <td>${pos.gss_sn}</td>
+                            <td class="text-primary fw-bold">${pos.current_sn}</td>
+                            <td>${pos.location || '-'}</td>
+                            <td>${formatFlightTime(pos.total_tsn)}</td>
+                            <td>${pos.total_csn}</td>
+                            <td class="param-col">${pos.n1_takeoff !== null && pos.n1_takeoff !== undefined ? pos.n1_takeoff + '%' : '-'}</td>
+                            <td class="param-col">${pos.n1_cruise !== null && pos.n1_cruise !== undefined ? pos.n1_cruise + '%' : '-'}</td>
+                            <td class="param-col">${pos.n2_takeoff !== null && pos.n2_takeoff !== undefined ? pos.n2_takeoff + '%' : '-'}</td>
+                            <td class="param-col">${pos.n2_cruise !== null && pos.n2_cruise !== undefined ? pos.n2_cruise + '%' : '-'}</td>
+                            <td>-</td>
+                        </tr>
+                    `;
+                });
+            }
 
-        const rows = ac.engines.map(eng => `
-            <tr>
-                <td>-</td> <td><strong>${eng.position}</strong></td>
-                <td>${eng.original_sn}</td>
-                <td>-</td> <td class="text-primary fw-bold">${eng.current_sn}</td>
-                <td>-</td> <td>${eng.tt}</td>
-                <td>${eng.tc}</td>
-                <td class="param-col">${eng.n1_to || '-'}</td>
-                <td class="param-col">${eng.n1_cr || '-'}</td>
-                <td class="param-col">${eng.n2_to || '-'}</td>
-                <td class="param-col">${eng.n2_cr || '-'}</td>
-                <td>-</td>
-            </tr>
-        `);
+            if (rows.length === 0 || rows.every(r => r.includes('No engine installed'))) {
+                rows = [`<tr><td colspan="13" class="text-center text-muted">No engines installed</td></tr>`];
+            }
 
-        if (rows.length === 0) {
-            rows.push(`<tr><td colspan="13" class="text-center">No engines installed</td></tr>`);
+            setupModal(`Aircraft: ${tailNumber} (On Wing)`, headers, rows);
+        } catch (err) {
+            console.error('Error fetching aircraft modal data:', err);
+            showErrorNotification(`Error loading aircraft data: ${err.message}`);
         }
-
-        setupModal(`Aircraft: ${tailNumber} (On Wing)`, headers, rows);
     }
 
     // Helper to Show Modal
@@ -12065,6 +12058,54 @@ function onGssInputChange(engines) {
     // Guard flag to prevent double-submit
     let _installSubmitting = false;
     // 5. Отправка формы (Save)
+    // === FLIGHT TIME FORMAT CONVERSION FUNCTIONS ===
+    // Converts HH:MM format to decimal hours (e.g., "103999:34" -> 103999.567)
+    function parseFlightTime(input) {
+        if (!input || input === '') return null;
+        
+        const str = String(input).trim();
+        
+        // Check if input contains colon (HH:MM format)
+        if (str.includes(':')) {
+            const parts = str.split(':');
+            if (parts.length !== 2) {
+                throw new Error(`Invalid time format: ${input}. Use HH:MM or decimal`);
+            }
+            
+            const hours = parseFloat(parts[0]);
+            const minutes = parseFloat(parts[1]);
+            
+            if (isNaN(hours) || isNaN(minutes)) {
+                throw new Error(`Invalid time format: ${input}. Hours and minutes must be numbers`);
+            }
+            
+            if (minutes < 0 || minutes >= 60) {
+                throw new Error(`Invalid minutes: ${minutes}. Must be 0-59`);
+            }
+            
+            // Convert to decimal: hours + (minutes / 60)
+            return hours + (minutes / 60);
+        }
+        
+        // Otherwise treat as decimal number
+        const decimal = parseFloat(str);
+        if (isNaN(decimal)) {
+            throw new Error(`Invalid number: ${input}`);
+        }
+        
+        return decimal;
+    }
+    
+    // Converts decimal hours to HH:MM format (e.g., 103999.567 -> "103999:34")
+    function formatFlightTime(decimalHours) {
+        if (decimalHours === null || decimalHours === undefined) return '';
+        
+        const hours = Math.floor(decimalHours);
+        const minutes = Math.round((decimalHours - hours) * 60);
+        
+        return `${hours}:${String(minutes).padStart(2, '0')}`;
+    }
+
     async function submitInstallForm() {
         if (_installSubmitting) { return; }
         
@@ -12123,14 +12164,27 @@ function onGssInputChange(engines) {
         const saveBtn = document.querySelector('#tab-inst-entry .btn.btn-success');
         if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
         
+        // Parse flight time inputs (support HH:MM and decimal formats)
+        let ttValue, acTtsnValue;
+        try {
+            ttValue = parseFlightTime(document.getElementById('in-tt').value);
+            const acTtsnInput = document.getElementById('in-ac-ttsn').value;
+            acTtsnValue = acTtsnInput !== '' ? parseFlightTime(acTtsnInput) : null;
+        } catch (e) {
+            showErrorNotification(e.message);
+            _installSubmitting = false;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Save Record'; }
+            return;
+        }
+        
         const payload = {
             date: date, 
             engine_id: parseInt(engId),
             aircraft_id: parseInt(acId),
             position: parseInt(document.getElementById('in-pos').value),
-            tt: parseFloat(document.getElementById('in-tt').value),
+            tt: ttValue,
             tc: parseInt(document.getElementById('in-tc').value),
-            ac_ttsn: document.getElementById('in-ac-ttsn').value !== '' ? parseFloat(document.getElementById('in-ac-ttsn').value) : null,
+            ac_ttsn: acTtsnValue,
             ac_tcsn: document.getElementById('in-ac-tcsn').value !== '' ? parseInt(document.getElementById('in-ac-tcsn').value, 10) : null,
             remarks: document.getElementById('in-rem').value,
             supplier: document.getElementById('in-supplier').value || null,
@@ -12158,6 +12212,16 @@ function onGssInputChange(engines) {
 
             // Обновляем таблицу с сервера
             await loadInstallHistory();
+            
+            // Обновляем Dashboard карточки (важно для отражения новых установок)
+            if (typeof loadDashboardData === 'function') {
+                await loadDashboardData();
+            }
+            
+            // Обновляем главную таблицу двигателей (Master Engine List) чтобы показать правильные статусы
+            if (typeof loadMainTable === 'function') {
+                await loadMainTable();
+            }
             
             // Обновляем Recent Actions
             refreshAfterDataChange();
@@ -13362,7 +13426,7 @@ function onGssInputChange(engines) {
         modal.addEventListener('hidden.bs.modal', () => modal.remove());
     }
 
-    function openBorescopePhoto(src) {
+    window.openBorescopePhoto = function (src) {
         const overlay = document.getElementById('borescope-photo-overlay');
         const img = document.getElementById('borescope-photo-img');
         if (overlay && img) {
@@ -13372,7 +13436,7 @@ function onGssInputChange(engines) {
         }
     }
 
-    function closeBorescopePhoto() {
+    window.closeBorescopePhoto = function () {
         const overlay = document.getElementById('borescope-photo-overlay');
         if (!overlay) return;
         overlay.style.display = 'none';
@@ -15124,14 +15188,25 @@ function onGssInputChange(engines) {
             return;
         }
 
+        // Parse flight time inputs
+        let ttsnValue, ttsnAcValue;
+        try {
+            ttsnValue = parseFlightTime(document.getElementById('rem-ttsn').value);
+            const ttsnAcInput = document.getElementById('rem-ttsn-ac').value;
+            ttsnAcValue = ttsnAcInput ? parseFlightTime(ttsnAcInput) : null;
+        } catch (e) {
+            showErrorNotification(e.message);
+            return;
+        }
+        
         const payload = {
             date: date,
             engine_id: parseInt(engId),
             to_location_id: parseInt(destId),
             reason: document.getElementById('rem-reason').value,
-            ttsn: parseFloat(document.getElementById('rem-ttsn').value) || null,
+            ttsn: ttsnValue,
             tcsn: parseInt(document.getElementById('rem-tcsn').value) || null,
-            ttsn_ac: parseFloat(document.getElementById('rem-ttsn-ac').value) || null,
+            ttsn_ac: ttsnAcValue,
             tcsn_ac: parseInt(document.getElementById('rem-tcsn-ac').value) || null,
             remarks: document.getElementById('rem-remarks').value,
             condition_1: document.getElementById('rem-condition-1').value,
@@ -15153,6 +15228,17 @@ function onGssInputChange(engines) {
             document.getElementById('tab-rem-entry-btn').classList.remove('active');
             
             await loadRemoveHistory();
+            
+            // Обновляем Dashboard карточки (важно для отражения удаления двигателей)
+            if (typeof loadDashboardData === 'function') {
+                await loadDashboardData();
+            }
+            
+            // Обновляем главную таблицу двигателей (Master Engine List) чтобы показать правильные статусы
+            if (typeof loadMainTable === 'function') {
+                await loadMainTable();
+            }
+            
             refreshAfterDataChange();
 
         } catch(e) { 
@@ -17360,6 +17446,13 @@ function onGssInputChange(engines) {
                 console.log('🔄 Updating boroscope dashboard card...');
                 await updateBoroscopeCard();
                 console.log('✅ Boroscope card updated');
+            }
+            
+            // Refresh dashboard after editing INSTALL or REMOVE (because they affect aircraft positions)
+            if (tableName === 'install' || tableName === 'remove') {
+                console.log('🔄 Refreshing dashboard after ' + tableName + ' edit...');
+                await loadDashboardData();
+                console.log('✅ Dashboard refreshed');
             }
             
         } catch (error) {
@@ -20203,11 +20296,21 @@ function onGssInputChange(engines) {
         
         const aircraft = document.getElementById('aircraft-util-ac').value;
         const date = document.getElementById('aircraft-util-date').value;
-        const ttsn = document.getElementById('aircraft-util-ttsn').value;
+        const ttsnInput = document.getElementById('aircraft-util-ttsn').value;
         const tcsn = document.getElementById('aircraft-util-tcsn').value;
         
-        if (!aircraft || !date || !ttsn || !tcsn) {
+        if (!aircraft || !date || !ttsnInput || !tcsn) {
             showErrorNotification('Пожалуйста, заполните все обязательные поля');
+            _aircraftUtilSubmitting = false;
+            return;
+        }
+        
+        // Parse TTSN input (supports HH:MM and decimal)
+        let ttsnValue;
+        try {
+            ttsnValue = parseFlightTime(ttsnInput);
+        } catch (e) {
+            showErrorNotification(e.message);
             _aircraftUtilSubmitting = false;
             return;
         }
@@ -20223,7 +20326,7 @@ function onGssInputChange(engines) {
                 body: JSON.stringify({
                     aircraft: aircraft,
                     date: date,
-                    total_time: parseFloat(ttsn),
+                    total_time: ttsnValue,
                     total_cycles: parseInt(tcsn)
                 })
             });
@@ -20377,7 +20480,7 @@ function onGssInputChange(engines) {
                 row.innerHTML = `
                     <td>${dateStr}</td>
                     <td>${item.aircraft_tail_number || item.aircraft}</td>
-                    <td>${item.total_time || 0}</td>
+                    <td>${formatFlightTime(item.total_time || 0)}</td>
                     <td>${item.total_cycles || 0}</td>
                     <td>${createdStr}</td>
                 `;
