@@ -147,6 +147,33 @@ except Exception as e:
 
 app = FastAPI(title="Aviation MRO System")
 
+# DEBUG: Print R2 configuration at module load
+print("\n" + "="*60)
+print("R2 STORAGE CONFIGURATION CHECK (at startup):")
+print("="*60)
+print(f"R2_ENDPOINT: {r2_storage.R2_ENDPOINT}")
+print(f"R2_BUCKET: {r2_storage.R2_BUCKET}")
+print(f"R2_PUBLIC_URL: {r2_storage.R2_PUBLIC_URL}")
+print(f"R2_ACCESS_KEY: {r2_storage.R2_ACCESS_KEY[:10]}...{r2_storage.R2_ACCESS_KEY[-4:] if len(r2_storage.R2_ACCESS_KEY) > 14 else '***'}")
+print(f"R2_SECRET_KEY: {r2_storage.R2_SECRET_KEY[:10]}...{r2_storage.R2_SECRET_KEY[-4:] if len(r2_storage.R2_SECRET_KEY) > 14 else '***'}")
+
+# Check if environment variables are set
+if os.getenv('R2_ENDPOINT') is None:
+    print("WARNING: R2_ENDPOINT env var NOT SET - using code default")
+else:
+    print("OK: R2_ENDPOINT from environment")
+    
+if os.getenv('R2_ACCESS_KEY') is None:
+    print("WARNING: R2_ACCESS_KEY env var NOT SET - using code default")
+else:
+    print("OK: R2_ACCESS_KEY from environment")
+    
+if os.getenv('R2_SECRET_KEY') is None:
+    print("WARNING: R2_SECRET_KEY env var NOT SET - using code default")
+else:
+    print("OK: R2_SECRET_KEY from environment")
+print("="*60 + "\n")
+
 # CORS Configuration
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
