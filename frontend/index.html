@@ -10831,7 +10831,7 @@ function hideInstallTooltip() {
     let currentEngineData = null;
 
     // Open Engine Details Modal
-    function openEngineDetailsModal(aircraftId, tailNumber) {
+    async function openEngineDetailsModal(aircraftId, tailNumber) {
         const modal = document.getElementById('engine-details-modal');
         const modalContent = document.getElementById('engine-modal-content');
         const modalAircraftName = document.getElementById('modal-aircraft-name');
@@ -10871,6 +10871,25 @@ function hideInstallTooltip() {
         // Show modal
         modal.style.display = 'block';
 
+        // Load latest borescope inspections
+        let borescopeData = [];
+        try {
+            const cacheBust = (typeof noCache === 'function') ? noCache() : '';
+            const res = await fetch(`/api/history/BORESCOPE${cacheBust}`);
+            if (res.ok) {
+                borescopeData = await res.json();
+            }
+        } catch (e) {
+            console.warn('Failed to load borescope history:', e);
+        }
+        if (Array.isArray(borescopeData)) {
+            borescopeData.forEach(b => {
+                if (b.inspection_report && typeof b.inspection_report === 'string') {
+                    try { b.inspection_report = JSON.parse(b.inspection_report); } catch { /* ignore */ }
+                }
+            });
+        }
+
         // Prepare engine data from positions
         const positions = aircraft.positions || [null, null, null, null];
         const engines = positions.map((pos, index) => {
@@ -10885,6 +10904,7 @@ function hideInstallTooltip() {
                     utilization: 'N/A',
                     install_date: 'N/A',
                     last_borescope: 'N/A',
+                    borescope: null,
                     total_time: 0,
                     total_cycles: 0,
                     tsn_on_aircraft: 0,
@@ -10902,6 +10922,7 @@ function hideInstallTooltip() {
                 utilization: pos.tsn_on_aircraft ? `${pos.tsn_on_aircraft} hrs` : 'N/A',
                 install_date: pos.install_date || 'N/A',
                 last_borescope: 'N/A',
+                borescope: null,
                 total_time: pos.total_tsn || 0,
                 total_cycles: pos.total_csn || 0,
                 tsn_on_aircraft: pos.tsn_on_aircraft || 0,
@@ -10915,6 +10936,29 @@ function hideInstallTooltip() {
                 egt_cruise: pos.egt_cruise
             };
         });
+
+        // Attach latest borescope per position
+        if (Array.isArray(borescopeData) && borescopeData.length > 0) {
+            engines.forEach((engine, index) => {
+                if (!engine || !engine.current_sn) return;
+                const posNum = index + 1;
+                const serials = [engine.current_sn, engine.original_sn].map(s => (s || '').trim()).filter(Boolean);
+                const latest = borescopeData
+                    .filter(b => {
+                        const bAircraft = (b.aircraft || '').trim();
+                        const bPos = (b.position || '').toString().trim();
+                        const bSn = (b.serial_number || '').trim();
+                        return bAircraft === (aircraft.tail_number || '') &&
+                               bPos === String(posNum) &&
+                               serials.includes(bSn);
+                    })
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+                if (latest) {
+                    engine.last_borescope = latest.date || 'N/A';
+                    engine.borescope = latest;
+                }
+            });
+        }
 
         currentEngineData = { engines };
         renderEngineDetails(currentEngineData);
@@ -11073,9 +11117,9 @@ function hideInstallTooltip() {
                 <div class="panel-row"><div class="row-label">TSN (on A/C)</div><div class="row-value blue">${tsnAC}</div></div>
                 <div class="panel-row"><div class="row-label">CSN (on A/C)</div><div class="row-value cyan">${csnAC}</div></div>
                 <div class="panel-divider"></div>
-                <div class="panel-title small">Last Boroscope Inspection</div>
-                <div class="panel-row"><div class="row-label">Date</div><div class="row-value">${fmt(e.last_boroscope)}</div></div>
-                <div class="panel-row"><div class="row-label">Report</div><div class="row-value"><a href="#" class="report-link" onclick="return false;">View</a></div></div>
+                <div class="panel-title small">Last Borescope Inspection</div>
+                <div class="panel-row"><div class="row-label">Date</div><div class="row-value">${fmt(e.last_borescope)}</div></div>
+                <div class="panel-row"><div class="row-label">Report</div><div class="row-value">${e.borescope ? `<a href=\"#\" class=\"report-link\" onclick=\"openLatestBorescopeReport(${currentSelectedEnginePos}); return false;\">View</a>` : '<span class="text-muted">N/A</span>'}</div></div>
             </div>`;
 
         const rightPanel = `
@@ -11153,6 +11197,64 @@ function hideInstallTooltip() {
         
         // Load history data
         loadEngineHistory(currentSelectedEnginePos);
+    }
+
+    function openLatestBorescopeReport(enginePos) {
+        if (!currentEngineData || !currentEngineData.engines || !currentEngineData.engines[enginePos]) return;
+        const engine = currentEngineData.engines[enginePos];
+        if (!engine.borescope) {
+            showErrorNotification('No borescope report available for this engine');
+            return;
+        }
+
+        const modal = document.getElementById('borescope-mini-modal');
+        const title = document.getElementById('borescope-mini-title');
+        const content = document.getElementById('borescope-mini-content');
+
+        if (!modal || !title || !content) return;
+
+        title.textContent = `Borescope Report • ${engine.position || ''}`;
+
+        let inspectionReport = engine.borescope.inspection_report;
+        if (typeof inspectionReport === 'string') {
+            try { inspectionReport = JSON.parse(inspectionReport); } catch { inspectionReport = null; }
+        }
+
+        let photosHtml = '<div class="borescope-mini-photos">';
+        const photos = inspectionReport && Array.isArray(inspectionReport.photos) ? inspectionReport.photos : [];
+        if (photos.length > 0) {
+            photos.forEach(photo => {
+                photosHtml += `
+                    <div class="borescope-mini-photo">
+                        <div class="borescope-mini-label">${photo.label || 'Photo'}</div>
+                        <div class="borescope-mini-imgs">
+                            ${photo.photo1 ? `<img src="${photo.photo1}" onclick="openBoroscopePhoto('${photo.photo1}');" />` : ''}
+                            ${photo.photo2 ? `<img src="${photo.photo2}" onclick="openBoroscopePhoto('${photo.photo2}');" />` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            photosHtml += '<div class="text-muted">No photos available</div>';
+        }
+        photosHtml += '</div>';
+
+        content.innerHTML = `
+            <div class="borescope-mini-meta">
+                <div><strong>Date:</strong> ${engine.borescope.date || 'N/A'}</div>
+                <div><strong>Inspector:</strong> ${engine.borescope.inspector || 'N/A'}</div>
+                <div><strong>Work Type:</strong> ${engine.borescope.work_type || 'N/A'}</div>
+                <div><strong>Comment:</strong> ${engine.borescope.comment || 'N/A'}</div>
+            </div>
+            ${photosHtml}
+        `;
+
+        modal.style.display = 'flex';
+    }
+
+    function closeLatestBorescopeReport() {
+        const modal = document.getElementById('borescope-mini-modal');
+        if (modal) modal.style.display = 'none';
     }
 
 
@@ -26732,6 +26834,17 @@ thead:has(+ #gss-history-tbody) {
             <button onclick="printBoroscopeReport()" style="padding: 10px 20px; background: #66bb6a; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Print</button>
             <button onclick="closeBoroscopeReportsModal()" style="padding: 10px 20px; background: #999; color: white; border: none; border-radius: 6px; cursor: pointer;">Close</button>
         </div>
+    </div>
+</div>
+
+<!-- COMPACT MODAL FOR LATEST BORESCOPE REPORT -->
+<div id="borescope-mini-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 9999; align-items: center; justify-content: center;" onclick="closeLatestBorescopeReport()">
+    <div style="background: #0f172a; color: #e2e8f0; width: 520px; max-width: 92vw; border-radius: 10px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);" onclick="event.stopPropagation();">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div id="borescope-mini-title" style="font-weight: 700; font-size: 14px; color: #38bdf8;">Borescope Report</div>
+            <button onclick="closeLatestBorescopeReport()" style="background: none; border: none; color: #94a3b8; font-size: 20px; cursor: pointer;">×</button>
+        </div>
+        <div id="borescope-mini-content" style="font-size: 12px;"></div>
     </div>
 </div>
 

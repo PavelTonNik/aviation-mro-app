@@ -1,12 +1,19 @@
 # backend/models.py
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Boolean, Date, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
+import os
+
 try:
     from .database import Base
 except ImportError:  # Fallback when running as a module script
     from database import Base
+
+# Detect database type for proper JSON column type
+IS_POSTGRESQL = os.environ.get("DATABASE_URL", "").startswith("postgres")
+JSONType = JSONB if IS_POSTGRESQL else JSON
 
 # --- ENUMS (Списки допустимых значений) ---
 class EngineStatus(str, enum.Enum):
@@ -225,7 +232,7 @@ class BoroscopeInspection(Base):
     link = Column(String, nullable=True)
     comment = Column(String, nullable=True)
     work_type = Column(String, nullable=False, default='All Engine')  # HPT, LPT, All Engine
-    inspection_report = Column(JSON, nullable=True)  # Хранение данных фото и других отчетов
+    inspection_report = Column(JSONType, nullable=True)  # Хранение данных фото и других отчетов (JSONB для PostgreSQL, JSON для SQLite)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class BoroscopeSchedule(Base):
