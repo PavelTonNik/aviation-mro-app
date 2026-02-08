@@ -147,33 +147,6 @@ except Exception as e:
 
 app = FastAPI(title="Aviation MRO System")
 
-# DEBUG: Print R2 configuration at module load
-print("\n" + "="*60)
-print("R2 STORAGE CONFIGURATION CHECK (at startup):")
-print("="*60)
-print(f"R2_ENDPOINT: {r2_storage.R2_ENDPOINT}")
-print(f"R2_BUCKET: {r2_storage.R2_BUCKET}")
-print(f"R2_PUBLIC_URL: {r2_storage.R2_PUBLIC_URL}")
-print(f"R2_ACCESS_KEY: {r2_storage.R2_ACCESS_KEY[:10]}...{r2_storage.R2_ACCESS_KEY[-4:] if len(r2_storage.R2_ACCESS_KEY) > 14 else '***'}")
-print(f"R2_SECRET_KEY: {r2_storage.R2_SECRET_KEY[:10]}...{r2_storage.R2_SECRET_KEY[-4:] if len(r2_storage.R2_SECRET_KEY) > 14 else '***'}")
-
-# Check if environment variables are set
-if os.getenv('R2_ENDPOINT') is None:
-    print("WARNING: R2_ENDPOINT env var NOT SET - using code default")
-else:
-    print("OK: R2_ENDPOINT from environment")
-    
-if os.getenv('R2_ACCESS_KEY') is None:
-    print("WARNING: R2_ACCESS_KEY env var NOT SET - using code default")
-else:
-    print("OK: R2_ACCESS_KEY from environment")
-    
-if os.getenv('R2_SECRET_KEY') is None:
-    print("WARNING: R2_SECRET_KEY env var NOT SET - using code default")
-else:
-    print("OK: R2_SECRET_KEY from environment")
-print("="*60 + "\n")
-
 # CORS Configuration
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
@@ -4658,14 +4631,8 @@ async def create_borescope_inspection(
         photo_data = []
         
         if photos and len(photos) > 0:
-            print(f"\n📤 Uploading {len(photos)} photos to R2...")
-            print(f"🔧 R2 Config:")
-            print(f"  Endpoint: {r2_storage.R2_ENDPOINT}")
-            print(f"  Bucket: {r2_storage.R2_BUCKET}")
-            print(f"  Public URL: {r2_storage.R2_PUBLIC_URL}")
-            print(f"  Access Key: {r2_storage.R2_ACCESS_KEY[:10]}...{r2_storage.R2_ACCESS_KEY[-4:]}")
-            
             # Upload each photo (attempt upload without pre-test)
+            first_upload_error = None
             for idx, file in enumerate(photos):
                 try:
                     if file and file.filename:
@@ -4679,13 +4646,8 @@ async def create_borescope_inspection(
                         # Get label for this row
                         label = labels[photo_row_idx] if photo_row_idx < len(labels) else f"Photo {photo_row_idx + 1}"
                         
-                        print(f"  📸 Photo {idx + 1}: {file.filename} ({len(file_bytes)} bytes)")
-                        print(f"     Row {photo_row_idx}, Position {photo_num}, Label: '{label}'")
-                        
                         # Upload to R2
                         photo_url = r2_storage.upload_photo_to_r2(file_bytes, inspection_id, photo_row_idx, photo_num)
-                        
-                        print(f"  ✅ Upload success: {photo_url}")
                         
                         # Add to photo_data
                         # Ensure row exists
@@ -4698,14 +4660,9 @@ async def create_borescope_inspection(
                         else:
                             photo_data[photo_row_idx]["photo2"] = photo_url
                         
-                        print(f"  ✅ Photo {idx + 1}: {file.filename} → {photo_url}")
                 except Exception as e:
-                    print(f"  ❌ ERROR uploading photo {idx + 1} ({file.filename if file else 'unknown'}):")
-                    print(f"     Exception type: {type(e).__name__}")
-                    print(f"     Exception message: {str(e)}")
-                    import traceback
-                    print(f"     Full traceback:")
-                    traceback.print_exc()
+                    if first_upload_error is None:
+                        first_upload_error = str(e)
                     # Continue with other photos even if one fails
         
         # Update inspection_report with photo URLs
@@ -4723,10 +4680,11 @@ async def create_borescope_inspection(
 
         warning = ""
         if photos and saved_photos == 0:
-            warning = " (photos not saved - upload failed)"
-
-        print(f"✅ Inspection saved with {len(photo_data)} photo rows, {saved_photos} photos total")
-        print(f"📊 inspection_report: {inspection_report}")
+            # Fail fast if uploads did not succeed at all
+            detail = "R2 upload failed: photos were not saved"
+            if first_upload_error:
+                detail = f"R2 upload failed: {first_upload_error}"
+            raise HTTPException(status_code=502, detail=detail)
 
         return {
             "id": inspection_id,
