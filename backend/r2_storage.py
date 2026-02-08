@@ -26,6 +26,12 @@ def get_s3_client():
     """Get or create S3 client for R2"""
     global _s3_client
     if _s3_client is None:
+        print(f"🔧 Creating S3 client for R2:")
+        print(f"   Endpoint: {R2_ENDPOINT}")
+        print(f"   Bucket: {R2_BUCKET}")
+        print(f"   Access Key: {R2_ACCESS_KEY[:10]}...{R2_ACCESS_KEY[-4:] if len(R2_ACCESS_KEY) > 14 else '***'}")
+        print(f"   Secret Key: {R2_SECRET_KEY[:10]}...{R2_SECRET_KEY[-4:] if len(R2_SECRET_KEY) > 14 else '***'}")
+        
         _s3_client = boto3.client(
             's3',
             endpoint_url=R2_ENDPOINT,
@@ -34,6 +40,7 @@ def get_s3_client():
             config=Config(signature_version='s3v4'),
             region_name='auto'
         )
+        print(f"✅ S3 client created successfully")
     return _s3_client
 
 def optimize_image(image_bytes: bytes, max_size_mb: float = 2.0, quality: int = 85) -> bytes:
@@ -94,15 +101,22 @@ def upload_photo_to_r2(file_bytes: bytes, inspection_id: int, photo_index: int, 
         Public URL of uploaded photo
     """
     try:
+        print(f"🔄 Starting R2 upload: inspection={inspection_id}, index={photo_index}, num={photo_num}")
+        print(f"   Input size: {len(file_bytes)} bytes")
+        
         # Optimize image before upload
         optimized_bytes = optimize_image(file_bytes)
+        print(f"   Optimized size: {len(optimized_bytes)} bytes")
         
         # Generate unique filename
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
         unique_id = str(uuid.uuid4())[:8]
         filename = f"borescope/{inspection_id}/{timestamp}_{photo_index}_{photo_num}_{unique_id}.jpg"
+        print(f"   Filename: {filename}")
+        print(f"   Bucket: {R2_BUCKET}")
         
         # Upload to R2
+        print(f"   Calling S3 put_object...")
         get_s3_client().put_object(
             Bucket=R2_BUCKET,
             Key=filename,
@@ -115,14 +129,23 @@ def upload_photo_to_r2(file_bytes: bytes, inspection_id: int, photo_index: int, 
         public_url = f"{R2_PUBLIC_URL}/{filename}"
         
         print(f"✅ Photo uploaded to R2: {filename} ({len(optimized_bytes)} bytes)")
+        print(f"   Public URL: {public_url}")
         return public_url
     
     except ClientError as e:
         error_code = e.response['Error']['Code']
-        print(f"❌ R2 upload failed: {error_code} - {e}")
-        raise Exception(f"Failed to upload photo to R2: {error_code}")
+        error_msg = e.response['Error'].get('Message', 'No message')
+        print(f"❌ R2 ClientError:")
+        print(f"   Code: {error_code}")
+        print(f"   Message: {error_msg}")
+        print(f"   Full response: {e.response}")
+        raise Exception(f"Failed to upload photo to R2: {error_code} - {error_msg}")
     except Exception as e:
-        print(f"❌ R2 upload error: {e}")
+        print(f"❌ R2 upload error:")
+        print(f"   Type: {type(e).__name__}")
+        print(f"   Message: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise Exception(f"Failed to upload photo: {str(e)}")
 
 

@@ -4632,6 +4632,11 @@ async def create_borescope_inspection(
         
         if photos and len(photos) > 0:
             print(f"\n📤 Uploading {len(photos)} photos to R2...")
+            print(f"🔧 R2 Config:")
+            print(f"  Endpoint: {r2_storage.R2_ENDPOINT}")
+            print(f"  Bucket: {r2_storage.R2_BUCKET}")
+            print(f"  Public URL: {r2_storage.R2_PUBLIC_URL}")
+            print(f"  Access Key: {r2_storage.R2_ACCESS_KEY[:10]}...{r2_storage.R2_ACCESS_KEY[-4:]}")
             
             # Upload each photo (attempt upload without pre-test)
             for idx, file in enumerate(photos):
@@ -4647,8 +4652,13 @@ async def create_borescope_inspection(
                         # Get label for this row
                         label = labels[photo_row_idx] if photo_row_idx < len(labels) else f"Photo {photo_row_idx + 1}"
                         
+                        print(f"  📸 Photo {idx + 1}: {file.filename} ({len(file_bytes)} bytes)")
+                        print(f"     Row {photo_row_idx}, Position {photo_num}, Label: '{label}'")
+                        
                         # Upload to R2
                         photo_url = r2_storage.upload_photo_to_r2(file_bytes, inspection_id, photo_row_idx, photo_num)
+                        
+                        print(f"  ✅ Upload success: {photo_url}")
                         
                         # Add to photo_data
                         # Ensure row exists
@@ -4663,8 +4673,11 @@ async def create_borescope_inspection(
                         
                         print(f"  ✅ Photo {idx + 1}: {file.filename} → {photo_url}")
                 except Exception as e:
-                    print(f"  ❌ Error uploading photo {idx + 1}: {e}")
+                    print(f"  ❌ ERROR uploading photo {idx + 1} ({file.filename if file else 'unknown'}):")
+                    print(f"     Exception type: {type(e).__name__}")
+                    print(f"     Exception message: {str(e)}")
                     import traceback
+                    print(f"     Full traceback:")
                     traceback.print_exc()
                     # Continue with other photos even if one fails
         
@@ -4684,6 +4697,9 @@ async def create_borescope_inspection(
         warning = ""
         if photos and saved_photos == 0:
             warning = " (photos not saved - upload failed)"
+
+        print(f"✅ Inspection saved with {len(photo_data)} photo rows, {saved_photos} photos total")
+        print(f"📊 inspection_report: {inspection_report}")
 
         return {
             "id": inspection_id,
