@@ -4629,14 +4629,17 @@ async def create_borescope_inspection(
         
         # Upload photos to R2 and build inspection_report
         photo_data = []
+        r2_available = False
+        
         if photos and len(photos) > 0:
             print(f"\n📤 Uploading {len(photos)} photos to R2...")
             
-            # Test R2 connection
-            if not r2_storage.test_r2_connection():
-                raise HTTPException(status_code=500, detail="R2 storage connection failed")
+            # Test R2 connection (but don't fail if unavailable)
+            r2_available = r2_storage.test_r2_connection()
+            if not r2_available:
+                print("⚠️ R2 storage not available, inspection will be saved without photos")
             
-            # Upload each photo
+            # Upload each photo (only if R2 available)
             for idx, file in enumerate(photos):
                 try:
                     if file and file.filename:
@@ -4650,21 +4653,25 @@ async def create_borescope_inspection(
                         # Get label for this row
                         label = labels[photo_row_idx] if photo_row_idx < len(labels) else f"Photo {photo_row_idx + 1}"
                         
-                        # Upload to R2
-                        photo_url = r2_storage.upload_photo_to_r2(file_bytes, inspection_id, photo_row_idx, photo_num)
-                        
-                        # Add to photo_data
-                        # Ensure row exists
-                        while len(photo_data) <= photo_row_idx:
-                            photo_data.append({"label": "", "photo1": None, "photo2": None})
-                        
-                        photo_data[photo_row_idx]["label"] = label
-                        if photo_num == 1:
-                            photo_data[photo_row_idx]["photo1"] = photo_url
+                        # Only upload if R2 is available
+                        if r2_available:
+                            # Upload to R2
+                            photo_url = r2_storage.upload_photo_to_r2(file_bytes, inspection_id, photo_row_idx, photo_num)
+                            
+                            # Add to photo_data
+                            # Ensure row exists
+                            while len(photo_data) <= photo_row_idx:
+                                photo_data.append({"label": "", "photo1": None, "photo2": None})
+                            
+                            photo_data[photo_row_idx]["label"] = label
+                            if photo_num == 1:
+                                photo_data[photo_row_idx]["photo1"] = photo_url
+                            else:
+                                photo_data[photo_row_idx]["photo2"] = photo_url
+                            
+                            print(f"  ✅ Photo {idx + 1}: {file.filename} → {photo_url}")
                         else:
-                            photo_data[photo_row_idx]["photo2"] = photo_url
-                        
-                        print(f"  ✅ Photo {idx + 1}: {file.filename} → {photo_url}")
+                            print(f"  ⚠️ Skipping photo {idx + 1}: {file.filename} (R2 not available)")
                 except Exception as e:
                     print(f"  ❌ Error uploading photo {idx + 1}: {e}")
                     import traceback
@@ -4677,7 +4684,13 @@ async def create_borescope_inspection(
         db.commit()
         db.refresh(new_inspection)
         
-        return {"id": inspection_id, "message": "Borescope inspection created successfully", "photos": len(photo_data)}
+        warning = "" if r2_available or not photos else " (photos not saved - R2 unavailable)"
+        return {
+            "id": inspection_id, 
+            "message": f"Borescope inspection created successfully{warning}", 
+            "photos": len(photo_data),
+            "r2_available": r2_available
+        }
         
     except HTTPException:
         raise
