@@ -9077,13 +9077,12 @@ function hideInstallTooltip() {
                 
                 const statusText = pos === null ? 'No Engine' : pos.current_sn;
                 const statusClass = pos === null ? 'empty' : 'installed';
-                const tooltipAttr = pos === null ? '' : `onmouseenter="showInstallTooltip(event, ${pos.engine_id})" onmouseleave="hideInstallTooltip()"`;
                 
                 positionsListHTML += `
                     <div class="position-item" data-position="${posNum}" data-aircraft-id="${ac.aircraft_id}">
                         <div class="position-item-header">
                             <span class="position-label">Position ${posNum}</span>
-                            <span class="position-status ${statusClass}" ${tooltipAttr}>${statusText}</span>
+                            <span class="position-status ${statusClass}">${statusText}</span>
                         </div>
                         <div class="position-details" id="${posDetailId}" style="display: none;">
                             ${pos === null ? `
@@ -11119,7 +11118,7 @@ function hideInstallTooltip() {
                 <div class="panel-divider"></div>
                 <div class="panel-title small">Last Borescope Inspection</div>
                 <div class="panel-row"><div class="row-label">Date</div><div class="row-value">${fmt(e.last_borescope)}</div></div>
-                <div class="panel-row"><div class="row-label">Report</div><div class="row-value">${e.borescope ? `<a href=\"#\" class=\"report-link\" onclick=\"openLatestBorescopeReport(${currentSelectedEnginePos}); return false;\">View</a>` : '<span class="text-muted">N/A</span>'}</div></div>
+                <div class="panel-row"><div class="row-label">Report</div><div class="row-value">${e.borescope ? `<a href=\"#\" class=\"report-link\" onclick=\"loadBoroscopeReportData(document.getElementById('modal-aircraft-name').textContent, ${currentSelectedEnginePos + 1}); return false;\">View</a>` : '<span class="text-muted">N/A</span>'}</div></div>
             </div>`;
 
         const rightPanel = `
@@ -11228,8 +11227,8 @@ function hideInstallTooltip() {
                     <div class="borescope-mini-photo">
                         <div class="borescope-mini-label">${photo.label || 'Photo'}</div>
                         <div class="borescope-mini-imgs">
-                            ${photo.photo1 ? `<img src="${photo.photo1}" onclick="openBoroscopePhoto('${photo.photo1}');" />` : ''}
-                            ${photo.photo2 ? `<img src="${photo.photo2}" onclick="openBoroscopePhoto('${photo.photo2}');" />` : ''}
+                            ${photo.photo1 ? `<img src="${photo.photo1}" onclick="openBorescopePhoto('${photo.photo1}');" />` : ''}
+                            ${photo.photo2 ? `<img src="${photo.photo2}" onclick="openBorescopePhoto('${photo.photo2}');" />` : ''}
                         </div>
                     </div>
                 `;
@@ -19129,18 +19128,6 @@ function onGssInputChange(engines) {
 
     async function loadBoroscopeReportData(aircraft, position) {
         try {
-            // Hide the aircraft menu and position menu
-            const aircraftMenu = document.querySelector('.aircraft-selector-menu');
-            const positionsMenu = document.querySelector('.positions-selector-menu');
-            const mainMenu = document.getElementById('engine-btn-menu');
-            if (aircraftMenu) aircraftMenu.style.display = 'none';
-            if (positionsMenu) positionsMenu.style.display = 'none';
-            if (mainMenu) mainMenu.classList.remove('aircraft-selector-active');
-            
-            // Show reports menu (go back one level)
-            const reportsMenu = document.querySelector('.reports-radial-menu');
-            if (reportsMenu) reportsMenu.style.display = 'flex';
-            
             const positions = position === 'ALL' ? [1, 2, 3, 4] : [position];
             const reportData = {
                 aircraft: aircraft,
@@ -19348,17 +19335,6 @@ function onGssInputChange(engines) {
         modal.style.display = 'block';
         window.currentReportData = reportData;
         window.boroscopeReportOpen = true;
-        
-        // Hide all menus
-        const aircraftMenu = document.getElementById('aircraft-selector-menu');
-        const positionsMenu = document.getElementById('positions-selector-menu');
-        const reportsMenu = document.querySelector('.reports-radial-menu');
-        const engineMenu = document.querySelector('.engine-btn-menu');
-        
-        if (aircraftMenu) aircraftMenu.style.display = 'none';
-        if (positionsMenu) positionsMenu.style.display = 'none';
-        if (reportsMenu) reportsMenu.style.display = 'none';
-        if (engineMenu) engineMenu.style.display = 'none';
     }
 
     function generatePositionHTML(posData) {
@@ -19477,24 +19453,6 @@ function onGssInputChange(engines) {
         if (modal) modal.style.display = 'none';
         window.currentReportData = null;
         window.boroscopeReportOpen = false;
-        
-        // Restore the menu to the position selector level (keep aircraft and positions menus visible)
-        const engineMenu = document.querySelector('.engine-btn-menu');
-        const aircraftMenu = document.getElementById('aircraft-selector-menu');
-        const positionsMenu = document.getElementById('positions-selector-menu');
-        const reportsMenu = document.querySelector('.reports-radial-menu');
-        
-        if (engineMenu) {
-            engineMenu.style.display = 'flex';
-            engineMenu.classList.add('aircraft-selector-active');
-        }
-        // Keep aircraft and positions menus open at the level where report was opened
-        if (aircraftMenu) aircraftMenu.style.display = 'flex';
-        if (positionsMenu) {
-            positionsMenu.style.display = 'flex';
-            positionsMenu.classList.add('show');
-        }
-        if (reportsMenu) reportsMenu.style.display = 'none';
     }
 
     function closeBoroscopeReportsModalOnBgClick(event) {
@@ -26821,7 +26779,7 @@ thead:has(+ #gss-history-tbody) {
 </div>
 
 <!-- MODAL FOR BORESCOPE REPORTS -->
-<div id="borescope-reports-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 9998; overflow-y: auto; padding: 20px;" onclick="closeBoroscopeReportsModalOnBgClick(event)">
+<div id="borescope-reports-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10100; overflow-y: auto; padding: 20px;" onclick="closeBoroscopeReportsModalOnBgClick(event)">
     <div style="max-width: 900px; margin: 0 auto; background: white; border-radius: 12px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
             <h1 id="report-aircraft-title" style="font-size: 32px; font-weight: bold; color: #000; margin: 0;"></h1>
@@ -26838,7 +26796,7 @@ thead:has(+ #gss-history-tbody) {
 </div>
 
 <!-- COMPACT MODAL FOR LATEST BORESCOPE REPORT -->
-<div id="borescope-mini-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 9999; align-items: center; justify-content: center;" onclick="closeLatestBorescopeReport()">
+<div id="borescope-mini-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 10050; align-items: center; justify-content: center;" onclick="closeLatestBorescopeReport()">
     <div style="background: #0f172a; color: #e2e8f0; width: 520px; max-width: 92vw; border-radius: 10px; padding: 14px 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);" onclick="event.stopPropagation();">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <div id="borescope-mini-title" style="font-weight: 700; font-size: 14px; color: #38bdf8;">Borescope Report</div>
@@ -26849,7 +26807,7 @@ thead:has(+ #gss-history-tbody) {
 </div>
 
 <!-- Fullscreen Photo Viewer -->
-<div id="borescope-photo-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 9999; align-items: center; justify-content: center;">
+<div id="borescope-photo-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 10060; align-items: center; justify-content: center;">
     <img id="borescope-photo-img" style="max-width: 90%; max-height: 90%; object-fit: contain;" onclick="event.stopPropagation();">
     <button onclick="closeBorescopePhoto()" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 36px; cursor: pointer;">×</button>
 </div>
