@@ -3,13 +3,15 @@ services:
     name: aviation-mro
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
+    buildCommand: pip install -r requirements.txt && PLAYWRIGHT_BROWSERS_PATH=0 python -m playwright install chromium
     startCommand: bash start.sh
     envVars:
       - key: DATABASE_URL
         fromDatabase:
           name: aviation_db
           property: connectionString
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "0"
 
 databases:
   - name: aviation_db

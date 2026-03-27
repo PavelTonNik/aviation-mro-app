@@ -1104,9 +1104,13 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5)
                 browser_errors = []
 
                 def _launch_candidates():
+                    if os.name == "nt":
+                        return [
+                            {"channel": "chrome", "label": "Google Chrome"},
+                            {"channel": "msedge", "label": "Microsoft Edge"},
+                            {"channel": None, "label": "Playwright Chromium"},
+                        ]
                     return [
-                        {"channel": "chrome", "label": "Google Chrome"},
-                        {"channel": "msedge", "label": "Microsoft Edge"},
                         {"channel": None, "label": "Playwright Chromium"},
                     ]
 
