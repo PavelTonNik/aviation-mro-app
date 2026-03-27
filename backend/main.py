@@ -11,6 +11,8 @@ import asyncio
 import csv
 import json
 import re
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 import hashlib
@@ -1028,6 +1030,30 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5)
     Файл → Экспорт → Скачать как CSV UTF-8
     This mirrors exactly what a user does manually in incognito mode.
     """
+
+    def _is_missing_playwright_browser_error(message: str) -> bool:
+        text = (message or "").lower()
+        return (
+            "executable doesn't exist" in text
+            or "browsertype.launch" in text
+            or "playwright install" in text
+            or "chromium distribution" in text
+            or "chrome-headless-shell" in text
+        )
+
+    def _install_playwright_chromium() -> None:
+        print("🔧 Playwright browser is missing. Installing Chromium...")
+        result = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            capture_output=True,
+            text=True,
+            timeout=900,
+            check=False,
+        )
+        if result.returncode != 0:
+            output = (result.stdout or "") + "\n" + (result.stderr or "")
+            raise Exception(f"Failed to install Playwright Chromium: {output.strip()}")
+
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
     except Exception:
@@ -1038,7 +1064,7 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5)
     with tempfile.TemporaryDirectory() as tmp_dir:
         try:
             with sync_playwright() as p:
-                browser_errors = []
+                browser_installed_at_runtime = False
 
                 def _launch_candidates():
                     return [
@@ -1164,33 +1190,42 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5)
                     finally:
                         context.close()
 
-                for candidate in _launch_candidates():
-                    browser = None
-                    try:
-                        launch_kwargs = {
-                            "headless": True,
-                            "args": [
-                                "--disable-blink-features=AutomationControlled",
-                                "--disable-features=msSmartScreenProtection",
-                                "--disable-http2",
-                            ],
-                        }
-                        if candidate["channel"]:
-                            launch_kwargs["channel"] = candidate["channel"]
-                        browser = p.chromium.launch(**launch_kwargs)
-                        data = _run_with_browser(browser)
-                        if data:
-                            return data
-                    except Exception as candidate_error:
-                        browser_errors.append(f'{candidate["label"]}: {candidate_error}')
-                    finally:
-                        try:
-                            if browser:
-                                browser.close()
-                        except Exception:
-                            pass
+                while True:
+                    browser_errors = []
 
-                raise Exception(" | ".join(browser_errors) if browser_errors else "Unknown browser launch failure")
+                    for candidate in _launch_candidates():
+                        browser = None
+                        try:
+                            launch_kwargs = {
+                                "headless": True,
+                                "args": [
+                                    "--disable-blink-features=AutomationControlled",
+                                    "--disable-features=msSmartScreenProtection",
+                                    "--disable-http2",
+                                ],
+                            }
+                            if candidate["channel"]:
+                                launch_kwargs["channel"] = candidate["channel"]
+                            browser = p.chromium.launch(**launch_kwargs)
+                            data = _run_with_browser(browser)
+                            if data:
+                                return data
+                        except Exception as candidate_error:
+                            browser_errors.append(f'{candidate["label"]}: {candidate_error}')
+                        finally:
+                            try:
+                                if browser:
+                                    browser.close()
+                            except Exception:
+                                pass
+
+                    combined_error = " | ".join(browser_errors) if browser_errors else "Unknown browser launch failure"
+                    if not browser_installed_at_runtime and _is_missing_playwright_browser_error(combined_error):
+                        _install_playwright_chromium()
+                        browser_installed_at_runtime = True
+                        continue
+
+                    raise Exception(combined_error)
 
         except PlaywrightTimeoutError as e:
             raise Exception(f"SharePoint browser timed out: {e}")

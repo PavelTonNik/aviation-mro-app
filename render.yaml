@@ -3,7 +3,7 @@ services:
     name: aviation-mro
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python -m playwright install chromium
     startCommand: bash start.sh
     envVars:
       - key: DATABASE_URL
