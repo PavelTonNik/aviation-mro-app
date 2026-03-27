@@ -20562,6 +20562,41 @@ function onGssInputChange(engines) {
         const ttsnEl = document.getElementById(`util-found-ttsn-${tail}`);
         const tcsnEl = document.getElementById(`util-found-tcsn-${tail}`);
 
+        async function startPreviewJob(sourceUrl) {
+            const response = await fetch('/api/aircraft-utilization-sources/preview-jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: sourceUrl })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.detail || 'Failed to start preview job');
+            }
+            if (!data.job_id) {
+                throw new Error('Preview job id was not returned');
+            }
+            return data.job_id;
+        }
+
+        async function waitForPreviewJob(jobId, timeoutMs = 180000) {
+            const startedAt = Date.now();
+            while (Date.now() - startedAt < timeoutMs) {
+                const response = await fetch('/api/aircraft-utilization-sources/preview-jobs/' + encodeURIComponent(jobId));
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(data.detail || `Preview status failed (${response.status})`);
+                }
+                if (data.status === 'success') {
+                    return data.result || { ok: false, error: 'Preview job finished without result' };
+                }
+                if (data.status === 'error') {
+                    return { ok: false, error: data.error || 'Preview job failed' };
+                }
+                await new Promise(r => setTimeout(r, 2000));
+            }
+            return { ok: false, error: 'Preview timed out on server' };
+        }
+
         const maxAttempts = 5;
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
             if (attempt === 0) {
@@ -20570,23 +20605,8 @@ function onGssInputChange(engines) {
                 if (wrapEl) wrapEl.innerHTML = `<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Retrying... (${attempt + 1}/${maxAttempts})</span>`;
             }
             try {
-                const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), 30000);
-                const res = await fetch('/api/aircraft-utilization-sources/preview?url=' + encodeURIComponent(url), {
-                    signal: controller.signal
-                }).finally(() => clearTimeout(timer));
-                let data = null;
-                if (res.ok) {
-                    data = await res.json();
-                } else {
-                    const body = await res.text();
-                    if (attempt < maxAttempts - 1) {
-                        await new Promise(r => setTimeout(r, 1800));
-                        continue;
-                    }
-                    if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Error</span><span class="small text-danger">Server returned ${res.status}. ${body ? body.slice(0, 140) : 'Preview failed'}</span><div class="small text-muted mt-1">Last successful values are kept below.</div>`;
-                    return;
-                }
+                const jobId = await startPreviewJob(url);
+                const data = await waitForPreviewJob(jobId);
                 if (data.ok) {
                     if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-success me-1">Found</span><span class="small text-muted">Sheet: <b>${data.sheet}</b></span>`;
                     if (dateEl) dateEl.textContent = data.date || '—';
@@ -20601,19 +20621,16 @@ function onGssInputChange(engines) {
                     return;
                 }
                 if (attempt < maxAttempts - 1) {
-                    await new Promise(r => setTimeout(r, 1800));
+                    await new Promise(r => setTimeout(r, 3200));
                     continue;
                 }
                 if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Error</span><span class="small text-danger">${data.error || 'Unknown error'}</span><div class="small text-muted mt-1">Last successful values are kept below.</div>`;
             } catch (err) {
                 if (attempt < maxAttempts - 1) {
-                    await new Promise(r => setTimeout(r, 1800));
+                    await new Promise(r => setTimeout(r, 3200));
                     continue;
                 }
-                const msg = err && err.name === 'AbortError'
-                    ? 'Request timeout on server, please retry.'
-                    : (err.message || 'Unknown error');
-                if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Error</span><span class="small text-danger">${msg}</span><div class="small text-muted mt-1">Last successful values are kept below.</div>`;
+                if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Error</span><span class="small text-danger">${err.message}</span><div class="small text-muted mt-1">Last successful values are kept below.</div>`;
             }
         }
     }
@@ -20703,6 +20720,7 @@ function onGssInputChange(engines) {
             if (!response.ok) throw new Error('Failed to load utilization source links');
 
             const items = await response.json();
+            const previewQueue = [];
             items.forEach(item => {
                 const tail = item.aircraft_tail_number;
                 const input = document.getElementById(getUtilSourceInputId(tail));
@@ -20715,7 +20733,21 @@ function onGssInputChange(engines) {
                 if (input) input.value = item.source_url || '';
                 renderAircraftUtilSourceStatus(item, wrapEl, foundEl, dateEl, ttsnEl, tcsnEl);
                 renderUtilSourceRecentHistory(shortTail, item.recent_history || []);
+
+                // Run live preview on load so transient stored errors are refreshed automatically.
+                if (item.source_url && item.source_url.trim()) {
+                    if (wrapEl) {
+                        wrapEl.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Checking live link...</span>';
+                    }
+                    previewQueue.push({ tail: shortTail, url: item.source_url.trim() });
+                }
             });
+            if (previewQueue.length) {
+                for (const entry of previewQueue) {
+                    await previewExcelUrl(entry.tail, entry.url);
+                    await new Promise(r => setTimeout(r, 700));
+                }
+            }
         } catch (err) {
             console.error('Error loading aircraft utilization sources:', err);
         }

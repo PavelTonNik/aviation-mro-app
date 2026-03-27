@@ -12,6 +12,8 @@ import csv
 import json
 import re
 import tempfile
+import threading
+import time
 from pathlib import Path
 import hashlib
 import secrets
@@ -37,6 +39,67 @@ except ImportError:  # fallback when running as a standalone script
 
 UTILIZATION_SOURCE_TAILS = ["ER-BAT", "ER-BAR", "ER-BAQ"]
 aircraft_utilization_sync_task = None
+aircraft_utilization_preview_jobs = {}
+aircraft_utilization_preview_jobs_lock = threading.Lock()
+AIRCRAFT_UTILIZATION_PREVIEW_JOB_TTL_SECONDS = 15 * 60
+
+
+def _cleanup_aircraft_utilization_preview_jobs():
+    cutoff = time.time() - AIRCRAFT_UTILIZATION_PREVIEW_JOB_TTL_SECONDS
+    with aircraft_utilization_preview_jobs_lock:
+        expired_ids = [
+            job_id
+            for job_id, job in aircraft_utilization_preview_jobs.items()
+            if job.get("updated_ts", job.get("created_ts", 0)) < cutoff
+        ]
+        for job_id in expired_ids:
+            aircraft_utilization_preview_jobs.pop(job_id, None)
+
+
+def _set_aircraft_utilization_preview_job(job_id: str, **fields):
+    with aircraft_utilization_preview_jobs_lock:
+        job = aircraft_utilization_preview_jobs.get(job_id)
+        if not job:
+            return None
+        job.update(fields)
+        job["updated_ts"] = time.time()
+        return dict(job)
+
+
+def _run_aircraft_utilization_preview_job(job_id: str, url: str):
+    _set_aircraft_utilization_preview_job(job_id, status="running")
+    try:
+        stripped = url.strip() if url else ""
+        if not stripped:
+            raise Exception("URL is empty")
+
+        normalized = _normalize_excel_url(stripped)
+        if not normalized:
+            raise Exception("Could not parse URL")
+
+        content = _download_excel_bytes(normalized, original_url=stripped)
+        latest = _extract_latest_utilization_from_content(content, preferred_sheet=None)
+        rounded_ttsn = int(_round_utilization_hours(latest["ttsn"]))
+        _set_aircraft_utilization_preview_job(
+            job_id,
+            status="success",
+            result={
+                "ok": True,
+                "date": latest["date"].strftime("%Y-%m-%d"),
+                "ttsn": rounded_ttsn,
+                "ttsn_display": str(rounded_ttsn),
+                "tcsn": latest["tcsn"],
+                "sheet": latest.get("sheet_name", ""),
+            },
+            error=None,
+        )
+    except Exception as e:
+        _set_aircraft_utilization_preview_job(
+            job_id,
+            status="error",
+            result=None,
+            error=str(e),
+        )
 
 def _sync_engine_status_from_history(db):
     """
@@ -932,13 +995,7 @@ def _normalize_excel_url(url: Optional[str]) -> Optional[str]:
     return cleaned
 
 
-def _download_excel_bytes(
-    source_url: str,
-    original_url: Optional[str] = None,
-    max_retries: int = 2,
-    allow_browser_fallback: bool = True,
-    request_timeout: int = 90,
-) -> bytes:
+def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, max_retries: int = 2) -> bytes:
     from urllib.error import HTTPError, URLError
 
     def _is_sharepoint_url() -> bool:
@@ -951,8 +1008,6 @@ def _download_excel_bytes(
         )
 
     def _try_sharepoint_browser_fallback() -> Optional[bytes]:
-        if not allow_browser_fallback:
-            return None
         if not _is_sharepoint_url():
             return None
         browser_url = original_url or source_url
@@ -965,7 +1020,7 @@ def _download_excel_bytes(
             "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream,*/*",
         })
         try:
-            with urlopen(req, timeout=request_timeout) as response:
+            with urlopen(req, timeout=90) as response:
                 data = response.read()
                 content_type = str(response.headers.get("Content-Type", "")).lower()
 
@@ -1030,13 +1085,12 @@ def _download_excel_bytes(
     raise last_exception or Exception("Download failed after retries")
 
 
-def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2) -> Optional[bytes]:
+def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5) -> Optional[bytes]:
     """
     Open the SharePoint Excel Online viewer in a headless browser and click:
     Файл → Экспорт → Скачать как CSV UTF-8
     This mirrors exactly what a user does manually in incognito mode.
     """
-
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
     except Exception:
@@ -1074,13 +1128,13 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2)
                         for page_attempt in range(max_page_reloads):
                             try:
                                 if page_attempt == 0:
-                                    page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
+                                    page.goto(source_url, wait_until="domcontentloaded", timeout=150000)
                                 else:
                                     try:
-                                        page.reload(wait_until="domcontentloaded", timeout=60000)
+                                        page.reload(wait_until="domcontentloaded", timeout=150000)
                                     except Exception:
-                                        page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
-                                page.wait_for_timeout(4000)
+                                        page.goto(source_url, wait_until="domcontentloaded", timeout=150000)
+                                page.wait_for_timeout(9000)
 
                                 def _candidate_frames():
                                     frames = list(page.frames)
@@ -1142,7 +1196,7 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2)
                                                 loc = frame.locator(sel).first
                                                 if not loc.is_visible(timeout=2500):
                                                     continue
-                                                with page.expect_download(timeout=45000) as dl_info:
+                                                with page.expect_download(timeout=60000) as dl_info:
                                                     loc.click(timeout=9000)
                                                 dl = dl_info.value
                                                 if dl.failure():
@@ -1176,17 +1230,21 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2)
                 for candidate in _launch_candidates():
                     browser = None
                     try:
-                        launch_kwargs = {
-                            "headless": True,
-                            "args": [
+                        launch_args = [
+                            "--disable-blink-features=AutomationControlled",
+                            "--disable-features=msSmartScreenProtection",
+                            "--disable-http2",
+                        ]
+                        if os.name != "nt":
+                            launch_args.extend([
                                 "--no-sandbox",
                                 "--disable-setuid-sandbox",
                                 "--disable-dev-shm-usage",
                                 "--disable-gpu",
-                                "--disable-blink-features=AutomationControlled",
-                                "--disable-features=msSmartScreenProtection",
-                                "--disable-http2",
-                            ],
+                            ])
+                        launch_kwargs = {
+                            "headless": True,
+                            "args": launch_args,
                         }
                         if candidate["channel"]:
                             launch_kwargs["channel"] = candidate["channel"]
@@ -3362,6 +3420,45 @@ def sync_aircraft_utilization_sources_endpoint(db: Session = Depends(get_db)):
     return {"message": "Aircraft utilization sync completed", "results": results}
 
 
+@app.post("/api/aircraft-utilization-sources/preview-jobs")
+def create_preview_excel_job(payload: dict):
+    stripped = (payload or {}).get("url", "")
+    stripped = stripped.strip() if isinstance(stripped, str) else ""
+    if not stripped:
+        raise HTTPException(status_code=400, detail="URL is empty")
+
+    _cleanup_aircraft_utilization_preview_jobs()
+    job_id = secrets.token_urlsafe(12)
+    now_ts = time.time()
+    with aircraft_utilization_preview_jobs_lock:
+        aircraft_utilization_preview_jobs[job_id] = {
+            "job_id": job_id,
+            "status": "queued",
+            "created_ts": now_ts,
+            "updated_ts": now_ts,
+            "result": None,
+            "error": None,
+        }
+
+    worker = threading.Thread(
+        target=_run_aircraft_utilization_preview_job,
+        args=(job_id, stripped),
+        daemon=True,
+    )
+    worker.start()
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/api/aircraft-utilization-sources/preview-jobs/{job_id}")
+def get_preview_excel_job(job_id: str):
+    _cleanup_aircraft_utilization_preview_jobs()
+    with aircraft_utilization_preview_jobs_lock:
+        job = aircraft_utilization_preview_jobs.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Preview job not found or expired")
+        return dict(job)
+
+
 @app.get("/api/aircraft-utilization-sources/preview")
 def preview_excel_url(url: str):
     """Download an Excel/Google Sheets URL in memory (no temp files), parse it and return
@@ -3373,13 +3470,7 @@ def preview_excel_url(url: str):
         normalized = _normalize_excel_url(stripped)
         if not normalized:
             return {"ok": False, "error": "Could not parse URL"}
-        content = _download_excel_bytes(
-            normalized,
-            original_url=stripped,
-            max_retries=1,
-            allow_browser_fallback=False,
-            request_timeout=25,
-        )
+        content = _download_excel_bytes(normalized, original_url=stripped)
         latest = _extract_latest_utilization_from_content(content, preferred_sheet=None)
         rounded_ttsn = int(_round_utilization_hours(latest["ttsn"]))
         return {
