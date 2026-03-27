@@ -10,6 +10,7 @@ from botocore.exceptions import ClientError
 import uuid
 from datetime import datetime
 from io import BytesIO
+from typing import Optional
 from PIL import Image
 
 # R2 Configuration from environment
