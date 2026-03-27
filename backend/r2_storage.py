@@ -3,6 +3,8 @@ Cloudflare R2 Storage Integration
 Handles photo uploads to R2 object storage
 """
 
+from __future__ import annotations
+
 import os
 import boto3
 from botocore.client import Config
@@ -10,6 +12,7 @@ from botocore.exceptions import ClientError
 import uuid
 from datetime import datetime
 from io import BytesIO
+from typing import Optional
 from PIL import Image
 
 # R2 Configuration from environment (sanitized at runtime)
@@ -88,9 +91,9 @@ def get_s3_client():
 
 def optimize_image(
     image_bytes: bytes,
-    max_size_mb: Optional[float] = None,
-    quality: Optional[int] = None,
-    max_dimension: Optional[int] = None
+    max_size_mb: float | None = None,
+    quality: int | None = None,
+    max_dimension: int | None = None
 ) -> bytes:
     """
     Optimize image size while maintaining quality
