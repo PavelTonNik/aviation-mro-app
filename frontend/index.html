@@ -792,6 +792,12 @@
             border-color: rgba(26, 107, 184, 0.4);
             color: #eceff1;
         }
+        .btn-cond-unknown {
+            background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+            border-color: rgba(90, 98, 104, 0.4);
+            color: #eceff1;
+        }
         .btn-cond-overhauled {
             background: linear-gradient(135deg, #b85d10 0%, #d97514 100%);
             box-shadow: 0 4px 12px rgba(184, 93, 16, 0.3);
@@ -4662,10 +4668,11 @@
             -webkit-overflow-scrolling: touch;
         }
     </style>
-    <!-- Preload login background for faster loading -->
-    <link rel="preload" as="image" href="/static/assets/login-bg.jpg" media="(prefers-reduced-motion: no-preference)">
 </head>
 <body>
+
+    <!-- Toast notification container (fixed top-right corner) -->
+    <div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 99998;"></div>
 
     <!-- Modern GSS Preloader -->
     <div id="aviation-preloader" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden;">
@@ -4912,17 +4919,6 @@
                     <label class="form-label">Username</label>
                     <input type="text" class="form-control" id="login-username" required autofocus>
                 </div>
-            
-                            <!-- ACTION DETAILS MODAL -->
-                            <div id="action-details-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
-                                <div style="background: white; border-radius: 8px; max-width: 700px; max-height: 80vh; overflow: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); padding: 25px; position: relative;">
-                                    <button onclick="closeActionDetailsModal()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999;">&times;</button>
-                                    <h5 class="mb-4"><i class="bi bi-info-circle me-2"></i>Action Details</h5>
-                                    <div id="action-details-content">
-                                        <!-- Will be populated by JS -->
-                                    </div>
-                                </div>
-                            </div>
                 <div class="mb-3">
                     <label class="form-label">Password</label>
                     <input type="password" class="form-control" id="login-password" required>
@@ -4932,6 +4928,17 @@
                 </button>
             </form>
 
+        </div>
+    </div>
+
+    <!-- ACTION DETAILS MODAL -->
+    <div id="action-details-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div style="background: white; border-radius: 8px; max-width: 700px; max-height: 80vh; overflow: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); padding: 25px; position: relative;">
+            <button onclick="closeActionDetailsModal()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #999;">&times;</button>
+            <h5 class="mb-4"><i class="bi bi-info-circle me-2"></i>Action Details</h5>
+            <div id="action-details-content">
+                <!-- Will be populated by JS -->
+            </div>
         </div>
     </div>
 
@@ -5964,24 +5971,25 @@
 
                                         <div class="row mb-3">
                                             <div class="col-md-6">
-                                                <label class="form-label small fw-bold">TTSN (Engine) <span class="text-danger">*</span></label>
-                                                <input type="text" class="form-control" id="rem-ttsn" required placeholder="e.g. 10399:34 or 10399.57">
-                                                <small class="text-muted">Format: HH:MM or decimal</small>
+                                                <label class="form-label small fw-bold">TTSN (Engine, auto total)</label>
+                                                <input type="text" class="form-control" id="rem-ttsn" readonly placeholder="Auto-calculated total engine TTSN">
+                                                <small class="text-muted">Current total engine TTSN at removal</small>
                                             </div>
                                             <div class="col-md-6">
-                                                <label class="form-label small fw-bold">TCSN (Engine) <span class="text-danger">*</span></label>
-                                                <input type="number" class="form-control" id="rem-tcsn" required>
+                                                <label class="form-label small fw-bold">TCSN (Engine, auto total)</label>
+                                                <input type="number" class="form-control" id="rem-tcsn" readonly>
+                                                <small class="text-muted">Current total engine TCSN at removal</small>
                                             </div>
                                         </div>
 
                                         <div class="row mb-3">
                                             <div class="col-md-6">
-                                                <label class="form-label small fw-bold">TTSN (Aircraft)</label>
+                                                <label class="form-label small fw-bold">TTSN (Aircraft) <span class="text-danger">*</span></label>
                                                 <input type="text" class="form-control" id="rem-ttsn-ac" placeholder="e.g. 103999:34 or 103999.57">
                                                 <small class="text-muted">Format: HH:MM or decimal</small>
                                             </div>
                                             <div class="col-md-6">
-                                                <label class="form-label small fw-bold">TCSN (Aircraft)</label>
+                                                <label class="form-label small fw-bold">TCSN (Aircraft) <span class="text-danger">*</span></label>
                                                 <input type="number" class="form-control" id="rem-tcsn-ac">
                                             </div>
                                         </div>
@@ -7073,16 +7081,18 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th class="delete-col-store-balance" style="width: 40px; display: none;"><i class="bi bi-trash"></i></th>
-                                            <th>Received</th>
-                                            <th>Part Name</th>
-                                            <th>P/N</th>
-                                            <th>S/N</th>
-                                            <th>Condition</th>
+                                            <th>Description</th>
+                                            <th>PN</th>
+                                            <th>SN</th>
                                             <th>Qty</th>
-                                            <th>R.O#</th>
-                                            <th>Location</th>
                                             <th>Status</th>
-                                            <th>Delivered to</th>
+                                            <th>Condition</th>
+                                            <th>Current location</th>
+                                            <th>Removed From</th>
+                                            <th>Location From</th>
+                                            <th>Price</th>
+                                            <th>Invoice No</th>
+                                            <th>R.O #</th>
                                             <th>Remarks</th>
                                         </tr>
                                     </thead>
@@ -7100,24 +7110,28 @@
                         <div class="card-body">
                             <form id="form-store-part">
                                 <div class="row mb-3">
-                                    <div class="col-md-3">
-                                        <label class="small fw-bold">Received Date</label>
-                                        <input type="date" class="form-control" id="store-date">
-                                    </div>
                                     <div class="col-md-5">
-                                        <label class="small fw-bold">Part Name *</label>
+                                        <label class="small fw-bold">Description *</label>
                                         <input type="text" class="form-control" id="store-name" placeholder="e.g. Fuel Pump">
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="small fw-bold">Part Number (P/N) *</label>
+                                        <label class="small fw-bold">P/N *</label>
                                         <input type="text" class="form-control" id="store-pn" placeholder="123-456-789">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small fw-bold">S/N</label>
+                                        <input type="text" class="form-control" id="store-sn" placeholder="Optional">
                                     </div>
                                 </div>
 
                                 <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <label class="small fw-bold">Serial Number (S/N)</label>
-                                        <input type="text" class="form-control" id="store-sn" placeholder="Optional">
+                                    <div class="col-md-2">
+                                        <label class="small fw-bold">Qty *</label>
+                                        <input type="number" class="form-control" id="store-qty" value="1" min="0">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="small fw-bold">Status</label>
+                                        <input type="text" class="form-control" id="store-shelf" placeholder="e.g. Available">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="small fw-bold">Condition</label>
@@ -7130,28 +7144,35 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <div class="col-md-2">
-                                        <label class="small fw-bold">Quantity *</label>
-                                        <input type="number" class="form-control" id="store-qty" value="1" min="0">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="small fw-bold">R.O#</label>
-                                        <input type="text" class="form-control" id="store-unit" placeholder="EA / SET / KIT">
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">Current location</label>
+                                        <input type="text" class="form-control" id="store-location" placeholder="Warehouse / City">
                                     </div>
                                 </div>
 
                                 <div class="row mb-3">
                                     <div class="col-md-4">
-                                        <label class="small fw-bold">Location</label>
-                                        <input type="text" class="form-control" id="store-location" placeholder="Warehouse / City">
+                                        <label class="small fw-bold">Removed From</label>
+                                        <input type="text" class="form-control" id="store-removed-from" placeholder="Engine SN / GSS ID">
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="small fw-bold">Status</label>
-                                        <input type="text" class="form-control" id="store-shelf" placeholder="Aisle / Rack">
+                                        <label class="small fw-bold">Location From</label>
+                                        <input type="text" class="form-control" id="store-location-from" placeholder="e.g. FRU, SHJ">
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="small fw-bold">Delivered to</label>
-                                        <input type="text" class="form-control" id="store-owner" placeholder="Customer / Tail">
+                                        <label class="small fw-bold">Price</label>
+                                        <input type="number" class="form-control" id="store-price" placeholder="0.00" step="0.01">
+                                    </div>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">Invoice No</label>
+                                        <input type="text" class="form-control" id="store-invoice-no" placeholder="INV-12345">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">R.O #</label>
+                                        <input type="text" class="form-control" id="store-unit" placeholder="EA / SET / KIT">
                                     </div>
                                 </div>
 
@@ -7848,7 +7869,80 @@
                                     <button type="button" class="btn btn-success px-4" onclick="submitAircraftUtil()"><i class="bi bi-check-lg"></i> Сохранить</button>
                                 </div>
                             </form>
-                            </form>
+
+                            <hr class="my-5">
+                            <h5 class="mb-4 text-primary"><i class="bi bi-file-earmark-spreadsheet"></i> Daily Excel Sync Sources</h5>
+                            <div class="row g-3 mb-3">
+                                <!-- BAT -->
+                                <div class="col-md-4">
+                                    <label class="small fw-bold">ER-BAT <span class="text-muted fw-normal">(MSN 23813)</span></label>
+                                    <input type="url" class="form-control form-control-sm" id="util-source-bat" placeholder="Paste Google Sheets / Excel link">
+                                    <div id="util-source-status-bat-wrap" class="mt-1"></div>
+                                    <div class="row g-1 mt-2" id="util-source-found-bat">
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
+                                            <div id="util-found-date-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
+                                            <div id="util-found-ttsn-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
+                                            <div id="util-found-tcsn-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                    </div>
+                                    <div id="util-source-history-bat" class="mt-2"></div>
+                                </div>
+                                <!-- BAR -->
+                                <div class="col-md-4">
+                                    <label class="small fw-bold">ER-BAR <span class="text-muted fw-normal">(MSN 22545)</span></label>
+                                    <input type="url" class="form-control form-control-sm" id="util-source-bar" placeholder="Paste Google Sheets / Excel link">
+                                    <div id="util-source-status-bar-wrap" class="mt-1"></div>
+                                    <div class="row g-1 mt-2" id="util-source-found-bar">
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
+                                            <div id="util-found-date-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
+                                            <div id="util-found-ttsn-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
+                                            <div id="util-found-tcsn-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                    </div>
+                                    <div id="util-source-history-bar" class="mt-2"></div>
+                                </div>
+                                <!-- BAQ -->
+                                <div class="col-md-4">
+                                    <label class="small fw-bold">ER-BAQ <span class="text-muted fw-normal">(MSN 23139)</span></label>
+                                    <input type="url" class="form-control form-control-sm" id="util-source-baq" placeholder="Paste Google Sheets / Excel link">
+                                    <div id="util-source-status-baq-wrap" class="mt-1"></div>
+                                    <div class="row g-1 mt-2" id="util-source-found-baq">
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
+                                            <div id="util-found-date-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
+                                            <div id="util-found-ttsn-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
+                                            <div id="util-found-tcsn-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                    </div>
+                                    <div id="util-source-history-baq" class="mt-2"></div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-end gap-2">
+                                <span id="util-source-save-status" class="text-muted small me-2"></span>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-refresh-util-sources" onclick="refreshAircraftUtilSourcePreviews()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                <button type="button" class="btn btn-outline-primary" id="btn-save-util-sources" onclick="saveAircraftUtilSources()"><i class="bi bi-save"></i> Save Links</button>
+                                <button type="button" class="btn btn-primary" id="btn-sync-util-sources" onclick="syncAircraftUtilSourcesNow()"><i class="bi bi-arrow-repeat"></i> Sync Now</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -7904,15 +7998,16 @@
                             <table class="table table-hover table-bordered table-sm text-center" id="aircraft-util-history-table">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>Дата</th>
+                                        <th>Дата записи</th>
                                         <th>Самолет</th>
-                                        <th>Total A/C TTSN</th>
-                                        <th>Total A/C TCSN</th>
-                                        <th>Сохранено</th>
+                                        <th>TTSN</th>
+                                        <th>TCSN</th>
+                                        <th>Источник</th>
+                                        <th>Синхронизировано</th>
                                     </tr>
                                 </thead>
                                 <tbody id="aircraft-util-history-body">
-                                    <tr><td colspan="5" class="text-muted">Нет данных</td></tr>
+                                    <tr><td colspan="6" class="text-muted">Нет данных</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -8283,8 +8378,7 @@
                                     <div class="col-md-3">
                                         <label class="small fw-bold">Condition 2 (Physical)</label>
                                         <select class="form-select" id="m-condition-2">
-                                            <option value="-">- (Unknown)</option>
-                                            <option value="New" selected>New</option>
+                                            <option value="-" selected>- (Unknown)</option>
                                             <option value="Overhauled">Overhauled</option>
                                             <option value="Repaired">Repaired</option>
                                             <option value="Inspected tested">Inspected tested</option>
@@ -8431,7 +8525,7 @@
     </div>
 </div>
 
-<div class="modal fade" id="dataModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="dataModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-dark text-white">
@@ -8902,6 +8996,26 @@ function restoreView(viewName) {
         openEngParamView();
     } else if (viewName === 'gss') {
         openGSSModal();
+    } else if (viewName === 'borescope') {
+        document.getElementById('view-borescope').style.display = 'block';
+        loadBoroscopeHistory();
+    } else if (viewName === 'engine-reports') {
+        document.getElementById('view-engine-reports').style.display = 'block';
+        loadEngineReportsList();
+    } else if (viewName === 'purchase-orders') {
+        document.getElementById('view-purchase-orders').style.display = 'block';
+        loadCustomColumns();
+        loadPurchaseOrdersHistory();
+    } else if (viewName === 'utilization-param') {
+        document.getElementById('view-utilization-param').style.display = 'block';
+        loadAircraftDropdown();
+    } else if (viewName === 'fake-installed') {
+        document.getElementById('view-fake-installed').style.display = 'block';
+        applyFakeHeaders();
+        loadFakeInstalled();
+    } else if (viewName === 'nameplate-tracker') {
+        document.getElementById('view-nameplate-tracker').style.display = 'block';
+        loadNameplateTracker();
     }
 }
 
@@ -8963,9 +9077,11 @@ function hideInstallTooltip() {
 }
 
     let _dashboardLoading = false;
+    let _dashboardReloadPending = false;
     async function loadDashboardData() {
     if (_dashboardLoading) {
-        console.log('Dashboard already loading, skipping duplicate call');
+        _dashboardReloadPending = true;
+        console.log('Dashboard already loading, queued one more reload');
         return;
     }
     _dashboardLoading = true;
@@ -9009,7 +9125,7 @@ function hideInstallTooltip() {
         // 2.3 Load Fleet Cards (BAR, BAT, BAQ) - NEW PROFESSIONAL DESIGN
         let aircraftDetails = [];
         try {
-            const fleetRes = await fetch('/api/dashboard/aircraft-details');
+            const fleetRes = await fetch('/api/dashboard/aircraft-details' + noCache());
             if (fleetRes.ok) {
                 aircraftDetails = await fleetRes.json();
                 console.log('Aircraft Details:', aircraftDetails);
@@ -9272,6 +9388,10 @@ function hideInstallTooltip() {
         alert('Failed to load dashboard data. Check console for details.');
     } finally {
         _dashboardLoading = false;
+        if (_dashboardReloadPending) {
+            _dashboardReloadPending = false;
+            await loadDashboardData();
+        }
     }
 }
 
@@ -10649,7 +10769,7 @@ function hideInstallTooltip() {
         // Для INSTALLED добавляем колонки с данными самолета
         if (status === 'INSTALLED') {
             setupModal(`Engines Status: ${status}`, 
-                ['GSS SN', 'Orig SN', 'Current SN', 'Location', 'TT (Engine)', 'TC (Engine)', 'TTSN (Aircraft)', 'TCSN (Aircraft)'],
+                ['GSS SN', 'Orig SN', 'Current SN', 'Location', 'TT (Engine)', 'TC (Engine)', 'TSN (on A/C)', 'CSN (on A/C)'],
                 engines.map(e => `
                     <tr>
                         <td>${e.gss_sn || '-'}</td>
@@ -10658,8 +10778,8 @@ function hideInstallTooltip() {
                         <td>${e.location}</td>
                         <td>${e.tt}</td>
                         <td>${e.tc}</td>
-                        <td>${e.ac_ttsn !== null && e.ac_ttsn !== undefined ? e.ac_ttsn : '-'}</td>
-                        <td>${e.ac_tcsn !== null && e.ac_tcsn !== undefined ? e.ac_tcsn : '-'}</td>
+                        <td><strong>${e.tt_on_ac !== null && e.tt_on_ac !== undefined ? formatFlightTime(e.tt_on_ac) : '-'}</strong></td>
+                        <td><strong>${e.tc_on_ac !== null && e.tc_on_ac !== undefined ? e.tc_on_ac : '-'}</strong></td>
                     </tr>
                 `)
             );
@@ -10696,19 +10816,32 @@ function hideInstallTooltip() {
         
         const res = await fetch(url);
         const engines = await res.json();
-        setupModal(`${base} - ${cond2}`,
-            ['GSS SN','Orig SN','Current SN','Location','TT','TC'],
-            engines.length ? engines.map(e => `
-                <tr>
-                    <td>${e.gss_sn || '-'}</td>
-                    <td>${e.original_sn}</td>
-                    <td><strong>${e.current_sn}</strong></td>
-                    <td>${e.location}</td>
-                    <td>${e.tt}</td>
-                    <td>${e.tc}</td>
-                </tr>
-            `) : '<tr><td colspan="6" class="text-center text-muted">No engines</td></tr>'
-        );
+        
+        // Для INSTALLED добавляем колонки TSN/CSN on A/C
+        const isInstalled = base === 'INSTALLED';
+        const headers = isInstalled 
+            ? ['GSS SN','Orig SN','Current SN','Location','TT','TC','TSN (on A/C)','CSN (on A/C)']
+            : ['GSS SN','Orig SN','Current SN','Location','TT','TC'];
+        
+        const rows = engines.length ? engines.map(e => {
+            const baseRow = `
+                <td>${e.gss_sn || '-'}</td>
+                <td>${e.original_sn}</td>
+                <td><strong>${e.current_sn}</strong></td>
+                <td>${e.location}</td>
+                <td>${e.tt}</td>
+                <td>${e.tc}</td>
+            `;
+            
+            const onAcCols = isInstalled ? `
+                <td><strong>${e.tt_on_ac !== null && e.tt_on_ac !== undefined ? formatFlightTime(e.tt_on_ac) : '-'}</strong></td>
+                <td><strong>${e.tc_on_ac !== null && e.tc_on_ac !== undefined ? e.tc_on_ac : '-'}</strong></td>
+            ` : '';
+            
+            return `<tr>${baseRow}${onAcCols}</tr>`;
+        }) : `<tr><td colspan="${isInstalled ? 8 : 6}" class="text-center text-muted">No engines</td></tr>`;
+        
+        setupModal(`${base} - ${cond2}`, headers, rows);
     }
 
     async function toggleCondition2Breakdown() {
@@ -10733,7 +10866,7 @@ function hideInstallTooltip() {
         const engines = await res.json();
         const stats = {};
         engines.forEach(e => {
-            const key = e.condition_2 || 'New';
+            const key = e.condition_2 || '-';
             stats[key] = (stats[key] || 0) + 1;
         });
         // Count Scraped separately from condition_1
@@ -10744,7 +10877,7 @@ function hideInstallTooltip() {
         const container = document.getElementById('subcards-condition2');
         const types = [
             { key: 'Scrap', label: 'Scrapped', cls: 'btn-status-scrap', icon: 'bi-trash-fill', clickBase: 'SCRAP' },
-            { key: 'New', label: 'New', cls: 'btn-cond-new', icon: 'bi-stars', clickBase: 'ALL' },
+            { key: '-', label: 'Unknown', cls: 'btn-cond-unknown', icon: 'bi-question-circle', clickBase: 'ALL' },
             { key: 'Overhauled', label: 'Overhauled', cls: 'btn-cond-overhauled', icon: 'bi-tools', clickBase: 'ALL' },
             { key: 'Inspected tested', label: 'Inspected Tested', cls: 'btn-cond-inspected', icon: 'bi-search', clickBase: 'ALL' },
             { key: 'AS', label: 'AS (removed)', cls: 'btn-cond-as', icon: 'bi-tag', clickBase: 'ALL' }
@@ -10891,7 +11024,8 @@ function hideInstallTooltip() {
 
         // Prepare engine data from positions
         const positions = aircraft.positions || [null, null, null, null];
-        const engines = positions.map((pos, index) => {
+        const aircraftUtilizationDate = aircraft.utilization_found_date || aircraft.utilization_date || aircraft.last_data_date || 'N/A';
+        const engines = await Promise.all(positions.map(async (pos, index) => {
             if (!pos) {
                 return {
                     position: `ENG ${index + 1}`,
@@ -10900,6 +11034,7 @@ function hideInstallTooltip() {
                     current_sn: null,
                     gss_id: null,
                     supplier: null,
+                    price: 0,
                     utilization: 'N/A',
                     install_date: 'N/A',
                     last_borescope: 'N/A',
@@ -10907,8 +11042,23 @@ function hideInstallTooltip() {
                     total_time: 0,
                     total_cycles: 0,
                     tsn_on_aircraft: 0,
-                    csn_on_aircraft: 0
+                    csn_on_aircraft: 0,
+                    utilization_update_date: aircraftUtilizationDate
                 };
+            }
+            
+            let price = pos.price || 0;
+            // Load price from master engines if not available in position
+            if ((!price || price === 0) && pos.engine_id) {
+                try {
+                    const engineRes = await fetch(`/api/engines/${pos.engine_id}`);
+                    if (engineRes.ok) {
+                        const engineData = await engineRes.json();
+                        price = engineData.price || 0;
+                    }
+                } catch (e) {
+                    console.warn(`Failed to load price for engine ${pos.engine_id}:`, e);
+                }
             }
             
             return {
@@ -10918,6 +11068,7 @@ function hideInstallTooltip() {
                 current_sn: pos.current_sn || pos.original_sn || 'N/A',
                 gss_id: pos.gss_sn || 'N/A',
                 supplier: pos.supplier || 'N/A',
+                price: price,
                 utilization: pos.tsn_on_aircraft ? `${pos.tsn_on_aircraft} hrs` : 'N/A',
                 install_date: pos.install_date || 'N/A',
                 last_borescope: 'N/A',
@@ -10926,15 +11077,21 @@ function hideInstallTooltip() {
                 total_cycles: pos.total_csn || 0,
                 tsn_on_aircraft: pos.tsn_on_aircraft || 0,
                 csn_on_aircraft: pos.csn_on_aircraft || 0,
+                install_snapshot_tt: pos.install_snapshot_tt,
+                install_snapshot_tc: pos.install_snapshot_tc,
+                ac_ttsn_at_install: pos.ac_ttsn_at_install,
+                ac_tcsn_at_install: pos.ac_tcsn_at_install,
                 param_date: pos.param_date || 'N/A',
+                utilization_update_date: pos.utilization_update_date || aircraftUtilizationDate,
                 n1_takeoff: pos.n1_takeoff,
                 n1_cruise: pos.n1_cruise,
                 n2_takeoff: pos.n2_takeoff,
                 n2_cruise: pos.n2_cruise,
                 egt_takeoff: pos.egt_takeoff,
-                egt_cruise: pos.egt_cruise
+                egt_cruise: pos.egt_cruise,
+                previous_install: pos.previous_install || null
             };
-        });
+        }));
 
         // Attach latest borescope per position
         if (Array.isArray(borescopeData) && borescopeData.length > 0) {
@@ -11035,6 +11192,77 @@ function hideInstallTooltip() {
         }
     }
 
+    // Calculate engine cost per hour and per cycle
+    function calculateEngineCosts(price, tsnOnAircraft, csnOnAircraft) {
+        const parsedPrice = parseFloat(price) || 0;
+        const parsedTSN = parseFloat(tsnOnAircraft) || 0;
+        const parsedCSN = parseFloat(csnOnAircraft) || 0;
+        
+        let hourCost = 'N/A';
+        let cycleCost = 'N/A';
+        
+        if (parsedPrice > 0 && parsedTSN > 0) {
+            hourCost = `$${(parsedPrice / parsedTSN).toFixed(2)}`;
+        }
+        if (parsedPrice > 0 && parsedCSN > 0) {
+            cycleCost = `$${(parsedPrice / parsedCSN).toFixed(2)}`;
+        }
+        
+        return { hourCost, cycleCost };
+    }
+
+    function getEngineParamSeverity(limitType, value) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return { className: '', label: 'N/A' };
+        }
+
+        // Thresholds based on provided certified limits
+        if (limitType === 'n1') {
+            if (numeric <= 118.5) return { className: 'text-success', label: 'Normal' };
+            if (numeric <= 119.5) return { className: 'text-warning', label: 'Attention' };
+            return { className: 'text-danger', label: 'Critical' };
+        }
+
+        if (limitType === 'n2') {
+            if (numeric <= 109.5) return { className: 'text-success', label: 'Normal' };
+            if (numeric <= 111.3) return { className: 'text-warning', label: 'Attention' };
+            return { className: 'text-danger', label: 'Critical' };
+        }
+
+        if (limitType === 'egt_takeoff') {
+            if (numeric <= 945) return { className: 'text-success', label: 'Normal' };
+            if (numeric <= 960) return { className: 'text-warning', label: 'Transient zone' };
+            return { className: 'text-danger', label: 'Overheat' };
+        }
+
+        if (limitType === 'egt_cruise') {
+            if (numeric <= 910) return { className: 'text-success', label: 'Normal' };
+            if (numeric <= 945) return { className: 'text-warning', label: 'Elevated for cruise' };
+            return { className: 'text-danger', label: 'Critical for cruise' };
+        }
+
+        return { className: '', label: 'N/A' };
+    }
+
+    function formatEngineParamWithSeverity(value, unit, limitType) {
+        if (value === null || value === undefined || value === '') {
+            return { text: 'N/A', className: '', label: 'N/A' };
+        }
+
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return { text: 'N/A', className: '', label: 'N/A' };
+        }
+
+        const severity = getEngineParamSeverity(limitType, numeric);
+        return {
+            text: `${numeric} ${unit}`,
+            className: severity.className,
+            label: severity.label,
+        };
+    }
+
     // Render engine details (positions grid + parameters)
     function renderEngineDetails(data) {
         const modalContent = document.getElementById('engine-modal-content');
@@ -11097,8 +11325,20 @@ function hideInstallTooltip() {
         const e = data.engines[currentSelectedEnginePos] || {};
         const fmt = v => (v === null || v === undefined || v === '' ? 'N/A' : v);
         const fmtNum = (v, unit) => (v || v === 0) ? `${v} ${unit}` : 'N/A';
+        const prevInstall = e.previous_install || {};
+        const prevUtilText = (prevInstall.removed_tt !== null && prevInstall.removed_tt !== undefined && prevInstall.removed_tc !== null && prevInstall.removed_tc !== undefined)
+            ? `TT ${prevInstall.removed_tt} / TC ${prevInstall.removed_tc}`
+            : 'N/A';
         const tsnAC = (e.tsn_on_aircraft !== undefined && e.tsn_on_aircraft !== null) ? `${e.tsn_on_aircraft} hrs` : 'N/A';
         const csnAC = (e.csn_on_aircraft !== undefined && e.csn_on_aircraft !== null) ? `${e.csn_on_aircraft} cyc` : 'N/A';
+        const { hourCost, cycleCost } = calculateEngineCosts(e.price, e.tsn_on_aircraft, e.csn_on_aircraft);
+        const utilizationUpdateDate = e.utilization_update_date || 'N/A';
+        const n1TakeoffState = formatEngineParamWithSeverity(e.n1_takeoff, '%', 'n1');
+        const n1CruiseState = formatEngineParamWithSeverity(e.n1_cruise, '%', 'n1');
+        const n2TakeoffState = formatEngineParamWithSeverity(e.n2_takeoff, '%', 'n2');
+        const n2CruiseState = formatEngineParamWithSeverity(e.n2_cruise, '%', 'n2');
+        const egtTakeoffState = formatEngineParamWithSeverity(e.egt_takeoff, '°C', 'egt_takeoff');
+        const egtCruiseState = formatEngineParamWithSeverity(e.egt_cruise, '°C', 'egt_cruise');
 
         const leftPanel = `
             <div class="engine-panel">
@@ -11108,13 +11348,25 @@ function hideInstallTooltip() {
                 <div class="panel-row"><div class="row-label">GSS ID</div><div class="row-value">${fmt(e.gss_id)}</div></div>
                 <div class="panel-row"><div class="row-label">Supplier</div><div class="row-value">${fmt(e.supplier)}</div></div>
                 <div class="panel-row"><div class="row-label">Installed Date</div><div class="row-value">${fmt(e.install_date)}</div></div>
+                <div class="panel-divider"></div>
+                <div class="panel-title small">Installed previously</div>
+                <div class="panel-row"><div class="row-label">Orig SN</div><div class="row-value">${fmt(prevInstall.original_sn)}</div></div>
+                <div class="panel-row"><div class="row-label">Previous Current SN</div><div class="row-value">${fmt(prevInstall.previous_current_sn)}</div></div>
+                <div class="panel-row"><div class="row-label">Removed Date</div><div class="row-value">${fmt(prevInstall.removed_date)}</div></div>
+                <div class="panel-row"><div class="row-label">GSS ID</div><div class="row-value">${fmt(prevInstall.gss_id)}</div></div>
+                <div class="panel-row"><div class="row-label">Utilization</div><div class="row-value">${prevUtilText}</div></div>
+                <div class="panel-row"><div class="row-label">Reason</div><div class="row-value">${fmt(prevInstall.removal_reason)}</div></div>
+                <div class="panel-row"><div class="row-label">Removal Location</div><div class="row-value">${fmt(prevInstall.removed_location)}</div></div>
             </div>`;
 
         const centerPanel = `
             <div class="engine-panel">
                 <div class="panel-title">Time & Cycles</div>
+                <div class="panel-row" style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 10px;"><div class="row-label">Updated</div><div class="row-value">${utilizationUpdateDate}</div></div>
                 <div class="panel-row"><div class="row-label">TSN (on A/C)</div><div class="row-value blue">${tsnAC}</div></div>
+                <div class="panel-row"><div class="row-label">1 Hour Cost</div><div class="row-value blue">${hourCost}</div></div>
                 <div class="panel-row"><div class="row-label">CSN (on A/C)</div><div class="row-value cyan">${csnAC}</div></div>
+                <div class="panel-row"><div class="row-label">1 Cycle Cost</div><div class="row-value cyan">${cycleCost}</div></div>
                 <div class="panel-divider"></div>
                 <div class="panel-title small">Last Borescope Inspection</div>
                 <div class="panel-row"><div class="row-label">Date</div><div class="row-value">${fmt(e.last_borescope)}</div></div>
@@ -11124,12 +11376,12 @@ function hideInstallTooltip() {
         const rightPanel = `
             <div class="engine-panel">
                 <div class="panel-title">Engine Parameters</div>
-                <div class="panel-row"><div class="row-label">N1 Takeoff</div><div class="row-value">${fmtNum(e.n1_takeoff, '%')}</div></div>
-                <div class="panel-row"><div class="row-label">N1 Cruise</div><div class="row-value">${fmtNum(e.n1_cruise, '%')}</div></div>
-                <div class="panel-row"><div class="row-label">N2 Takeoff</div><div class="row-value">${fmtNum(e.n2_takeoff, '%')}</div></div>
-                <div class="panel-row"><div class="row-label">N2 Cruise</div><div class="row-value">${fmtNum(e.n2_cruise, '%')}</div></div>
-                <div class="panel-row"><div class="row-label">EGT Takeoff</div><div class="row-value">${fmtNum(e.egt_takeoff, '°C')}</div></div>
-                <div class="panel-row"><div class="row-label">EGT Cruise</div><div class="row-value">${fmtNum(e.egt_cruise, '°C')}</div></div>
+                <div class="panel-row"><div class="row-label">N1 Takeoff</div><div class="row-value ${n1TakeoffState.className}" title="${n1TakeoffState.label}">${n1TakeoffState.text}</div></div>
+                <div class="panel-row"><div class="row-label">N1 Cruise</div><div class="row-value ${n1CruiseState.className}" title="${n1CruiseState.label}">${n1CruiseState.text}</div></div>
+                <div class="panel-row"><div class="row-label">N2 Takeoff</div><div class="row-value ${n2TakeoffState.className}" title="${n2TakeoffState.label}">${n2TakeoffState.text}</div></div>
+                <div class="panel-row"><div class="row-label">N2 Cruise</div><div class="row-value ${n2CruiseState.className}" title="${n2CruiseState.label}">${n2CruiseState.text}</div></div>
+                <div class="panel-row"><div class="row-label">EGT Takeoff</div><div class="row-value ${egtTakeoffState.className}" title="${egtTakeoffState.label}">${egtTakeoffState.text}</div></div>
+                <div class="panel-row"><div class="row-label">EGT Cruise</div><div class="row-value ${egtCruiseState.className}" title="${egtCruiseState.label}">${egtCruiseState.text}</div></div>
                 <div class="panel-divider"></div>
                 <div class="panel-row"><div class="row-label">Last Updated</div><div class="row-value">${fmt(e.param_date)}</div></div>
             </div>`;
@@ -11338,7 +11590,7 @@ function hideInstallTooltip() {
             const aircraftId = document.querySelector('[data-aircraft-id]')?.getAttribute('data-aircraft-id');
             
             if (!e.engine_id || !aircraftId) {
-                console.warn('Missing engine ID or aircraft ID for history');
+                // Silently return if data not ready
                 return;
             }
 
@@ -12205,6 +12457,13 @@ function onGssInputChange(engines) {
         const minutes = Math.round((decimalHours - hours) * 60);
         
         return `${hours}:${String(minutes).padStart(2, '0')}`;
+    }
+
+    function formatWholeHours(decimalHours) {
+        if (decimalHours === null || decimalHours === undefined || decimalHours === '') return '';
+        const value = Number(decimalHours);
+        if (Number.isNaN(value)) return '';
+        return String(Math.round(value));
     }
 
     async function submitInstallForm() {
@@ -15080,9 +15339,9 @@ function onGssInputChange(engines) {
         allData.sort((a, b) => (b.id || 0) - (a.id || 0));
         allData.forEach(row => {
             const isTest = row.isTest ? 'table-warning' : '';
-            const ttsnText = row.ttsn !== null && row.ttsn !== undefined ? `${row.ttsn}` : '-';
+            const ttsnText = row.ttsn !== null && row.ttsn !== undefined ? `${formatFlightTime(row.ttsn)}` : '-';
             const tcsnText = row.tcsn !== null && row.tcsn !== undefined ? `${row.tcsn}` : '-';
-            const ttsnAcText = row.ttsn_ac !== null && row.ttsn_ac !== undefined ? `${row.ttsn_ac}` : '-';
+            const ttsnAcText = row.ttsn_ac !== null && row.ttsn_ac !== undefined ? `${formatFlightTime(row.ttsn_ac)}` : '-';
             const tcsnAcText = row.tcsn_ac !== null && row.tcsn_ac !== undefined ? `${row.tcsn_ac}` : '-';
             const remarksRemovalText = row.remarks_removal ? `${row.remarks_removal}` : '-';
             const conditionText = row.condition_1_at_removal || '-';
@@ -15123,8 +15382,8 @@ function onGssInputChange(engines) {
                             </div>
                             
                             <div class="row mb-3">
-                                <div class="col-md-3"><strong>TTSN (Engine):</strong> <span class="badge bg-warning text-white">${ttsnText}</span></div>
-                                <div class="col-md-3"><strong>TCSN (Engine):</strong> <span class="badge bg-warning text-white">${tcsnText}</span></div>
+                                <div class="col-md-3"><strong>Removed Engine Flight:</strong> <span class="badge bg-warning text-white">${ttsnText}</span></div>
+                                <div class="col-md-3"><strong>Removed Engine Cycles:</strong> <span class="badge bg-warning text-white">${tcsnText}</span></div>
                                 <div class="col-md-3"><strong>TTSN (Aircraft):</strong> <span class="badge bg-warning text-white">${ttsnAcText}</span></div>
                                 <div class="col-md-3"><strong>TCSN (Aircraft):</strong> <span class="badge bg-warning text-white">${tcsnAcText}</span></div>
                             </div>
@@ -15151,6 +15410,77 @@ function onGssInputChange(engines) {
         const detailsRow = row.nextElementSibling;
         if (detailsRow && detailsRow.classList.contains('removal-details-row')) {
             detailsRow.style.display = detailsRow.style.display === 'none' ? 'table-row' : 'none';
+        }
+    }
+
+    let removeSelectedEngine = null;
+
+    function recalcRemoveEngineUtilization() {
+        const ttsnField = document.getElementById('rem-ttsn');
+        const tcsnField = document.getElementById('rem-tcsn');
+        const acTtsnField = document.getElementById('rem-ttsn-ac');
+        const acTcsnField = document.getElementById('rem-tcsn-ac');
+
+        if (!ttsnField || !tcsnField) return;
+
+        if (!removeSelectedEngine) {
+            ttsnField.value = '';
+            tcsnField.value = '';
+            return;
+        }
+
+        try {
+            const installEngineTtsn = Number(removeSelectedEngine.install_snapshot_tt ?? removeSelectedEngine.tt ?? 0);
+            const installEngineTcsn = Number(removeSelectedEngine.install_snapshot_tc ?? removeSelectedEngine.tc ?? 0);
+            const currentAircraftTtsn = Number(removeSelectedEngine.ac_ttsn ?? 0);
+            const currentAircraftTcsn = Number(removeSelectedEngine.ac_tcsn ?? 0);
+            const aircraftTtsnAtInstall = Number(removeSelectedEngine.ac_ttsn_at_install ?? 0);
+            const aircraftTcsnAtInstall = Number(removeSelectedEngine.ac_tcsn_at_install ?? 0);
+
+            const acTtsnInput = acTtsnField.value.trim();
+            const acTcsnInput = acTcsnField.value.trim();
+
+            if (!acTtsnInput || acTcsnInput === '') {
+                const currentEngineTtsn = Math.max(installEngineTtsn + (currentAircraftTtsn - aircraftTtsnAtInstall), 0);
+                const currentEngineTcsn = Math.max(installEngineTcsn + (currentAircraftTcsn - aircraftTcsnAtInstall), 0);
+                ttsnField.value = formatWholeHours(currentEngineTtsn);
+                tcsnField.value = String(currentEngineTcsn);
+                return;
+            }
+
+            const acTtsnRemoval = parseFlightTime(acTtsnInput);
+            const acTcsnRemoval = parseInt(acTcsnInput, 10);
+
+            if (Number.isNaN(acTcsnRemoval)) {
+                tcsnField.value = '';
+                return;
+            }
+
+            const engineTtsn = Math.max(installEngineTtsn + ((acTtsnRemoval ?? 0) - aircraftTtsnAtInstall), 0);
+            const engineTcsn = Math.max(installEngineTcsn + (acTcsnRemoval - aircraftTcsnAtInstall), 0);
+
+            ttsnField.value = formatWholeHours(engineTtsn);
+            tcsnField.value = String(engineTcsn);
+        } catch (e) {
+            ttsnField.value = '';
+            tcsnField.value = '';
+        }
+    }
+
+    function focusRemoveField(fieldId) {
+        const el = document.getElementById(fieldId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+            try { el.focus({ preventScroll: true }); } catch { el.focus(); }
+        }, 50);
+    }
+
+    function resetRemoveSubmitState(saveBtn) {
+        _removeSubmitting = false;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = saveBtn.dataset._orig || 'Confirm Removal';
         }
     }
 
@@ -15199,10 +15529,15 @@ function onGssInputChange(engines) {
             const val = this.value.trim();
             
             if (!val) {
+                removeSelectedEngine = null;
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
                 document.getElementById('rem-gss-id').value = '';
                 document.getElementById('rem-aircraft').value = '';
+                document.getElementById('rem-ttsn-ac').value = '';
+                document.getElementById('rem-tcsn-ac').value = '';
+                document.getElementById('rem-ttsn').value = '';
+                document.getElementById('rem-tcsn').value = '';
                 document.getElementById('rem-aircraft').disabled = true;
                 document.getElementById('rem-aircraft').classList.remove('border-success');
                 return;
@@ -15211,6 +15546,7 @@ function onGssInputChange(engines) {
             const found = engines.find(e => e.original_sn === val || e.current_sn === val);
             
             if(!found) {
+                removeSelectedEngine = null;
                 showErrorNotification(`❌ Engine "${val}" not found in INSTALLED engines list. Please check the serial number or add the engine first.`);
                 this.value = '';
                 document.getElementById('rem-engine-id').value = '';
@@ -15224,6 +15560,7 @@ function onGssInputChange(engines) {
             
             // Проверяем статус двигателя
             if(found.status !== 'INSTALLED') {
+                removeSelectedEngine = null;
                 showErrorNotification(`❌ Engine ${found.original_sn} cannot be removed! Current status: ${found.status}. Only INSTALLED engines can be removed.`);
                 this.value = '';
                 document.getElementById('rem-engine-id').value = '';
@@ -15237,6 +15574,7 @@ function onGssInputChange(engines) {
             
             // Проверяем что двигатель установлен на самолете
             if(!found.aircraft_id || !found.aircraft) {
+                removeSelectedEngine = null;
                 showErrorNotification(`❌ Engine ${found.original_sn} is not linked to any aircraft! Cannot remove uninstalled engine. System error - please contact support.`);
                 this.value = '';
                 document.getElementById('rem-engine-id').value = '';
@@ -15249,15 +15587,30 @@ function onGssInputChange(engines) {
             }
             
             // Все проверки пройдены - заполняем поля
+            removeSelectedEngine = found;
             document.getElementById('rem-engine-id').value = found.id;
             document.getElementById('rem-loc-from').value = found.location;
             document.getElementById('rem-gss-id').value = found.gss_sn || '-';
+            document.getElementById('rem-ttsn-ac').value = found.ac_ttsn !== null && found.ac_ttsn !== undefined ? formatWholeHours(found.ac_ttsn) : '';
+            document.getElementById('rem-tcsn-ac').value = found.ac_tcsn !== null && found.ac_tcsn !== undefined ? found.ac_tcsn : '';
             
             const acSelect = document.getElementById('rem-aircraft');
             acSelect.value = found.aircraft;
             acSelect.disabled = false;
             acSelect.classList.add('border-success'); // Зеленая рамка = определено автоматически
+            recalcRemoveEngineUtilization();
         });
+
+        const remTtsnAc = document.getElementById('rem-ttsn-ac');
+        const remTcsnAc = document.getElementById('rem-tcsn-ac');
+        if (remTtsnAc && !remTtsnAc.dataset.calcBound) {
+            remTtsnAc.addEventListener('input', recalcRemoveEngineUtilization);
+            remTtsnAc.dataset.calcBound = '1';
+        }
+        if (remTcsnAc && !remTcsnAc.dataset.calcBound) {
+            remTcsnAc.addEventListener('input', recalcRemoveEngineUtilization);
+            remTcsnAc.dataset.calcBound = '1';
+        }
 
         // Грузим локации (куда снять)
         const locRes = await fetch('/api/locations' + noCache());
@@ -15281,14 +15634,25 @@ function onGssInputChange(engines) {
         const destId = document.getElementById('rem-dest').value;
         const destText = document.getElementById('rem-dest').options[document.getElementById('rem-dest').selectedIndex]?.text || "Dest";
 
-        if(!date || !engInput || !destId) { 
-            showErrorNotification("Please fill in all required fields: date, engine, and destination location."); 
-            return; 
+        if(!date || !engInput || !destId) {
+            showErrorNotification("Please fill in all required fields: date, engine, and destination location.");
+            resetRemoveSubmitState(saveBtn);
+            focusRemoveField(!date ? 'rem-date' : (!engInput ? 'rem-engine-input' : 'rem-dest'));
+            return;
+        }
+
+        if (!document.getElementById('rem-ttsn-ac').value.trim() || document.getElementById('rem-tcsn-ac').value.trim() === '') {
+            showErrorNotification('Please fill in Aircraft TTSN and Aircraft TCSN. Engine values will be calculated automatically.');
+            resetRemoveSubmitState(saveBtn);
+            focusRemoveField(!document.getElementById('rem-ttsn-ac').value.trim() ? 'rem-ttsn-ac' : 'rem-tcsn-ac');
+            return;
         }
         
         // Проверяем что двигатель выбран из списка (существует в базе)
         if(!engId || engId === '0' || engId === '') {
             showErrorNotification("Please select an engine from the list. Engine must exist in Master Engine List.");
+            resetRemoveSubmitState(saveBtn);
+            focusRemoveField('rem-engine-input');
             return;
         }
         
@@ -15299,27 +15663,35 @@ function onGssInputChange(engines) {
         
         if (!selectedEngine) {
             showErrorNotification('Selected engine not found in database!');
+            resetRemoveSubmitState(saveBtn);
+            focusRemoveField('rem-engine-input');
             return;
         }
         
         if (selectedEngine.status !== 'INSTALLED') {
             showErrorNotification(`Engine ${selectedEngine.original_sn} cannot be removed! Current status: ${selectedEngine.status}. Only INSTALLED engines can be removed.`);
+            resetRemoveSubmitState(saveBtn);
+            focusRemoveField('rem-engine-input');
             return;
         }
         
         if (!selectedEngine.aircraft_id) {
             showErrorNotification(`Engine ${selectedEngine.original_sn} is not installed on any aircraft!`);
+            resetRemoveSubmitState(saveBtn);
+            focusRemoveField('rem-engine-input');
             return;
         }
 
         // Parse flight time inputs
         let ttsnValue, ttsnAcValue;
         try {
-            ttsnValue = parseFlightTime(document.getElementById('rem-ttsn').value);
+            ttsnValue = document.getElementById('rem-ttsn').value ? parseFlightTime(document.getElementById('rem-ttsn').value) : null;
             const ttsnAcInput = document.getElementById('rem-ttsn-ac').value;
             ttsnAcValue = ttsnAcInput ? parseFlightTime(ttsnAcInput) : null;
         } catch (e) {
             showErrorNotification(e.message);
+            resetRemoveSubmitState(saveBtn);
+            focusRemoveField('rem-ttsn-ac');
             return;
         }
         
@@ -15816,7 +16188,6 @@ function onGssInputChange(engines) {
                     inputHTML = `
                         <select class="editing-input">
                             <option value="-" ${rowData.condition2 === '-' || !rowData.condition2 ? 'selected' : ''}>-</option>
-                            <option value="New" ${rowData.condition2 === 'New' ? 'selected' : ''}>New</option>
                             <option value="Overhauled" ${rowData.condition2 === 'Overhauled' ? 'selected' : ''}>Overhauled</option>
                             <option value="Repaired" ${rowData.condition2 === 'Repaired' ? 'selected' : ''}>Repaired</option>
                             <option value="Inspected tested" ${rowData.condition2 === 'Inspected tested' ? 'selected' : ''}>Inspected tested</option>
@@ -15891,7 +16262,7 @@ function onGssInputChange(engines) {
             <td data-key="price"><input type="number" class="editing-input" step="0.01" value=""></td>
             <td data-key="status"><select class="editing-input"><option value="">-</option><option>INSTALLED</option><option>REMOVED</option></select></td>
             <td data-key="condition-1"><select class="editing-input"><option value="-">-</option><option>SV</option><option>US</option><option>Scrap</option></select></td>
-            <td data-key="condition-2"><select class="editing-input"><option value="-">-</option><option>New</option><option>Overhauled</option><option>Repaired</option><option>Inspected tested</option><option>As removed</option></select></td>
+            <td data-key="condition-2"><select class="editing-input"><option value="-">-</option><option>Overhauled</option><option>Repaired</option><option>Inspected tested</option><option>As removed</option></select></td>
             <td data-key="tt"><input type="number" class="editing-input" value="0"></td>
             <td data-key="tc"><input type="number" class="editing-input" value="0"></td>
             <td data-key="location"><select class="editing-input location-select"></select></td>
@@ -16512,10 +16883,10 @@ function onGssInputChange(engines) {
         },
         'store-balance': {
             bodyId: 'store-balance-body',
-            columns: ['received_date', 'part_name', 'part_number', 'serial_number', 'condition', 'quantity', 'unit', 'location', 'shelf', 'owner', 'remarks'],
+            columns: ['part_name', 'part_number', 'serial_number', 'quantity', 'shelf', 'condition', 'location', 'removed_from', 'location_from', 'price', 'invoice_no', 'unit', 'remarks'],
             columnTypes: {
-                received_date: 'date',
                 quantity: 'number',
+                price: 'number',
                 condition: 'select'
             },
             selectOptions: {
@@ -17930,6 +18301,7 @@ function onGssInputChange(engines) {
     async function openPartsView() {
         hideAllViews();
         document.getElementById('view-parts').style.display = 'block';
+        updateHistory('parts');
         await loadPartsHistory();
         await loadStoreBalanceForPartsForm();
     }
@@ -17988,7 +18360,7 @@ function onGssInputChange(engines) {
             tbody.innerHTML = '';
 
             if (!data || data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="12" class="text-center">No store items recorded</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="14" class="text-center">No store items recorded</td></tr>';
                 return;
             }
 
@@ -18019,16 +18391,18 @@ function onGssInputChange(engines) {
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>
-                        <td>${fmt(item.received_date)}</td>
                         <td>${fmt(item.part_name)}</td>
                         <td>${fmt(item.part_number)}</td>
                         <td>${fmt(item.serial_number)}</td>
-                        <td>${condHtml}</td>
                         <td>${fmtNumber(item.quantity)}</td>
-                        <td>${fmt(item.unit)}</td>
-                        <td>${fmt(item.location)}</td>
                         <td>${fmt(item.shelf)}</td>
-                        <td>${fmt(item.owner)}</td>
+                        <td>${condHtml}</td>
+                        <td>${fmt(item.location)}</td>
+                        <td>${fmt(item.removed_from)}</td>
+                        <td>${fmt(item.location_from)}</td>
+                        <td>${fmt(item.price)}</td>
+                        <td>${fmt(item.invoice_no)}</td>
+                        <td>${fmt(item.unit)}</td>
                         <td>${fmt(item.remarks)}</td>
                     </tr>`;
             });
@@ -18052,7 +18426,7 @@ function onGssInputChange(engines) {
 
         const quantityRaw = document.getElementById('store-qty').value;
         const payload = {
-            received_date: document.getElementById('store-date').value || null,
+            received_date: null,
             part_name: document.getElementById('store-name').value.trim(),
             part_number: document.getElementById('store-pn').value.trim(),
             serial_number: document.getElementById('store-sn').value.trim(),
@@ -18061,7 +18435,11 @@ function onGssInputChange(engines) {
             unit: document.getElementById('store-unit').value.trim(),
             location: document.getElementById('store-location').value.trim(),
             shelf: document.getElementById('store-shelf').value.trim(),
-            owner: document.getElementById('store-owner').value.trim(),
+            owner: '',
+            removed_from: document.getElementById('store-removed-from').value.trim(),
+            location_from: document.getElementById('store-location-from').value.trim(),
+            price: document.getElementById('store-price').value !== '' ? parseFloat(document.getElementById('store-price').value) : null,
+            invoice_no: document.getElementById('store-invoice-no').value.trim(),
             remarks: document.getElementById('store-remarks').value.trim()
         };
 
@@ -20148,6 +20526,293 @@ function onGssInputChange(engines) {
         
         // Загружаем список самолетов
         await loadAircraftDropdown();
+        await loadAircraftUtilSources();
+
+        // Attach auto-preview on paste/input for each URL field
+        ['bat', 'bar', 'baq'].forEach(tail => {
+            const input = document.getElementById(`util-source-${tail}`);
+            if (!input || input._previewBound) return;
+            input._previewBound = true;
+            let _previewTimer = null;
+            input.addEventListener('input', () => {
+                clearTimeout(_previewTimer);
+                const url = input.value.trim();
+                if (!url) { _clearPreviewFields(tail); return; }
+                const wrapEl = document.getElementById(`util-source-status-${tail}-wrap`);
+                if (wrapEl) wrapEl.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Reading file...</span>';
+                _previewTimer = setTimeout(() => previewExcelUrl(tail, url), 900);
+            });
+        });
+    }
+
+    function _clearPreviewFields(tail) {
+        const wrapEl = document.getElementById(`util-source-status-${tail}-wrap`);
+        if (wrapEl) wrapEl.innerHTML = '';
+        const dateEl = document.getElementById(`util-found-date-${tail}`);
+        const ttsnEl = document.getElementById(`util-found-ttsn-${tail}`);
+        const tcsnEl = document.getElementById(`util-found-tcsn-${tail}`);
+        if (dateEl) dateEl.textContent = '—';
+        if (ttsnEl) ttsnEl.textContent = '—';
+        if (tcsnEl) tcsnEl.textContent = '—';
+    }
+
+    async function previewExcelUrl(tail, url) {
+        const wrapEl = document.getElementById(`util-source-status-${tail}-wrap`);
+        const dateEl = document.getElementById(`util-found-date-${tail}`);
+        const ttsnEl = document.getElementById(`util-found-ttsn-${tail}`);
+        const tcsnEl = document.getElementById(`util-found-tcsn-${tail}`);
+
+        const maxAttempts = 5;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            if (attempt === 0) {
+                if (wrapEl) wrapEl.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Downloading &amp; reading Excel...</span>';
+            } else {
+                if (wrapEl) wrapEl.innerHTML = `<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Retrying... (${attempt + 1}/${maxAttempts})</span>`;
+            }
+            try {
+                const res = await fetch('/api/aircraft-utilization-sources/preview?url=' + encodeURIComponent(url));
+                const data = await res.json();
+                if (data.ok) {
+                    if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-success me-1">Found</span><span class="small text-muted">Sheet: <b>${data.sheet}</b></span>`;
+                    if (dateEl) dateEl.textContent = data.date || '—';
+                    if (ttsnEl) ttsnEl.textContent = data.ttsn_display || '—';
+                    if (tcsnEl) tcsnEl.textContent = data.tcsn !== undefined ? data.tcsn : '—';
+                    return;
+                }
+                const isAccess = (data.error || '').includes('Access denied') || (data.error || '').includes('401') || (data.error || '').includes('403');
+                if (isAccess) {
+                    // Access errors won't be fixed by retrying
+                    if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Access Denied</span><span class="small text-danger">File is private. <b>Share → Anyone with the link → Viewer</b> in Google Sheets, then paste again.</span>`;
+                    return;
+                }
+                if (attempt < maxAttempts - 1) {
+                    await new Promise(r => setTimeout(r, 3200));
+                    continue;
+                }
+                if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Error</span><span class="small text-danger">${data.error || 'Unknown error'}</span><div class="small text-muted mt-1">Last successful values are kept below.</div>`;
+            } catch (err) {
+                if (attempt < maxAttempts - 1) {
+                    await new Promise(r => setTimeout(r, 3200));
+                    continue;
+                }
+                if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Error</span><span class="small text-danger">${err.message}</span><div class="small text-muted mt-1">Last successful values are kept below.</div>`;
+            }
+        }
+    }
+
+    function renderUtilSourceRecentHistory(tail, items) {
+        const historyEl = document.getElementById(`util-source-history-${tail}`);
+        if (!historyEl) return;
+        if (!Array.isArray(items) || items.length === 0) {
+            historyEl.innerHTML = '<div class="small text-muted">No previous found data yet.</div>';
+            return;
+        }
+
+        historyEl.innerHTML = `
+            <div class="small text-muted mb-1">Previous found data</div>
+            <div style="max-height: 135px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 8px; background: #fafbfc;">
+                ${items.map(item => {
+                    const d = item.date ? new Date(item.date) : null;
+                    const sync = item.synced_at ? new Date(item.synced_at) : null;
+                    const dateText = d && !isNaN(d) ? d.toLocaleDateString('ru-RU') : '—';
+                    const syncText = sync && !isNaN(sync) ? sync.toLocaleString('ru-RU') : '—';
+                    const ttsnText = typeof formatWholeHours === 'function' ? formatWholeHours(item.ttsn) : (item.ttsn ?? '—');
+                    return `
+                        <div style="padding: 6px 8px; border-bottom: 1px solid #edf2f7; font-size: 0.78rem;">
+                            <div class="d-flex justify-content-between"><strong>${dateText}</strong><span class="text-muted">${syncText}</span></div>
+                            <div class="d-flex justify-content-between mt-1"><span>TTSN: <b>${ttsnText}</b></span><span>TCSN: <b>${item.tcsn ?? '—'}</b></span></div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    function getUtilSourceInputId(tailNumber) {
+        const shortTail = String(tailNumber || '').replace('ER-', '').toLowerCase();
+        return `util-source-${shortTail}`;
+    }
+
+    function getUtilSourceStatusWrapperId(tailNumber) {
+        const shortTail = String(tailNumber || '').replace('ER-', '').toLowerCase();
+        return `util-source-status-${shortTail}-wrap`;
+    }
+
+    function getUtilSourceFoundId(tailNumber) {
+        const shortTail = String(tailNumber || '').replace('ER-', '').toLowerCase();
+        return `util-source-found-${shortTail}`;
+    }
+
+    function renderAircraftUtilSourceStatus(item, wrapEl, foundEl, dateEl, ttsnEl, tcsnEl) {
+        if (!wrapEl) return;
+        if (!item || !item.source_url) {
+            wrapEl.innerHTML = '<span class="badge bg-secondary">Not configured</span>';
+            if (dateEl) dateEl.textContent = '—';
+            if (ttsnEl) ttsnEl.textContent = '—';
+            if (tcsnEl) tcsnEl.textContent = '—';
+            return;
+        }
+        if (item.last_error) {
+            const isAccessError = item.last_error.includes('Access denied') || item.last_error.includes('401') || item.last_error.includes('403');
+            if (isAccessError) {
+                wrapEl.innerHTML = `<span class="badge bg-danger me-1">Access Denied</span><span class="small text-danger">File is private. <strong>Share → Anyone with the link → Viewer</strong> in Google Sheets, then save again.</span>`;
+            } else {
+                wrapEl.innerHTML = `<span class="badge bg-danger me-1">Error</span><span class="small text-danger">${item.last_error}</span><div class="small text-muted mt-1">Showing last successful values below.</div>`;
+            }
+        }
+        if (item.last_source_date && item.last_ttsn !== null && item.last_ttsn !== undefined) {
+            const d = new Date(item.last_source_date);
+            const dateStr = isNaN(d) ? item.last_source_date : d.toLocaleDateString('ru-RU');
+            const syncedAt = item.last_synced_at ? new Date(item.last_synced_at).toLocaleString('ru-RU') : '';
+            if (!item.last_error) {
+                wrapEl.innerHTML = `<span class="badge bg-success me-1">Synced</span><span class="small text-muted">Last sync: ${syncedAt}</span>`;
+            }
+            if (dateEl) dateEl.textContent = dateStr;
+            if (ttsnEl) ttsnEl.textContent = typeof formatWholeHours === 'function' ? formatWholeHours(item.last_ttsn) : item.last_ttsn;
+            if (tcsnEl) tcsnEl.textContent = item.last_tcsn !== null && item.last_tcsn !== undefined ? item.last_tcsn : '—';
+            return;
+        }
+        if (item.last_status) {
+            wrapEl.innerHTML = `<span class="badge bg-warning text-dark">${item.last_status}</span>`;
+        } else {
+            wrapEl.innerHTML = '<span class="badge bg-secondary">Not synced yet</span>';
+        }
+    }
+
+    async function loadAircraftUtilSources() {
+        try {
+            const response = await fetch('/api/aircraft-utilization-sources' + noCache());
+            if (!response.ok) throw new Error('Failed to load utilization source links');
+
+            const items = await response.json();
+            const previewQueue = [];
+            items.forEach(item => {
+                const tail = item.aircraft_tail_number;
+                const input = document.getElementById(getUtilSourceInputId(tail));
+                const wrapEl = document.getElementById(getUtilSourceStatusWrapperId(tail));
+                const foundEl = document.getElementById(getUtilSourceFoundId(tail));
+                const shortTail = String(tail || '').replace('ER-', '').toLowerCase();
+                const dateEl = document.getElementById(`util-found-date-${shortTail}`);
+                const ttsnEl = document.getElementById(`util-found-ttsn-${shortTail}`);
+                const tcsnEl = document.getElementById(`util-found-tcsn-${shortTail}`);
+                if (input) input.value = item.source_url || '';
+                renderAircraftUtilSourceStatus(item, wrapEl, foundEl, dateEl, ttsnEl, tcsnEl);
+                renderUtilSourceRecentHistory(shortTail, item.recent_history || []);
+
+                // Run live preview on load so transient stored errors are refreshed automatically.
+                if (item.source_url && item.source_url.trim()) {
+                    if (wrapEl) {
+                        wrapEl.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Checking live link...</span>';
+                    }
+                    previewQueue.push({ tail: shortTail, url: item.source_url.trim() });
+                }
+            });
+            if (previewQueue.length) {
+                for (const entry of previewQueue) {
+                    await previewExcelUrl(entry.tail, entry.url);
+                    await new Promise(r => setTimeout(r, 700));
+                }
+            }
+        } catch (err) {
+            console.error('Error loading aircraft utilization sources:', err);
+        }
+    }
+
+    async function saveAircraftUtilSources() {
+        const statusEl = document.getElementById('util-source-save-status');
+        const btn = document.getElementById('btn-save-util-sources');
+        if (statusEl) statusEl.textContent = '';
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...'; }
+
+        const payload = {
+            items: [
+                { aircraft_tail_number: 'ER-BAT', source_url: document.getElementById('util-source-bat')?.value.trim() || '', is_enabled: true },
+                { aircraft_tail_number: 'ER-BAR', source_url: document.getElementById('util-source-bar')?.value.trim() || '', is_enabled: true },
+                { aircraft_tail_number: 'ER-BAQ', source_url: document.getElementById('util-source-baq')?.value.trim() || '', is_enabled: true }
+            ]
+        };
+
+        try {
+            const response = await fetch('/api/aircraft-utilization-sources', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.detail || 'Failed to save source links');
+            }
+            if (statusEl) { statusEl.textContent = '✓ Saved!'; statusEl.className = 'text-success small me-2 fw-bold'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save"></i> Save Links'; }
+            showSuccessNotification('Excel links saved successfully');
+            await loadAircraftUtilSources();
+            setTimeout(() => { if (statusEl) { statusEl.textContent = ''; statusEl.className = 'text-muted small me-2'; } }, 4000);
+        } catch (err) {
+            console.error('Error saving aircraft utilization sources:', err);
+            if (statusEl) { statusEl.textContent = '✗ Error: ' + err.message; statusEl.className = 'text-danger small me-2'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save"></i> Save Links'; }
+            showErrorNotification('Error saving Excel links: ' + err.message);
+        }
+    }
+
+    async function refreshAircraftUtilSourcePreviews() {
+        const btn = document.getElementById('btn-refresh-util-sources');
+        const targets = [
+            { tail: 'bat', inputId: 'util-source-bat' },
+            { tail: 'bar', inputId: 'util-source-bar' },
+            { tail: 'baq', inputId: 'util-source-baq' },
+        ];
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Refreshing...';
+        }
+
+        try {
+            for (const item of targets) {
+                const input = document.getElementById(item.inputId);
+                const url = input?.value?.trim() || '';
+                if (!url) continue;
+                await previewExcelUrl(item.tail, url);
+            }
+        } catch (err) {
+            console.error('Error refreshing utilization source previews:', err);
+            showErrorNotification('Refresh error: ' + err.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
+            }
+        }
+    }
+
+    async function syncAircraftUtilSourcesNow() {
+        const btn = document.getElementById('btn-sync-util-sources');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Syncing...'; }
+        try {
+            const response = await fetch('/api/aircraft-utilization-sources/sync', { method: 'POST' });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.detail || 'Manual sync failed');
+            }
+
+            const synced = Array.isArray(data.results) ? data.results.filter(x => x.status === 'synced').length : 0;
+            const errors = Array.isArray(data.results) ? data.results.filter(x => x.status === 'error').length : 0;
+            if (errors > 0) {
+                showErrorNotification(`Sync finished. Synced: ${synced}, errors: ${errors}. Check status below.`);
+            } else {
+                showSuccessNotification(`Sync finished. Synced: ${synced} aircraft.`);
+            }
+
+            await loadAircraftUtilSources();
+            if (typeof loadAircraftUtilHistory === 'function') await loadAircraftUtilHistory();
+            if (typeof loadDashboardData === 'function') await loadDashboardData();
+        } catch (err) {
+            console.error('Error syncing aircraft utilization sources:', err);
+            showErrorNotification('Sync error: ' + err.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Sync Now'; }
+        }
     }
     
     async function loadAircraftDropdown() {
@@ -20464,15 +21129,16 @@ function onGssInputChange(engines) {
             }
             
             const data = await response.json();
+            const periodicOnly = (Array.isArray(data) ? data : []).filter(item => item && item.period === true);
             tbody.innerHTML = '';
             
-            if (data.length === 0) {
+            if (periodicOnly.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="12" class="text-muted">Нет данных</td></tr>';
                 return;
             }
 
-        data.sort((a, b) => (b.id || 0) - (a.id || 0));
-        data.forEach((item, index) => {
+        periodicOnly.sort((a, b) => (b.id || 0) - (a.id || 0));
+        periodicOnly.forEach((item, index) => {
             const dateStr = new Date(item.date).toLocaleDateString('ru-RU');
             const createdStr = new Date(item.created_at).toLocaleString('ru-RU');
             const periodStr = item.period ? 'Да' : 'Нет';
@@ -20551,24 +21217,29 @@ function onGssInputChange(engines) {
             tbody.innerHTML = '';
             
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-muted">Нет данных</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-muted">Нет данных</td></tr>';
                 return;
             }
 
             // Сортируем по дате (новые первыми)
-            data.sort((a, b) => new Date(b.date) - new Date(a.date));
+            data.sort((a, b) => new Date(b.synced_at || b.created_at) - new Date(a.synced_at || a.created_at));
             
             data.forEach((item) => {
-                const dateStr = new Date(item.date).toLocaleDateString('ru-RU');
-                const createdStr = new Date(item.created_at).toLocaleString('ru-RU');
+                const dateStr = item.date ? new Date(item.date).toLocaleDateString('ru-RU') : '—';
+                const syncedStr = item.synced_at ? new Date(item.synced_at).toLocaleString('ru-RU') : (item.created_at ? new Date(item.created_at).toLocaleString('ru-RU') : '—');
+                const isAuto = item.source === 'auto_sync';
+                const sourceBadge = isAuto
+                    ? '<span class="badge bg-success">Авто-синк</span>'
+                    : '<span class="badge bg-secondary">Вручную</span>';
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${dateStr}</td>
                     <td>${item.aircraft_tail_number || item.aircraft}</td>
-                    <td>${formatFlightTime(item.total_time || 0)}</td>
+                    <td>${formatWholeHours(item.total_time || 0)}</td>
                     <td>${item.total_cycles || 0}</td>
-                    <td>${createdStr}</td>
+                    <td>${sourceBadge}</td>
+                    <td>${syncedStr}</td>
                 `;
                 tbody.appendChild(row);
             });

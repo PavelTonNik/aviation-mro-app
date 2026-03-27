@@ -7,15 +7,25 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone, date as DateType
+import asyncio
+import csv
 import json
+import re
+import tempfile
 from pathlib import Path
 import hashlib
 import secrets
 import os
+from io import BytesIO
+from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
+from urllib.request import Request as UrlRequest, urlopen
+from zipfile import BadZipFile
 from passlib.context import CryptContext
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from openpyxl import load_workbook
+from openpyxl.utils.datetime import from_excel
 
 try:
     from . import models, database
@@ -24,6 +34,9 @@ except ImportError:  # fallback when running as a standalone script
     import models
     import database
     import r2_storage
+
+UTILIZATION_SOURCE_TAILS = ["ER-BAT", "ER-BAR", "ER-BAQ"]
+aircraft_utilization_sync_task = None
 
 def _sync_engine_status_from_history(db):
     """
@@ -191,6 +204,20 @@ def startup_event():
                 print("✅ Added inspection_report column")
             except:
                 pass  # Column already exists
+
+            try:
+                conn.execute(text("ALTER TABLE aircraft_utilization_history ADD COLUMN source VARCHAR"))
+                conn.commit()
+                print("✅ Added aircraft_utilization_history.source column")
+            except:
+                pass  # Column already exists
+
+            try:
+                conn.execute(text("ALTER TABLE aircraft_utilization_history ADD COLUMN synced_at TIMESTAMP"))
+                conn.commit()
+                print("✅ Added aircraft_utilization_history.synced_at column")
+            except:
+                pass  # Column already exists
         
         print("✅ Schema verification complete")
     except Exception as e:
@@ -321,6 +348,20 @@ def startup_event():
                         ) THEN
                             ALTER TABLE utilization_parameters ADD COLUMN engine_id INTEGER;
                         END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='aircraft_utilization_history' AND column_name='source'
+                        ) THEN
+                            ALTER TABLE aircraft_utilization_history ADD COLUMN source VARCHAR(50);
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='aircraft_utilization_history' AND column_name='synced_at'
+                        ) THEN
+                            ALTER TABLE aircraft_utilization_history ADD COLUMN synced_at TIMESTAMPTZ;
+                        END IF;
                         
                         IF NOT EXISTS (
                             SELECT 1 FROM information_schema.columns 
@@ -333,7 +374,7 @@ def startup_event():
                             SELECT 1 FROM information_schema.columns 
                             WHERE table_name='engines' AND column_name='condition_2'
                         ) THEN
-                            ALTER TABLE engines ADD COLUMN condition_2 VARCHAR DEFAULT 'New';
+                            ALTER TABLE engines ADD COLUMN condition_2 VARCHAR DEFAULT '-';
                         END IF;
                         
                         IF NOT EXISTS (
@@ -348,6 +389,45 @@ def startup_event():
                             WHERE table_name='engines' AND column_name='installed_plate_sn'
                         ) THEN
                             ALTER TABLE engines ADD COLUMN installed_plate_sn VARCHAR(50);
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='engines' AND column_name='cost_per_hour'
+                        ) THEN
+                            ALTER TABLE engines ADD COLUMN cost_per_hour DOUBLE PRECISION;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='engines' AND column_name='cost_per_cycle'
+                        ) THEN
+                            ALTER TABLE engines ADD COLUMN cost_per_cycle DOUBLE PRECISION;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='store_items' AND column_name='removed_from'
+                        ) THEN
+                            ALTER TABLE store_items ADD COLUMN removed_from VARCHAR;
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='store_items' AND column_name='location_from'
+                        ) THEN
+                            ALTER TABLE store_items ADD COLUMN location_from VARCHAR;
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='store_items' AND column_name='price'
+                        ) THEN
+                            ALTER TABLE store_items ADD COLUMN price DOUBLE PRECISION;
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='store_items' AND column_name='invoice_no'
+                        ) THEN
+                            ALTER TABLE store_items ADD COLUMN invoice_no VARCHAR;
                         END IF;
                     END $$;
                 """))
@@ -368,8 +448,10 @@ def startup_event():
     ensure_sqlite_column("action_logs", "atlb_ref TEXT")
     ensure_sqlite_column("action_logs", "maintenance_type TEXT")
     ensure_sqlite_column("engines", "condition_1 TEXT DEFAULT 'SV'")
-    ensure_sqlite_column("engines", "condition_2 TEXT DEFAULT 'New'")
+    ensure_sqlite_column("engines", "condition_2 TEXT DEFAULT '-'")
     ensure_sqlite_column("engines", "installed_plate_sn VARCHAR(50)")
+    ensure_sqlite_column("engines", "cost_per_hour FLOAT")
+    ensure_sqlite_column("engines", "cost_per_cycle FLOAT")
     ensure_sqlite_column("action_logs", "condition_1_at_removal TEXT")
     ensure_sqlite_column("action_logs", "block_time_str TEXT")
     ensure_sqlite_column("action_logs", "flight_time_str TEXT")
@@ -403,6 +485,11 @@ def startup_event():
     # Ensure new Shipment columns exist in local SQLite
     ensure_sqlite_column("shipments", "engine_model TEXT")
     ensure_sqlite_column("shipments", "gss_id TEXT")
+    # New store_items columns
+    ensure_sqlite_column("store_items", "removed_from TEXT")
+    ensure_sqlite_column("store_items", "location_from TEXT")
+    ensure_sqlite_column("store_items", "price FLOAT")
+    ensure_sqlite_column("store_items", "invoice_no TEXT")
 
     # Открываем сессию базы данных
     db = database.SessionLocal()
@@ -530,6 +617,7 @@ def startup_event():
                 ac.msn = baseline.get("msn")
 
         db.commit()
+        _ensure_aircraft_utilization_sources(db)
         
         # ⚡ Синхронизация статусов двигателей на основе Installation/Removal истории
         # Автоматически исправляет физическое состояние двигателя (aircraft_id, position, status)
@@ -550,6 +638,21 @@ def startup_event():
         print(f"Ошибка при создании структуры: {e}")
     finally:
         db.close()
+
+    global aircraft_utilization_sync_task
+    if aircraft_utilization_sync_task is None or aircraft_utilization_sync_task.done():
+        aircraft_utilization_sync_task = asyncio.create_task(aircraft_utilization_sync_loop())
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global aircraft_utilization_sync_task
+    if aircraft_utilization_sync_task and not aircraft_utilization_sync_task.done():
+        aircraft_utilization_sync_task.cancel()
+        try:
+            await aircraft_utilization_sync_task
+        except asyncio.CancelledError:
+            pass
 # 1. Подключаем папку frontend как хранилище статических файлов
 # Используем абсолютный путь, чтобы сервер всегда брал нужную копию фронтенда.
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -727,16 +830,786 @@ def parse_input_date(date_value: Optional[str]):
     cleaned = date_value.strip()
     if not cleaned:
         return None
+    if set(cleaned) == {"#"}:
+        return None
     cleaned = cleaned.replace('Z', '+00:00')
     try:
         return datetime.fromisoformat(cleaned)
     except ValueError:
-        for fmt in ("%Y-%m-%d", "%d.%m.%Y"):
+        for fmt in (
+            "%Y-%m-%d",
+            "%d.%m.%Y",
+            "%m/%d/%Y",  # SharePoint/Excel CSV common format
+            "%m/%d/%y",
+            "%d/%m/%Y",  # fallback for regional slash format
+            "%d/%m/%y",
+        ):
             try:
                 return datetime.strptime(cleaned, fmt)
             except ValueError:
                 continue
     return None
+
+
+def normalize_aircraft_tail(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    cleaned = value.strip().upper().replace(" ", "")
+    if not cleaned:
+        return None
+    aliases = {
+        "BAT": "ER-BAT",
+        "BAR": "ER-BAR",
+        "BAQ": "ER-BAQ",
+        "ERBAT": "ER-BAT",
+        "ERBAR": "ER-BAR",
+        "ERBAQ": "ER-BAQ",
+    }
+    return aliases.get(cleaned, cleaned)
+
+
+def _ensure_aircraft_utilization_sources(db: Session):
+    changed = False
+    for tail in UTILIZATION_SOURCE_TAILS:
+        existing = db.query(models.AircraftUtilizationSource).filter(
+            models.AircraftUtilizationSource.aircraft_tail_number == tail
+        ).first()
+        if not existing:
+            db.add(models.AircraftUtilizationSource(
+                aircraft_tail_number=tail,
+                is_enabled=True,
+                last_status="Not configured"
+            ))
+            changed = True
+    if changed:
+        db.commit()
+
+
+def _normalize_excel_url(url: Optional[str]) -> Optional[str]:
+    """Convert any Google Sheets/Drive share link into a direct xlsx export URL."""
+    if not url:
+        return None
+    cleaned = url.strip()
+    if not cleaned:
+        return None
+
+    # --- Google Sheets: docs.google.com/spreadsheets/d/{ID}/... ---
+    m = re.search(r"docs\.google\.com/spreadsheets/d/([a-zA-Z0-9_-]+)", cleaned)
+    if m:
+        sheet_id = m.group(1)
+        # Extract gid (sheet tab) if present
+        gid_m = re.search(r"gid=(\d+)", cleaned)
+        gid_part = f"&gid={gid_m.group(1)}" if gid_m else ""
+        return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx{gid_part}"
+
+    # --- Google Drive file: drive.google.com/file/d/{ID}/view ---
+    m2 = re.search(r"drive\.google\.com/file/d/([a-zA-Z0-9_-]+)", cleaned)
+    if m2:
+        file_id = m2.group(1)
+        return f"https://drive.google.com/uc?export=download&confirm=t&id={file_id}"
+
+    # --- Google Drive open link: drive.google.com/open?id={ID} ---
+    m3 = re.search(r"drive\.google\.com/open\?id=([a-zA-Z0-9_-]+)", cleaned)
+    if m3:
+        file_id = m3.group(1)
+        return f"https://drive.google.com/uc?export=download&confirm=t&id={file_id}"
+
+    # --- SharePoint / OneDrive links: force direct download when possible ---
+    # Note: for sharing links (/:x:/s/...), we keep the URL as-is with download=1.
+    # If the HTTP download returns HTML, the browser fallback (Playwright) will handle it.
+    try:
+        parsed = urlparse(cleaned)
+        host = (parsed.hostname or "").lower()
+        if "sharepoint.com" in host or "onedrive.live.com" in host or "1drv.ms" in host:
+            query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+            query.pop("web", None)
+            query["download"] = "1"
+            new_query = urlencode(query, doseq=True)
+            return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, new_query, parsed.fragment))
+    except Exception:
+        pass
+
+    return cleaned
+
+
+def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, max_retries: int = 2) -> bytes:
+    from urllib.error import HTTPError, URLError
+
+    def _is_sharepoint_url() -> bool:
+        host = (urlparse(source_url).hostname or "").lower()
+        sp_host = (urlparse(original_url or "").hostname or "").lower()
+        return (
+            "sharepoint.com" in host or "onedrive.live.com" in host or "1drv.ms" in host
+            or "api.onedrive.com" in host
+            or "sharepoint.com" in sp_host or "onedrive.live.com" in sp_host
+        )
+
+    def _try_sharepoint_browser_fallback() -> Optional[bytes]:
+        if not _is_sharepoint_url():
+            return None
+        browser_url = original_url or source_url
+        return _download_sharepoint_via_browser(browser_url)
+
+    last_exception: Optional[Exception] = None
+    for attempt in range(max_retries):
+        req = UrlRequest(source_url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream,*/*",
+        })
+        try:
+            with urlopen(req, timeout=90) as response:
+                data = response.read()
+                content_type = str(response.headers.get("Content-Type", "")).lower()
+
+                if not data:
+                    raise Exception("Downloaded file is empty")
+
+                first_chunk = data[:2048].lower()
+                looks_like_html = b"<html" in first_chunk or first_chunk.startswith(b"<!doctype html")
+                if "text/html" in content_type or looks_like_html:
+                    if _is_sharepoint_url():
+                        file_bytes = _try_sharepoint_browser_fallback()
+                        if file_bytes:
+                            return file_bytes
+                        raise Exception(
+                            "SharePoint/OneDrive returned a web page instead of a file, and browser download also failed. "
+                            "Make sure the file is shared as 'Anyone with the link'."
+                        )
+                    raise Exception(
+                        "Link returned a web page instead of an Excel file (.xlsx). "
+                        "Use a direct downloadable .xlsx link."
+                    )
+
+                looks_like_csv = (
+                    source_url.lower().endswith('.csv')
+                    or 'text/csv' in content_type
+                    or 'application/csv' in content_type
+                    or 'csv' in content_type
+                )
+
+                # XLSX files are ZIP containers and must start with PK. CSV is allowed too.
+                if not data.startswith(b"PK") and not looks_like_csv:
+                    raise Exception("Downloaded file is not a valid .xlsx or .csv file")
+
+                return data
+        except HTTPError as e:
+            if e.code in (401, 403):
+                raise Exception(
+                    f"Access denied (HTTP {e.code}). The file must be publicly shared. "
+                    "In Google Sheets: Share → General access → Anyone with the link → Viewer. "
+                    "Then copy the link again and save it here."
+                )
+            last_exception = Exception(f"HTTP Error {e.code}: {e.reason}")
+        except URLError as e:
+            # SharePoint may reset raw HTTP connections intermittently (e.g. WinError 10054).
+            # In that case, try browser-driven export fallback before failing.
+            try:
+                file_bytes = _try_sharepoint_browser_fallback()
+                if file_bytes:
+                    return file_bytes
+            except Exception as browser_error:
+                last_exception = Exception(f"{e}; browser fallback failed: {browser_error}")
+            else:
+                last_exception = e
+        except Exception as e:
+            last_exception = e
+
+        # Don't sleep after the last attempt
+        if attempt < max_retries - 1:
+            import time as _time
+            _time.sleep(4)
+
+    raise last_exception or Exception("Download failed after retries")
+
+
+def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5) -> Optional[bytes]:
+    """
+    Open the SharePoint Excel Online viewer in a headless browser and click:
+    Файл → Экспорт → Скачать как CSV UTF-8
+    This mirrors exactly what a user does manually in incognito mode.
+    """
+    try:
+        from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+    except Exception:
+        raise Exception(
+            "Playwright not installed. Run: pip install playwright && playwright install chromium"
+        )
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        try:
+            with sync_playwright() as p:
+                browser_errors = []
+
+                def _launch_candidates():
+                    return [
+                        {"channel": "chrome", "label": "Google Chrome"},
+                        {"channel": "msedge", "label": "Microsoft Edge"},
+                        {"channel": None, "label": "Playwright Chromium"},
+                    ]
+
+                def _run_with_browser(browser):
+                    context = browser.new_context(
+                        accept_downloads=True,
+                        locale="ru-RU",
+                        ignore_https_errors=True,
+                        bypass_csp=True,
+                        user_agent=(
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/124.0.0.0 Safari/537.36"
+                        ),
+                    )
+                    try:
+                        page = context.new_page()
+                        last_attempt_error = None
+                        for page_attempt in range(max_page_reloads):
+                            try:
+                                if page_attempt == 0:
+                                    page.goto(source_url, wait_until="domcontentloaded", timeout=150000)
+                                else:
+                                    try:
+                                        page.reload(wait_until="domcontentloaded", timeout=150000)
+                                    except Exception:
+                                        page.goto(source_url, wait_until="domcontentloaded", timeout=150000)
+                                page.wait_for_timeout(9000)
+
+                                def _candidate_frames():
+                                    frames = list(page.frames)
+                                    office_frames = [
+                                        frame for frame in frames
+                                        if "officeapps" in (frame.url or "") or "xlviewer" in (frame.url or "")
+                                    ]
+                                    return office_frames + [f for f in frames if f not in office_frames]
+
+                                def _click_in_frames(texts, selectors, timeout=10000):
+                                    for frame in _candidate_frames():
+                                        for text in texts:
+                                            for pattern in selectors:
+                                                sel = pattern.format(text=text)
+                                                try:
+                                                    loc = frame.locator(sel).first
+                                                    if loc.is_visible(timeout=2500):
+                                                        loc.click(timeout=timeout)
+                                                        return True
+                                                except Exception:
+                                                    continue
+                                    return False
+
+                                file_selectors = [
+                                    'button:has-text("{text}")',
+                                    '[role="tab"]:has-text("{text}")',
+                                    '[role="button"]:has-text("{text}")',
+                                    'span:has-text("{text}")',
+                                ]
+                                menu_selectors = [
+                                    '[role="menuitem"]:has-text("{text}")',
+                                    'button:has-text("{text}")',
+                                    '[role="button"]:has-text("{text}")',
+                                    'span:has-text("{text}")',
+                                ]
+
+                                if not _click_in_frames(["Файл", "File"], file_selectors, timeout=12000):
+                                    raise Exception('Could not find "Файл" / "File" ribbon tab')
+                                page.wait_for_timeout(1600)
+
+                                if not _click_in_frames(["Экспорт", "Export"], menu_selectors, timeout=12000):
+                                    raise Exception('Could not find "Экспорт" / "Export" menu item')
+                                page.wait_for_timeout(1400)
+
+                                csv_texts = [
+                                    "Скачать как CSV UTF-8",
+                                    "Скачать в формате CSV UTF-8",
+                                    "Download as CSV UTF-8",
+                                    "Скачать как CSV",
+                                    "Скачать в формате CSV",
+                                    "Download as CSV",
+                                ]
+
+                                for frame in _candidate_frames():
+                                    for text in csv_texts:
+                                        for pattern in menu_selectors:
+                                            sel = pattern.format(text=text)
+                                            try:
+                                                loc = frame.locator(sel).first
+                                                if not loc.is_visible(timeout=2500):
+                                                    continue
+                                                with page.expect_download(timeout=60000) as dl_info:
+                                                    loc.click(timeout=9000)
+                                                dl = dl_info.value
+                                                if dl.failure():
+                                                    raise Exception(f"Download failed: {dl.failure()}")
+                                                target = Path(tmp_dir) / (dl.suggested_filename or "file.csv")
+                                                dl.save_as(str(target))
+                                                data = target.read_bytes()
+                                                if not data:
+                                                    raise Exception("Downloaded CSV is empty")
+                                                return data
+                                            except PlaywrightTimeoutError:
+                                                continue
+                                            except Exception:
+                                                continue
+
+                                raise Exception(
+                                    'Clicked Файл → Экспорт but could not find "Скачать как CSV UTF-8" option. '
+                                    'Make sure the file is shared as "Anyone with the link".'
+                                )
+                            except Exception as attempt_error:
+                                last_attempt_error = attempt_error
+                                if page_attempt < max_page_reloads - 1:
+                                    page.wait_for_timeout(3500)
+                                    continue
+                                raise Exception(
+                                    f"Could not export CSV after {max_page_reloads} page refresh attempts: {last_attempt_error}"
+                                )
+                    finally:
+                        context.close()
+
+                for candidate in _launch_candidates():
+                    browser = None
+                    try:
+                        launch_kwargs = {
+                            "headless": True,
+                            "args": [
+                                "--disable-blink-features=AutomationControlled",
+                                "--disable-features=msSmartScreenProtection",
+                                "--disable-http2",
+                            ],
+                        }
+                        if candidate["channel"]:
+                            launch_kwargs["channel"] = candidate["channel"]
+                        browser = p.chromium.launch(**launch_kwargs)
+                        data = _run_with_browser(browser)
+                        if data:
+                            return data
+                    except Exception as candidate_error:
+                        browser_errors.append(f'{candidate["label"]}: {candidate_error}')
+                    finally:
+                        try:
+                            if browser:
+                                browser.close()
+                        except Exception:
+                            pass
+
+                raise Exception(" | ".join(browser_errors) if browser_errors else "Unknown browser launch failure")
+
+        except PlaywrightTimeoutError as e:
+            raise Exception(f"SharePoint browser timed out: {e}")
+        except Exception as e:
+            raise Exception(f"SharePoint browser download failed: {e}")
+
+
+# Keep old name as alias for backward compatibility
+def _download_sharepoint_csv_via_browser(source_url: str) -> Optional[bytes]:
+    return _download_sharepoint_via_browser(source_url)
+
+
+def _parse_excel_date(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, DateType):
+        return datetime.combine(value, datetime.min.time())
+    if isinstance(value, (int, float)):
+        try:
+            return from_excel(value)
+        except Exception:
+            return None
+    return parse_input_date(str(value))
+
+
+def _parse_excel_ttsn(value):
+    if value is None or value == "":
+        return None
+    # openpyxl returns Excel [h]:mm duration cells as Python timedelta objects
+    if isinstance(value, timedelta):
+        return value.total_seconds() / 3600.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    parsed = hhmm_to_hours(str(value))
+    return parsed if parsed or str(value).strip() in ("0", "0.0", "0:00") else None
+
+
+def _parse_excel_tcsn(value):
+    if value is None or value == "":
+        return None
+    try:
+        return int(float(value))
+    except Exception:
+        return None
+
+
+def _round_utilization_hours(value: Optional[float]) -> float:
+    if value is None:
+        return 0.0
+    try:
+        return float(int(round(float(value))))
+    except Exception:
+        return 0.0
+
+
+def _normalize_header_name(value) -> str:
+    return ''.join(ch for ch in str(value or '').strip().lower() if ch.isalnum())
+
+
+def _find_table_headers(rows):
+    for row_index, row in enumerate(rows[:15], start=1):
+        normalized = [_normalize_header_name(cell) for cell in row]
+        date_idx = next((i for i, v in enumerate(normalized) if v in ("date", "datum") or "date" in v), None)
+        ttsn_idx = next((i for i, v in enumerate(normalized) if "ttsn" in v or v == "totaltime"), None)
+        tcsn_idx = next((i for i, v in enumerate(normalized) if "tcsn" in v or v == "totalcycles"), None)
+        if date_idx is not None and ttsn_idx is not None and tcsn_idx is not None:
+            return row_index, date_idx, ttsn_idx, tcsn_idx
+    return None, None, None, None
+
+
+def _find_sheet_headers(ws):
+    rows = list(ws.iter_rows(min_row=1, max_row=15, values_only=True))
+    return _find_table_headers(rows)
+
+
+def _extract_latest_utilization_from_sheet(ws):
+    header_row, date_idx, ttsn_idx, tcsn_idx = _find_sheet_headers(ws)
+    if header_row is None:
+        return None
+
+    latest = None
+    for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
+        if not row:
+            continue
+        row_date = _parse_excel_date(row[date_idx] if len(row) > date_idx else None)
+        row_ttsn = _parse_excel_ttsn(row[ttsn_idx] if len(row) > ttsn_idx else None)
+        row_tcsn = _parse_excel_tcsn(row[tcsn_idx] if len(row) > tcsn_idx else None)
+        if row_date is None or row_ttsn is None or row_tcsn is None:
+            continue
+        if latest is None or row_date >= latest["date"]:
+            latest = {
+                "date": row_date,
+                "ttsn": float(row_ttsn),
+                "tcsn": int(row_tcsn),
+                "sheet_name": ws.title,
+            }
+    return latest
+
+
+def _extract_latest_utilization_from_workbook(content: bytes, preferred_sheet: Optional[str] = None):
+    try:
+        wb = load_workbook(BytesIO(content), data_only=True, read_only=True)
+    except BadZipFile:
+        raise ValueError("Downloaded content is not a valid .xlsx file (ZIP)")
+    sheets = []
+    if preferred_sheet and preferred_sheet in wb.sheetnames:
+        sheets.append(wb[preferred_sheet])
+    sheets.extend([wb[name] for name in wb.sheetnames if not preferred_sheet or name != preferred_sheet])
+
+    latest = None
+    for ws in sheets:
+        result = _extract_latest_utilization_from_sheet(ws)
+        if result and (latest is None or result["date"] > latest["date"]):
+            latest = result
+
+    if not latest:
+        raise ValueError("Could not find Date/TTSN/TCSN columns in Excel file")
+    return latest
+
+
+def _extract_latest_utilization_from_csv(content: bytes):
+    text = content.decode('utf-8-sig', errors='ignore')
+    sample = text[:4096]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=',;\t')
+    except Exception:
+        class _DefaultDialect(csv.excel):
+            delimiter = ',' if sample.count(',') >= sample.count(';') else ';'
+        dialect = _DefaultDialect
+
+    rows = list(csv.reader(text.splitlines(), dialect))
+    header_row, date_idx, ttsn_idx, tcsn_idx = _find_table_headers(rows)
+    if header_row is None:
+        raise ValueError("Could not find Date/TTSN/TCSN columns in CSV file")
+
+    latest = None
+    for row in rows[header_row:]:
+        if not row:
+            continue
+        row_date = _parse_excel_date(row[date_idx] if len(row) > date_idx else None)
+        row_ttsn = _parse_excel_ttsn(row[ttsn_idx] if len(row) > ttsn_idx else None)
+        row_tcsn = _parse_excel_tcsn(row[tcsn_idx] if len(row) > tcsn_idx else None)
+        if row_date is None or row_ttsn is None or row_tcsn is None:
+            continue
+        if latest is None or row_date >= latest["date"]:
+            latest = {
+                "date": row_date,
+                "ttsn": float(row_ttsn),
+                "tcsn": int(row_tcsn),
+                "sheet_name": "CSV",
+            }
+
+    if not latest:
+        raise ValueError("Could not find valid Date/TTSN/TCSN data rows in CSV file")
+    return latest
+
+
+def _extract_latest_utilization_from_content(content: bytes, preferred_sheet: Optional[str] = None):
+    if content.startswith(b"PK"):
+        return _extract_latest_utilization_from_workbook(content, preferred_sheet)
+    return _extract_latest_utilization_from_csv(content)
+
+
+def _recalculate_engine_cost_fields(engine, tsn_on_ac: Optional[float], tcsn_on_ac: Optional[int]):
+    """Recalculate and store engine cost metrics from current on-aircraft utilization."""
+    try:
+        price = float(engine.price) if engine.price is not None else 0.0
+    except Exception:
+        price = 0.0
+
+    try:
+        tsn_val = float(tsn_on_ac) if tsn_on_ac is not None else 0.0
+    except Exception:
+        tsn_val = 0.0
+
+    try:
+        tcsn_val = int(tcsn_on_ac) if tcsn_on_ac is not None else 0
+    except Exception:
+        tcsn_val = 0
+
+    engine.cost_per_hour = round(price / tsn_val, 2) if price > 0 and tsn_val > 0 else None
+    engine.cost_per_cycle = round(price / tcsn_val, 2) if price > 0 and tcsn_val > 0 else None
+
+
+def _calculate_engine_on_ac_usage(db: Session, engine):
+    """Return TSN/CSN on aircraft for currently installed engine."""
+    if not engine or engine.aircraft_id is None or engine.position is None or not engine.aircraft:
+        return None, None
+
+    ac_ttsn = engine.aircraft.total_time if engine.aircraft.total_time is not None else None
+    ac_tcsn = engine.aircraft.total_cycles if engine.aircraft.total_cycles is not None else None
+    if ac_ttsn is None:
+        return None, None
+
+    last_install = db.query(models.ActionLog).filter(
+        models.ActionLog.engine_id == engine.id,
+        models.ActionLog.action_type == "INSTALL"
+    ).order_by(models.ActionLog.date.desc()).first()
+    if not last_install:
+        return None, None
+
+    ac_ttsn_at_install = _safe_float(getattr(last_install, "block_time_str", None), 0.0)
+    ac_tcsn_at_install = _safe_int(getattr(last_install, "block_in_str", None), 0)
+
+    tsn_on_ac = max((ac_ttsn or 0.0) - ac_ttsn_at_install, 0.0)
+    tcsn_on_ac = max((ac_tcsn or 0) - ac_tcsn_at_install, 0)
+    return tsn_on_ac, tcsn_on_ac
+
+
+def _save_aircraft_utilization_internal(db: Session, aircraft_tail: str, parsed_date: datetime, total_time: float, total_cycles: int, source: str = "manual"):
+    aircraft_tail = normalize_aircraft_tail(aircraft_tail)
+    aircraft = db.query(models.Aircraft).filter(models.Aircraft.tail_number == aircraft_tail).first()
+    if not aircraft:
+        raise HTTPException(status_code=404, detail=f"Aircraft {aircraft_tail} not found")
+
+    total_time = _round_utilization_hours(total_time)
+    total_cycles = int(total_cycles or 0)
+
+    aircraft.total_time = total_time
+    aircraft.total_cycles = total_cycles
+
+    # Recalculate TSN/CSN for all engines currently installed on this aircraft
+    installed_engines = db.query(models.Engine).filter(
+        models.Engine.aircraft_id == aircraft.id,
+        models.Engine.position.isnot(None)
+    ).all()
+    for eng in installed_engines:
+        last_install = db.query(models.ActionLog).filter(
+            models.ActionLog.engine_id == eng.id,
+            models.ActionLog.action_type == "INSTALL"
+        ).order_by(models.ActionLog.date.desc()).first()
+        if last_install:
+            try:
+                ac_tt_at_install = float(last_install.block_time_str or 0)
+            except Exception:
+                ac_tt_at_install = 0.0
+            try:
+                ac_tc_at_install = int(float(last_install.block_in_str or 0))
+            except Exception:
+                ac_tc_at_install = 0
+            try:
+                eng_tt_at_install = float(last_install.snapshot_tt or eng.total_time or 0)
+            except Exception:
+                eng_tt_at_install = eng.total_time or 0.0
+            try:
+                eng_tc_at_install = int(float(last_install.snapshot_tc or eng.total_cycles or 0))
+            except Exception:
+                eng_tc_at_install = eng.total_cycles or 0
+        else:
+            ac_tt_at_install = 0.0
+            ac_tc_at_install = 0
+            eng_tt_at_install = eng.total_time or 0.0
+            eng_tc_at_install = eng.total_cycles or 0
+        eng.total_time = eng_tt_at_install + max(total_time - ac_tt_at_install, 0.0)
+        eng.total_cycles = eng_tc_at_install + max(total_cycles - ac_tc_at_install, 0)
+        tsn_on_ac_now = max(total_time - ac_tt_at_install, 0.0)
+        tcsn_on_ac_now = max(total_cycles - ac_tc_at_install, 0)
+        _recalculate_engine_cost_fields(eng, tsn_on_ac_now, tcsn_on_ac_now)
+
+    now_utc = datetime.now(timezone.utc)
+
+    if source == "auto_sync":
+        # For auto sync: always write a new record so every sync is visible in history.
+        # Only skip if we already have an auto_sync record today for this aircraft with same ttsn/tcsn.
+        today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        existing_history = db.query(models.AircraftUtilizationHistory).filter(
+            models.AircraftUtilizationHistory.aircraft_id == aircraft.id,
+            models.AircraftUtilizationHistory.source == "auto_sync",
+            models.AircraftUtilizationHistory.synced_at >= today_start,
+            models.AircraftUtilizationHistory.total_time == total_time,
+            models.AircraftUtilizationHistory.total_cycles == total_cycles,
+        ).first()
+    else:
+        existing_history = db.query(models.AircraftUtilizationHistory).filter(
+            models.AircraftUtilizationHistory.aircraft_id == aircraft.id,
+            models.AircraftUtilizationHistory.date == parsed_date,
+            models.AircraftUtilizationHistory.total_time == total_time,
+            models.AircraftUtilizationHistory.total_cycles == total_cycles,
+        ).first()
+
+    history = existing_history
+    if not existing_history:
+        history = models.AircraftUtilizationHistory(
+            aircraft_id=aircraft.id,
+            date=parsed_date,
+            total_time=total_time,
+            total_cycles=total_cycles,
+            source=source,
+            synced_at=now_utc,
+        )
+        db.add(history)
+
+    existing_util_param = db.query(models.UtilizationParameter).filter(
+        models.UtilizationParameter.aircraft == aircraft.tail_number,
+        models.UtilizationParameter.position.is_(None),
+        models.UtilizationParameter.period == False,
+        models.UtilizationParameter.date == parsed_date,
+        models.UtilizationParameter.ttsn == total_time,
+        models.UtilizationParameter.tcsn == total_cycles,
+    ).first()
+
+    if not existing_util_param:
+        db.add(models.UtilizationParameter(
+            aircraft=aircraft.tail_number,
+            date=parsed_date,
+            ttsn=total_time,
+            tcsn=total_cycles,
+            period=False
+        ))
+
+    db.commit()
+    if history is not None:
+        db.refresh(history)
+    return aircraft, history
+
+
+def _sync_one_aircraft_utilization_source(db: Session, source, force: bool = False):
+    if not source.is_enabled:
+        source.last_status = "Disabled"
+        source.last_error = None
+        db.commit()
+        return {"aircraft": source.aircraft_tail_number, "status": "disabled"}
+
+    if not source.source_url or not source.source_url.strip():
+        source.last_status = "Not configured"
+        source.last_error = None
+        db.commit()
+        return {"aircraft": source.aircraft_tail_number, "status": "not_configured"}
+
+    today = datetime.now(timezone.utc).date()
+    if not force and source.last_synced_at and source.last_synced_at.date() >= today:
+        return {"aircraft": source.aircraft_tail_number, "status": "already_synced_today"}
+
+    try:
+        normalized_url = _normalize_excel_url(source.source_url)
+        content = _download_excel_bytes(normalized_url, original_url=source.source_url)
+        latest = _extract_latest_utilization_from_content(content, source.sheet_name)
+        aircraft, history = _save_aircraft_utilization_internal(
+            db,
+            source.aircraft_tail_number,
+            latest["date"],
+            latest["ttsn"],
+            latest["tcsn"],
+            source="auto_sync",
+        )
+        source.last_synced_at = datetime.now(timezone.utc)
+        source.last_source_date = latest["date"]
+        source.last_ttsn = aircraft.total_time
+        source.last_tcsn = latest["tcsn"]
+        source.last_status = f"Synced from {latest['sheet_name']}"
+        source.last_error = None
+        db.commit()
+        return {
+            "aircraft": aircraft.tail_number,
+            "status": "synced",
+            "date": latest["date"].strftime("%Y-%m-%d"),
+            "ttsn": aircraft.total_time,
+            "tcsn": latest["tcsn"],
+            "history_id": history.id if history else None,
+        }
+    except Exception as e:
+        # Do not mark as synced on error; keep last successful sync timestamp.
+        source.last_status = "Sync error"
+        source.last_error = str(e)
+        db.commit()
+        return {"aircraft": source.aircraft_tail_number, "status": "error", "error": str(e)}
+
+
+def sync_aircraft_utilization_sources(db: Session, force: bool = False):
+    _ensure_aircraft_utilization_sources(db)
+    sources = db.query(models.AircraftUtilizationSource).order_by(models.AircraftUtilizationSource.aircraft_tail_number.asc()).all()
+    return [_sync_one_aircraft_utilization_source(db, source, force=force) for source in sources]
+
+
+async def aircraft_utilization_sync_loop():
+    """Runs twice per day at 10:00 and 16:00 local time and retries every 5 minutes until sync succeeds."""
+    schedule_hours = (10, 16)
+    retry_interval_seconds = 5 * 60
+    while True:
+        now = datetime.now()
+        targets_today = [
+            now.replace(hour=hour, minute=0, second=0, microsecond=0)
+            for hour in schedule_hours
+        ]
+        future_targets = [t for t in targets_today if t > now]
+        if future_targets:
+            target = min(future_targets)
+        else:
+            target = (now + timedelta(days=1)).replace(hour=schedule_hours[0], minute=0, second=0, microsecond=0)
+        wait_seconds = (target - now).total_seconds()
+        print(f"✈️ Next utilization sync scheduled at {target.strftime('%Y-%m-%d %H:%M:%S')} (in {int(wait_seconds//3600)}h {int((wait_seconds%3600)//60)}m)")
+        await asyncio.sleep(wait_seconds)
+        db = database.SessionLocal()
+        try:
+            print(f"✈️ Running scheduled utilization sync at {target.strftime('%H:%M')}...")
+            attempt_no = 1
+            while True:
+                results = sync_aircraft_utilization_sources(db, force=True)
+                has_errors = False
+                for r in results:
+                    status = r.get('status')
+                    if status in ('sync_error', 'error'):
+                        has_errors = True
+                    print(f"  {r.get('aircraft')}: {status} | ttsn={r.get('ttsn')} tcsn={r.get('tcsn')} error={r.get('error','')}")
+
+                if not has_errors:
+                    if attempt_no > 1:
+                        print(f"✅ Scheduled utilization sync recovered after {attempt_no} attempt(s).")
+                    break
+
+                attempt_no += 1
+                print(f"⚠️ Some sources failed; retrying in {retry_interval_seconds // 60} minutes...")
+                await asyncio.sleep(retry_interval_seconds)
+        except Exception as e:
+            print(f"⚠️ Aircraft utilization background sync failed: {e}")
+        finally:
+            db.close()
 
 
 def hhmm_to_hours(value: Optional[str]) -> float:
@@ -957,6 +1830,24 @@ class RemoveSchema(BaseModel):
     current_sn: Optional[str] = None  # Новый Current SN при снятии (Installed Plate)
 
 
+def _safe_float(value, default: float = 0.0) -> float:
+    try:
+        if value is None or str(value).strip() == "":
+            return default
+        return float(value)
+    except Exception:
+        return default
+
+
+def _safe_int(value, default: int = 0) -> int:
+    try:
+        if value is None or str(value).strip() == "":
+            return default
+        return int(value)
+    except Exception:
+        return default
+
+
 class RepairSchema(BaseModel):
     date: str
     engine_id: int
@@ -988,10 +1879,14 @@ class StoreItemSchema(BaseModel):
     serial_number: Optional[str] = ""
     condition: Optional[str] = ""
     quantity: int = 1
-    unit: Optional[str] = ""
-    location: Optional[str] = ""
-    shelf: Optional[str] = ""
-    owner: Optional[str] = ""
+    unit: Optional[str] = ""           # R.O #
+    location: Optional[str] = ""       # Current location
+    shelf: Optional[str] = ""          # Status
+    owner: Optional[str] = ""          # Delivered to (legacy)
+    removed_from: Optional[str] = ""   # Removed From
+    location_from: Optional[str] = ""  # Location From
+    price: Optional[float] = None       # Price
+    invoice_no: Optional[str] = ""     # Invoice No
     remarks: Optional[str] = ""
 
 
@@ -1780,6 +2675,11 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                 util_tcsn = latest_non_period.tcsn if latest_non_period.tcsn is not None else util_tcsn
                 util_date = latest_non_period.date.strftime("%Y-%m-%d") if latest_non_period.date else None
 
+            source_info = db.query(models.AircraftUtilizationSource).filter(
+                models.AircraftUtilizationSource.aircraft_tail_number == ac.tail_number
+            ).first()
+            util_found_date = source_info.last_source_date.strftime("%Y-%m-%d") if source_info and source_info.last_source_date else util_date
+
             # Сводка периода: берем последнюю периодную запись
             util_period = bool(latest_period)
             util_date_from = latest_period.date_from.strftime("%Y-%m-%d") if latest_period and latest_period.date_from else None
@@ -1876,14 +2776,47 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                     if csn_on_aircraft < 0:
                         csn_on_aircraft = 0
                 
-                # Находим последнюю запись ATLB для определения даты обновления
-                last_atlb = db.query(models.ActionLog).filter(
-                    models.ActionLog.action_type == "FLIGHT"
-                ).order_by(models.ActionLog.date.desc()).first()
-                
-                last_update = last_atlb.date.strftime("%Y-%m-%d %H:%M") if last_atlb else "N/A"
+                last_update = util_found_date or "N/A"
                 
                 supplier = last_install.supplier if last_install and last_install.supplier else None
+
+                previous_install_info = None
+                previous_install_for_pos = db.query(models.ActionLog).filter(
+                    models.ActionLog.action_type == "INSTALL",
+                    models.ActionLog.to_aircraft == ac.tail_number,
+                    models.ActionLog.position == position_num,
+                    models.ActionLog.date < latest_install_for_pos.date
+                ).order_by(
+                    models.ActionLog.date.desc(),
+                    models.ActionLog.id.desc()
+                ).first()
+
+                if previous_install_for_pos and previous_install_for_pos.engine_id:
+                    previous_engine = db.query(models.Engine).filter(
+                        models.Engine.id == previous_install_for_pos.engine_id
+                    ).first()
+
+                    previous_remove = db.query(models.ActionLog).filter(
+                        models.ActionLog.action_type == "REMOVE",
+                        models.ActionLog.engine_id == previous_install_for_pos.engine_id,
+                        models.ActionLog.to_aircraft == ac.tail_number,
+                        models.ActionLog.date >= previous_install_for_pos.date
+                    ).order_by(
+                        models.ActionLog.date.asc(),
+                        models.ActionLog.id.asc()
+                    ).first()
+
+                    previous_install_info = {
+                        "original_sn": (previous_engine.original_sn if previous_engine else None) or None,
+                        "previous_current_sn": (previous_remove.current_sn if previous_remove and previous_remove.current_sn else None)
+                                               or (previous_install_for_pos.current_sn if previous_install_for_pos.current_sn else None),
+                        "gss_id": (previous_engine.gss_sn if previous_engine and previous_engine.gss_sn else None),
+                        "removed_date": previous_remove.date.strftime("%Y-%m-%d") if previous_remove and previous_remove.date else None,
+                        "removed_location": (previous_remove.to_location if previous_remove and previous_remove.to_location else None),
+                        "removed_tt": previous_remove.snapshot_tt if previous_remove and previous_remove.snapshot_tt is not None else None,
+                        "removed_tc": previous_remove.snapshot_tc if previous_remove and previous_remove.snapshot_tc is not None else None,
+                        "removal_reason": (previous_remove.comments if previous_remove and previous_remove.comments else None),
+                    }
                 
                 # Находим последнюю периодическую запись для этой позиции
                 util_param = db.query(models.UtilizationParameter).filter(
@@ -1908,6 +2841,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                     "gss_sn": eng.gss_sn or eng.original_sn,
                     "current_sn": eng.current_sn,
                     "model": eng.model,
+                    "price": eng.price or 0,
                     "total_tsn": round(eng.total_time, 1),
                     "total_csn": eng.total_cycles,
                     "tsn_on_aircraft": round(tsn_on_aircraft, 1),
@@ -1920,7 +2854,9 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                     "egt_cruise": eng.egt_cruise,
                     "install_date": eng.install_date.strftime("%Y-%m-%d") if eng.install_date else "N/A",
                     "last_update": last_update,
+                    "utilization_update_date": util_found_date,
                     "supplier": supplier,
+                    "previous_install": previous_install_info,
                     "param_date": eng.last_param_update.strftime("%d.%m.%Y") if eng.last_param_update else None,
                     # Данные периода для этой конкретной позиции
                     "util_ttsn": position_util_ttsn,
@@ -1936,6 +2872,7 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                 "total_time": round(util_ttsn, 1) if util_ttsn else 0.0,
                 "total_cycles": util_tcsn if util_tcsn else 0,
                 "utilization_date": util_date,
+                "utilization_found_date": util_found_date,
                 "utilization_period": util_period,
                 "utilization_date_from": util_date_from,
                 "utilization_date_to": util_date_to,
@@ -2029,6 +2966,38 @@ def get_aircraft_by_tail_number(tail_number: str, db: Session = Depends(get_db))
                     tsn_on_aircraft = 0.0
                 if csn_on_aircraft < 0:
                     csn_on_aircraft = 0
+
+                previous_install_info = None
+                previous_install_for_pos = db.query(models.ActionLog).filter(
+                    models.ActionLog.action_type == "INSTALL",
+                    models.ActionLog.to_aircraft == ac.tail_number,
+                    models.ActionLog.position == eng.position,
+                    models.ActionLog.date < install_record.date
+                ).order_by(models.ActionLog.date.desc(), models.ActionLog.id.desc()).first() if install_record else None
+
+                if previous_install_for_pos and previous_install_for_pos.engine_id:
+                    previous_engine = db.query(models.Engine).filter(
+                        models.Engine.id == previous_install_for_pos.engine_id
+                    ).first()
+
+                    previous_remove = db.query(models.ActionLog).filter(
+                        models.ActionLog.action_type == "REMOVE",
+                        models.ActionLog.engine_id == previous_install_for_pos.engine_id,
+                        models.ActionLog.to_aircraft == ac.tail_number,
+                        models.ActionLog.date >= previous_install_for_pos.date
+                    ).order_by(models.ActionLog.date.asc(), models.ActionLog.id.asc()).first()
+
+                    previous_install_info = {
+                        "original_sn": (previous_engine.original_sn if previous_engine else None) or None,
+                        "previous_current_sn": (previous_remove.current_sn if previous_remove and previous_remove.current_sn else None)
+                                               or (previous_install_for_pos.current_sn if previous_install_for_pos.current_sn else None),
+                        "gss_id": (previous_engine.gss_sn if previous_engine and previous_engine.gss_sn else None),
+                        "removed_date": previous_remove.date.strftime("%Y-%m-%d") if previous_remove and previous_remove.date else None,
+                        "removed_location": (previous_remove.to_location if previous_remove and previous_remove.to_location else None),
+                        "removed_tt": previous_remove.snapshot_tt if previous_remove and previous_remove.snapshot_tt is not None else None,
+                        "removed_tc": previous_remove.snapshot_tc if previous_remove and previous_remove.snapshot_tc is not None else None,
+                        "removal_reason": (previous_remove.comments if previous_remove and previous_remove.comments else None),
+                    }
                 
                 positions[eng.position] = {
                     "engine_id": eng.id,
@@ -2037,6 +3006,7 @@ def get_aircraft_by_tail_number(tail_number: str, db: Session = Depends(get_db))
                     "gss_sn": eng.gss_sn or eng.original_sn,
                     "current_sn": eng.current_sn,
                     "model": eng.model,
+                    "price": eng.price or 0,
                     "total_tsn": round(eng.total_time, 1) if eng.total_time else 0.0,
                     "total_csn": eng.total_cycles or 0,
                     "tsn_on_aircraft": round(tsn_on_aircraft, 1),
@@ -2048,6 +3018,7 @@ def get_aircraft_by_tail_number(tail_number: str, db: Session = Depends(get_db))
                     "n2_cruise": eng.n2_cruise,
                     "egt_takeoff": eng.egt_takeoff,
                     "egt_cruise": eng.egt_cruise,
+                    "previous_install": previous_install_info,
                     "location": eng.location,
                     "status": eng.status
                 }
@@ -2197,54 +3168,35 @@ class AircraftUtilizationSchema(BaseModel):
     total_time: float
     total_cycles: int
 
+
+class AircraftUtilizationSourceItemSchema(BaseModel):
+    aircraft_tail_number: str
+    source_url: Optional[str] = None
+    is_enabled: bool = True
+
+
+class AircraftUtilizationSourceBatchSchema(BaseModel):
+    items: List[AircraftUtilizationSourceItemSchema]
+
 @app.post("/api/aircraft-utilization")
 def save_aircraft_utilization(data: AircraftUtilizationSchema, db: Session = Depends(get_db)):
     """Save aircraft total time/cycles, update aircraft record, and recalculate TSN/CSN on A/C for all engines"""
     try:
-        # Find aircraft by tail_number
-        aircraft = db.query(models.Aircraft).filter(
-            models.Aircraft.tail_number == data.aircraft
-        ).first()
-        
-        if not aircraft:
-            raise HTTPException(status_code=404, detail=f"Aircraft {data.aircraft} not found")
-        
         # Parse date
         parsed_date = parse_input_date(data.date)
         if not parsed_date:
             parsed_date = datetime.now(timezone.utc)
-        
-        # Update aircraft totals
-        aircraft.total_time = data.total_time
-        aircraft.total_cycles = data.total_cycles
-        db.commit()
-        
-        # Save to history
-        history = models.AircraftUtilizationHistory(
-            aircraft_id=aircraft.id,
-            date=parsed_date,
-            total_time=data.total_time,
-            total_cycles=data.total_cycles
+        aircraft, history = _save_aircraft_utilization_internal(
+            db,
+            data.aircraft,
+            parsed_date,
+            data.total_time,
+            data.total_cycles
         )
-        
-        db.add(history)
-        db.commit()
-        db.refresh(history)
-        
-        # Также сохраняем в UtilizationParameter без периода, чтобы дашборд мог пересчитать TSN on A/C
-        util_param = models.UtilizationParameter(
-            aircraft=aircraft.tail_number,
-            date=parsed_date,
-            ttsn=data.total_time,
-            tcsn=data.total_cycles,
-            period=False  # Это общий налет, не период
-        )
-        db.add(util_param)
-        db.commit()
         
         return {
             "message": "Aircraft utilization saved successfully",
-            "id": history.id,
+            "id": history.id if history else None,
             "aircraft": aircraft.tail_number,
             "total_time": aircraft.total_time,
             "total_cycles": aircraft.total_cycles
@@ -2299,6 +3251,8 @@ def get_aircraft_utilization_history(aircraft: str = None, db: Session = Depends
         
         result = []
         for record in records:
+            source_value = getattr(record, "source", None)
+            synced_at_value = getattr(record, "synced_at", None)
             result.append({
                 "id": record.id,
                 "aircraft_id": record.aircraft_id,
@@ -2307,13 +3261,118 @@ def get_aircraft_utilization_history(aircraft: str = None, db: Session = Depends
                 "date": record.date.isoformat() if record.date else None,
                 "total_time": record.total_time,
                 "total_cycles": record.total_cycles,
-                "created_at": record.created_at.isoformat() if record.created_at else None
+                "source": source_value or "manual",
+                "synced_at": (synced_at_value or record.created_at).isoformat() if (synced_at_value or record.created_at) else None,
+                "created_at": record.created_at.isoformat() if record.created_at else None,
             })
         
         return result
     except Exception as e:
         print(f"Error getting aircraft utilization history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/aircraft-utilization-sources")
+def get_aircraft_utilization_sources(db: Session = Depends(get_db)):
+    _ensure_aircraft_utilization_sources(db)
+    sources = db.query(models.AircraftUtilizationSource).order_by(models.AircraftUtilizationSource.aircraft_tail_number.asc()).all()
+    result = []
+    for source in sources:
+        recent_history = (
+            db.query(models.AircraftUtilizationHistory)
+            .join(models.Aircraft, models.Aircraft.id == models.AircraftUtilizationHistory.aircraft_id)
+            .filter(
+                models.Aircraft.tail_number == source.aircraft_tail_number,
+                models.AircraftUtilizationHistory.source == "auto_sync",
+            )
+            .order_by(
+                models.AircraftUtilizationHistory.synced_at.desc().nullslast(),
+                models.AircraftUtilizationHistory.created_at.desc(),
+                models.AircraftUtilizationHistory.id.desc(),
+            )
+            .limit(5)
+            .all()
+        )
+
+        result.append({
+            "aircraft_tail_number": source.aircraft_tail_number,
+            "source_url": source.source_url or "",
+            "is_enabled": bool(source.is_enabled),
+            "sheet_name": source.sheet_name or "",
+            "last_synced_at": source.last_synced_at.isoformat() if source.last_synced_at else None,
+            "last_source_date": source.last_source_date.isoformat() if source.last_source_date else None,
+            "last_ttsn": source.last_ttsn,
+            "last_tcsn": source.last_tcsn,
+            "last_status": source.last_status or "",
+            "last_error": source.last_error or "",
+            "recent_history": [
+                {
+                    "id": row.id,
+                    "date": row.date.isoformat() if row.date else None,
+                    "ttsn": row.total_time,
+                    "tcsn": row.total_cycles,
+                    "synced_at": (row.synced_at or row.created_at).isoformat() if (row.synced_at or row.created_at) else None,
+                }
+                for row in recent_history
+            ],
+        })
+    return result
+
+
+@app.post("/api/aircraft-utilization-sources")
+def save_aircraft_utilization_sources(payload: AircraftUtilizationSourceBatchSchema, db: Session = Depends(get_db)):
+    _ensure_aircraft_utilization_sources(db)
+    updated = []
+    for item in payload.items:
+        aircraft_tail = normalize_aircraft_tail(item.aircraft_tail_number)
+        if not aircraft_tail:
+            continue
+        source = db.query(models.AircraftUtilizationSource).filter(
+            models.AircraftUtilizationSource.aircraft_tail_number == aircraft_tail
+        ).first()
+        if not source:
+            source = models.AircraftUtilizationSource(aircraft_tail_number=aircraft_tail)
+            db.add(source)
+        source.source_url = item.source_url.strip() if item.source_url else None
+        source.is_enabled = bool(item.is_enabled)
+        if not source.source_url:
+            source.last_status = "Not configured"
+            source.last_error = None
+        updated.append(aircraft_tail)
+    db.commit()
+    return {"message": "Aircraft utilization sources saved", "updated": updated}
+
+
+@app.post("/api/aircraft-utilization-sources/sync")
+def sync_aircraft_utilization_sources_endpoint(db: Session = Depends(get_db)):
+    results = sync_aircraft_utilization_sources(db, force=True)
+    return {"message": "Aircraft utilization sync completed", "results": results}
+
+
+@app.get("/api/aircraft-utilization-sources/preview")
+def preview_excel_url(url: str):
+    """Download an Excel/Google Sheets URL in memory (no temp files), parse it and return
+    the latest Date/TTSN/TCSN found.  No data is written to the database."""
+    try:
+        stripped = url.strip() if url else ""
+        if not stripped:
+            return {"ok": False, "error": "URL is empty"}
+        normalized = _normalize_excel_url(stripped)
+        if not normalized:
+            return {"ok": False, "error": "Could not parse URL"}
+        content = _download_excel_bytes(normalized, original_url=stripped)
+        latest = _extract_latest_utilization_from_content(content, preferred_sheet=None)
+        rounded_ttsn = int(_round_utilization_hours(latest["ttsn"]))
+        return {
+            "ok": True,
+            "date": latest["date"].strftime("%Y-%m-%d"),
+            "ttsn": rounded_ttsn,
+            "ttsn_display": str(rounded_ttsn),
+            "tcsn": latest["tcsn"],
+            "sheet": latest.get("sheet_name", ""),
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 # --- ВОТ ИСПРАВЛЕННАЯ ФУНКЦИЯ (ПОКАЗЫВАЕТ ВСЕ ДВИГАТЕЛИ) ---
 @app.get("/api/engines")
@@ -2333,6 +3392,7 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
         
         engines = query.all()
         result = []
+        costs_updated = False
         
         # Функция для определения ПРАВИЛЬНОГО статуса на основе истории
         def get_actual_status(eng):
@@ -2375,9 +3435,52 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
             # 3.1 Если двигатель установлен, добавляем данные о самолете
             ac_ttsn = None
             ac_tcsn = None
+            tt_on_ac = None
+            tc_on_ac = None
+            last_install = None
+            
             if eng.aircraft:
                 ac_ttsn = eng.aircraft.total_time if eng.aircraft.total_time is not None else None
                 ac_tcsn = eng.aircraft.total_cycles if eng.aircraft.total_cycles is not None else None
+                
+                # Расчет TSN/CSN on A/C (налет на крыльях)
+                # Находим последнюю запись INSTALL для этого двигателя
+                last_install = db.query(models.ActionLog).filter(
+                    models.ActionLog.engine_id == eng.id,
+                    models.ActionLog.action_type == "INSTALL"
+                ).order_by(models.ActionLog.date.desc()).first()
+                
+                if last_install and ac_ttsn is not None:
+                    # Налет самолета на момент установки хранится в block_time_str/block_in_str
+                    def _to_float(v):
+                        try:
+                            return float(v) if v is not None and str(v).strip() != "" else 0.0
+                        except Exception:
+                            return 0.0
+                    def _to_int(v):
+                        try:
+                            return int(v) if v is not None and str(v).strip() != "" else 0
+                        except Exception:
+                            return 0
+                    
+                    ac_ttsn_at_install = _to_float(getattr(last_install, "block_time_str", None))
+                    ac_tcsn_at_install = _to_int(getattr(last_install, "block_in_str", None))
+                    
+                    # TSN on A/C = текущий налет самолета - налет самолета на момент установки
+                    tt_on_ac = ac_ttsn - ac_ttsn_at_install
+                    tc_on_ac = (ac_tcsn or 0) - ac_tcsn_at_install
+                    
+                    # Защита от отрицательных значений
+                    if tt_on_ac < 0:
+                        tt_on_ac = 0.0
+                    if tc_on_ac < 0:
+                        tc_on_ac = 0
+
+            prev_cost_per_hour = getattr(eng, "cost_per_hour", None)
+            prev_cost_per_cycle = getattr(eng, "cost_per_cycle", None)
+            _recalculate_engine_cost_fields(eng, tt_on_ac, tc_on_ac)
+            if prev_cost_per_hour != eng.cost_per_hour or prev_cost_per_cycle != eng.cost_per_cycle:
+                costs_updated = True
             
             # Определяем ПРАВИЛЬНЫЙ статус на основе истории, а не сохраненного значения
             actual_status = get_actual_status(eng)
@@ -2393,7 +3496,11 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
                 "location_id": eng.location_id,
                 "tt": eng.total_time if eng.total_time is not None else 0,
                 "tc": eng.total_cycles if eng.total_cycles is not None else 0,
+                "tt_on_ac": round(tt_on_ac, 1) if tt_on_ac is not None else None,
+                "tc_on_ac": tc_on_ac if tc_on_ac is not None else None,
                 "price": getattr(eng, "price", None),
+                "cost_per_hour": getattr(eng, "cost_per_hour", None),
+                "cost_per_cycle": getattr(eng, "cost_per_cycle", None),
                 "aircraft_id": eng.aircraft_id,
                 "aircraft": eng.aircraft.tail_number if eng.aircraft else None,
                 "position": eng.position,
@@ -2405,9 +3512,16 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
                 "install_date": display_date.strftime('%Y-%m-%d') if display_date else None,
                 "ac_ttsn": ac_ttsn,
                 "ac_tcsn": ac_tcsn,
+                "install_snapshot_tt": _safe_float(getattr(last_install, "snapshot_tt", None), None) if eng.aircraft and last_install else None,
+                "install_snapshot_tc": _safe_int(getattr(last_install, "snapshot_tc", None), None) if eng.aircraft and last_install else None,
+                "ac_ttsn_at_install": _safe_float(getattr(last_install, "block_time_str", None), None) if eng.aircraft and last_install else None,
+                "ac_tcsn_at_install": _safe_int(getattr(last_install, "block_in_str", None), None) if eng.aircraft and last_install else None,
                 "condition_1": eng.condition_1 or "SV",
-                "condition_2": eng.condition_2 or "New"
+                "condition_2": eng.condition_2 or "-"
             })
+
+        if costs_updated:
+            db.commit()
         
         return result
     except Exception as e:
@@ -2427,7 +3541,7 @@ class EngineCreateSchema(BaseModel):
     model: Optional[str] = None
     status: Optional[str] = ""
     condition_1: str = "SV"
-    condition_2: str = "New"
+    condition_2: str = "-"
     location_id: Optional[int] = None
     total_time: float = 0.0
     total_cycles: int = 0
@@ -2473,7 +3587,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             model=data.model,
             status=(data.status if data.status and data.status.strip() and data.status in ["INSTALLED", "REMOVED", "-"] else "-"),
             condition_1=data.condition_1 if data.condition_1 and data.condition_1.strip() and data.condition_1 != '-' else "SV",
-            condition_2=data.condition_2 if data.condition_2 and data.condition_2.strip() and data.condition_2 != '-' else "New",
+            condition_2=data.condition_2 if data.condition_2 and data.condition_2.strip() and data.condition_2 != '-' else "-",
             location_id=data.location_id,
             total_time=data.total_time or 0.0,
             total_cycles=data.total_cycles or 0,
@@ -2484,6 +3598,9 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             removed_from=data.removed_from,
             install_date=install_date
         )
+
+        # For engines not installed on aircraft, cost per hour/cycle on A/C is not applicable.
+        _recalculate_engine_cost_fields(new_engine, None, None)
         
         db.add(new_engine)
         db.commit()
@@ -2578,7 +3695,7 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         engine.gss_sn = data.gss_sn or data.original_sn
         engine.current_sn = data.current_sn
         engine.condition_1 = data.condition_1 if data.condition_1 and data.condition_1.strip() and data.condition_1 != '-' else "SV"
-        engine.condition_2 = data.condition_2 if data.condition_2 and data.condition_2.strip() and data.condition_2 != '-' else "New"
+        engine.condition_2 = data.condition_2 if data.condition_2 and data.condition_2.strip() and data.condition_2 != '-' else "-"
         
         # Улучшенная логика обновления статуса и локации
         # 1. Обновление статуса
@@ -2611,6 +3728,12 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         engine.from_location = data.from_location
         engine.removed_from = data.removed_from
         engine.install_date = install_date
+
+        if engine.aircraft_id is not None and engine.position is not None:
+            tsn_on_ac, tcsn_on_ac = _calculate_engine_on_ac_usage(db, engine)
+            _recalculate_engine_cost_fields(engine, tsn_on_ac, tcsn_on_ac)
+        else:
+            _recalculate_engine_cost_fields(engine, None, None)
         
         db.commit()
         db.refresh(engine)
@@ -2662,7 +3785,8 @@ def get_engine_by_id(engine_id: int, db: Session = Depends(get_db)):
         "removed_from": engine.removed_from or "",
         "install_date": engine.install_date.strftime('%Y-%m-%d') if engine.install_date else None,
         "condition_1": engine.condition_1 or "SV",
-        "condition_2": engine.condition_2 or "New"
+        "condition_2": engine.condition_2 or "-",
+        "price": engine.price or 0
     }
 
 # ПОЛУЧЕНИЕ ПОЛНОЙ ИСТОРИИ ДВИГАТЕЛЯ
@@ -2939,14 +4063,12 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
         if data.original_sn is not None:
             if is_active_install:
                 engine.original_sn = data.original_sn
-            # Дублируем в логе для отображения в истории
-            log.engine_original_sn = data.original_sn
+            # Note: ActionLog does not have engine_original_sn column; update logged via engine record
 
         if data.current_sn is not None:
             if is_active_install:
                 engine.current_sn = data.current_sn
-            # Дублируем в логе, чтобы сразу отображалось в истории
-            log.engine_current_sn = data.current_sn
+                log.current_sn = data.current_sn  # current_sn IS a valid ActionLog column
 
         db.commit()
         db.refresh(log)
@@ -3407,7 +4529,6 @@ def ship_engine(data: ShipmentSchema, db: Session = Depends(get_db)):
         from_loc_txt = f"AC: {eng.aircraft.tail_number}"
 
     # Логика перемещения:
-    # Shipment - это отправка двигателя в другую локацию, но он остается на самолете
     # Если двигатель был на самолете (INSTALLED), он остается на самолете (сохраняем aircraft_id)
     # Если двигатель был на складе (SV), он остается на складе
     # Меняется только location_id - место назначения отправки
@@ -3552,6 +4673,34 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     elif eng.location: # Если снимаем со склада (ошибка логики, но на всякий случай)
         from_txt = eng.location.name
 
+    active_install = db.query(models.ActionLog).filter(
+        models.ActionLog.engine_id == eng.id,
+        models.ActionLog.action_type == "INSTALL",
+        models.ActionLog.is_active == True
+    ).order_by(models.ActionLog.date.desc()).first()
+
+    if not active_install:
+        active_install = db.query(models.ActionLog).filter(
+            models.ActionLog.engine_id == eng.id,
+            models.ActionLog.action_type == "INSTALL"
+        ).order_by(models.ActionLog.date.desc()).first()
+
+    ac_ttsn_at_install = _safe_float(getattr(active_install, "block_time_str", None), 0.0) if active_install else 0.0
+    ac_tcsn_at_install = _safe_int(getattr(active_install, "block_in_str", None), 0) if active_install else 0
+    engine_ttsn_at_install = _safe_float(getattr(active_install, "snapshot_tt", None), eng.total_time or 0.0) if active_install else (eng.total_time or 0.0)
+    engine_tcsn_at_install = _safe_int(getattr(active_install, "snapshot_tc", None), eng.total_cycles or 0) if active_install else (eng.total_cycles or 0)
+
+    calculated_ttsn = data.ttsn
+    calculated_tcsn = data.tcsn
+
+    if data.ttsn_ac is not None:
+        calculated_ttsn = max(_safe_float(data.ttsn_ac, 0.0) - ac_ttsn_at_install, 0.0)
+    if data.tcsn_ac is not None:
+        calculated_tcsn = max(_safe_int(data.tcsn_ac, 0) - ac_tcsn_at_install, 0)
+
+    new_engine_total_time = engine_ttsn_at_install + (_safe_float(calculated_ttsn, 0.0) if calculated_ttsn is not None else 0.0)
+    new_engine_total_cycles = engine_tcsn_at_install + (_safe_int(calculated_tcsn, 0) if calculated_tcsn is not None else 0)
+
     # Обновляем Current SN если передан Installed Plate
     if data.current_sn and data.current_sn.strip():
         eng.current_sn = data.current_sn.strip()
@@ -3566,14 +4715,10 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     eng.condition_1 = data.condition_1  # Обновляем техсостояние
     eng.removed_from = from_txt  # Сохраняем откуда сняли
     eng.installed_plate_sn = data.installed_plate_sn  # Сохраняем установленный шильдик
+    eng.total_time = new_engine_total_time
+    eng.total_cycles = new_engine_total_cycles
 
     # Закрываем активную установку (is_active = False) для этого двигателя
-    active_install = db.query(models.ActionLog).filter(
-        models.ActionLog.engine_id == eng.id,
-        models.ActionLog.action_type == "INSTALL",
-        models.ActionLog.is_active == True
-    ).order_by(models.ActionLog.date.desc()).first()
-    
     if active_install:
         active_install.is_active = False
 
@@ -3588,10 +4733,10 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         condition_1_at_removal=data.condition_1,
         comments=data.reason,
         date=datetime.now(),
-        snapshot_tt=eng.total_time,
-        snapshot_tc=eng.total_cycles,
-        ttsn=data.ttsn,
-        tcsn=data.tcsn,
+        snapshot_tt=new_engine_total_time,
+        snapshot_tc=new_engine_total_cycles,
+        ttsn=calculated_ttsn,
+        tcsn=calculated_tcsn,
         ttsn_ac=data.ttsn_ac,
         tcsn_ac=data.tcsn_ac,
         remarks_removal=data.remarks
@@ -3814,6 +4959,10 @@ def get_store_balance(db: Session = Depends(get_db)):
                 "location": item.location or "",
                 "shelf": item.shelf or "",
                 "owner": item.owner or "",
+                "removed_from": item.removed_from or "",
+                "location_from": item.location_from or "",
+                "price": item.price if item.price is not None else "",
+                "invoice_no": item.invoice_no or "",
                 "remarks": item.remarks or ""
             })
         return result
@@ -3849,6 +4998,10 @@ def create_store_item(data: StoreItemSchema, db: Session = Depends(get_db)):
         location=data.location.strip() if data.location else None,
         shelf=data.shelf.strip() if data.shelf else None,
         owner=data.owner.strip() if data.owner else None,
+        removed_from=data.removed_from.strip() if data.removed_from else None,
+        location_from=data.location_from.strip() if data.location_from else None,
+        price=data.price if data.price is not None else None,
+        invoice_no=data.invoice_no.strip() if data.invoice_no else None,
         remarks=data.remarks.strip() if data.remarks else None
     )
 
@@ -3901,6 +5054,10 @@ def update_store_item(item_id: int, data: StoreItemSchema, db: Session = Depends
     item.location = data.location.strip() if data.location else None
     item.shelf = data.shelf.strip() if data.shelf else None
     item.owner = data.owner.strip() if data.owner else None
+    item.removed_from = data.removed_from.strip() if data.removed_from else None
+    item.location_from = data.location_from.strip() if data.location_from else None
+    item.price = data.price if data.price is not None else None
+    item.invoice_no = data.invoice_no.strip() if data.invoice_no else None
     item.remarks = data.remarks.strip() if data.remarks else None
 
     db.commit()

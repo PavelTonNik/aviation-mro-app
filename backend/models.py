@@ -73,7 +73,7 @@ class Engine(Base):
     # Значения: INSTALLED, REMOVED, '-'.
     status = Column(String, default="-")
     condition_1 = Column(String, default="SV")  # Техсостояние: SV/US/Scrap
-    condition_2 = Column(String, default="New")  # Физсостояние: New/Overhauled/Repaired/Inspected tested/AS
+    condition_2 = Column(String, default="-")  # Физсостояние: -/Overhauled/Repaired/Inspected tested/AS
     
     # Наработка
     total_time = Column(Float, default=0.0)   # TT
@@ -92,6 +92,8 @@ class Engine(Base):
     # Дополнительные поля
     from_location = Column(String, nullable=True) # Откуда перемещен (лок/шоп)
     price = Column(Float, nullable=True)  # Цена двигателя
+    cost_per_hour = Column(Float, nullable=True)  # Стоимость 1 часа работы двигателя
+    cost_per_cycle = Column(Float, nullable=True)  # Стоимость 1 цикла работы двигателя
     photo_url = Column(String, nullable=True) # Ссылка на фото
     remarks = Column(String, nullable=True) # Примечания/комментарии
     removed_from = Column(String, nullable=True) # Место откуда снят двигатель
@@ -194,6 +196,8 @@ class AircraftUtilizationHistory(Base):
     date = Column(DateTime(timezone=True), nullable=False)
     total_time = Column(Float, nullable=False)  # TTSN самолёта
     total_cycles = Column(Integer, nullable=False)  # TCSN самолёта
+    source = Column(String, nullable=True)  # 'auto_sync' | 'manual' — откуда пришли данные
+    synced_at = Column(DateTime(timezone=True), nullable=True)  # Когда была выполнена синхронизация
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     aircraft = relationship("Aircraft")
@@ -281,10 +285,14 @@ class StoreItem(Base):
     serial_number = Column(String, nullable=True)
     condition = Column(String, nullable=True)
     quantity = Column(Integer, default=1)
-    unit = Column(String, nullable=True)
-    location = Column(String, nullable=True)
-    shelf = Column(String, nullable=True)
-    owner = Column(String, nullable=True)
+    unit = Column(String, nullable=True)          # R.O #
+    location = Column(String, nullable=True)       # Current location
+    shelf = Column(String, nullable=True)          # Status
+    owner = Column(String, nullable=True)          # Delivered to (legacy)
+    removed_from = Column(String, nullable=True)   # Removed From
+    location_from = Column(String, nullable=True)  # Location From
+    price = Column(Float, nullable=True)           # Price
+    invoice_no = Column(String, nullable=True)     # Invoice No
     remarks = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -304,6 +312,25 @@ class UtilizationParameter(Base):
     period = Column(Boolean, default=False)  # Флаг периода
     date_from = Column(DateTime(timezone=True), nullable=True)  # Начало периода
     date_to = Column(DateTime(timezone=True), nullable=True)  # Конец периода
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class AircraftUtilizationSource(Base):
+    """Excel source links for automatic aircraft utilization sync."""
+    __tablename__ = "aircraft_utilization_sources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    aircraft_tail_number = Column(String, nullable=False, unique=True, index=True)
+    source_url = Column(Text, nullable=True)
+    is_enabled = Column(Boolean, default=True)
+    sheet_name = Column(String, nullable=True)
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
+    last_source_date = Column(DateTime(timezone=True), nullable=True)
+    last_ttsn = Column(Float, nullable=True)
+    last_tcsn = Column(Integer, nullable=True)
+    last_status = Column(String, nullable=True)
+    last_error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

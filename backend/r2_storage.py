@@ -23,6 +23,31 @@ _DEFAULT_R2_PUBLIC_URL = 'https://pub-5e14ffe08d36478ab37dd33a0222a43e.r2.dev'
 _s3_client = None
 _config_cache = None
 
+
+def _get_float_env(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except Exception:
+        return default
+
+
+def _get_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except Exception:
+        return default
+
+
+R2_IMAGE_MAX_SIZE_MB = _get_float_env('R2_IMAGE_MAX_SIZE_MB', 2.0)
+R2_IMAGE_QUALITY = _get_int_env('R2_IMAGE_QUALITY', 85)
+R2_IMAGE_MAX_DIMENSION = _get_int_env('R2_IMAGE_MAX_DIMENSION', 1920)
+
 def _get_env(name: str, default: str) -> str:
     value = os.getenv(name)
     if value is None:
@@ -61,7 +86,12 @@ def get_s3_client():
         )
     return _s3_client
 
-def optimize_image(image_bytes: bytes, max_size_mb: float = 2.0, quality: int = 85) -> bytes:
+def optimize_image(
+    image_bytes: bytes,
+    max_size_mb: Optional[float] = None,
+    quality: Optional[int] = None,
+    max_dimension: Optional[int] = None
+) -> bytes:
     """
     Optimize image size while maintaining quality
     Args:
@@ -72,16 +102,28 @@ def optimize_image(image_bytes: bytes, max_size_mb: float = 2.0, quality: int = 
         Optimized image bytes
     """
     try:
+        if max_size_mb is None:
+            max_size_mb = R2_IMAGE_MAX_SIZE_MB
+        if quality is None:
+            quality = R2_IMAGE_QUALITY
+        if max_dimension is None:
+            max_dimension = R2_IMAGE_MAX_DIMENSION
+
+        quality = max(50, min(int(quality), 95))
+        max_dimension = max(512, int(max_dimension))
+
         img = Image.open(BytesIO(image_bytes))
         
-        # Convert RGBA to RGB if needed
-        if img.mode == 'RGBA':
+        # Convert to RGB-compatible image if needed
+        if img.mode in ('RGBA', 'LA'):
             background = Image.new('RGB', img.size, (255, 255, 255))
-            background.paste(img, mask=img.split()[3])
+            alpha = img.split()[-1]
+            background.paste(img, mask=alpha)
             img = background
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
         
         # Resize if too large
-        max_dimension = 1920
         if img.width > max_dimension or img.height > max_dimension:
             img.thumbnail((max_dimension, max_dimension), Image.Resampling.LANCZOS)
         

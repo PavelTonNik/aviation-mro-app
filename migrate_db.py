@@ -155,7 +155,7 @@ def run_migrations():
                 print(f"  ⚠ Warning: fake_installed_settings issue: {e}")
             
             # Create nameplate_tracker table
-            print("\n[6/6] Checking nameplate_tracker table...")
+            print("\n[6/7] Checking nameplate_tracker table...")
             try:
                 conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS nameplate_tracker (
@@ -178,6 +178,30 @@ def run_migrations():
                 print("  ✓ nameplate_tracker table ready")
             except Exception as e:
                 print(f"  ⚠ Warning: nameplate_tracker issue: {e}")
+
+            # Add new store_items columns
+            print("\n[7/7] Adding new store_items columns (removed_from, location_from, price, invoice_no)...")
+            try:
+                conn.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='store_items' AND column_name='removed_from') THEN
+                            ALTER TABLE store_items ADD COLUMN removed_from varchar;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='store_items' AND column_name='location_from') THEN
+                            ALTER TABLE store_items ADD COLUMN location_from varchar;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='store_items' AND column_name='price') THEN
+                            ALTER TABLE store_items ADD COLUMN price double precision;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='store_items' AND column_name='invoice_no') THEN
+                            ALTER TABLE store_items ADD COLUMN invoice_no varchar;
+                        END IF;
+                    END$$;
+                """))
+                print("  ✓ store_items new columns ready")
+            except Exception as e:
+                print(f"  ⚠ Warning: store_items columns issue: {e}")
         
         print("\n" + "=" * 80)
         print("✅ ALL MIGRATIONS COMPLETED SUCCESSFULLY!")
