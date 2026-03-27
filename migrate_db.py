@@ -16,6 +16,15 @@ if not DATABASE_URL:
     print("❌ ERROR: DATABASE_URL environment variable not set")
     sys.exit(1)
 
+# Render may provide postgres:// while SQLAlchemy expects postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Ensure SSL for managed Postgres unless explicitly provided
+if DATABASE_URL.startswith("postgresql://") and "sslmode" not in DATABASE_URL:
+    sep = "&" if "?" in DATABASE_URL else "?"
+    DATABASE_URL = f"{DATABASE_URL}{sep}sslmode=require"
+
 print(f"✓ DATABASE_URL found: {DATABASE_URL[:30]}...")
 
 try:
@@ -31,7 +40,7 @@ try:
     print("✓ Database engine created")
     
     # Detect database type
-    is_postgres = DATABASE_URL.startswith('postgres')
+    is_postgres = DATABASE_URL.startswith('postgresql://') or DATABASE_URL.startswith('postgres://')
     is_sqlite = DATABASE_URL.startswith('sqlite')
     
     if is_postgres:
