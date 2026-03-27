@@ -11,8 +11,6 @@ import asyncio
 import csv
 import json
 import re
-import subprocess
-import sys
 import tempfile
 from pathlib import Path
 import hashlib
@@ -934,7 +932,13 @@ def _normalize_excel_url(url: Optional[str]) -> Optional[str]:
     return cleaned
 
 
-def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, max_retries: int = 2) -> bytes:
+def _download_excel_bytes(
+    source_url: str,
+    original_url: Optional[str] = None,
+    max_retries: int = 2,
+    allow_browser_fallback: bool = True,
+    request_timeout: int = 90,
+) -> bytes:
     from urllib.error import HTTPError, URLError
 
     def _is_sharepoint_url() -> bool:
@@ -947,6 +951,8 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
         )
 
     def _try_sharepoint_browser_fallback() -> Optional[bytes]:
+        if not allow_browser_fallback:
+            return None
         if not _is_sharepoint_url():
             return None
         browser_url = original_url or source_url
@@ -959,7 +965,7 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
             "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream,*/*",
         })
         try:
-            with urlopen(req, timeout=90) as response:
+            with urlopen(req, timeout=request_timeout) as response:
                 data = response.read()
                 content_type = str(response.headers.get("Content-Type", "")).lower()
 
@@ -1024,35 +1030,12 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
     raise last_exception or Exception("Download failed after retries")
 
 
-def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5) -> Optional[bytes]:
+def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2) -> Optional[bytes]:
     """
     Open the SharePoint Excel Online viewer in a headless browser and click:
     Файл → Экспорт → Скачать как CSV UTF-8
     This mirrors exactly what a user does manually in incognito mode.
     """
-
-    def _is_missing_playwright_browser_error(message: str) -> bool:
-        text = (message or "").lower()
-        return (
-            "executable doesn't exist" in text
-            or "browsertype.launch" in text
-            or "playwright install" in text
-            or "chromium distribution" in text
-            or "chrome-headless-shell" in text
-        )
-
-    def _install_playwright_chromium() -> None:
-        print("🔧 Playwright browser is missing. Installing Chromium...")
-        result = subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium"],
-            capture_output=True,
-            text=True,
-            timeout=900,
-            check=False,
-        )
-        if result.returncode != 0:
-            output = (result.stdout or "") + "\n" + (result.stderr or "")
-            raise Exception(f"Failed to install Playwright Chromium: {output.strip()}")
 
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
@@ -1064,7 +1047,7 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5)
     with tempfile.TemporaryDirectory() as tmp_dir:
         try:
             with sync_playwright() as p:
-                browser_installed_at_runtime = False
+                browser_errors = []
 
                 def _launch_candidates():
                     return [
@@ -1091,13 +1074,13 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5)
                         for page_attempt in range(max_page_reloads):
                             try:
                                 if page_attempt == 0:
-                                    page.goto(source_url, wait_until="domcontentloaded", timeout=150000)
+                                    page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
                                 else:
                                     try:
-                                        page.reload(wait_until="domcontentloaded", timeout=150000)
+                                        page.reload(wait_until="domcontentloaded", timeout=60000)
                                     except Exception:
-                                        page.goto(source_url, wait_until="domcontentloaded", timeout=150000)
-                                page.wait_for_timeout(9000)
+                                        page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
+                                page.wait_for_timeout(4000)
 
                                 def _candidate_frames():
                                     frames = list(page.frames)
@@ -1159,7 +1142,7 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5)
                                                 loc = frame.locator(sel).first
                                                 if not loc.is_visible(timeout=2500):
                                                     continue
-                                                with page.expect_download(timeout=60000) as dl_info:
+                                                with page.expect_download(timeout=45000) as dl_info:
                                                     loc.click(timeout=9000)
                                                 dl = dl_info.value
                                                 if dl.failure():
@@ -1190,42 +1173,37 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5)
                     finally:
                         context.close()
 
-                while True:
-                    browser_errors = []
-
-                    for candidate in _launch_candidates():
-                        browser = None
+                for candidate in _launch_candidates():
+                    browser = None
+                    try:
+                        launch_kwargs = {
+                            "headless": True,
+                            "args": [
+                                "--no-sandbox",
+                                "--disable-setuid-sandbox",
+                                "--disable-dev-shm-usage",
+                                "--disable-gpu",
+                                "--disable-blink-features=AutomationControlled",
+                                "--disable-features=msSmartScreenProtection",
+                                "--disable-http2",
+                            ],
+                        }
+                        if candidate["channel"]:
+                            launch_kwargs["channel"] = candidate["channel"]
+                        browser = p.chromium.launch(**launch_kwargs)
+                        data = _run_with_browser(browser)
+                        if data:
+                            return data
+                    except Exception as candidate_error:
+                        browser_errors.append(f'{candidate["label"]}: {candidate_error}')
+                    finally:
                         try:
-                            launch_kwargs = {
-                                "headless": True,
-                                "args": [
-                                    "--disable-blink-features=AutomationControlled",
-                                    "--disable-features=msSmartScreenProtection",
-                                    "--disable-http2",
-                                ],
-                            }
-                            if candidate["channel"]:
-                                launch_kwargs["channel"] = candidate["channel"]
-                            browser = p.chromium.launch(**launch_kwargs)
-                            data = _run_with_browser(browser)
-                            if data:
-                                return data
-                        except Exception as candidate_error:
-                            browser_errors.append(f'{candidate["label"]}: {candidate_error}')
-                        finally:
-                            try:
-                                if browser:
-                                    browser.close()
-                            except Exception:
-                                pass
+                            if browser:
+                                browser.close()
+                        except Exception:
+                            pass
 
-                    combined_error = " | ".join(browser_errors) if browser_errors else "Unknown browser launch failure"
-                    if not browser_installed_at_runtime and _is_missing_playwright_browser_error(combined_error):
-                        _install_playwright_chromium()
-                        browser_installed_at_runtime = True
-                        continue
-
-                    raise Exception(combined_error)
+                raise Exception(" | ".join(browser_errors) if browser_errors else "Unknown browser launch failure")
 
         except PlaywrightTimeoutError as e:
             raise Exception(f"SharePoint browser timed out: {e}")
@@ -3395,7 +3373,13 @@ def preview_excel_url(url: str):
         normalized = _normalize_excel_url(stripped)
         if not normalized:
             return {"ok": False, "error": "Could not parse URL"}
-        content = _download_excel_bytes(normalized, original_url=stripped)
+        content = _download_excel_bytes(
+            normalized,
+            original_url=stripped,
+            max_retries=1,
+            allow_browser_fallback=False,
+            request_timeout=25,
+        )
         latest = _extract_latest_utilization_from_content(content, preferred_sheet=None)
         rounded_ttsn = int(_round_utilization_hours(latest["ttsn"]))
         return {
