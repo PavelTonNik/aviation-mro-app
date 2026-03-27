@@ -180,7 +180,7 @@ def run_migrations():
                 print(f"  ⚠ Warning: nameplate_tracker issue: {e}")
 
             # Add new store_items columns
-            print("\n[7/7] Adding new store_items columns (removed_from, location_from, price, invoice_no)...")
+            print("\n[7/8] Adding new store_items columns (removed_from, location_from, price, invoice_no)...")
             try:
                 conn.execute(text("""
                     DO $$
@@ -202,6 +202,24 @@ def run_migrations():
                 print("  ✓ store_items new columns ready")
             except Exception as e:
                 print(f"  ⚠ Warning: store_items columns issue: {e}")
+
+            # Add cost_per_hour and cost_per_cycle to engines
+            print("\n[8/8] Adding engines.cost_per_hour and cost_per_cycle columns...")
+            try:
+                conn.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='engines' AND column_name='cost_per_hour') THEN
+                            ALTER TABLE engines ADD COLUMN cost_per_hour double precision;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='engines' AND column_name='cost_per_cycle') THEN
+                            ALTER TABLE engines ADD COLUMN cost_per_cycle double precision;
+                        END IF;
+                    END$$;
+                """))
+                print("  ✓ engines cost columns ready")
+            except Exception as e:
+                print(f"  ⚠ Warning: engines cost columns issue: {e}")
         
         print("\n" + "=" * 80)
         print("✅ ALL MIGRATIONS COMPLETED SUCCESSFULLY!")
