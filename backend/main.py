@@ -1229,6 +1229,42 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2)
                         try:
                             page = context.new_page()
                             last_attempt_error = None
+
+                            def _candidate_frames():
+                                frames = list(page.frames)
+                                office_frames = [
+                                    frame for frame in frames
+                                    if "officeapps" in (frame.url or "") or "xlviewer" in (frame.url or "")
+                                ]
+                                return office_frames + [f for f in frames if f not in office_frames]
+
+                            def _click_in_frames(texts, selectors, timeout=10000):
+                                for frame in _candidate_frames():
+                                    for text in texts:
+                                        for pattern in selectors:
+                                            sel = pattern.format(text=text)
+                                            try:
+                                                loc = frame.locator(sel).first
+                                                if loc.is_visible(timeout=2500):
+                                                    loc.click(timeout=timeout)
+                                                    return True
+                                            except Exception:
+                                                continue
+                                return False
+
+                            file_selectors = [
+                                'button:has-text("{text}")',
+                                '[role="tab"]:has-text("{text}")',
+                                '[role="button"]:has-text("{text}")',
+                                'span:has-text("{text}")',
+                            ]
+                            menu_selectors = [
+                                '[role="menuitem"]:has-text("{text}")',
+                                'button:has-text("{text}")',
+                                '[role="button"]:has-text("{text}")',
+                                'span:has-text("{text}")',
+                            ]
+
                             for page_attempt in range(max_page_reloads):
                                 try:
                                     if page_attempt == 0:
@@ -1239,41 +1275,6 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2)
                                         except Exception:
                                             page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
                                     page.wait_for_timeout(6000)
-
-                                    def _candidate_frames():
-                                        frames = list(page.frames)
-                                        office_frames = [
-                                            frame for frame in frames
-                                            if "officeapps" in (frame.url or "") or "xlviewer" in (frame.url or "")
-                                        ]
-                                        return office_frames + [f for f in frames if f not in office_frames]
-
-                                    def _click_in_frames(texts, selectors, timeout=10000):
-                                        for frame in _candidate_frames():
-                                            for text in texts:
-                                                for pattern in selectors:
-                                                    sel = pattern.format(text=text)
-                                                    try:
-                                                        loc = frame.locator(sel).first
-                                                        if loc.is_visible(timeout=2500):
-                                                            loc.click(timeout=timeout)
-                                                            return True
-                                                    except Exception:
-                                                        continue
-                                        return False
-
-                                    file_selectors = [
-                                        'button:has-text("{text}")',
-                                        '[role="tab"]:has-text("{text}")',
-                                        '[role="button"]:has-text("{text}")',
-                                        'span:has-text("{text}")',
-                                    ]
-                                    menu_selectors = [
-                                        '[role="menuitem"]:has-text("{text}")',
-                                        'button:has-text("{text}")',
-                                        '[role="button"]:has-text("{text}")',
-                                        'span:has-text("{text}")',
-                                    ]
 
                                     if not _click_in_frames(["Файл", "File"], file_selectors, timeout=12000):
                                         raise Exception('Could not find "Файл" / "File" ribbon tab')
@@ -1320,14 +1321,14 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2)
                                         'Clicked Файл → Экспорт but could not find "Скачать как CSV UTF-8" option. '
                                         'Make sure the file is shared as "Anyone with the link".'
                                     )
-                            except Exception as attempt_error:
-                                last_attempt_error = attempt_error
-                                if page_attempt < max_page_reloads - 1:
-                                    page.wait_for_timeout(2500)
-                                    continue
-                                raise Exception(
-                                    f"Could not export CSV after {max_page_reloads} page refresh attempts: {last_attempt_error}"
-                                )
+                                except Exception as attempt_error:
+                                    last_attempt_error = attempt_error
+                                    if page_attempt < max_page_reloads - 1:
+                                        page.wait_for_timeout(2500)
+                                        continue
+                                    raise Exception(
+                                        f"Could not export CSV after {max_page_reloads} page refresh attempts: {last_attempt_error}"
+                                    )
                         finally:
                             context.close()
 
