@@ -1184,11 +1184,12 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
     raise last_exception or Exception("Download failed after retries")
 
 
-def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2) -> Optional[bytes]:
+def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 4) -> Optional[bytes]:
     """
-    Open the SharePoint Excel Online viewer in a headless browser and click:
-    Файл → Экспорт → Скачать как CSV UTF-8
-    This mirrors exactly what a user does manually in incognito mode.
+    Open the SharePoint Excel Online viewer in a headless browser and:
+    1. Primary: click Файл → Экспорт → Скачать как CSV UTF-8
+    2. Fallback per attempt: extract direct download URL from page HTML
+    Retries up to max_page_reloads times (page can hang on Render).
     """
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
@@ -1196,6 +1197,42 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2)
         raise Exception(
             "Playwright not installed. Run: pip install playwright && playwright install chromium"
         )
+
+    def _extract_dl_url_from_html(page_html: str, current_url: str) -> Optional[bytes]:
+        """Try to find an embedded direct download URL in the page HTML and fetch the file."""
+        dl_candidates: list = []
+        _key_patterns = [
+            r'"(?:downloadUrl|tempauthdownloadurl|fileGetUrl|FileGetUrl|@microsoft\.graph\.downloadUrl)":\s*"([^"\\]+(?:\\.[^"\\]*)*)"',
+            r'(?:downloadUrl|tempauthdownloadurl|fileGetUrl)=([^"&\s\]]+)',
+            r'href=["\']([^"\']*(?:download=1)[^"\']*)["\']',
+            r'href=["\']([^"\']*(?:download\.aspx|guestaccess\.aspx)[^"\']*)["\']',
+        ]
+        for _pat in _key_patterns:
+            for _m in re.findall(_pat, page_html, flags=re.IGNORECASE):
+                _raw = str(_m).strip().replace('\\/', '/').replace('\\u0026', '&')
+                _raw = html.unescape(_raw)
+                if _raw.startswith('//'):
+                    _raw = 'https:' + _raw
+                elif not _raw.startswith('http'):
+                    _raw = urljoin(current_url, _raw)
+                if _raw and _raw not in dl_candidates:
+                    dl_candidates.append(_raw)
+        for _dl_url in dl_candidates:
+            try:
+                _dl_req = UrlRequest(_dl_url, headers={"User-Agent": "Mozilla/5.0", "Accept": "*/*"})
+                with urlopen(_dl_req, timeout=60) as _dl_resp:
+                    _dl_data = _dl_resp.read()
+                    _dl_ct = str(_dl_resp.headers.get("Content-Type", "")).lower()
+                    if not _dl_data:
+                        continue
+                    if b"<html" in _dl_data[:512].lower():
+                        continue
+                    _is_csv = 'csv' in _dl_ct or _dl_url.lower().endswith('.csv')
+                    if _dl_data.startswith(b"PK") or _is_csv:
+                        return _dl_data
+            except Exception:
+                continue
+        return None
 
     with sharepoint_browser_fallback_lock:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1264,70 +1301,105 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2)
                                 '[role="button"]:has-text("{text}")',
                                 'span:has-text("{text}")',
                             ]
+                            csv_texts = [
+                                "Скачать как CSV UTF-8",
+                                "Скачать в формате CSV UTF-8",
+                                "Download as CSV UTF-8",
+                                "Скачать как CSV",
+                                "Скачать в формате CSV",
+                                "Download as CSV",
+                            ]
 
                             for page_attempt in range(max_page_reloads):
                                 try:
+                                    # Load page
                                     if page_attempt == 0:
-                                        page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
+                                        page.goto(source_url, wait_until="domcontentloaded", timeout=90000)
                                     else:
                                         try:
-                                            page.reload(wait_until="domcontentloaded", timeout=60000)
+                                            page.reload(wait_until="domcontentloaded", timeout=90000)
                                         except Exception:
-                                            page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
-                                    page.wait_for_timeout(6000)
+                                            page.goto(source_url, wait_until="domcontentloaded", timeout=90000)
 
-                                    if not _click_in_frames(["Файл", "File"], file_selectors, timeout=12000):
-                                        raise Exception('Could not find "Файл" / "File" ribbon tab')
-                                    page.wait_for_timeout(1600)
+                                    # Wait for Excel Online UI to fully render (up to 15s)
+                                    try:
+                                        page.wait_for_selector(
+                                            'button:has-text("Файл"), button:has-text("File"), [role="tab"]:has-text("File")',
+                                            timeout=15000,
+                                        )
+                                    except Exception:
+                                        page.wait_for_timeout(8000)
 
-                                    if not _click_in_frames(["Экспорт", "Export"], menu_selectors, timeout=12000):
-                                        raise Exception('Could not find "Экспорт" / "Export" menu item')
-                                    page.wait_for_timeout(1400)
+                                    # === PRIMARY: click File → Export → Download as CSV ===
+                                    click_error = None
+                                    try:
+                                        if not _click_in_frames(["Файл", "File"], file_selectors, timeout=12000):
+                                            raise Exception('Could not find "Файл" / "File" ribbon tab')
+                                        page.wait_for_timeout(1600)
 
-                                    csv_texts = [
-                                        "Скачать как CSV UTF-8",
-                                        "Скачать в формате CSV UTF-8",
-                                        "Download as CSV UTF-8",
-                                        "Скачать как CSV",
-                                        "Скачать в формате CSV",
-                                        "Download as CSV",
-                                    ]
+                                        if not _click_in_frames(["Экспорт", "Export"], menu_selectors, timeout=12000):
+                                            raise Exception('Could not find "Экспорт" / "Export" menu item')
+                                        page.wait_for_timeout(1400)
 
-                                    for frame in _candidate_frames():
-                                        for text in csv_texts:
-                                            for pattern in menu_selectors:
-                                                sel = pattern.format(text=text)
-                                                try:
-                                                    loc = frame.locator(sel).first
-                                                    if not loc.is_visible(timeout=2500):
+                                        csv_clicked = False
+                                        for frame in _candidate_frames():
+                                            if csv_clicked:
+                                                break
+                                            for text in csv_texts:
+                                                if csv_clicked:
+                                                    break
+                                                for pattern in menu_selectors:
+                                                    sel = pattern.format(text=text)
+                                                    try:
+                                                        loc = frame.locator(sel).first
+                                                        if not loc.is_visible(timeout=2500):
+                                                            continue
+                                                        with page.expect_download(timeout=90000) as dl_info:
+                                                            loc.click(timeout=9000)
+                                                        dl = dl_info.value
+                                                        if dl.failure():
+                                                            raise Exception(f"Download failed: {dl.failure()}")
+                                                        target = Path(tmp_dir) / (dl.suggested_filename or "file.csv")
+                                                        dl.save_as(str(target))
+                                                        data = target.read_bytes()
+                                                        if not data:
+                                                            raise Exception("Downloaded CSV is empty")
+                                                        csv_clicked = True
+                                                        return data
+                                                    except PlaywrightTimeoutError:
                                                         continue
-                                                    with page.expect_download(timeout=60000) as dl_info:
-                                                        loc.click(timeout=9000)
-                                                    dl = dl_info.value
-                                                    if dl.failure():
-                                                        raise Exception(f"Download failed: {dl.failure()}")
-                                                    target = Path(tmp_dir) / (dl.suggested_filename or "file.csv")
-                                                    dl.save_as(str(target))
-                                                    data = target.read_bytes()
-                                                    if not data:
-                                                        raise Exception("Downloaded CSV is empty")
-                                                    return data
-                                                except PlaywrightTimeoutError:
-                                                    continue
-                                                except Exception:
-                                                    continue
+                                                    except Exception:
+                                                        continue
 
+                                        if not csv_clicked:
+                                            raise Exception(
+                                                'Clicked Файл → Экспорт but could not find "Скачать как CSV" option.'
+                                            )
+                                    except Exception as ce:
+                                        click_error = ce
+
+                                    # === FALLBACK: extract download URL from rendered page HTML ===
+                                    try:
+                                        page_html_content = page.content()
+                                        fallback_data = _extract_dl_url_from_html(page_html_content, page.url)
+                                        if fallback_data:
+                                            return fallback_data
+                                    except Exception:
+                                        pass
+
+                                    # Both primary and fallback failed this attempt
                                     raise Exception(
-                                        'Clicked Файл → Экспорт but could not find "Скачать как CSV UTF-8" option. '
-                                        'Make sure the file is shared as "Anyone with the link".'
+                                        f"Attempt {page_attempt + 1}/{max_page_reloads}: "
+                                        f"Click export failed ({click_error}); HTML fallback also found nothing."
                                     )
+
                                 except Exception as attempt_error:
                                     last_attempt_error = attempt_error
                                     if page_attempt < max_page_reloads - 1:
-                                        page.wait_for_timeout(2500)
+                                        page.wait_for_timeout(4000)
                                         continue
                                     raise Exception(
-                                        f"Could not export CSV after {max_page_reloads} page refresh attempts: {last_attempt_error}"
+                                        f"Could not export CSV after {max_page_reloads} page reload attempts: {last_attempt_error}"
                                     )
                         finally:
                             context.close()
