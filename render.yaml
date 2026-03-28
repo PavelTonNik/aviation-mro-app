@@ -5,6 +5,7 @@ services:
     plan: free
     buildCommand: pip install -r requirements.txt && PLAYWRIGHT_BROWSERS_PATH=0 python -m playwright install chromium
     startCommand: bash start.sh
+    healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -12,6 +13,8 @@ services:
           property: connectionString
       - key: PLAYWRIGHT_BROWSERS_PATH
         value: "0"
+      - key: ALLOW_RENDER_SHAREPOINT_BROWSER
+        value: "1"
 
 databases:
   - name: aviation_db

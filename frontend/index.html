@@ -20591,7 +20591,7 @@ function onGssInputChange(engines) {
             return data.job_id;
         }
 
-        async function waitForPreviewJob(jobId, timeoutMs = 120000) {
+        async function waitForPreviewJob(jobId, timeoutMs = 300000) {
             const startedAt = Date.now();
             while (Date.now() - startedAt < timeoutMs) {
                 const response = await fetch('/api/aircraft-utilization-sources/preview-jobs/' + encodeURIComponent(jobId));
