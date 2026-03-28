@@ -1240,86 +1240,86 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2)
                                             page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
                                     page.wait_for_timeout(6000)
 
-                                def _candidate_frames():
-                                    frames = list(page.frames)
-                                    office_frames = [
-                                        frame for frame in frames
-                                        if "officeapps" in (frame.url or "") or "xlviewer" in (frame.url or "")
-                                    ]
-                                    return office_frames + [f for f in frames if f not in office_frames]
+                                    def _candidate_frames():
+                                        frames = list(page.frames)
+                                        office_frames = [
+                                            frame for frame in frames
+                                            if "officeapps" in (frame.url or "") or "xlviewer" in (frame.url or "")
+                                        ]
+                                        return office_frames + [f for f in frames if f not in office_frames]
 
-                                def _click_in_frames(texts, selectors, timeout=10000):
+                                    def _click_in_frames(texts, selectors, timeout=10000):
+                                        for frame in _candidate_frames():
+                                            for text in texts:
+                                                for pattern in selectors:
+                                                    sel = pattern.format(text=text)
+                                                    try:
+                                                        loc = frame.locator(sel).first
+                                                        if loc.is_visible(timeout=2500):
+                                                            loc.click(timeout=timeout)
+                                                            return True
+                                                    except Exception:
+                                                        continue
+                                        return False
+
+                                    file_selectors = [
+                                        'button:has-text("{text}")',
+                                        '[role="tab"]:has-text("{text}")',
+                                        '[role="button"]:has-text("{text}")',
+                                        'span:has-text("{text}")',
+                                    ]
+                                    menu_selectors = [
+                                        '[role="menuitem"]:has-text("{text}")',
+                                        'button:has-text("{text}")',
+                                        '[role="button"]:has-text("{text}")',
+                                        'span:has-text("{text}")',
+                                    ]
+
+                                    if not _click_in_frames(["Файл", "File"], file_selectors, timeout=12000):
+                                        raise Exception('Could not find "Файл" / "File" ribbon tab')
+                                    page.wait_for_timeout(1600)
+
+                                    if not _click_in_frames(["Экспорт", "Export"], menu_selectors, timeout=12000):
+                                        raise Exception('Could not find "Экспорт" / "Export" menu item')
+                                    page.wait_for_timeout(1400)
+
+                                    csv_texts = [
+                                        "Скачать как CSV UTF-8",
+                                        "Скачать в формате CSV UTF-8",
+                                        "Download as CSV UTF-8",
+                                        "Скачать как CSV",
+                                        "Скачать в формате CSV",
+                                        "Download as CSV",
+                                    ]
+
                                     for frame in _candidate_frames():
-                                        for text in texts:
-                                            for pattern in selectors:
+                                        for text in csv_texts:
+                                            for pattern in menu_selectors:
                                                 sel = pattern.format(text=text)
                                                 try:
                                                     loc = frame.locator(sel).first
-                                                    if loc.is_visible(timeout=2500):
-                                                        loc.click(timeout=timeout)
-                                                        return True
+                                                    if not loc.is_visible(timeout=2500):
+                                                        continue
+                                                    with page.expect_download(timeout=60000) as dl_info:
+                                                        loc.click(timeout=9000)
+                                                    dl = dl_info.value
+                                                    if dl.failure():
+                                                        raise Exception(f"Download failed: {dl.failure()}")
+                                                    target = Path(tmp_dir) / (dl.suggested_filename or "file.csv")
+                                                    dl.save_as(str(target))
+                                                    data = target.read_bytes()
+                                                    if not data:
+                                                        raise Exception("Downloaded CSV is empty")
+                                                    return data
+                                                except PlaywrightTimeoutError:
+                                                    continue
                                                 except Exception:
                                                     continue
-                                    return False
 
-                                file_selectors = [
-                                    'button:has-text("{text}")',
-                                    '[role="tab"]:has-text("{text}")',
-                                    '[role="button"]:has-text("{text}")',
-                                    'span:has-text("{text}")',
-                                ]
-                                menu_selectors = [
-                                    '[role="menuitem"]:has-text("{text}")',
-                                    'button:has-text("{text}")',
-                                    '[role="button"]:has-text("{text}")',
-                                    'span:has-text("{text}")',
-                                ]
-
-                                if not _click_in_frames(["Файл", "File"], file_selectors, timeout=12000):
-                                    raise Exception('Could not find "Файл" / "File" ribbon tab')
-                                page.wait_for_timeout(1600)
-
-                                if not _click_in_frames(["Экспорт", "Export"], menu_selectors, timeout=12000):
-                                    raise Exception('Could not find "Экспорт" / "Export" menu item')
-                                page.wait_for_timeout(1400)
-
-                                csv_texts = [
-                                    "Скачать как CSV UTF-8",
-                                    "Скачать в формате CSV UTF-8",
-                                    "Download as CSV UTF-8",
-                                    "Скачать как CSV",
-                                    "Скачать в формате CSV",
-                                    "Download as CSV",
-                                ]
-
-                                for frame in _candidate_frames():
-                                    for text in csv_texts:
-                                        for pattern in menu_selectors:
-                                            sel = pattern.format(text=text)
-                                            try:
-                                                loc = frame.locator(sel).first
-                                                if not loc.is_visible(timeout=2500):
-                                                    continue
-                                                with page.expect_download(timeout=60000) as dl_info:
-                                                    loc.click(timeout=9000)
-                                                dl = dl_info.value
-                                                if dl.failure():
-                                                    raise Exception(f"Download failed: {dl.failure()}")
-                                                target = Path(tmp_dir) / (dl.suggested_filename or "file.csv")
-                                                dl.save_as(str(target))
-                                                data = target.read_bytes()
-                                                if not data:
-                                                    raise Exception("Downloaded CSV is empty")
-                                                return data
-                                            except PlaywrightTimeoutError:
-                                                continue
-                                            except Exception:
-                                                continue
-
-                                raise Exception(
-                                    'Clicked Файл → Экспорт but could not find "Скачать как CSV UTF-8" option. '
-                                    'Make sure the file is shared as "Anyone with the link".'
-                                )
+                                    raise Exception(
+                                        'Clicked Файл → Экспорт but could not find "Скачать как CSV UTF-8" option. '
+                                        'Make sure the file is shared as "Anyone with the link".'
+                                    )
                             except Exception as attempt_error:
                                 last_attempt_error = attempt_error
                                 if page_attempt < max_page_reloads - 1:
