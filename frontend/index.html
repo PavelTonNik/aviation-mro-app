@@ -8888,6 +8888,8 @@ function openDashboardView() {
     window.onload = async function() {
         loadSavedTheme();
         await loadDashboardData();
+        // Keep Render free-tier service alive: ping every 8 minutes
+        setInterval(() => fetch('/health').catch(() => {}), 8 * 60 * 1000);
     };
 
 
@@ -20562,6 +20564,21 @@ function onGssInputChange(engines) {
         const ttsnEl = document.getElementById(`util-found-ttsn-${tail}`);
         const tcsnEl = document.getElementById(`util-found-tcsn-${tail}`);
 
+        function isSharePointUrl(u) {
+            try {
+                const h = new URL(u).hostname.toLowerCase();
+                return h.includes('sharepoint.com') || h.includes('onedrive.live.com') || h.includes('1drv.ms');
+            } catch { return false; }
+        }
+
+        // Fast path: direct download (Google Drive, direct .xlsx URL, etc.)
+        async function previewDirect(sourceUrl) {
+            const response = await fetch('/api/aircraft-utilization-sources/preview?url=' + encodeURIComponent(sourceUrl));
+            const data = await response.json().catch(() => ({}));
+            return data;
+        }
+
+        // Slow path: SharePoint requires a browser — use background job + polling
         async function startPreviewJob(sourceUrl) {
             const response = await fetch('/api/aircraft-utilization-sources/preview-jobs', {
                 method: 'POST',
@@ -20569,44 +20586,41 @@ function onGssInputChange(engines) {
                 body: JSON.stringify({ url: sourceUrl })
             });
             const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data.detail || 'Failed to start preview job');
-            }
-            if (!data.job_id) {
-                throw new Error('Preview job id was not returned');
-            }
+            if (!response.ok) throw new Error(data.detail || 'Failed to start preview job');
+            if (!data.job_id) throw new Error('Preview job id was not returned');
             return data.job_id;
         }
 
-        async function waitForPreviewJob(jobId, timeoutMs = 180000) {
+        async function waitForPreviewJob(jobId, timeoutMs = 120000) {
             const startedAt = Date.now();
             while (Date.now() - startedAt < timeoutMs) {
                 const response = await fetch('/api/aircraft-utilization-sources/preview-jobs/' + encodeURIComponent(jobId));
                 const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    throw new Error(data.detail || `Preview status failed (${response.status})`);
-                }
-                if (data.status === 'success') {
-                    return data.result || { ok: false, error: 'Preview job finished without result' };
-                }
-                if (data.status === 'error') {
-                    return { ok: false, error: data.error || 'Preview job failed' };
-                }
+                if (!response.ok) throw new Error(data.detail || `Preview status failed (${response.status})`);
+                if (data.status === 'success') return data.result || { ok: false, error: 'No result' };
+                if (data.status === 'error') return { ok: false, error: data.error || 'Preview job failed' };
                 await new Promise(r => setTimeout(r, 2000));
             }
             return { ok: false, error: 'Preview timed out on server' };
         }
 
-        const maxAttempts = 5;
+        const useJobSystem = isSharePointUrl(url);
+        const maxAttempts = useJobSystem ? 2 : 3;
+
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
             if (attempt === 0) {
-                if (wrapEl) wrapEl.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Downloading &amp; reading Excel...</span>';
+                if (wrapEl) wrapEl.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>' + (useJobSystem ? 'Opening SharePoint...' : 'Checking live link...') + '</span>';
             } else {
                 if (wrapEl) wrapEl.innerHTML = `<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Retrying... (${attempt + 1}/${maxAttempts})</span>`;
             }
             try {
-                const jobId = await startPreviewJob(url);
-                const data = await waitForPreviewJob(jobId);
+                let data;
+                if (useJobSystem) {
+                    const jobId = await startPreviewJob(url);
+                    data = await waitForPreviewJob(jobId);
+                } else {
+                    data = await previewDirect(url);
+                }
                 if (data.ok) {
                     if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-success me-1">Found</span><span class="small text-muted">Sheet: <b>${data.sheet}</b></span>`;
                     if (dateEl) dateEl.textContent = data.date || '—';
@@ -20616,18 +20630,17 @@ function onGssInputChange(engines) {
                 }
                 const isAccess = (data.error || '').includes('Access denied') || (data.error || '').includes('401') || (data.error || '').includes('403');
                 if (isAccess) {
-                    // Access errors won't be fixed by retrying
-                    if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Access Denied</span><span class="small text-danger">File is private. <b>Share → Anyone with the link → Viewer</b> in Google Sheets, then paste again.</span>`;
+                    if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Access Denied</span><span class="small text-danger">File is private. <b>Share → Anyone with the link → Viewer</b></span>`;
                     return;
                 }
                 if (attempt < maxAttempts - 1) {
-                    await new Promise(r => setTimeout(r, 3200));
+                    await new Promise(r => setTimeout(r, 2500));
                     continue;
                 }
                 if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Error</span><span class="small text-danger">${data.error || 'Unknown error'}</span><div class="small text-muted mt-1">Last successful values are kept below.</div>`;
             } catch (err) {
                 if (attempt < maxAttempts - 1) {
-                    await new Promise(r => setTimeout(r, 3200));
+                    await new Promise(r => setTimeout(r, 2500));
                     continue;
                 }
                 if (wrapEl) wrapEl.innerHTML = `<span class="badge bg-danger me-1">Error</span><span class="small text-danger">${err.message}</span><div class="small text-muted mt-1">Last successful values are kept below.</div>`;

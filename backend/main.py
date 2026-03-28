@@ -723,6 +723,11 @@ FRONTEND_DIR = BACKEND_DIR.parent / "frontend"
 
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
+# Health check – used by Render health checks and frontend keep-alive pings
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "ts": time.time()}
+
 # 2. Главная страница
 @app.get("/")
 def read_index():
@@ -1085,7 +1090,7 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
     raise last_exception or Exception("Download failed after retries")
 
 
-def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5) -> Optional[bytes]:
+def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 2) -> Optional[bytes]:
     """
     Open the SharePoint Excel Online viewer in a headless browser and click:
     Файл → Экспорт → Скачать как CSV UTF-8
@@ -1132,13 +1137,13 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5)
                         for page_attempt in range(max_page_reloads):
                             try:
                                 if page_attempt == 0:
-                                    page.goto(source_url, wait_until="domcontentloaded", timeout=150000)
+                                    page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
                                 else:
                                     try:
-                                        page.reload(wait_until="domcontentloaded", timeout=150000)
+                                        page.reload(wait_until="domcontentloaded", timeout=60000)
                                     except Exception:
-                                        page.goto(source_url, wait_until="domcontentloaded", timeout=150000)
-                                page.wait_for_timeout(9000)
+                                        page.goto(source_url, wait_until="domcontentloaded", timeout=60000)
+                                page.wait_for_timeout(6000)
 
                                 def _candidate_frames():
                                     frames = list(page.frames)
@@ -1223,7 +1228,7 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 5)
                             except Exception as attempt_error:
                                 last_attempt_error = attempt_error
                                 if page_attempt < max_page_reloads - 1:
-                                    page.wait_for_timeout(3500)
+                                    page.wait_for_timeout(2500)
                                     continue
                                 raise Exception(
                                     f"Could not export CSV after {max_page_reloads} page refresh attempts: {last_attempt_error}"
@@ -3460,7 +3465,13 @@ def get_preview_excel_job(job_id: str):
         job = aircraft_utilization_preview_jobs.get(job_id)
         if not job:
             raise HTTPException(status_code=404, detail="Preview job not found or expired")
-        return dict(job)
+        job_copy = dict(job)
+    # Auto-fail jobs that are stuck running/queued for more than 150 seconds
+    if job_copy.get("status") in ("running", "queued"):
+        elapsed = time.time() - job_copy.get("created_ts", time.time())
+        if elapsed > 150:
+            return {"job_id": job_id, "status": "error", "error": "Preview job timed out (>150s). SharePoint may be unreachable or slow.", "result": None}
+    return job_copy
 
 
 @app.get("/api/aircraft-utilization-sources/preview")
