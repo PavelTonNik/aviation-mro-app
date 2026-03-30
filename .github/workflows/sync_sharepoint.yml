@@ -1,0 +1,60 @@
+name: SharePoint Utilization Sync
+
+on:
+  # Runs at 10:00 and 16:00 Frankfurt time (UTC+2 summer / UTC+1 winter)
+  # 08:00 UTC = 10:00 CEST (summer), 09:00 UTC = 10:00 CET (winter)
+  # Adjust the hours if your Render server timezone differs.
+  schedule:
+    - cron: "0 8,14 * * *"   # 10:00 & 16:00 CEST (summer)
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "sync or preview"
+        required: false
+        default: "sync"
+      job_id:
+        description: "Preview job id"
+        required: false
+        default: ""
+      url:
+        description: "Preview source URL"
+        required: false
+        default: ""
+      preferred_sheet:
+        description: "Preferred sheet name for preview"
+        required: false
+        default: ""
+
+jobs:
+  sync:
+    name: Download SharePoint CSV and push to Render
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install playwright>=1.40.0 openpyxl xlrd
+
+      - name: Install Playwright Chromium
+        run: playwright install chromium --with-deps
+
+      - name: Run SharePoint sync
+        env:
+          RENDER_BASE_URL: ${{ secrets.RENDER_BASE_URL }}
+          GH_SYNC_TOKEN: ${{ secrets.GH_SYNC_TOKEN }}
+          GH_MODE: ${{ github.event.inputs.mode || 'sync' }}
+          GH_PREVIEW_JOB_ID: ${{ github.event.inputs.job_id || '' }}
+          GH_PREVIEW_URL: ${{ github.event.inputs.url || '' }}
+          GH_PREVIEW_SHEET: ${{ github.event.inputs.preferred_sheet || '' }}
+        run: python scripts/gh_sync_sharepoint.py

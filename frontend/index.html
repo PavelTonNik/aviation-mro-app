@@ -20790,11 +20790,13 @@ function onGssInputChange(engines) {
                 const error = await response.json().catch(() => ({}));
                 throw new Error(error.detail || 'Failed to save source links');
             }
-            if (statusEl) { statusEl.textContent = '✓ Saved!'; statusEl.className = 'text-success small me-2 fw-bold'; }
+            if (statusEl) { statusEl.textContent = '✓ Saved! Triggering sync...'; statusEl.className = 'text-success small me-2 fw-bold'; }
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save"></i> Save Links'; }
-            showSuccessNotification('Excel links saved successfully');
+            showSuccessNotification('Links saved! Triggering GitHub sync...');
             await loadAircraftUtilSources();
-            setTimeout(() => { if (statusEl) { statusEl.textContent = ''; statusEl.className = 'text-muted small me-2'; } }, 4000);
+            if (statusEl) { statusEl.textContent = '✓ Saved! Sync started'; statusEl.className = 'text-success small me-2 fw-bold'; }
+            await syncAircraftUtilSourcesNow();
+            setTimeout(() => { if (statusEl) { statusEl.textContent = ''; statusEl.className = 'text-muted small me-2'; } }, 6000);
         } catch (err) {
             console.error('Error saving aircraft utilization sources:', err);
             if (statusEl) { statusEl.textContent = '✗ Error: ' + err.message; statusEl.className = 'text-danger small me-2'; }
@@ -20836,29 +20838,50 @@ function onGssInputChange(engines) {
 
     async function syncAircraftUtilSourcesNow() {
         const btn = document.getElementById('btn-sync-util-sources');
-        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Syncing...'; }
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Triggering...'; }
         try {
-            const response = await fetch('/api/aircraft-utilization-sources/sync', { method: 'POST' });
-            const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(data.detail || 'Manual sync failed');
+            // Trigger GitHub Actions workflow
+            const triggerResp = await fetch('/api/aircraft-utilization-sources/trigger-gh-sync', { method: 'POST' });
+            const triggerData = await triggerResp.json().catch(() => ({}));
+            if (!triggerResp.ok) {
+                throw new Error(triggerData.detail || 'Failed to trigger GitHub sync');
             }
+            showSuccessNotification('✅ GitHub sync triggered! Waiting for data (~1-2 min)...');
+            if (btn) { btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Syncing via GitHub...'; }
 
-            const synced = Array.isArray(data.results) ? data.results.filter(x => x.status === 'synced').length : 0;
-            const errors = Array.isArray(data.results) ? data.results.filter(x => x.status === 'error').length : 0;
-            if (errors > 0) {
-                showErrorNotification(`Sync finished. Synced: ${synced}, errors: ${errors}. Check status below.`);
-            } else {
-                showSuccessNotification(`Sync finished. Synced: ${synced} aircraft.`);
-            }
+            // Poll every 10 seconds up to 3 minutes for updated last_synced_at
+            const snapshot = await fetch('/api/aircraft-utilization-sources').then(r => r.json()).catch(() => []);
+            const snapshotTimes = {};
+            for (const s of snapshot) { snapshotTimes[s.aircraft_tail_number] = s.last_synced_at; }
 
-            await loadAircraftUtilSources();
-            if (typeof loadAircraftUtilHistory === 'function') await loadAircraftUtilHistory();
-            if (typeof loadDashboardData === 'function') await loadDashboardData();
+            let elapsed = 0;
+            const pollInterval = 10000;
+            const maxWait = 180000;
+            const poll = setInterval(async () => {
+                elapsed += pollInterval;
+                try {
+                    const fresh = await fetch('/api/aircraft-utilization-sources' + '?_=' + Date.now()).then(r => r.json()).catch(() => []);
+                    const updated = fresh.some(s => s.last_synced_at && s.last_synced_at !== snapshotTimes[s.aircraft_tail_number]);
+                    if (updated) {
+                        clearInterval(poll);
+                        showSuccessNotification('✅ Data updated from GitHub Actions!');
+                        await loadAircraftUtilSources();
+                        if (typeof loadAircraftUtilHistory === 'function') await loadAircraftUtilHistory();
+                        if (typeof loadDashboardData === 'function') await loadDashboardData();
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Sync Now'; }
+                    } else if (elapsed >= maxWait) {
+                        clearInterval(poll);
+                        showErrorNotification('GitHub sync is taking longer than expected. Check GitHub Actions tab.');
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Sync Now'; }
+                    }
+                } catch(e) {
+                    // ignore poll errors
+                }
+            }, pollInterval);
+
         } catch (err) {
-            console.error('Error syncing aircraft utilization sources:', err);
+            console.error('Error triggering GitHub sync:', err);
             showErrorNotification('Sync error: ' + err.message);
-        } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Sync Now'; }
         }
     }

@@ -68,6 +68,51 @@ def _set_aircraft_utilization_preview_job(job_id: str, **fields):
         return dict(job)
 
 
+def _require_gh_sync_token(request: Request) -> str:
+    expected_token = os.getenv("GH_SYNC_TOKEN", "").strip()
+    if not expected_token:
+        raise HTTPException(status_code=503, detail="GH_SYNC_TOKEN is not configured on the server")
+    provided_token = (request.headers.get("X-Sync-Token") or "").strip()
+    if not provided_token or provided_token != expected_token:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Sync-Token")
+    return expected_token
+
+
+def _trigger_github_workflow_dispatch(inputs: Optional[dict] = None) -> int:
+    import urllib.request as _ur
+
+    github_token = os.getenv("GITHUB_TOKEN", "").strip()
+    github_repo = os.getenv("GITHUB_REPO", "").strip()
+    workflow_file = os.getenv("GH_WORKFLOW_FILE", "sync_sharepoint.yml").strip()
+    branch = os.getenv("GH_BRANCH", "main").strip()
+
+    if not github_token:
+        raise HTTPException(status_code=503, detail="GITHUB_TOKEN is not configured on the server")
+    if not github_repo:
+        raise HTTPException(status_code=503, detail="GITHUB_REPO is not configured on the server")
+
+    url = f"https://api.github.com/repos/{github_repo}/actions/workflows/{workflow_file}/dispatches"
+    body = {"ref": branch}
+    if inputs:
+        body["inputs"] = {k: str(v) for k, v in inputs.items() if v is not None}
+    req = _ur.Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={
+            "Authorization": f"Bearer {github_token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        method="POST",
+    )
+    try:
+        with _ur.urlopen(req, timeout=15) as resp:
+            return resp.status
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"GitHub API error: {e}")
+
+
 def _run_aircraft_utilization_preview_job(job_id: str, url: str):
     _set_aircraft_utilization_preview_job(job_id, status="running")
     try:
@@ -79,7 +124,10 @@ def _run_aircraft_utilization_preview_job(job_id: str, url: str):
         if not normalized:
             raise Exception("Could not parse URL")
 
-        content = _download_excel_bytes(normalized, original_url=stripped)
+        # allow_browser=True: preview job runs in a background daemon thread (threading.Thread),
+        # so the HTTP request returns immediately with job_id. Playwright is safe here.
+        # The frontend polls up to 300 s for the result.
+        content = _download_excel_bytes(normalized, original_url=stripped, allow_browser=True)
         latest = _extract_latest_utilization_from_content(content, preferred_sheet=None)
         rounded_ttsn = int(_round_utilization_hours(latest["ttsn"]))
         _set_aircraft_utilization_preview_job(
@@ -1002,7 +1050,7 @@ def _normalize_excel_url(url: Optional[str]) -> Optional[str]:
     return cleaned
 
 
-def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, max_retries: int = 2) -> bytes:
+def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, max_retries: int = 2, allow_browser: bool = True) -> bytes:
     from urllib.error import HTTPError, URLError
 
     def _is_sharepoint_url() -> bool:
@@ -1016,6 +1064,8 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
 
     def _try_sharepoint_browser_fallback() -> Optional[bytes]:
         if not _is_sharepoint_url():
+            return None
+        if not allow_browser:
             return None
         if os.getenv("RENDER") and os.getenv("ALLOW_RENDER_SHAREPOINT_BROWSER", "").lower() not in ("1", "true", "yes"):
             return None
@@ -1184,7 +1234,7 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
     raise last_exception or Exception("Download failed after retries")
 
 
-def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 4) -> Optional[bytes]:
+def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 6) -> Optional[bytes]:
     """
     Open the SharePoint Excel Online viewer in a headless browser and:
     1. Primary: click Файл → Экспорт → Скачать как CSV UTF-8
@@ -1234,6 +1284,42 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 4)
                 continue
         return None
 
+    def _download_from_candidate_urls(urls: List[str], current_url: str) -> Optional[bytes]:
+        checked = set()
+        for candidate_url in urls:
+            raw = str(candidate_url or '').strip()
+            if not raw:
+                continue
+            raw = raw.replace('\\/', '/').replace('\\u0026', '&')
+            raw = html.unescape(raw)
+            if raw.startswith('//'):
+                raw = 'https:' + raw
+            elif not raw.startswith('http'):
+                raw = urljoin(current_url, raw)
+            if raw in checked:
+                continue
+            checked.add(raw)
+            try:
+                req = UrlRequest(raw, headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/octet-stream,*/*",
+                    "Referer": current_url,
+                    "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
+                })
+                with urlopen(req, timeout=90) as resp:
+                    payload = resp.read()
+                    content_type = str(resp.headers.get("Content-Type", "")).lower()
+                    if not payload:
+                        continue
+                    if b"<html" in payload[:1024].lower():
+                        continue
+                    looks_like_csv = 'csv' in content_type or raw.lower().endswith('.csv')
+                    if payload.startswith(b"PK") or looks_like_csv:
+                        return payload
+            except Exception:
+                continue
+        return None
+
     with sharepoint_browser_fallback_lock:
         with tempfile.TemporaryDirectory() as tmp_dir:
             try:
@@ -1266,6 +1352,46 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 4)
                         try:
                             page = context.new_page()
                             last_attempt_error = None
+                            network_candidates: List[str] = []
+
+                            def _collect_candidates_from_text(text: str):
+                                if not text:
+                                    return
+                                patterns = [
+                                    r'"(?:downloadUrl|tempauthdownloadurl|fileGetUrl|FileGetUrl|@microsoft\\.graph\\.downloadUrl)"\s*:\s*"([^"]+)"',
+                                    r'(?:downloadUrl|tempauthdownloadurl|fileGetUrl)=([^"&\s\]]+)',
+                                    r'https?://[^"\'\s]+(?:download\\.aspx|guestaccess\\.aspx|tempauth[^"\'\s]*)[^"\'\s]*',
+                                    r'https?://[^"\'\s]+\?[^"\'\s]*download=1[^"\'\s]*',
+                                ]
+                                for pat in patterns:
+                                    for match in re.findall(pat, text, flags=re.IGNORECASE):
+                                        url = str(match).strip()
+                                        if url and url not in network_candidates:
+                                            network_candidates.append(url)
+
+                            def _on_response(resp):
+                                try:
+                                    resp_url = str(resp.url or '').strip()
+                                    if resp_url:
+                                        low = resp_url.lower()
+                                        if (
+                                            'download.aspx' in low
+                                            or 'guestaccess.aspx' in low
+                                            or 'tempauth' in low
+                                            or 'download=1' in low
+                                            or low.endswith('.csv')
+                                            or low.endswith('.xlsx')
+                                        ):
+                                            if resp_url not in network_candidates:
+                                                network_candidates.append(resp_url)
+                                    ctype = str(resp.headers.get('content-type', '')).lower()
+                                    if any(x in ctype for x in ('json', 'javascript', 'text', 'html')):
+                                        body = resp.text()
+                                        _collect_candidates_from_text(body)
+                                except Exception:
+                                    return
+
+                            page.on("response", _on_response)
 
                             def _candidate_frames():
                                 frames = list(page.frames)
@@ -1312,6 +1438,14 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 4)
 
                             for page_attempt in range(max_page_reloads):
                                 try:
+                                    if page_attempt > 0 and (page_attempt % 2 == 0):
+                                        try:
+                                            page.close()
+                                        except Exception:
+                                            pass
+                                        page = context.new_page()
+                                        page.on("response", _on_response)
+
                                     # Load page
                                     if page_attempt == 0:
                                         page.goto(source_url, wait_until="domcontentloaded", timeout=90000)
@@ -1378,7 +1512,15 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 4)
                                     except Exception as ce:
                                         click_error = ce
 
-                                    # === FALLBACK: extract download URL from rendered page HTML ===
+                                    # === FALLBACK A: network-harvested candidate URLs ===
+                                    try:
+                                        network_data = _download_from_candidate_urls(network_candidates, page.url)
+                                        if network_data:
+                                            return network_data
+                                    except Exception:
+                                        pass
+
+                                    # === FALLBACK B: extract download URL from rendered page HTML ===
                                     try:
                                         page_html_content = page.content()
                                         fallback_data = _extract_dl_url_from_html(page_html_content, page.url)
@@ -3597,6 +3739,142 @@ def sync_aircraft_utilization_sources_endpoint(db: Session = Depends(get_db)):
     return {"message": "Aircraft utilization sync completed", "results": results}
 
 
+@app.post("/api/aircraft-utilization-sources/trigger-gh-sync")
+def trigger_gh_sync():
+    status_code = _trigger_github_workflow_dispatch(inputs={"mode": "sync"})
+    return {"ok": True, "message": "GitHub Actions sync workflow triggered", "github_status": status_code}
+
+
+@app.post("/api/aircraft-utilization-sources/gh-push")
+def gh_push_utilization_data(payload: dict, request: Request, db: Session = Depends(get_db)):
+    """
+    Secure endpoint called by GitHub Actions.
+    Accepts pre-downloaded CSV/XLSX bytes (base64-encoded) for a single aircraft,
+    parses them and saves to database.  Protected by X-Sync-Token header.
+    """
+    import base64 as _b64
+
+    # ── Auth ──────────────────────────────────────────────────────────────────
+    _require_gh_sync_token(request)
+
+    # ── Payload ───────────────────────────────────────────────────────────────
+    aircraft_tail = normalize_aircraft_tail((payload or {}).get("aircraft_tail_number", ""))
+    if not aircraft_tail:
+        raise HTTPException(status_code=400, detail="aircraft_tail_number is required")
+
+    file_data_b64 = (payload or {}).get("file_data_b64", "")
+    if not file_data_b64:
+        raise HTTPException(status_code=400, detail="file_data_b64 is required")
+
+    try:
+        file_bytes = _b64.b64decode(file_data_b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="file_data_b64 is not valid base64")
+
+    preferred_sheet = (payload or {}).get("preferred_sheet") or None
+    source_url = (payload or {}).get("source_url") or None
+
+    # ── Parse ─────────────────────────────────────────────────────────────────
+    try:
+        latest = _extract_latest_utilization_from_content(file_bytes, preferred_sheet)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Could not parse file: {e}")
+
+    # ── Save ──────────────────────────────────────────────────────────────────
+    try:
+        aircraft, history = _save_aircraft_utilization_internal(
+            db,
+            aircraft_tail,
+            latest["date"],
+            latest["ttsn"],
+            latest["tcsn"],
+            source="auto_sync",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save data: {e}")
+
+    # ── Update source record ──────────────────────────────────────────────────
+    source_record = db.query(models.AircraftUtilizationSource).filter(
+        models.AircraftUtilizationSource.aircraft_tail_number == aircraft_tail
+    ).first()
+    if source_record:
+        source_record.last_synced_at = datetime.now(timezone.utc)
+        source_record.last_source_date = latest["date"]
+        source_record.last_ttsn = aircraft.total_time
+        source_record.last_tcsn = latest["tcsn"]
+        source_record.last_status = f"GH synced from {latest.get('sheet_name', '')}"
+        source_record.last_error = None
+        db.commit()
+
+    rounded_ttsn = int(_round_utilization_hours(latest["ttsn"]))
+    return {
+        "ok": True,
+        "aircraft": aircraft_tail,
+        "date": latest["date"].strftime("%Y-%m-%d"),
+        "ttsn": rounded_ttsn,
+        "tcsn": latest["tcsn"],
+        "sheet": latest.get("sheet_name", ""),
+        "history_id": history.id if history else None,
+    }
+
+
+@app.post("/api/aircraft-utilization-sources/gh-preview-push")
+def gh_push_preview_data(payload: dict, request: Request):
+    """Secure callback used by GitHub Actions to complete a preview job."""
+    import base64 as _b64
+
+    _require_gh_sync_token(request)
+
+    job_id = str((payload or {}).get("job_id") or "").strip()
+    if not job_id:
+        raise HTTPException(status_code=400, detail="job_id is required")
+
+    error_text = str((payload or {}).get("error") or "").strip()
+    if error_text:
+        updated = _set_aircraft_utilization_preview_job(job_id, status="error", result=None, error=error_text)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Preview job not found or expired")
+        return {"ok": True, "job_id": job_id, "status": "error"}
+
+    file_data_b64 = (payload or {}).get("file_data_b64", "")
+    if not file_data_b64:
+        raise HTTPException(status_code=400, detail="file_data_b64 is required")
+
+    try:
+        file_bytes = _b64.b64decode(file_data_b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="file_data_b64 is not valid base64")
+
+    preferred_sheet = (payload or {}).get("preferred_sheet") or None
+    try:
+        latest = _extract_latest_utilization_from_content(file_bytes, preferred_sheet)
+    except Exception as e:
+        updated = _set_aircraft_utilization_preview_job(job_id, status="error", result=None, error=f"Could not parse file: {e}")
+        if not updated:
+            raise HTTPException(status_code=404, detail="Preview job not found or expired")
+        return {"ok": True, "job_id": job_id, "status": "error"}
+
+    rounded_ttsn = int(_round_utilization_hours(latest["ttsn"]))
+    updated = _set_aircraft_utilization_preview_job(
+        job_id,
+        status="success",
+        result={
+            "ok": True,
+            "date": latest["date"].strftime("%Y-%m-%d"),
+            "ttsn": rounded_ttsn,
+            "ttsn_display": str(rounded_ttsn),
+            "tcsn": latest["tcsn"],
+            "sheet": latest.get("sheet_name", ""),
+        },
+        error=None,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Preview job not found or expired")
+    return {"ok": True, "job_id": job_id, "status": "success"}
+
+
 @app.post("/api/aircraft-utilization-sources/preview-jobs")
 def create_preview_excel_job(payload: dict):
     stripped = (payload or {}).get("url", "")
@@ -3617,12 +3895,12 @@ def create_preview_excel_job(payload: dict):
             "error": None,
         }
 
-    worker = threading.Thread(
-        target=_run_aircraft_utilization_preview_job,
-        args=(job_id, stripped),
-        daemon=True,
-    )
-    worker.start()
+    _set_aircraft_utilization_preview_job(job_id, status="running")
+    _trigger_github_workflow_dispatch(inputs={
+        "mode": "preview",
+        "job_id": job_id,
+        "url": stripped,
+    })
     return {"job_id": job_id, "status": "queued"}
 
 
@@ -3653,7 +3931,8 @@ def preview_excel_url(url: str):
         normalized = _normalize_excel_url(stripped)
         if not normalized:
             return {"ok": False, "error": "Could not parse URL"}
-        content = _download_excel_bytes(normalized, original_url=stripped)
+        # allow_browser=False: this is an HTTP endpoint with Render's ~30s timeout.
+        content = _download_excel_bytes(normalized, original_url=stripped, allow_browser=False)
         latest = _extract_latest_utilization_from_content(content, preferred_sheet=None)
         rounded_ttsn = int(_round_utilization_hours(latest["ttsn"]))
         return {

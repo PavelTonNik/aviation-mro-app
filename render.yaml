@@ -15,6 +15,14 @@ services:
         value: "0"
       - key: ALLOW_RENDER_SHAREPOINT_BROWSER
         value: "1"
+      - key: GH_SYNC_TOKEN
+        sync: false   # Set this secret manually in Render Dashboard → Environment
+      - key: GITHUB_TOKEN
+        sync: false   # GitHub Personal Access Token with Actions: write scope
+      - key: GITHUB_REPO
+        value: "PavelTonNik/aviation-mro-app"  # Update if your repo name differs
+      - key: GH_BRANCH
+        value: "main"
 
 databases:
   - name: aviation_db
