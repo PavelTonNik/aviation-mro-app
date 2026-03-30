@@ -20571,6 +20571,20 @@ function onGssInputChange(engines) {
             } catch { return false; }
         }
 
+        function isDirectFileLikeUrl(u) {
+            try {
+                const parsed = new URL(u);
+                const href = parsed.href.toLowerCase();
+                const host = parsed.hostname.toLowerCase();
+                if (href.endsWith('.csv') || href.endsWith('.xlsx')) return true;
+                if (href.includes('download=1')) return true;
+                if (host.includes('docs.google.com') || host.includes('drive.google.com')) return true;
+                return false;
+            } catch {
+                return false;
+            }
+        }
+
         // Fast path: direct download (Google Drive, direct .xlsx URL, etc.)
         async function previewDirect(sourceUrl) {
             const response = await fetch('/api/aircraft-utilization-sources/preview?url=' + encodeURIComponent(sourceUrl));
@@ -20604,7 +20618,7 @@ function onGssInputChange(engines) {
             return { ok: false, error: 'Preview timed out on server' };
         }
 
-        const useJobSystem = isSharePointUrl(url);
+        const useJobSystem = isSharePointUrl(url) || !isDirectFileLikeUrl(url);
         const maxAttempts = useJobSystem ? 2 : 3;
 
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
