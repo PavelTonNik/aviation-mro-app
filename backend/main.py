@@ -82,14 +82,14 @@ def _trigger_github_workflow_dispatch(inputs: Optional[dict] = None) -> int:
     import urllib.request as _ur
 
     github_token = os.getenv("GITHUB_TOKEN", "").strip()
-    github_repo = os.getenv("GITHUB_REPO", "").strip()
+    github_repo = os.getenv("GITHUB_REPO", "PavelTonNik/aviation-mro-app").strip()
     workflow_file = os.getenv("GH_WORKFLOW_FILE", "sync_sharepoint.yml").strip()
     branch = os.getenv("GH_BRANCH", "main").strip()
 
     if not github_token:
         raise HTTPException(status_code=503, detail="GITHUB_TOKEN is not configured on the server")
     if not github_repo:
-        raise HTTPException(status_code=503, detail="GITHUB_REPO is not configured on the server")
+        raise HTTPException(status_code=503, detail="GITHUB_REPO is not configured (expected owner/repo, e.g. PavelTonNik/aviation-mro-app)")
 
     url = f"https://api.github.com/repos/{github_repo}/actions/workflows/{workflow_file}/dispatches"
     body = {"ref": branch}
