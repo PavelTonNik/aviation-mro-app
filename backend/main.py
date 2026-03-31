@@ -3895,12 +3895,12 @@ def create_preview_excel_job(payload: dict):
             "error": None,
         }
 
-    _set_aircraft_utilization_preview_job(job_id, status="running")
-    _trigger_github_workflow_dispatch(inputs={
-        "mode": "preview",
-        "job_id": job_id,
-        "url": stripped,
-    })
+    worker = threading.Thread(
+        target=_run_aircraft_utilization_preview_job,
+        args=(job_id, stripped),
+        daemon=True,
+    )
+    worker.start()
     return {"job_id": job_id, "status": "queued"}
 
 
