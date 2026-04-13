@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone, date as DateType
 import asyncio
+import concurrent.futures
 import csv
 import html
 import json
@@ -43,7 +44,7 @@ aircraft_utilization_sync_task = None
 aircraft_utilization_preview_jobs = {}
 aircraft_utilization_preview_jobs_lock = threading.Lock()
 sharepoint_browser_fallback_lock = threading.Lock()
-AIRCRAFT_UTILIZATION_PREVIEW_JOB_TTL_SECONDS = 15 * 60
+AIRCRAFT_UTILIZATION_PREVIEW_JOB_TTL_SECONDS = 2 * 60
 
 
 def _cleanup_aircraft_utilization_preview_jobs():
@@ -124,12 +125,20 @@ def _run_aircraft_utilization_preview_job(job_id: str, url: str):
         if not normalized:
             raise Exception("Could not parse URL")
 
+        # On Render: SharePoint URLs cannot be previewed (Playwright disabled, HTML fallback unreliable).
+        # Fail fast instead of hanging for minutes on network timeouts.
+        if os.getenv("RENDER"):
+            host = (urlparse(normalized).hostname or "").lower()
+            orig_host = (urlparse(stripped).hostname or "").lower()
+            if any(kw in h for h in (host, orig_host) for kw in ("sharepoint.com", "onedrive.live.com", "1drv.ms")):
+                raise Exception("SharePoint preview is not available on this server. Use the Sync button or GitHub Actions to sync data.")
+
         # allow_browser=True: preview job runs in a background daemon thread (threading.Thread),
-        # so the HTTP request returns immediately with job_id. Playwright is safe here.
-        # The frontend polls up to 300 s for the result.
-        content = _download_excel_bytes(normalized, original_url=stripped, allow_browser=True)
+        # so the HTTP request returns immediately with job_id.
+        content = _download_excel_bytes(normalized, original_url=stripped, allow_browser=True, max_retries=1)
         latest = _extract_latest_utilization_from_content(content, preferred_sheet=None)
-        rounded_ttsn = int(_round_utilization_hours(latest["ttsn"]))
+        rounded_ttsn = _round_utilization_hours(latest["ttsn"])
+        ttsn_display = ("{:.4f}".format(rounded_ttsn)).rstrip("0").rstrip(".")
         _set_aircraft_utilization_preview_job(
             job_id,
             status="success",
@@ -137,13 +146,14 @@ def _run_aircraft_utilization_preview_job(job_id: str, url: str):
                 "ok": True,
                 "date": latest["date"].strftime("%Y-%m-%d"),
                 "ttsn": rounded_ttsn,
-                "ttsn_display": str(rounded_ttsn),
+                "ttsn_display": ttsn_display,
                 "tcsn": latest["tcsn"],
                 "sheet": latest.get("sheet_name", ""),
             },
             error=None,
         )
     except Exception as e:
+        print(f"❌ Preview job {job_id} failed: {e}")
         _set_aircraft_utilization_preview_job(
             job_id,
             status="error",
@@ -520,6 +530,13 @@ def startup_event():
 
                         IF NOT EXISTS (
                             SELECT 1 FROM information_schema.columns
+                            WHERE table_name='staff_members' AND column_name='photo_url'
+                        ) THEN
+                            ALTER TABLE staff_members ADD COLUMN photo_url VARCHAR;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
                             WHERE table_name='store_items' AND column_name='removed_from'
                         ) THEN
                             ALTER TABLE store_items ADD COLUMN removed_from VARCHAR;
@@ -603,6 +620,7 @@ def startup_event():
     ensure_sqlite_column("store_items", "location_from TEXT")
     ensure_sqlite_column("store_items", "price FLOAT")
     ensure_sqlite_column("store_items", "invoice_no TEXT")
+    ensure_sqlite_column("staff_members", "photo_url TEXT")
 
     # Открываем сессию базы данных
     db = database.SessionLocal()
@@ -770,8 +788,11 @@ async def shutdown_event():
 # Используем абсолютный путь, чтобы сервер всегда брал нужную копию фронтенда.
 BACKEND_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BACKEND_DIR.parent / "frontend"
+UPLOADS_ROOT_DIR = BACKEND_DIR.parent / "uploads"
+UPLOADS_ROOT_DIR.mkdir(parents=True, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_ROOT_DIR)), name="uploads")
 
 # Health check – used by Render health checks and frontend keep-alive pings
 @app.get("/health")
@@ -1067,7 +1088,11 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
             return None
         if not allow_browser:
             return None
-        if os.getenv("RENDER") and os.getenv("ALLOW_RENDER_SHAREPOINT_BROWSER", "").lower() not in ("1", "true", "yes"):
+        # Render free plan: 512 MB RAM — Playwright + Chromium takes ~300-400 MB and
+        # will OOM-kill the entire uvicorn process, making all API calls fail.
+        # The HTML-based fallback (_try_sharepoint_html_fallback) works without a browser.
+        if os.getenv("RENDER"):
+            print("⚠️  Skipping Playwright browser on Render (OOM risk). Using HTML fallback only.")
             return None
         browser_url = original_url or source_url
         return _download_sharepoint_via_browser(browser_url)
@@ -1158,6 +1183,7 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
                 continue
         return None
 
+    _http_timeout = 30 if os.getenv("RENDER") else 90
     last_exception: Optional[Exception] = None
     for attempt in range(max_retries):
         req = UrlRequest(source_url, headers={
@@ -1165,7 +1191,7 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
             "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream,*/*",
         })
         try:
-            with urlopen(req, timeout=90) as response:
+            with urlopen(req, timeout=_http_timeout) as response:
                 data = response.read()
                 content_type = str(response.headers.get("Content-Type", "")).lower()
                 final_url = getattr(response, 'geturl', lambda: source_url)()
@@ -1633,7 +1659,7 @@ def _round_utilization_hours(value: Optional[float]) -> float:
     if value is None:
         return 0.0
     try:
-        return float(int(round(float(value))))
+        return round(float(value), 4)
     except Exception:
         return 0.0
 
@@ -1650,6 +1676,22 @@ def _find_table_headers(rows):
         tcsn_idx = next((i for i, v in enumerate(normalized) if "tcsn" in v or v == "totalcycles"), None)
         if date_idx is not None and ttsn_idx is not None and tcsn_idx is not None:
             return row_index, date_idx, ttsn_idx, tcsn_idx
+
+    # Fallback for files without recognizable headers:
+    # Excel columns: 1 = Date, 11 = TTSN, 12 = TCSN (0-based indexes: 0, 10, 11)
+    fallback_date_idx = 0
+    fallback_ttsn_idx = 10
+    fallback_tcsn_idx = 11
+
+    for row in rows:
+        if not row:
+            continue
+        row_ttsn = _parse_excel_ttsn(row[fallback_ttsn_idx] if len(row) > fallback_ttsn_idx else None)
+        row_tcsn = _parse_excel_tcsn(row[fallback_tcsn_idx] if len(row) > fallback_tcsn_idx else None)
+        if row_ttsn is not None and row_tcsn is not None:
+            # 0 means "no header row", caller starts scanning from first row
+            return 0, fallback_date_idx, fallback_ttsn_idx, fallback_tcsn_idx
+
     return None, None, None, None
 
 
@@ -1661,24 +1703,46 @@ def _find_sheet_headers(ws):
 def _extract_latest_utilization_from_sheet(ws):
     header_row, date_idx, ttsn_idx, tcsn_idx = _find_sheet_headers(ws)
     if header_row is None:
-        return None
+        # Fallback for sheets without recognizable headers:
+        # Excel columns: 1 = Date, 11 = TTSN, 12 = TCSN (0-based indexes: 0, 10, 11)
+        date_idx = 0
+        ttsn_idx = 10
+        tcsn_idx = 11
+        min_row = 1
+    else:
+        min_row = header_row + 1
 
     latest = None
-    for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
+    latest_without_date = None
+    for row in ws.iter_rows(min_row=min_row, values_only=True):
         if not row:
             continue
         row_date = _parse_excel_date(row[date_idx] if len(row) > date_idx else None)
         row_ttsn = _parse_excel_ttsn(row[ttsn_idx] if len(row) > ttsn_idx else None)
         row_tcsn = _parse_excel_tcsn(row[tcsn_idx] if len(row) > tcsn_idx else None)
-        if row_date is None or row_ttsn is None or row_tcsn is None:
+        if row_ttsn is None or row_tcsn is None:
             continue
-        if latest is None or row_date >= latest["date"]:
+        latest_without_date = {
+            "ttsn": float(row_ttsn),
+            "tcsn": int(row_tcsn),
+            "sheet_name": ws.title,
+        }
+        if row_date is not None and (latest is None or row_date >= latest["date"]):
             latest = {
                 "date": row_date,
                 "ttsn": float(row_ttsn),
                 "tcsn": int(row_tcsn),
                 "sheet_name": ws.title,
             }
+    if latest is not None:
+        return latest
+    if latest_without_date is not None:
+        return {
+            "date": datetime.now(timezone.utc),
+            "ttsn": latest_without_date["ttsn"],
+            "tcsn": latest_without_date["tcsn"],
+            "sheet_name": latest_without_date["sheet_name"],
+        }
     return latest
 
 
@@ -1719,15 +1783,21 @@ def _extract_latest_utilization_from_csv(content: bytes):
         raise ValueError("Could not find Date/TTSN/TCSN columns in CSV file")
 
     latest = None
+    latest_without_date = None
     for row in rows[header_row:]:
         if not row:
             continue
         row_date = _parse_excel_date(row[date_idx] if len(row) > date_idx else None)
         row_ttsn = _parse_excel_ttsn(row[ttsn_idx] if len(row) > ttsn_idx else None)
         row_tcsn = _parse_excel_tcsn(row[tcsn_idx] if len(row) > tcsn_idx else None)
-        if row_date is None or row_ttsn is None or row_tcsn is None:
+        if row_ttsn is None or row_tcsn is None:
             continue
-        if latest is None or row_date >= latest["date"]:
+        latest_without_date = {
+            "ttsn": float(row_ttsn),
+            "tcsn": int(row_tcsn),
+            "sheet_name": "CSV",
+        }
+        if row_date is not None and (latest is None or row_date >= latest["date"]):
             latest = {
                 "date": row_date,
                 "ttsn": float(row_ttsn),
@@ -1735,9 +1805,16 @@ def _extract_latest_utilization_from_csv(content: bytes):
                 "sheet_name": "CSV",
             }
 
-    if not latest:
-        raise ValueError("Could not find valid Date/TTSN/TCSN data rows in CSV file")
-    return latest
+    if latest is not None:
+        return latest
+    if latest_without_date is not None:
+        return {
+            "date": datetime.now(timezone.utc),
+            "ttsn": latest_without_date["ttsn"],
+            "tcsn": latest_without_date["tcsn"],
+            "sheet_name": "CSV",
+        }
+    raise ValueError("Could not find valid TTSN/TCSN data rows in CSV file")
 
 
 def _extract_latest_utilization_from_content(content: bytes, preferred_sheet: Optional[str] = None):
@@ -1918,7 +1995,7 @@ def _sync_one_aircraft_utilization_source(db: Session, source, force: bool = Fal
 
     try:
         normalized_url = _normalize_excel_url(source.source_url)
-        content = _download_excel_bytes(normalized_url, original_url=source.source_url)
+        content = _download_excel_bytes(normalized_url, original_url=source.source_url, max_retries=1)
         latest = _extract_latest_utilization_from_content(content, source.sheet_name)
         aircraft, history = _save_aircraft_utilization_internal(
             db,
@@ -1954,13 +2031,25 @@ def _sync_one_aircraft_utilization_source(db: Session, source, force: bool = Fal
 def sync_aircraft_utilization_sources(db: Session, force: bool = False):
     _ensure_aircraft_utilization_sources(db)
     sources = db.query(models.AircraftUtilizationSource).order_by(models.AircraftUtilizationSource.aircraft_tail_number.asc()).all()
-    return [_sync_one_aircraft_utilization_source(db, source, force=force) for source in sources]
+    # Sync one-by-one (not a list comprehension) so that if one source fails the others still run
+    results = []
+    for source in sources:
+        try:
+            r = _sync_one_aircraft_utilization_source(db, source, force=force)
+        except Exception as e:
+            print(f"\u26a0\ufe0f  Sync source {source.aircraft_tail_number} crashed: {e}")
+            r = {"aircraft": source.aircraft_tail_number, "status": "error", "error": str(e)}
+        results.append(r)
+    return results
 
+# Thread pool for running blocking sync without freezing the event loop
+_sync_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="util-sync")
 
 async def aircraft_utilization_sync_loop():
-    """Runs twice per day at 10:00 and 16:00 local time and retries every 5 minutes until sync succeeds."""
+    """Runs twice per day at 10:00 and 16:00 local time. Retries up to 3 times on failure."""
     schedule_hours = (10, 16)
     retry_interval_seconds = 5 * 60
+    max_retries = 3
     while True:
         now = datetime.now()
         targets_today = [
@@ -1979,22 +2068,28 @@ async def aircraft_utilization_sync_loop():
         try:
             print(f"✈️ Running scheduled utilization sync at {target.strftime('%H:%M')}...")
             attempt_no = 1
-            while True:
-                results = sync_aircraft_utilization_sources(db, force=True)
+            while attempt_no <= max_retries:
+                # Run blocking sync in a thread pool so the event loop stays responsive
+                loop = asyncio.get_running_loop()
+                results = await loop.run_in_executor(_sync_executor, lambda: sync_aircraft_utilization_sources(db, force=True))
                 has_errors = False
                 for r in results:
-                    status = r.get('status')
-                    if status in ('sync_error', 'error'):
+                    r_status = r.get('status')
+                    if r_status in ('sync_error', 'error'):
                         has_errors = True
-                    print(f"  {r.get('aircraft')}: {status} | ttsn={r.get('ttsn')} tcsn={r.get('tcsn')} error={r.get('error','')}")
+                    print(f"  {r.get('aircraft')}: {r_status} | ttsn={r.get('ttsn')} tcsn={r.get('tcsn')} error={r.get('error','')}")
 
                 if not has_errors:
                     if attempt_no > 1:
                         print(f"✅ Scheduled utilization sync recovered after {attempt_no} attempt(s).")
                     break
 
+                if attempt_no >= max_retries:
+                    print(f"❌ Scheduled utilization sync gave up after {max_retries} attempts.")
+                    break
+
                 attempt_no += 1
-                print(f"⚠️ Some sources failed; retrying in {retry_interval_seconds // 60} minutes...")
+                print(f"⚠️ Some sources failed; retrying in {retry_interval_seconds // 60} minutes (attempt {attempt_no}/{max_retries})...")
                 await asyncio.sleep(retry_interval_seconds)
         except Exception as e:
             print(f"⚠️ Aircraft utilization background sync failed: {e}")
@@ -3068,7 +3163,14 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
             source_info = db.query(models.AircraftUtilizationSource).filter(
                 models.AircraftUtilizationSource.aircraft_tail_number == ac.tail_number
             ).first()
-            util_found_date = source_info.last_source_date.strftime("%Y-%m-%d") if source_info and source_info.last_source_date else util_date
+            source_date = source_info.last_source_date if source_info and source_info.last_source_date else None
+            # Use the NEWEST date from: auto-sync source, latest non-period record, or latest any record
+            candidate_dates = []
+            if source_date:
+                candidate_dates.append(source_date)
+            if latest_non_period and latest_non_period.date:
+                candidate_dates.append(latest_non_period.date)
+            util_found_date = max(candidate_dates).strftime("%Y-%m-%d") if candidate_dates else util_date
 
             # Сводка периода: берем последнюю периодную запись
             util_period = bool(latest_period)
@@ -3734,8 +3836,10 @@ def save_aircraft_utilization_sources(payload: AircraftUtilizationSourceBatchSch
 
 
 @app.post("/api/aircraft-utilization-sources/sync")
-def sync_aircraft_utilization_sources_endpoint(db: Session = Depends(get_db)):
-    results = sync_aircraft_utilization_sources(db, force=True)
+async def sync_aircraft_utilization_sources_endpoint(db: Session = Depends(get_db)):
+    # Run blocking downloads in thread pool so uvicorn stays responsive
+    loop = asyncio.get_running_loop()
+    results = await loop.run_in_executor(_sync_executor, lambda: sync_aircraft_utilization_sources(db, force=True))
     return {"message": "Aircraft utilization sync completed", "results": results}
 
 
@@ -3912,10 +4016,10 @@ def get_preview_excel_job(job_id: str):
         if not job:
             raise HTTPException(status_code=404, detail="Preview job not found or expired")
         job_copy = dict(job)
-    # Auto-fail jobs that are stuck running/queued for more than 300 seconds
+    # Auto-fail jobs that are stuck running/queued for more than 60 seconds
     if job_copy.get("status") in ("running", "queued"):
         elapsed = time.time() - job_copy.get("created_ts", time.time())
-        if elapsed > 300:
+        if elapsed > 60:
             return {"job_id": job_id, "status": "error", "error": "Preview job timed out (>300s). SharePoint may be unreachable or slow.", "result": None}
     return job_copy
 
@@ -9670,3 +9774,454 @@ async def get_borescope_photo_proxy(photo_path: str):
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Error loading photo: {str(e)}")
+
+
+# ========================= STAFF CENTRAL API =========================
+
+def _staff_to_dict(m: models.StaffMember) -> dict:
+    certs = [c for c in (m.all_certs or []) if c.category != "document"]
+    docs  = [c for c in (m.all_certs or []) if c.category == "document"]
+    return {
+        "id": m.id,
+        "full_name": m.full_name,
+        "position": m.position,
+        "department": m.department,
+        "email": m.email,
+        "photo_url": m.photo_url,
+        "notes": m.notes,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+        "certificates": [_cert_to_dict(c) for c in certs],
+        "documents": [_cert_to_dict(c) for c in docs],
+        "history": [
+            {"id": h.id, "action": h.action,
+             "created_at": h.created_at.isoformat() if h.created_at else None}
+            for h in sorted(m.history or [], key=lambda x: x.created_at or datetime.min, reverse=True)
+        ],
+    }
+
+def _cert_to_dict(c: models.StaffCertificate) -> dict:
+    return {
+        "id": c.id,
+        "staff_id": c.staff_id,
+        "category": c.category,
+        "name": c.name,
+        "issuer": c.issuer,
+        "issue_date": c.issue_date.isoformat() if c.issue_date else None,
+        "expiry_date": c.expiry_date.isoformat() if c.expiry_date else None,
+        "no_expiry": bool(c.no_expiry),
+        "file_url": c.file_url,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+    }
+
+def _add_staff_history(db, staff_id: int, action: str):
+    db.add(models.StaffHistory(staff_id=staff_id, action=action))
+
+def _parse_iso_dt(val):
+    if not val:
+        return None
+    try:
+        return datetime.fromisoformat(str(val).replace("Z", "+00:00"))
+    except Exception:
+        try:
+            from datetime import date as _d
+            d = _d.fromisoformat(str(val))
+            return datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
+        except Exception:
+            return None
+
+
+@app.get("/api/staff")
+def get_all_staff(db: Session = Depends(get_db)):
+    members = db.query(models.StaffMember).order_by(models.StaffMember.full_name).all()
+    return [_staff_to_dict(m) for m in members]
+
+
+@app.post("/api/staff", status_code=201)
+def create_staff_member(payload: dict, db: Session = Depends(get_db)):
+    if not payload.get("full_name", "").strip():
+        raise HTTPException(400, "full_name is required")
+    m = models.StaffMember(
+        full_name=payload["full_name"].strip(),
+        position=payload.get("position", "").strip() or None,
+        department=payload.get("department", "").strip() or None,
+        email=payload.get("email", "").strip() or None,
+        photo_url=payload.get("photo_url", "").strip() or None,
+        notes=payload.get("notes", "").strip() or None,
+    )
+    db.add(m)
+    db.flush()
+    _add_staff_history(db, m.id, f"Profile created for {m.full_name}")
+    db.commit()
+    db.refresh(m)
+    return _staff_to_dict(m)
+
+
+@app.put("/api/staff/{staff_id}")
+def update_staff_member(staff_id: int, payload: dict, db: Session = Depends(get_db)):
+    m = db.query(models.StaffMember).filter(models.StaffMember.id == staff_id).first()
+    if not m:
+        raise HTTPException(404, "Staff member not found")
+    if not payload.get("full_name", "").strip():
+        raise HTTPException(400, "full_name is required")
+    changes = []
+    for field in ("full_name", "position", "department", "email", "photo_url", "notes"):
+        new_val = payload.get(field, "").strip() or None
+        if field == "full_name":
+            new_val = payload["full_name"].strip()
+        if getattr(m, field) != new_val:
+            changes.append(f"{field} updated")
+            setattr(m, field, new_val)
+    if changes:
+        _add_staff_history(db, m.id, "Profile updated: " + ", ".join(changes))
+    db.commit()
+    db.refresh(m)
+    return _staff_to_dict(m)
+
+
+@app.delete("/api/staff/{staff_id}")
+def delete_staff_member_route(staff_id: int, db: Session = Depends(get_db)):
+    m = db.query(models.StaffMember).filter(models.StaffMember.id == staff_id).first()
+    if not m:
+        raise HTTPException(404, "Staff member not found")
+    db.delete(m)
+    db.commit()
+    return {"message": "Deleted"}
+
+
+@app.post("/api/staff/{staff_id}/certificates", status_code=201)
+def add_staff_certificate(staff_id: int, payload: dict, db: Session = Depends(get_db)):
+    m = db.query(models.StaffMember).filter(models.StaffMember.id == staff_id).first()
+    if not m:
+        raise HTTPException(404, "Staff member not found")
+    if not payload.get("name", "").strip():
+        raise HTTPException(400, "name is required")
+    no_expiry = bool(payload.get("no_expiry", False))
+    c = models.StaffCertificate(
+        staff_id=staff_id,
+        category=payload.get("category", "certificate"),
+        name=payload["name"].strip(),
+        issuer=payload.get("issuer", "").strip() or None,
+        issue_date=_parse_iso_dt(payload.get("issue_date")),
+        expiry_date=None if no_expiry else _parse_iso_dt(payload.get("expiry_date")),
+        no_expiry=no_expiry,
+        file_url=payload.get("file_url", "").strip() or None,
+    )
+    db.add(c)
+    db.flush()
+    _add_staff_history(db, staff_id, f"Added {c.category}: {c.name}")
+    db.commit()
+    db.refresh(m)
+    return _staff_to_dict(m)
+
+
+@app.put("/api/staff/certificates/{cert_id}")
+def update_staff_certificate(cert_id: int, payload: dict, db: Session = Depends(get_db)):
+    c = db.query(models.StaffCertificate).filter(models.StaffCertificate.id == cert_id).first()
+    if not c:
+        raise HTTPException(404, "Certificate not found")
+    if not payload.get("name", "").strip():
+        raise HTTPException(400, "name is required")
+    no_expiry = bool(payload.get("no_expiry", False))
+    c.name = payload["name"].strip()
+    c.issuer = payload.get("issuer", "").strip() or None
+    c.issue_date = _parse_iso_dt(payload.get("issue_date"))
+    c.no_expiry = no_expiry
+    c.expiry_date = None if no_expiry else _parse_iso_dt(payload.get("expiry_date"))
+    c.file_url = payload.get("file_url", "").strip() or None
+    c.category = payload.get("category", c.category)
+    _add_staff_history(db, c.staff_id, f"Updated {c.category}: {c.name}")
+    db.commit()
+    m = db.query(models.StaffMember).filter(models.StaffMember.id == c.staff_id).first()
+    return _staff_to_dict(m)
+
+
+@app.delete("/api/staff/certificates/{cert_id}")
+def delete_staff_certificate(cert_id: int, db: Session = Depends(get_db)):
+    c = db.query(models.StaffCertificate).filter(models.StaffCertificate.id == cert_id).first()
+    if not c:
+        raise HTTPException(404, "Certificate not found")
+    staff_id = c.staff_id
+    name = c.name
+    db.delete(c)
+    _add_staff_history(db, staff_id, f"Deleted: {name}")
+    db.commit()
+    return {"message": "Deleted"}
+
+
+def _car_doc_to_dict(d: models.CarDocument) -> dict:
+    return {
+        "id": d.id,
+        "car_id": d.car_id,
+        "name": d.name,
+        "issuer": d.issuer,
+        "issue_date": d.issue_date.isoformat() if d.issue_date else None,
+        "expiry_date": d.expiry_date.isoformat() if d.expiry_date else None,
+        "no_expiry": bool(d.no_expiry),
+        "file_url": d.file_url,
+        "created_at": d.created_at.isoformat() if d.created_at else None,
+    }
+
+
+def _car_to_dict(c: models.Car) -> dict:
+    return {
+        "id": c.id,
+        "name": c.name,
+        "plate_number": c.plate_number,
+        "department": c.department,
+        "model": c.model,
+        "color": c.color,
+        "photo_url": c.photo_url,
+        "notes": c.notes,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+        "documents": [_car_doc_to_dict(d) for d in (c.documents or [])],
+        "history": [
+            {
+                "id": h.id,
+                "action": h.action,
+                "created_at": h.created_at.isoformat() if h.created_at else None,
+            }
+            for h in sorted(c.history or [], key=lambda x: x.created_at or datetime.min, reverse=True)
+        ],
+    }
+
+
+def _add_car_history(db, car_id: int, action: str):
+    db.add(models.CarHistory(car_id=car_id, action=action))
+
+
+@app.get("/api/cars")
+def get_all_cars(db: Session = Depends(get_db)):
+    cars = db.query(models.Car).order_by(models.Car.name, models.Car.plate_number).all()
+    return [_car_to_dict(c) for c in cars]
+
+
+@app.post("/api/cars", status_code=201)
+def create_car(payload: dict, db: Session = Depends(get_db)):
+    name = (payload.get("name") or "").strip()
+    plate_number = (payload.get("plate_number") or "").strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+    if not plate_number:
+        raise HTTPException(400, "plate_number is required")
+
+    car = models.Car(
+        name=name,
+        plate_number=plate_number,
+        department=(payload.get("department") or "").strip() or None,
+        model=(payload.get("model") or "").strip() or None,
+        color=(payload.get("color") or "").strip() or None,
+        photo_url=(payload.get("photo_url") or "").strip() or None,
+        notes=(payload.get("notes") or "").strip() or None,
+    )
+    db.add(car)
+    db.flush()
+    _add_car_history(db, car.id, f"Car profile created: {car.name} ({car.plate_number})")
+    db.commit()
+    db.refresh(car)
+    return _car_to_dict(car)
+
+
+@app.put("/api/cars/{car_id}")
+def update_car(car_id: int, payload: dict, db: Session = Depends(get_db)):
+    car = db.query(models.Car).filter(models.Car.id == car_id).first()
+    if not car:
+        raise HTTPException(404, "Car not found")
+
+    name = (payload.get("name") or "").strip()
+    plate_number = (payload.get("plate_number") or "").strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+    if not plate_number:
+        raise HTTPException(400, "plate_number is required")
+
+    changes = []
+    field_mapping = {
+        "name": name,
+        "plate_number": plate_number,
+        "department": (payload.get("department") or "").strip() or None,
+        "model": (payload.get("model") or "").strip() or None,
+        "color": (payload.get("color") or "").strip() or None,
+        "photo_url": (payload.get("photo_url") or "").strip() or None,
+        "notes": (payload.get("notes") or "").strip() or None,
+    }
+
+    for field, new_value in field_mapping.items():
+        if getattr(car, field) != new_value:
+            setattr(car, field, new_value)
+            changes.append(f"{field} updated")
+
+    if changes:
+        _add_car_history(db, car.id, "Profile updated: " + ", ".join(changes))
+
+    db.commit()
+    db.refresh(car)
+    return _car_to_dict(car)
+
+
+@app.delete("/api/cars/{car_id}")
+def delete_car(car_id: int, db: Session = Depends(get_db)):
+    car = db.query(models.Car).filter(models.Car.id == car_id).first()
+    if not car:
+        raise HTTPException(404, "Car not found")
+    db.delete(car)
+    db.commit()
+    return {"message": "Deleted"}
+
+
+@app.post("/api/cars/{car_id}/documents", status_code=201)
+def add_car_document(car_id: int, payload: dict, db: Session = Depends(get_db)):
+    car = db.query(models.Car).filter(models.Car.id == car_id).first()
+    if not car:
+        raise HTTPException(404, "Car not found")
+
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+
+    no_expiry = bool(payload.get("no_expiry", False))
+    doc = models.CarDocument(
+        car_id=car_id,
+        name=name,
+        issuer=(payload.get("issuer") or "").strip() or None,
+        issue_date=_parse_iso_dt(payload.get("issue_date")),
+        expiry_date=None if no_expiry else _parse_iso_dt(payload.get("expiry_date")),
+        no_expiry=no_expiry,
+        file_url=(payload.get("file_url") or "").strip() or None,
+    )
+    db.add(doc)
+    db.flush()
+    _add_car_history(db, car_id, f"Added document: {doc.name}")
+    db.commit()
+    db.refresh(car)
+    return _car_to_dict(car)
+
+
+@app.put("/api/cars/documents/{doc_id}")
+def update_car_document(doc_id: int, payload: dict, db: Session = Depends(get_db)):
+    doc = db.query(models.CarDocument).filter(models.CarDocument.id == doc_id).first()
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+
+    no_expiry = bool(payload.get("no_expiry", False))
+    doc.name = name
+    doc.issuer = (payload.get("issuer") or "").strip() or None
+    doc.issue_date = _parse_iso_dt(payload.get("issue_date"))
+    doc.no_expiry = no_expiry
+    doc.expiry_date = None if no_expiry else _parse_iso_dt(payload.get("expiry_date"))
+    doc.file_url = (payload.get("file_url") or "").strip() or None
+
+    _add_car_history(db, doc.car_id, f"Updated document: {doc.name}")
+    db.commit()
+
+    car = db.query(models.Car).filter(models.Car.id == doc.car_id).first()
+    return _car_to_dict(car)
+
+
+@app.delete("/api/cars/documents/{doc_id}")
+def delete_car_document(doc_id: int, db: Session = Depends(get_db)):
+    doc = db.query(models.CarDocument).filter(models.CarDocument.id == doc_id).first()
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    car_id = doc.car_id
+    name = doc.name
+    db.delete(doc)
+    _add_car_history(db, car_id, f"Deleted document: {name}")
+    db.commit()
+    return {"message": "Deleted"}
+
+
+STAFF_UPLOAD_DIR = UPLOADS_ROOT_DIR / "staff"
+STAFF_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Folder prefix in the R2 bucket for all staff / car assets.
+_R2_STAFF_FOLDER = "staff"
+
+
+def _is_production() -> bool:
+    """Return True when running on Render / any PostgreSQL-backed environment."""
+    return not database.IS_SQLITE
+
+
+@app.post("/api/staff/upload-asset")
+async def upload_staff_asset(
+    file: UploadFile = File(...),
+    asset_type: str = Form("certificate")
+):
+    asset_type = (asset_type or "certificate").strip().lower()
+    if asset_type not in {"profile", "certificate", "document", "car", "car_document"}:
+        raise HTTPException(400, "Invalid asset_type")
+
+    allowed_ext = {
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf",
+        ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt"
+    }
+    original_name = file.filename or "asset"
+    ext = Path(original_name).suffix.lower()
+    if ext not in allowed_ext:
+        raise HTTPException(
+            400,
+            "Unsupported file type. Allowed: images, PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT",
+        )
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(400, "Empty file")
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(400, "File too large. Maximum 15 MB")
+
+    safe_stem = re.sub(r"[^a-zA-Z0-9._-]", "_", Path(original_name).stem)[:80] or "asset"
+    final_name = f"{asset_type}_{int(time.time())}_{secrets.token_hex(4)}_{safe_stem}{ext}"
+
+    if _is_production():
+        # ── Production (Render): upload to Cloudflare R2 ─────────────────────
+        try:
+            mime = r2_storage.ext_to_mime(ext)
+            r2_folder = f"{_R2_STAFF_FOLDER}/{asset_type}"
+            public_url = r2_storage.upload_asset_to_r2(
+                file_bytes=content,
+                folder=r2_folder,
+                filename=final_name,
+                content_type=mime,
+            )
+        except Exception as exc:
+            print(f"❌ R2 upload error: {exc}")
+            raise HTTPException(500, f"Cloud storage upload failed: {exc}")
+
+        return {
+            "url": public_url,
+            "filename": final_name,
+            "original_name": original_name,
+            "asset_type": asset_type,
+            "storage": "r2",
+        }
+    else:
+        # ── Local dev: save to filesystem ─────────────────────────────────────
+        target_dir = STAFF_UPLOAD_DIR / asset_type
+        target_dir.mkdir(parents=True, exist_ok=True)
+        final_path = target_dir / final_name
+        with open(final_path, "wb") as fp:
+            fp.write(content)
+
+        return {
+            "url": f"/uploads/staff/{asset_type}/{final_name}",
+            "filename": final_name,
+            "original_name": original_name,
+            "asset_type": asset_type,
+            "storage": "local",
+        }
+
+
+# SPA catch-all: keep it at the very end so it does not intercept API routes.
+@app.get("/{full_path:path}")
+def spa_fallback(full_path: str, request: Request):
+    path = (full_path or "").lstrip("/")
+    if request.method != "GET":
+        raise HTTPException(404, "Not found")
+    if path.startswith(("api/", "static/", "uploads/", "health")):
+        raise HTTPException(404, "Not found")
+    return FileResponse(FRONTEND_DIR / "index.html")

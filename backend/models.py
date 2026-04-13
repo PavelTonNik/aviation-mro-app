@@ -588,3 +588,106 @@ class GSSAssignment(Base):
     # Relationships
     engine = relationship("Engine", backref="gss_assignment")
     user = relationship("User", backref="gss_assignments")
+
+
+# ===================== STAFF CENTRAL =====================
+
+class StaffMember(Base):
+    """Staff directory — employees and their profile."""
+    __tablename__ = "staff_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    full_name = Column(String, nullable=False)
+    position = Column(String, nullable=True)
+    department = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    photo_url = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    all_certs = relationship("StaffCertificate", back_populates="staff",
+                             cascade="all, delete-orphan")
+    history = relationship("StaffHistory", back_populates="staff",
+                           cascade="all, delete-orphan")
+
+
+class StaffCertificate(Base):
+    """Certificates and identity documents for a staff member."""
+    __tablename__ = "staff_certificates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    staff_id = Column(Integer, ForeignKey("staff_members.id", ondelete="CASCADE"), nullable=False, index=True)
+    # category: 'certificate' | 'document'
+    category = Column(String, nullable=False, default="certificate")
+    name = Column(String, nullable=False)
+    issuer = Column(String, nullable=True)
+    issue_date = Column(DateTime(timezone=True), nullable=True)
+    expiry_date = Column(DateTime(timezone=True), nullable=True)
+    no_expiry = Column(Boolean, default=False)
+    file_url = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    staff = relationship("StaffMember", back_populates="all_certs")
+
+
+class StaffHistory(Base):
+    """Audit log for changes to a staff member profile/certificates."""
+    __tablename__ = "staff_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    staff_id = Column(Integer, ForeignKey("staff_members.id", ondelete="CASCADE"), nullable=False, index=True)
+    action = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    staff = relationship("StaffMember", back_populates="history")
+
+
+class Car(Base):
+    """Cars registry for company fleet and compliance docs."""
+    __tablename__ = "cars"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    plate_number = Column(String, nullable=False, index=True)
+    department = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    color = Column(String, nullable=True)
+    photo_url = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    documents = relationship("CarDocument", back_populates="car", cascade="all, delete-orphan")
+    history = relationship("CarHistory", back_populates="car", cascade="all, delete-orphan")
+
+
+class CarDocument(Base):
+    """Car compliance/registration/insurance documents."""
+    __tablename__ = "car_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    car_id = Column(Integer, ForeignKey("cars.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    issuer = Column(String, nullable=True)
+    issue_date = Column(DateTime(timezone=True), nullable=True)
+    expiry_date = Column(DateTime(timezone=True), nullable=True)
+    no_expiry = Column(Boolean, default=False)
+    file_url = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    car = relationship("Car", back_populates="documents")
+
+
+class CarHistory(Base):
+    """Audit log for car profile and document updates."""
+    __tablename__ = "car_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    car_id = Column(Integer, ForeignKey("cars.id", ondelete="CASCADE"), nullable=False, index=True)
+    action = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    car = relationship("Car", back_populates="history")

@@ -263,3 +263,80 @@ def test_r2_connection() -> bool:
     except Exception as e:
         print(f"❌ R2 connection error: {e}")
         return False
+
+
+def upload_asset_to_r2(
+    file_bytes: bytes,
+    folder: str,
+    filename: str,
+    content_type: str = "application/octet-stream",
+) -> str:
+    """
+    Upload any file (photo, PDF, document, etc.) to R2  under the given folder.
+
+    Args:
+        file_bytes:   Raw file content.
+        folder:       R2 key prefix, e.g. "staff/profile", "staff/certificate".
+        filename:     Final filename stored in R2 (already sanitised / unique).
+        content_type: MIME type, e.g. "image/jpeg", "application/pdf".
+
+    Returns:
+        Public URL of the uploaded file.
+
+    Raises:
+        Exception on any upload failure.
+    """
+    cfg = get_r2_config()
+    key = f"{folder.strip('/')}/{filename}"
+
+    try:
+        get_s3_client().put_object(
+            Bucket=cfg["bucket"],
+            Key=key,
+            Body=file_bytes,
+            ContentType=content_type,
+            CacheControl="public, max-age=86400",
+        )
+        public_url = f"{cfg['public_url']}/{key}"
+        print(f"✅ Uploaded asset to R2: {key} ({len(file_bytes)} bytes)")
+        return public_url
+    except ClientError as e:
+        error_code = e.response["Error"].get("Code", "Unknown")
+        error_msg = e.response["Error"].get("Message", "No message")
+        raise Exception(f"R2 upload failed: {error_code} – {error_msg}")
+    except Exception as e:
+        raise Exception(f"R2 upload error: {e}")
+
+
+def delete_asset_from_r2(public_url: str) -> bool:
+    """Delete any previously uploaded asset from R2 by its public URL."""
+    try:
+        cfg = get_r2_config()
+        key = public_url.replace(cfg["public_url"].rstrip("/") + "/", "", 1)
+        get_s3_client().delete_object(Bucket=cfg["bucket"], Key=key)
+        return True
+    except Exception:
+        return False
+
+
+# ---- MIME type helper -------------------------------------------------------
+_EXT_TO_MIME: dict = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".pdf": "application/pdf",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".txt": "text/plain",
+}
+
+
+def ext_to_mime(ext: str) -> str:
+    """Return a MIME type for a file extension (with leading dot)."""
+    return _EXT_TO_MIME.get(ext.lower(), "application/octet-stream")

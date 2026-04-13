@@ -3786,6 +3786,24 @@
             cursor: pointer;
         }
 
+        /* Light mode: force dark text inside schedules modal */
+        body.light-bg .schedules-modal-content,
+        body.light-bg .schedules-modal-content * {
+            color: #212529 !important;
+        }
+        body.light-bg .schedules-tab {
+            color: #495057 !important;
+        }
+        body.light-bg .schedules-tab.active {
+            color: #007bff !important;
+        }
+        body.light-bg #schedules-table th {
+            color: #212529 !important;
+        }
+        body.light-bg #schedules-table td {
+            color: #212529 !important;
+        }
+
         .status-badge {
             display: inline-block;
             padding: 4px 12px;
@@ -4667,6 +4685,318 @@
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
+
+        /* =============================================
+           STAFF CENTRAL — Modern HR Suite
+           ============================================= */
+        #view-staff-central {
+            padding: 0;
+            background:
+                radial-gradient(circle at top left, rgba(99,102,241,.12), transparent 28%),
+                radial-gradient(circle at top right, rgba(14,165,233,.10), transparent 24%),
+                linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+            border-radius: 28px;
+        }
+        .sc-page-header {
+            position: relative;
+            padding: 1.5rem 1.75rem 1.35rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255,255,255,.8);
+            border-radius: 26px;
+            background: linear-gradient(135deg, rgba(255,255,255,.95), rgba(255,255,255,.78));
+            box-shadow: 0 18px 48px rgba(31,41,55,.08), inset 0 1px 0 rgba(255,255,255,.9);
+            backdrop-filter: blur(14px);
+        }
+        .sc-page-header:before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 26px;
+            background: linear-gradient(115deg, rgba(79,70,229,.08), rgba(14,165,233,.04) 40%, rgba(255,255,255,0));
+            pointer-events: none;
+        }
+        .sc-page-header h4 { color: #0f172a; font-weight: 800; letter-spacing: -.45px; font-size: 2rem; }
+        .sc-page-subtitle { color: #475569; font-size: .98rem; }
+        .sc-header-chip {
+            display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 999px;
+            background: rgba(255,255,255,.85); border: 1px solid rgba(148,163,184,.18); color: #334155;
+            font-size: .82rem; font-weight: 700; box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+        }
+
+        /* Modern 3D buttons */
+        #view-staff-central .btn,
+        #staff-profile-drawer .btn,
+        #car-profile-drawer .btn,
+        .sc-form-overlay .btn {
+            border-radius: 14px;
+            border-width: 1px;
+            font-weight: 700;
+            box-shadow: 0 10px 18px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.65);
+            transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+        }
+        #view-staff-central .btn:hover,
+        #staff-profile-drawer .btn:hover,
+        #car-profile-drawer .btn:hover,
+        .sc-form-overlay .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 30px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.78);
+            filter: saturate(1.06);
+        }
+        #view-staff-central .btn:active,
+        #staff-profile-drawer .btn:active,
+        #car-profile-drawer .btn:active,
+        .sc-form-overlay .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 6px 12px rgba(15,23,42,.10), inset 0 2px 4px rgba(0,0,0,.06);
+        }
+
+        .sc-stat-card {
+            position: relative;
+            background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.88));
+            border: 1px solid rgba(226,232,240,.9);
+            border-radius: 24px;
+            padding: 1.15rem 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            min-height: 104px;
+            overflow: hidden;
+            box-shadow: 0 18px 36px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.95);
+        }
+        .sc-stat-card:after {
+            content: "";
+            position: absolute;
+            top: -30px; right: -30px;
+            width: 90px; height: 90px; border-radius: 50%;
+            background: rgba(255,255,255,.6);
+        }
+        .sc-stat-icon {
+            width: 56px; height: 56px; border-radius: 18px; display:flex; align-items:center; justify-content:center;
+            font-size: 1.35rem; box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 8px 16px rgba(0,0,0,.08);
+        }
+        .sc-stat-icon.green { background: linear-gradient(180deg, #dcfce7, #bbf7d0); color: #166534; }
+        .sc-stat-icon.red { background: linear-gradient(180deg, #fee2e2, #fecaca); color: #991b1b; }
+        .sc-stat-icon.yellow { background: linear-gradient(180deg, #fef9c3, #fde68a); color: #854d0e; }
+        .sc-stat-icon.blue { background: linear-gradient(180deg, #dbeafe, #bfdbfe); color: #1d4ed8; }
+        .sc-stat-label { font-size: .74rem; color: #64748b; text-transform: uppercase; letter-spacing: .75px; }
+        .sc-stat-value { font-size: 2rem; font-weight: 800; color: #0f172a; line-height: 1; }
+
+        .sc-toolbar-card,
+        .sc-table-shell,
+        .sc-shell {
+            background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.88));
+            border: 1px solid rgba(226,232,240,.95);
+            border-radius: 24px;
+            box-shadow: 0 18px 36px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.9);
+        }
+        .sc-toolbar-card { padding: 1rem; }
+
+        .sc-entity-tabs {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            flex-wrap: wrap;
+        }
+        .sc-entity-tab {
+            border: none;
+            background: linear-gradient(180deg, #ffffff, #e2e8f0);
+            color: #334155;
+            padding: .62rem 1rem;
+            border-radius: 14px;
+            font-size: .84rem;
+            font-weight: 800;
+            box-shadow: 0 10px 20px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.9);
+            transition: all .16s ease;
+        }
+        .sc-entity-tab.active {
+            background: linear-gradient(180deg, #4f46e5, #4338ca);
+            color: #fff;
+        }
+
+        /* Table */
+        #staff-table,
+        #cars-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        #staff-table thead th,
+        #cars-table thead th {
+            background: linear-gradient(180deg, #ffffff, #f8fafc);
+            border-bottom: 1px solid #e2e8f0;
+            padding: 14px 12px;
+            font-size: .76rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .9px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        #staff-table tbody td,
+        #cars-table tbody td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: .9rem;
+            color: #334155;
+            vertical-align: middle;
+            background: rgba(255,255,255,.72);
+        }
+        #staff-table tbody td,
+        #cars-table tbody td { padding-top: .7rem; padding-bottom: .7rem; }
+        #staff-table tbody tr:hover td,
+        #cars-table tbody tr:hover td { background: rgba(239,246,255,.95); }
+        .sc-name-trigger {
+            border: none; background: none; padding: 0; text-align: left; color: #0f172a; font-weight: 700;
+            transition: color .16s ease, transform .16s ease;
+        }
+        .sc-name-trigger:hover { color: #4f46e5; transform: translateX(2px); }
+        .sc-mini-avatar {
+            width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(180deg, #1e1b4b, #312e81);
+            color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.88rem;
+            box-shadow: 0 12px 18px rgba(49,46,129,.25);
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .sc-mini-avatar img, .staff-avatar img, .sc-photo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        /* Fixed-position hover zoom for table avatars */
+        .sc-avatar-zoom {
+            position: fixed; width: 160px; height: 160px; border-radius: 16px; overflow: hidden;
+            box-shadow: 0 24px 50px rgba(15,23,42,.5); border: 3px solid #fff;
+            z-index: 9999; pointer-events: none;
+            transition: opacity .18s ease, transform .18s ease;
+            opacity: 0; transform: scale(.7);
+        }
+        .sc-avatar-zoom.visible { opacity: 1; transform: scale(1); }
+        .sc-avatar-zoom img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+        /* Badges */
+        .audit-ok, .audit-warn, .audit-expired, .cert-badge {
+            display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:5px 12px; font-size:.74rem; font-weight:800;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.72);
+        }
+        .audit-ok { background:#dcfce7; color:#166534; }
+        .audit-warn { background:#fef3c7; color:#92400e; }
+        .audit-expired { background:#fee2e2; color:#991b1b; }
+        .cert-valid { background:#dcfce7; color:#166534; }
+        .cert-warn { background:#fef3c7; color:#92400e; }
+        .cert-expired { background:#fee2e2; color:#991b1b; }
+        .cert-lifetime { background:#dbeafe; color:#1d4ed8; }
+
+        /* Centered profile modal */
+        .staff-drawer-backdrop {
+            position: fixed; inset: 0; background: rgba(15,23,42,.52); backdrop-filter: blur(10px); z-index: 1059;
+            display: none; opacity: 0; transition: opacity .25s ease;
+        }
+        .staff-drawer-backdrop.show { display:block; opacity:1; }
+        #staff-profile-drawer,
+        #car-profile-drawer {
+            position: fixed; top: 50%; left: 50%; width: min(1240px, 97vw); max-height: 94vh;
+            transform: translate(-50%, -50%) scale(.94); opacity: 0; pointer-events: none;
+            background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.95));
+            border: 1px solid rgba(255,255,255,.8); border-radius: 30px;
+            box-shadow: 0 30px 80px rgba(15,23,42,.30), inset 0 1px 0 rgba(255,255,255,.96);
+            z-index: 1060; transition: transform .28s ease, opacity .28s ease;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        #staff-profile-drawer.open,
+        #car-profile-drawer.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+        .staff-drawer-header {
+            position: relative; padding: 1.5rem 1.6rem 1.1rem;
+            background: linear-gradient(135deg, rgba(79,70,229,.12), rgba(14,165,233,.07) 50%, rgba(255,255,255,.85));
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .staff-drawer-tabs {
+            display:flex; gap:.65rem; padding: .95rem 1.6rem; border-bottom: 1px solid #e2e8f0; background:#fff; flex-shrink:0; align-items:center;
+        }
+        .staff-drawer-tab {
+            border:none; background: linear-gradient(180deg, #ffffff, #eef2ff); padding:10px 18px; border-radius:16px; font-size:.84rem;
+            font-weight:800; color:#475569; cursor:pointer; transition:all .18s ease; box-shadow: 0 10px 18px rgba(99,102,241,.08), inset 0 1px 0 rgba(255,255,255,.9);
+        }
+        .staff-drawer-tab.active { background: linear-gradient(180deg, #4f46e5, #4338ca); color:#fff; }
+        .staff-drawer-body { flex:1; overflow-y:auto; padding:1.5rem; background: linear-gradient(180deg, #fbfdff, #f7fafc); }
+        .staff-avatar {
+            width:78px; height:78px; border-radius:24px; background: linear-gradient(180deg, #1e1b4b, #312e81); color:#fff;
+            display:flex; align-items:center; justify-content:center; font-size:1.6rem; font-weight:800; flex-shrink:0;
+            overflow: hidden; box-shadow: 0 16px 30px rgba(49,46,129,.26);
+        }
+        .sc-profile-kicker { font-size:.78rem; font-weight:800; color:#4f46e5; letter-spacing:.8px; text-transform:uppercase; }
+        .sc-profile-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+        .sc-profile-meta span { background:#fff; border:1px solid #e2e8f0; color:#475569; border-radius:999px; padding:5px 10px; font-size:.78rem; font-weight:700; }
+        .sc-cert-card {
+            border:1px solid #e2e8f0; border-radius:20px; padding:1rem 1.1rem; margin-bottom:.9rem;
+            background: linear-gradient(180deg, #ffffff, #fbfdff); transition:border-color .18s, transform .18s, box-shadow .18s;
+            box-shadow: 0 12px 24px rgba(15,23,42,.05);
+        }
+        .sc-cert-card:hover { border-color:#c7d2fe; transform: translateY(-1px); box-shadow: 0 16px 28px rgba(79,70,229,.09); }
+        .sc-cert-card.expired { border-left:5px solid #f87171; }
+        .sc-cert-card.warn { border-left:5px solid #fbbf24; }
+        .sc-cert-card.valid { border-left:5px solid #34d399; }
+        .sc-cert-card.lifetime { border-left:5px solid #60a5fa; }
+        .sc-cert-title { font-weight:800; color:#0f172a; font-size:1rem; }
+        .sc-cert-meta { font-size:.8rem; color:#64748b; margin-top:4px; line-height:1.65; }
+        .sc-file-preview {
+            margin-top: .9rem; padding: .8rem; border-radius: 16px; border:1px dashed #cbd5e1; background: #f8fbff;
+            display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+        }
+        .sc-file-thumb { width: 84px; height: 84px; border-radius: 14px; overflow:hidden; background:#e2e8f0; flex-shrink:0; }
+        .sc-file-thumb.pdf { display:flex; align-items:center; justify-content:center; color:#dc2626; font-size:1.8rem; background:#fee2e2; }
+
+        /* Overlays + forms */
+        .sc-form-overlay {
+            position:fixed; inset:0; background:rgba(15,23,42,.48); backdrop-filter: blur(10px); z-index:1070;
+            display:flex; align-items:center; justify-content:center; padding:1rem;
+        }
+        .sc-form-box {
+            background: linear-gradient(180deg, #ffffff, #f8fbff); border-radius:28px; width:760px; max-width:100%; max-height:92vh;
+            overflow-y:auto; box-shadow: 0 30px 70px rgba(15,23,42,.25); border:1px solid rgba(255,255,255,.9);
+        }
+        .sc-form-header {
+            padding:1.15rem 1.45rem; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;
+            background: linear-gradient(135deg, rgba(79,70,229,.08), rgba(14,165,233,.05), rgba(255,255,255,.94));
+        }
+        .sc-upload-zone {
+            position: relative; border: 2px dashed #c7d2fe; background: linear-gradient(180deg, #f8fbff, #eef6ff);
+            border-radius: 20px; padding: 1rem; min-height: 146px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+            text-align:center; cursor:pointer; transition: all .18s ease; color:#475569;
+        }
+        .sc-upload-zone:hover, .sc-upload-zone.dragover { border-color:#4f46e5; background: linear-gradient(180deg, #eef2ff, #e0f2fe); transform: translateY(-1px); }
+        .sc-upload-zone .bi { font-size: 2rem; color:#4f46e5; }
+        .sc-photo-preview {
+            width: 132px; height: 132px; border-radius: 28px; overflow:hidden; border: 1px solid #dbeafe; background:#eff6ff;
+            display:flex; align-items:center; justify-content:center; box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+        }
+        .sc-upload-meta { margin-top: .85rem; width:100%; text-align:left; background:#fff; border:1px solid #e2e8f0; border-radius:16px; padding:.75rem .9rem; }
+        .sc-upload-meta small { color:#64748b; display:block; }
+        .sc-upload-file-name {
+            display: block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .sc-upload-file-url {
+            display: block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #64748b;
+            font-size: .75rem;
+        }
+        .sc-link-pill { display:inline-flex; align-items:center; gap:8px; background:#eff6ff; color:#1d4ed8; padding:6px 10px; border-radius:999px; font-size:.75rem; font-weight:800; }
+        .sc-inline-field { background: rgba(255,255,255,.8); border:1px solid #e2e8f0; border-radius:16px; padding:.75rem .9rem; }
+
+        .sc-notify-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.72rem; font-weight:600; background:#fee2e2; color:#991b1b; }
+        .sc-notify-badge.ok { background:#d1fae5; color:#065f46; }
+        .btn-xs { padding: 4px 8px; font-size: .74rem; line-height: 1.4; border-radius: 10px; }
+
+        #sc-delete-modal.show { z-index: 1095 !important; }
+        body.sc-delete-open .modal-backdrop.show { z-index: 1090 !important; }
+
+        @media (max-width: 768px) {
+            .sc-page-header { padding: 1.1rem; }
+            .sc-page-header h4 { font-size: 1.55rem; }
+            #staff-profile-drawer { width: 96vw; max-height: 95vh; }
+            .staff-drawer-tabs { flex-wrap: wrap; }
+        }
     </style>
 </head>
 <body>
@@ -5009,15 +5339,7 @@
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openEngineReportsView(); return false;">
                     <i class="bi bi-clock-history"></i> Engine Reports
                 </a>
-                <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openPurchaseOrdersView(); return false;">
-                    <i class="bi bi-receipt"></i> Purchase Orders
-                </a>
-                <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openFakeInstalledView(); return false;">
-                    <i class="bi bi-exclamation-circle"></i> Fake Installed
-                </a>
-                <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openNameplateTrackerView(); return false;">
-                    <i class="bi bi-tags"></i> Nameplate Tracker
-                </a>
+
             </div>
             
             <div class="text-uppercase text-muted small mt-4 mb-2 px-3">
@@ -5056,8 +5378,19 @@
                     <i class="bi bi-collection"></i> Store Balance
                 </a>
             </div>
-                
-            
+
+            <!-- MANAGEMENT GROUP -->
+            <div class="text-uppercase text-muted small mt-4 mb-2 px-3">
+                <div class="neon-header">
+                    <i class="bi bi-people-fill"></i> Management
+                </div>
+            </div>
+            <div>
+                <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openStaffCentralView(); return false;">
+                    <i class="bi bi-person-badge"></i> Staff Central
+                </a>
+            </div>
+
         </div>
     </div>
 
@@ -6835,6 +7168,456 @@
                 </div>
             </div>
             
+            <!-- STAFF CENTRAL VIEW -->
+            <div id="view-staff-central" style="display: none;">
+                <div class="sc-page-header">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 position-relative" style="z-index:1;">
+                        <div>
+                            <span class="sc-header-chip mb-3"><i class="bi bi-stars"></i> GSS Aviation</span>
+                            <h4 class="mb-2"><i class="bi bi-person-badge me-2"></i>Staff Central</h4>
+                            <div class="sc-page-subtitle">Workforce compliance, credentials and audit-ready document tracking.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4" id="sc-kpi-row">
+                    <div class="col-12 col-sm-6 col-xl-3"><div class="sc-stat-card"><div class="sc-stat-icon blue"><i class="bi bi-people-fill"></i></div><div><div class="sc-stat-label">Total Staff</div><div class="sc-stat-value" id="sc-kpi-total">—</div></div></div></div>
+                    <div class="col-12 col-sm-6 col-xl-3"><div class="sc-stat-card"><div class="sc-stat-icon green"><i class="bi bi-car-front-fill"></i></div><div><div class="sc-stat-label">Cars</div><div class="sc-stat-value" id="sc-kpi-cars">—</div></div></div></div>
+                    <div class="col-12 col-sm-6 col-xl-3"><div class="sc-stat-card"><div class="sc-stat-icon yellow"><i class="bi bi-exclamation-triangle"></i></div><div><div class="sc-stat-label">Expiring Soon</div><div class="sc-stat-value" id="sc-kpi-warn">—</div></div></div></div>
+                    <div class="col-12 col-sm-6 col-xl-3"><div class="sc-stat-card"><div class="sc-stat-icon red"><i class="bi bi-x-octagon"></i></div><div><div class="sc-stat-label">Expired</div><div class="sc-stat-value" id="sc-kpi-expired">—</div></div></div></div>
+                </div>
+
+                <div class="sc-entity-tabs mb-3">
+                    <button class="sc-entity-tab active" id="sc-tab-employees-btn" onclick="switchStaffEntityTab('employees')"><i class="bi bi-people me-1"></i>Employees</button>
+                    <button class="sc-entity-tab" id="sc-tab-cars-btn" onclick="switchStaffEntityTab('cars')"><i class="bi bi-car-front me-1"></i>Cars</button>
+                </div>
+
+                <div id="sc-tab-employees" class="sc-entity-pane">
+                    <div class="sc-toolbar-card mb-3">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                            <div class="fw-bold text-dark"><i class="bi bi-person-badge me-2"></i>Employee Directory</div>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <button class="btn btn-sm btn-light" onclick="loadStaffTable()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+                                <button class="btn btn-sm btn-primary" onclick="openStaffForm()"><i class="bi bi-person-plus me-1"></i>Add Employee</button>
+                                <button class="btn btn-sm btn-info text-white" onclick="openStaffNotifySettings()"><i class="bi bi-bell me-1"></i>Notifications</button>
+                            </div>
+                        </div>
+                        <div class="row g-2 align-items-center">
+                            <div class="col-lg-4">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                    <input type="text" class="form-control border-start-0" id="sc-search" placeholder="Search name, role, department..." oninput="renderStaffTable()">
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <select class="form-select" id="sc-filter-dept" onchange="renderStaffTable()">
+                                    <option value="">All Departments</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <select class="form-select" id="sc-filter-audit" onchange="renderStaffTable()">
+                                    <option value="">All Statuses</option>
+                                    <option value="ok">All Clear</option>
+                                    <option value="warn">Expiring Soon</option>
+                                    <option value="expired">Expired</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-2 text-lg-end">
+                                <span class="sc-header-chip"><i class="bi bi-fingerprint"></i> Audit-ready</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sc-table-shell overflow-hidden">
+                        <div class="table-responsive">
+                            <table id="staff-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Full Name</th>
+                                        <th>Position</th>
+                                        <th>Department</th>
+                                        <th>Email</th>
+                                        <th>Certificates</th>
+                                        <th>Audit Status</th>
+                                        <th style="text-align:center;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="staff-table-body">
+                                    <tr><td colspan="8" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sc-tab-cars" class="sc-entity-pane" style="display:none;">
+                    <div class="sc-toolbar-card mb-3">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                            <div class="fw-bold text-dark"><i class="bi bi-car-front-fill me-2"></i>Cars Registry</div>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <button class="btn btn-sm btn-light" onclick="loadCarsTable()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+                                <button class="btn btn-sm btn-primary" onclick="openCarForm()"><i class="bi bi-plus-circle me-1"></i>Add Car</button>
+                            </div>
+                        </div>
+                        <div class="row g-2 align-items-center">
+                            <div class="col-lg-5">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                                    <input type="text" class="form-control border-start-0" id="sc-car-search" placeholder="Search car name, plate, model, department..." oninput="renderCarsTable()">
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <select class="form-select" id="sc-car-filter-dept" onchange="renderCarsTable()">
+                                    <option value="">All Departments</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6 col-lg-2">
+                                <select class="form-select" id="sc-car-filter-audit" onchange="renderCarsTable()">
+                                    <option value="">All Statuses</option>
+                                    <option value="ok">All Clear</option>
+                                    <option value="warn">Expiring Soon</option>
+                                    <option value="expired">Expired</option>
+                                </select>
+                            </div>
+                            <div class="col-lg-2 text-lg-end">
+                                <span class="sc-header-chip"><i class="bi bi-shield-check"></i> Fleet Docs</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sc-table-shell overflow-hidden">
+                        <div class="table-responsive">
+                            <table id="cars-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Photo</th>
+                                        <th>Car Name</th>
+                                        <th>Plate Number</th>
+                                        <th>Department</th>
+                                        <th>Model</th>
+                                        <th>Documents</th>
+                                        <th>Audit Status</th>
+                                        <th style="text-align:center;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cars-table-body">
+                                    <tr><td colspan="9" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END STAFF CENTRAL VIEW -->
+
+            <div class="staff-drawer-backdrop" id="staff-drawer-backdrop" onclick="closeStaffDrawer()"></div>
+            <div id="staff-profile-drawer" aria-modal="true" role="dialog">
+                <div class="staff-drawer-header">
+                    <div class="d-flex align-items-start gap-3 flex-wrap">
+                        <div class="staff-avatar" id="staff-drawer-avatar">?</div>
+                        <div class="flex-grow-1">
+                            <div class="sc-profile-kicker">Employee Profile</div>
+                            <div class="fw-bold fs-4 text-dark" id="staff-drawer-name">—</div>
+                            <div class="text-muted" id="staff-drawer-role">—</div>
+                            <div class="sc-profile-meta" id="staff-drawer-meta"></div>
+                        </div>
+                        <div class="d-flex gap-2 ms-auto flex-wrap">
+                            <button class="btn btn-sm btn-light" onclick="bulkDownloadCerts(staffDrawerCurrentId)"><i class="bi bi-download me-1"></i>Audit Pack</button>
+                            <button class="btn btn-sm btn-primary" onclick="openStaffForm(staffDrawerCurrentId)"><i class="bi bi-pencil me-1"></i>Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteStaffMember(staffDrawerCurrentId)"><i class="bi bi-trash"></i></button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="closeStaffDrawer()"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="staff-drawer-tabs">
+                    <button class="staff-drawer-tab active" id="sdtab-certs-btn" onclick="switchStaffDrawerTab('certs')"><i class="bi bi-award me-1"></i>Certificates</button>
+                    <button class="staff-drawer-tab" id="sdtab-docs-btn" onclick="switchStaffDrawerTab('docs')"><i class="bi bi-file-earmark-person me-1"></i>Documents</button>
+                    <button class="staff-drawer-tab" id="sdtab-history-btn" onclick="switchStaffDrawerTab('history')"><i class="bi bi-clock-history me-1"></i>History</button>
+                </div>
+
+                <div class="staff-drawer-body">
+                    <div id="sdtab-certs">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="fw-semibold fs-6">Certificates &amp; Technical Courses</div>
+                            <button class="btn btn-sm btn-primary" onclick="openCertForm(null, 'certificate')"><i class="bi bi-plus-lg me-1"></i>Add Certificate</button>
+                        </div>
+                        <div id="sc-certs-list"><div class="text-center text-muted py-3">No certificates on file.</div></div>
+                    </div>
+
+                    <div id="sdtab-docs" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="fw-semibold fs-6">Passports, IDs, Access Passes</div>
+                            <button class="btn btn-sm btn-primary" onclick="openCertForm(null, 'document')"><i class="bi bi-plus-lg me-1"></i>Add Document</button>
+                        </div>
+                        <div id="sc-docs-list"><div class="text-center text-muted py-3">No documents on file.</div></div>
+                    </div>
+
+                    <div id="sdtab-history" style="display:none;">
+                        <div class="fw-semibold fs-6 mb-3">Profile Change History</div>
+                        <div id="sc-history-list"><div class="text-center text-muted py-3">No history yet.</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="staff-drawer-backdrop" id="car-drawer-backdrop" onclick="closeCarDrawer()"></div>
+            <div id="car-profile-drawer" aria-modal="true" role="dialog">
+                <div class="staff-drawer-header">
+                    <div class="d-flex align-items-start gap-3 flex-wrap">
+                        <div class="staff-avatar" id="car-drawer-avatar"><i class="bi bi-car-front"></i></div>
+                        <div class="flex-grow-1">
+                            <div class="sc-profile-kicker">Car Profile</div>
+                            <div class="fw-bold fs-4 text-dark" id="car-drawer-name">—</div>
+                            <div class="text-muted" id="car-drawer-role">—</div>
+                            <div class="sc-profile-meta" id="car-drawer-meta"></div>
+                        </div>
+                        <div class="d-flex gap-2 ms-auto flex-wrap">
+                            <button class="btn btn-sm btn-primary" onclick="openCarForm(carDrawerCurrentId)"><i class="bi bi-pencil me-1"></i>Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCar(carDrawerCurrentId)"><i class="bi bi-trash"></i></button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="closeCarDrawer()"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="staff-drawer-tabs">
+                    <button class="staff-drawer-tab active" id="cdtab-docs-btn" onclick="switchCarDrawerTab('docs')"><i class="bi bi-file-earmark-text me-1"></i>Documents</button>
+                    <button class="staff-drawer-tab" id="cdtab-history-btn" onclick="switchCarDrawerTab('history')"><i class="bi bi-clock-history me-1"></i>History</button>
+                </div>
+
+                <div class="staff-drawer-body">
+                    <div id="cdtab-docs">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div class="fw-semibold fs-6">Insurance, Registration, Technical Inspection, Other</div>
+                            <button class="btn btn-sm btn-primary" onclick="openCarDocForm()"><i class="bi bi-plus-lg me-1"></i>Add Document</button>
+                        </div>
+                        <div id="car-docs-list"><div class="text-center text-muted py-3">No documents on file.</div></div>
+                    </div>
+
+                    <div id="cdtab-history" style="display:none;">
+                        <div class="fw-semibold fs-6 mb-3">Profile Change History</div>
+                        <div id="car-history-list"><div class="text-center text-muted py-3">No history yet.</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sc-form-overlay" id="sc-employee-form-overlay" style="display:none;">
+                <div class="sc-form-box">
+                    <div class="sc-form-header">
+                        <div>
+                            <div class="fw-bold fs-5" id="sc-form-title">Add Employee</div>
+                            <div class="small text-muted">Create a clean HR profile with photo and compliance notes</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="closeStaffForm()"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="p-4">
+                        <input type="hidden" id="sc-form-id">
+                        <input type="hidden" id="sc-form-photo-url">
+                        <div class="row g-4 align-items-start">
+                            <div class="col-lg-4">
+                                <div class="sc-photo-preview mx-auto mb-3" id="sc-form-photo-preview"><i class="bi bi-person-vcard text-primary" style="font-size:2.4rem;"></i></div>
+                                <input type="file" id="sc-form-photo-file" accept="image/*,.pdf" class="d-none" onchange="handleStaffAssetSelection(this.files?.[0], 'profile')">
+                                <div class="sc-upload-zone" id="sc-form-photo-drop" onclick="document.getElementById('sc-form-photo-file').click()">
+                                    <i class="bi bi-cloud-arrow-up"></i>
+                                    <div class="fw-bold mt-2">Drop profile photo here</div>
+                                    <div class="small text-muted">or click to upload JPG / PNG / WEBP / PDF</div>
+                                </div>
+                                <div class="sc-upload-meta mt-2" id="sc-form-photo-name"><small>No file uploaded yet</small></div>
+                            </div>
+                            <div class="col-lg-8">
+                                <div class="row g-3">
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label><input type="text" class="form-control" id="sc-form-name" placeholder="e.g. John Smith" required></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Position / Title</label><input type="text" class="form-control" id="sc-form-position" placeholder="e.g. Aircraft Engineer"></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Department</label><input type="text" class="form-control" id="sc-form-dept" placeholder="e.g. Line Maintenance"></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Email</label><input type="email" class="form-control" id="sc-form-email" placeholder="name@company.com"></div>
+                                    <div class="col-12"><label class="form-label fw-semibold">Profile Photo Link (optional)</label><input type="url" class="form-control" id="sc-form-photo-link" placeholder="https://..."><div class="form-text">You can use an uploaded file or an external link.</div></div>
+                                    <div class="col-12"><label class="form-label fw-semibold">Notes</label><textarea class="form-control" id="sc-form-notes" rows="3" placeholder="Licenses, access level, remarks..."></textarea></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <button class="btn btn-light border" onclick="closeStaffForm()">Cancel</button>
+                            <button class="btn btn-primary px-4" onclick="saveStaffMember()">Save Employee</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sc-form-overlay" id="sc-cert-form-overlay" style="display:none;">
+                <div class="sc-form-box">
+                    <div class="sc-form-header">
+                        <div>
+                            <div class="fw-bold fs-5" id="sc-cert-form-title">Add Certificate</div>
+                            <div class="small text-muted">Upload scanned PDFs/images or attach an external document link</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="closeCertForm()"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="p-4">
+                        <input type="hidden" id="sc-cert-id">
+                        <input type="hidden" id="sc-cert-staff-id">
+                        <input type="hidden" id="sc-cert-category">
+                        <div class="row g-4">
+                            <div class="col-lg-7">
+                                <div class="row g-3">
+                                    <div class="col-12"><label class="form-label fw-semibold">Name <span class="text-danger">*</span></label><input type="text" class="form-control" id="sc-cert-name" placeholder="e.g. EASA Form 1, Human Factors, Passport..."></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Issuer / Authority</label><input type="text" class="form-control" id="sc-cert-issuer" placeholder="e.g. EASA, Company, MCAA"></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Date of Issue</label><input type="date" class="form-control" id="sc-cert-issue-date"></div>
+                                    <div class="col-12"><div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="sc-cert-no-expiry" onchange="toggleCertExpiryField()"><label class="form-check-label fw-semibold" for="sc-cert-no-expiry"><i class="bi bi-infinity me-1 text-primary"></i>No Expiry / Lifetime</label></div></div>
+                                    <div class="col-md-6" id="sc-cert-expiry-wrapper"><label class="form-label fw-semibold">Expiry Date <span class="text-danger">*</span></label><input type="date" class="form-control" id="sc-cert-expiry-date"></div>
+                                    <div class="col-12"><label class="form-label fw-semibold">Document Link</label><input type="url" class="form-control" id="sc-cert-file-url" placeholder="https://drive.google.com/... or leave blank if uploaded"><div class="form-text">Direct URL, SharePoint or cloud link.</div></div>
+                                </div>
+                            </div>
+                            <div class="col-lg-5">
+                                <input type="file" id="sc-cert-file-input" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" multiple class="d-none" onchange="handleStaffAssetSelection(this.files, document.getElementById('sc-cert-category').value || 'certificate')">
+                                <div class="sc-upload-zone" id="sc-cert-drop" onclick="document.getElementById('sc-cert-file-input').click()">
+                                    <i class="bi bi-file-earmark-arrow-up"></i>
+                                    <div class="fw-bold mt-2">Drop certificate/document file here</div>
+                                    <div class="small text-muted">Supported: PDF, JPG, PNG, WEBP, GIF</div>
+                                </div>
+                                <div id="sc-cert-upload-preview" class="sc-upload-meta mt-3"><small>No uploaded file selected</small></div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <button class="btn btn-light border" onclick="closeCertForm()">Cancel</button>
+                            <button class="btn btn-primary px-4" onclick="saveCertificate()">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sc-form-overlay" id="sc-car-form-overlay" style="display:none;">
+                <div class="sc-form-box">
+                    <div class="sc-form-header">
+                        <div>
+                            <div class="fw-bold fs-5" id="sc-car-form-title">Add Car</div>
+                            <div class="small text-muted">Create car profile and connect compliance documents</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="closeCarForm()"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="p-4">
+                        <input type="hidden" id="sc-car-form-id">
+                        <input type="hidden" id="sc-car-photo-url">
+                        <div class="row g-4 align-items-start">
+                            <div class="col-lg-4">
+                                <div class="sc-photo-preview mx-auto mb-3" id="sc-car-photo-preview"><i class="bi bi-car-front text-primary" style="font-size:2.4rem;"></i></div>
+                                <input type="file" id="sc-car-photo-file" accept="image/*,.pdf" class="d-none" onchange="handleStaffAssetSelection(this.files?.[0], 'car')">
+                                <div class="sc-upload-zone" id="sc-car-photo-drop" onclick="document.getElementById('sc-car-photo-file').click()">
+                                    <i class="bi bi-cloud-arrow-up"></i>
+                                    <div class="fw-bold mt-2">Drop car photo here</div>
+                                    <div class="small text-muted">or click to upload image / PDF</div>
+                                </div>
+                                <div class="sc-upload-meta mt-2" id="sc-car-photo-name"><small>No file uploaded yet</small></div>
+                            </div>
+                            <div class="col-lg-8">
+                                <div class="row g-3">
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Car Name <span class="text-danger">*</span></label><input type="text" class="form-control" id="sc-car-name" placeholder="e.g. Toyota Hilux" required></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Plate Number <span class="text-danger">*</span></label><input type="text" class="form-control" id="sc-car-plate" placeholder="e.g. KAB-123"></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Department</label><input type="text" class="form-control" id="sc-car-dept" placeholder="e.g. Logistics"></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Model</label><input type="text" class="form-control" id="sc-car-model" placeholder="e.g. 2.8 D-4D"></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Color</label><input type="text" class="form-control" id="sc-car-color" placeholder="e.g. White"></div>
+                                    <div class="col-12"><label class="form-label fw-semibold">Car Photo Link (optional)</label><input type="url" class="form-control" id="sc-car-photo-link" placeholder="https://..."></div>
+                                    <div class="col-12"><label class="form-label fw-semibold">Notes</label><textarea class="form-control" id="sc-car-notes" rows="3" placeholder="VIN, assigned driver, comments..."></textarea></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <button class="btn btn-light border" onclick="closeCarForm()">Cancel</button>
+                            <button class="btn btn-primary px-4" onclick="saveCar()">Save Car</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sc-form-overlay" id="sc-car-doc-form-overlay" style="display:none;">
+                <div class="sc-form-box">
+                    <div class="sc-form-header">
+                        <div>
+                            <div class="fw-bold fs-5" id="sc-car-doc-form-title">Add Car Document</div>
+                            <div class="small text-muted">Upload scanned files/photos or attach external links</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="closeCarDocForm()"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="p-4">
+                        <input type="hidden" id="sc-car-doc-id">
+                        <input type="hidden" id="sc-car-doc-car-id">
+                        <div class="row g-4">
+                            <div class="col-lg-7">
+                                <div class="row g-3">
+                                    <div class="col-12"><label class="form-label fw-semibold">Document Name <span class="text-danger">*</span></label><input type="text" class="form-control" id="sc-car-doc-name" placeholder="e.g. Insurance Policy"></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Issuer</label><input type="text" class="form-control" id="sc-car-doc-issuer" placeholder="e.g. Allianz"></div>
+                                    <div class="col-md-6"><label class="form-label fw-semibold">Date of Issue</label><input type="date" class="form-control" id="sc-car-doc-issue-date"></div>
+                                    <div class="col-12"><div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" id="sc-car-doc-no-expiry" onchange="toggleCarDocExpiryField()"><label class="form-check-label fw-semibold" for="sc-car-doc-no-expiry"><i class="bi bi-infinity me-1 text-primary"></i>No Expiry / Lifetime</label></div></div>
+                                    <div class="col-md-6" id="sc-car-doc-expiry-wrapper"><label class="form-label fw-semibold">Expiry Date <span class="text-danger">*</span></label><input type="date" class="form-control" id="sc-car-doc-expiry-date"></div>
+                                    <div class="col-12"><label class="form-label fw-semibold">Document Link</label><input type="url" class="form-control" id="sc-car-doc-file-url" placeholder="https://drive.google.com/... or leave blank if uploaded"><div class="form-text">You can paste one or multiple links (new line separated).</div></div>
+                                </div>
+                            </div>
+                            <div class="col-lg-5">
+                                <input type="file" id="sc-car-doc-file-input" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" multiple class="d-none" onchange="handleStaffAssetSelection(this.files, 'car_document')">
+                                <div class="sc-upload-zone" id="sc-car-doc-drop" onclick="document.getElementById('sc-car-doc-file-input').click()">
+                                    <i class="bi bi-file-earmark-arrow-up"></i>
+                                    <div class="fw-bold mt-2">Drop car document file here</div>
+                                    <div class="small text-muted">Supported: PDF, images, office files, TXT</div>
+                                </div>
+                                <div id="sc-car-doc-upload-preview" class="sc-upload-meta mt-3"><small>No uploaded file selected</small></div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <button class="btn btn-light border" onclick="closeCarDocForm()">Cancel</button>
+                            <button class="btn btn-primary px-4" onclick="saveCarDocument()">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====== NOTIFY SETTINGS OVERLAY ====== -->
+            <div class="sc-form-overlay" id="sc-notify-overlay" style="display:none;">
+                <div class="sc-form-box" style="max-width:540px;">
+                    <div class="sc-form-header">
+                        <div class="fw-bold fs-5"><i class="bi bi-bell me-2"></i>Notification Settings</div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="closeStaffNotifySettings()"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <div class="p-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Notify Before Expiry (days)</label>
+                            <input type="number" class="form-control" id="sc-notify-days" value="30" min="7" max="180">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Recipient Email(s)</label>
+                            <input type="text" class="form-control" id="sc-notify-emails" placeholder="admin@company.com, manager@company.com">
+                            <div class="form-text">Comma-separated emails.</div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Email Template Body</label>
+                            <textarea class="form-control font-monospace" id="sc-notify-template" rows="5">Dear team,\n\nThis is a reminder that the following certificate is expiring soon:\n\nEmployee: {name}\nCertificate: {cert}\nExpiry: {expiry}\n\nPlease take action.\n\nRegards,\nMRO System</textarea>
+                        </div>
+                        <div class="alert alert-info py-2 small"><i class="bi bi-info-circle me-1"></i> Notifications are <strong>never</strong> sent for "No Expiry / Lifetime" certificates.</div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button class="btn btn-light border" onclick="closeStaffNotifySettings()">Close</button>
+                            <button class="btn btn-primary" onclick="saveNotifySettings()"><i class="bi bi-save me-1"></i>Save Settings</button>
+                            <button class="btn btn-warning" onclick="sendQuickEmails()"><i class="bi bi-send me-1"></i>Quick Email Now</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====== DELETE CONFIRM MODAL ====== -->
+            <div class="modal fade" id="sc-delete-modal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title"><i class="bi bi-trash me-2"></i>Confirm Delete</h5>
+                            <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body" id="sc-delete-modal-body">Are you sure?</div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button class="btn btn-danger" id="sc-delete-confirm-btn">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 8. REPAIR VIEW -->
             <div id="view-repair" style="display: none;">
                 <h4 class="mb-3 text-warning"><i class="bi bi-wrench"></i> Repair Action</h4>
@@ -7755,6 +8538,7 @@
                 <div id="tab-util-param-entry">
                     <div class="card shadow-sm border-0">
                         <div class="card-body">
+                            <h5 class="mb-4 text-primary"><i class="bi bi-bar-chart-steps"></i> Period Utilization</h5>
                             <form id="form-util-param">
                                 <div class="row mb-4">
                                     <div class="col-md-2">
@@ -7870,8 +8654,9 @@
                                 </div>
                             </form>
 
+                            <div id="daily-excel-sync-sources-block">
                             <hr class="my-5">
-                            <h5 class="mb-4 text-primary"><i class="bi bi-file-earmark-spreadsheet"></i> Daily Excel Sync Sources</h5>
+                            <h5 class="mb-4 text-primary"><i class="bi bi-link-45deg"></i> Links</h5>
                             <div class="row g-3 mb-3">
                                 <!-- BAT -->
                                 <div class="col-md-4">
@@ -7942,6 +8727,7 @@
                                 <button type="button" class="btn btn-outline-secondary" id="btn-refresh-util-sources" onclick="refreshAircraftUtilSourcePreviews()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                                 <button type="button" class="btn btn-outline-primary" id="btn-save-util-sources" onclick="saveAircraftUtilSources()"><i class="bi bi-save"></i> Save Links</button>
                                 <button type="button" class="btn btn-primary" id="btn-sync-util-sources" onclick="syncAircraftUtilSourcesNow()"><i class="bi bi-arrow-repeat"></i> Sync Now</button>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -8185,7 +8971,7 @@
                             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                                 <div class="input-group" style="max-width: 350px;">
                                     <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
-                                    <input type="text" class="form-control border-start-0 ps-0" id="main-engine-search" placeholder="Search S/N, Model, GSS, Location, Remarks..." onkeyup="filterTable('main-engine-body', 'main-engine-search')" title="Search by Serial Number, Model, GSS ID, Location, Remarks, or Removed From">
+                                    <input type="text" class="form-control border-start-0 ps-0" id="main-engine-search" placeholder="Search S/N, Model, GSS, Location, Remarks..." onkeyup="applyEngineFilters()" title="Search by Serial Number, Model, GSS ID, Location, Remarks, or Removed From">
                                 </div>
                                 
                                 <div class="d-flex gap-2" style="overflow-x: auto; flex-wrap: nowrap;">
@@ -8220,7 +9006,7 @@
                                             <th style="min-width: 50px;">TT</th>
                                             <th style="min-width: 50px;">TC</th>
                                             <th style="min-width: 120px;">Current Location</th>
-                                            <th style="min-width: 100px;">Moved From</th>
+                                            <th style="min-width: 100px;">Supplier</th>
                                             <th style="min-width: 100px;">Removed From</th>
                                             <th style="min-width: 150px;">Remarks</th>
                                             <th style="min-width: 70px;">Links/Photo</th>
@@ -8362,7 +9148,7 @@
                                     <div class="col-md-3"><label class="small fw-bold">Photo (Link)</label><input type="text" class="form-control" id="m-photo" placeholder="http://..."></div>
                                 </div>
                                 <div class="row mb-3">
-                                    <div class="col-md-6"><label class="small fw-bold">Moved From (Loc/Shop)</label><input type="text" class="form-control" id="m-moved"></div>
+                                    <div class="col-md-6"><label class="small fw-bold">Supplier</label><input type="text" class="form-control" id="m-moved"></div>
                                     <div class="col-md-6"><label class="small fw-bold">Removed From (AC)</label><input type="text" class="form-control" id="m-removed"></div>
                                 </div>
                                 <div class="row mb-3">
@@ -8916,7 +9702,8 @@ function openDashboardView() {
             'view-purchase-orders',
             'view-fake-installed',
             'view-nameplate-tracker',
-            'view-gss'
+            'view-gss',
+            'view-staff-central'
         ];
         
         views.forEach(id => {
@@ -9018,6 +9805,9 @@ function restoreView(viewName) {
     } else if (viewName === 'nameplate-tracker') {
         document.getElementById('view-nameplate-tracker').style.display = 'block';
         loadNameplateTracker();
+    } else if (viewName === 'staff-central') {
+        document.getElementById('view-staff-central').style.display = 'block';
+        loadStaffTable();
     }
 }
 
@@ -9294,7 +10084,7 @@ function hideInstallTooltip() {
                 <div class="col-lg-4 col-md-6">
                     <div class="aircraft-card" id="${cardId}" data-aircraft-id="${ac.aircraft_id}" data-tail-number="${ac.tail_number}" style="cursor: pointer;">
                         <div class="aircraft-visual-main">
-                            <video id="engine-video-${ac.aircraft_id}" class="engine-video" src="/static/engine-fan.mp4" preload="auto" autoplay loop muted playsinline></video>
+                            <video id="engine-video-${ac.aircraft_id}" class="engine-video" src="/static/engine-fan.mp4${typeof noCache === 'function' ? noCache() : ''}" preload="auto" autoplay loop muted playsinline></video>
                         </div>
                         
                         <div class="aircraft-card-header">
@@ -9899,6 +10689,7 @@ function hideInstallTooltip() {
         if (v === 'utilization_parameter') { openUtilizationParamView(); switchUtilParamTab('history'); return; }
         if (v === 'borescope') { openBoroscopeView(); switchBoroscopeTab(target.tab || 'info'); return; }
         if (v === 'purchase-orders') { openPurchaseOrdersView(); switchPurchaseOrdersTab(target.tab || 'info'); return; }
+        if (v === 'staff-central') { openStaffCentralView(); return; }
         if (v === 'store-balance') { openStoreBalanceView(); switchStoreBalanceTab('list'); return; }
         if (v === 'settings-city' || v === 'settings-fleet') {
             const modalEl = document.getElementById('settings-modal');
@@ -11351,14 +12142,18 @@ function hideInstallTooltip() {
                 <div class="panel-row"><div class="row-label">Supplier</div><div class="row-value">${fmt(e.supplier)}</div></div>
                 <div class="panel-row"><div class="row-label">Installed Date</div><div class="row-value">${fmt(e.install_date)}</div></div>
                 <div class="panel-divider"></div>
-                <div class="panel-title small">Installed previously</div>
-                <div class="panel-row"><div class="row-label">Orig SN</div><div class="row-value">${fmt(prevInstall.original_sn)}</div></div>
-                <div class="panel-row"><div class="row-label">Previous Current SN</div><div class="row-value">${fmt(prevInstall.previous_current_sn)}</div></div>
-                <div class="panel-row"><div class="row-label">Removed Date</div><div class="row-value">${fmt(prevInstall.removed_date)}</div></div>
-                <div class="panel-row"><div class="row-label">GSS ID</div><div class="row-value">${fmt(prevInstall.gss_id)}</div></div>
-                <div class="panel-row"><div class="row-label">Utilization</div><div class="row-value">${prevUtilText}</div></div>
-                <div class="panel-row"><div class="row-label">Reason</div><div class="row-value">${fmt(prevInstall.removal_reason)}</div></div>
-                <div class="panel-row"><div class="row-label">Removal Location</div><div class="row-value">${fmt(prevInstall.removed_location)}</div></div>
+                <details class="mt-2">
+                    <summary class="panel-title small" style="cursor:pointer; user-select:none;">Installed previously</summary>
+                    <div class="pt-2">
+                        <div class="panel-row"><div class="row-label">Orig SN</div><div class="row-value">${fmt(prevInstall.original_sn)}</div></div>
+                        <div class="panel-row"><div class="row-label">Previous Current SN</div><div class="row-value">${fmt(prevInstall.previous_current_sn)}</div></div>
+                        <div class="panel-row"><div class="row-label">Removed Date</div><div class="row-value">${fmt(prevInstall.removed_date)}</div></div>
+                        <div class="panel-row"><div class="row-label">GSS ID</div><div class="row-value">${fmt(prevInstall.gss_id)}</div></div>
+                        <div class="panel-row"><div class="row-label">Utilization</div><div class="row-value">${prevUtilText}</div></div>
+                        <div class="panel-row"><div class="row-label">Reason</div><div class="row-value">${fmt(prevInstall.removal_reason)}</div></div>
+                        <div class="panel-row"><div class="row-label">Removal Location</div><div class="row-value">${fmt(prevInstall.removed_location)}</div></div>
+                    </div>
+                </details>
             </div>`;
 
         const centerPanel = `
@@ -12740,6 +13535,24 @@ function onGssInputChange(engines) {
                     </td>
                 </tr>
             `;
+        });
+    }
+
+    function filterEngineReports() {
+        const snQuery = (document.getElementById('engine-reports-search')?.value || '').toLowerCase().trim();
+        const gssQuery = (document.getElementById('engine-reports-gss-search')?.value || '').toLowerCase().trim();
+        const tbody = document.getElementById('engine-reports-body');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 4) { row.style.display = ''; return; }
+            const origSn = (cells[1]?.textContent || '').toLowerCase();
+            const curSn = (cells[2]?.textContent || '').toLowerCase();
+            const gssSn = (cells[3]?.textContent || '').toLowerCase();
+            const matchSn = !snQuery || origSn.includes(snQuery) || curSn.includes(snQuery);
+            const matchGss = !gssQuery || gssSn.includes(gssQuery);
+            row.style.display = (matchSn && matchGss) ? '' : 'none';
         });
     }
 
@@ -15778,7 +16591,47 @@ function onGssInputChange(engines) {
 
     // Сохраняем полный список двигателей для фильтрации
     let allEnginesData = [];
-    let engineFilterState = { date: '', status: '', user: '', model: '', esn: '', gss: '', location: '', removed: '', ttMin: '', ttMax: '', tcMin: '', tcMax: '', remarks: '', hasPhoto: false };
+    let engineFilterState = { date: '', status: '', user: '', model: '', esn: '', gss: '', location: '', removed: '', ttMin: '', ttMax: '', tcMin: '', tcMax: '', remarks: '', hasPhoto: false, search: '' };
+
+    function captureMainEngineFilters() {
+        return {
+            userFilter: document.getElementById('engine-user-filter')?.value || '',
+            dateFilter: document.getElementById('engine-date-filter')?.value || '',
+            statusFilter: document.getElementById('engine-status-filter')?.value || '',
+            modelFilter: document.getElementById('engine-model-filter')?.value || '',
+            esnFilter: document.getElementById('engine-esn-filter')?.value || '',
+            gssFilter: document.getElementById('engine-gss-filter')?.value || '',
+            locationFilter: document.getElementById('engine-location-filter')?.value || '',
+            removedFilter: document.getElementById('engine-removed-filter')?.value || '',
+            ttMin: document.getElementById('engine-tt-min')?.value || '',
+            ttMax: document.getElementById('engine-tt-max')?.value || '',
+            tcMin: document.getElementById('engine-tc-min')?.value || '',
+            tcMax: document.getElementById('engine-tc-max')?.value || '',
+            remarksFilter: document.getElementById('engine-remarks-filter')?.value || '',
+            hasPhoto: document.getElementById('engine-has-photo')?.checked || false,
+            searchFilter: document.getElementById('main-engine-search')?.value || ''
+        };
+    }
+
+    function restoreMainEngineFilters(savedFilters) {
+        if (!savedFilters) return;
+        if (document.getElementById('engine-user-filter')) document.getElementById('engine-user-filter').value = savedFilters.userFilter || '';
+        if (document.getElementById('engine-date-filter')) document.getElementById('engine-date-filter').value = savedFilters.dateFilter || '';
+        if (document.getElementById('engine-status-filter')) document.getElementById('engine-status-filter').value = savedFilters.statusFilter || '';
+        if (document.getElementById('engine-model-filter')) document.getElementById('engine-model-filter').value = savedFilters.modelFilter || '';
+        if (document.getElementById('engine-esn-filter')) document.getElementById('engine-esn-filter').value = savedFilters.esnFilter || '';
+        if (document.getElementById('engine-gss-filter')) document.getElementById('engine-gss-filter').value = savedFilters.gssFilter || '';
+        if (document.getElementById('engine-location-filter')) document.getElementById('engine-location-filter').value = savedFilters.locationFilter || '';
+        if (document.getElementById('engine-removed-filter')) document.getElementById('engine-removed-filter').value = savedFilters.removedFilter || '';
+        if (document.getElementById('engine-tt-min')) document.getElementById('engine-tt-min').value = savedFilters.ttMin || '';
+        if (document.getElementById('engine-tt-max')) document.getElementById('engine-tt-max').value = savedFilters.ttMax || '';
+        if (document.getElementById('engine-tc-min')) document.getElementById('engine-tc-min').value = savedFilters.tcMin || '';
+        if (document.getElementById('engine-tc-max')) document.getElementById('engine-tc-max').value = savedFilters.tcMax || '';
+        if (document.getElementById('engine-remarks-filter')) document.getElementById('engine-remarks-filter').value = savedFilters.remarksFilter || '';
+        if (document.getElementById('engine-has-photo')) document.getElementById('engine-has-photo').checked = !!savedFilters.hasPhoto;
+        if (document.getElementById('main-engine-search')) document.getElementById('main-engine-search').value = savedFilters.searchFilter || '';
+        applyEngineFilters();
+    }
     
     function toggleEngineFilter() {
         const panel = document.getElementById('engine-filter-panel');
@@ -15838,8 +16691,9 @@ function onGssInputChange(engines) {
         const tcMax = parseFloat(document.getElementById('engine-tc-max').value) || null;
         const remarksVal = document.getElementById('engine-remarks-filter').value.toLowerCase();
         const hasPhoto = document.getElementById('engine-has-photo').checked;
+        const searchVal = (document.getElementById('main-engine-search')?.value || '').toLowerCase().trim();
         
-        engineFilterState = { date: dateVal, status: statusVal, user: userVal, model: modelVal, esn: esnVal, gss: gssVal, location: locVal, removed: removedVal, ttMin, ttMax, tcMin, tcMax, remarks: remarksVal, hasPhoto };
+        engineFilterState = { date: dateVal, status: statusVal, user: userVal, model: modelVal, esn: esnVal, gss: gssVal, location: locVal, removed: removedVal, ttMin, ttMax, tcMin, tcMax, remarks: remarksVal, hasPhoto, search: searchVal };
         
         let filtered = allEnginesData;
         
@@ -15894,6 +16748,25 @@ function onGssInputChange(engines) {
         if(remarksVal) {
             filtered = filtered.filter(eng => (eng.remarks || '').toLowerCase().includes(remarksVal));
         }
+
+        if (searchVal) {
+            filtered = filtered.filter(eng => {
+                const joined = [
+                    eng.current_sn,
+                    eng.original_sn,
+                    eng.gss_sn,
+                    eng.model,
+                    eng.location,
+                    eng.from_location,
+                    eng.removed_from,
+                    eng.remarks,
+                    eng.status,
+                    eng.condition_1,
+                    eng.condition_2,
+                ].map(v => (v ?? '').toString().toLowerCase()).join(' ');
+                return joined.includes(searchVal);
+            });
+        }
         
         renderEngineTable(filtered);
     }
@@ -15925,7 +16798,8 @@ function onGssInputChange(engines) {
         document.getElementById('engine-tc-max').value = '';
         document.getElementById('engine-remarks-filter').value = '';
         document.getElementById('engine-has-photo').checked = false;
-        engineFilterState = { date: '', status: '', user: '', model: '', esn: '', gss: '', location: '', removed: '', ttMin: '', ttMax: '', tcMin: '', tcMax: '', remarks: '', hasPhoto: false };
+        if (document.getElementById('main-engine-search')) document.getElementById('main-engine-search').value = '';
+        engineFilterState = { date: '', status: '', user: '', model: '', esn: '', gss: '', location: '', removed: '', ttMin: '', ttMax: '', tcMin: '', tcMax: '', remarks: '', hasPhoto: false, search: '' };
         renderEngineTable(allEnginesData);
     }
     
@@ -15966,6 +16840,9 @@ function onGssInputChange(engines) {
             
             allEnginesData = filteredEngines;
             renderEngineTable(filteredEngines);
+            if (Object.values(engineFilterState || {}).some(v => v !== '' && v !== false && v !== null)) {
+                applyEngineFilters();
+            }
         } catch(e) {
             console.error('Loading error двигателей:', e);
             tb.innerHTML = '<tr><td colspan="17" class="text-center text-danger">Error loading engines: ' + e.message + '</td></tr>';
@@ -16423,68 +17300,10 @@ function onGssInputChange(engines) {
             // Даем серверу время обновить данные, затем перезагружаем таблицу
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            // Сохраняем параметры фильтра перед перезагрузкой
-            const savedFilters = {
-                userFilter: document.getElementById('engine-user-filter')?.value || '',
-                dateFilter: document.getElementById('engine-date-filter')?.value || '',
-                statusFilter: document.getElementById('engine-status-filter')?.value || '',
-                modelFilter: document.getElementById('engine-model-filter')?.value || '',
-                esnFilter: document.getElementById('engine-esn-filter')?.value || '',
-                gssFilter: document.getElementById('engine-gss-filter')?.value || '',
-                locationFilter: document.getElementById('engine-location-filter')?.value || '',
-                removedFilter: document.getElementById('engine-removed-filter')?.value || '',
-                ttMin: document.getElementById('engine-tt-min')?.value || '',
-                ttMax: document.getElementById('engine-tt-max')?.value || '',
-                tcMin: document.getElementById('engine-tc-min')?.value || '',
-                tcMax: document.getElementById('engine-tc-max')?.value || '',
-                remarksFilter: document.getElementById('engine-remarks-filter')?.value || '',
-                hasPhoto: document.getElementById('engine-has-photo')?.checked || false,
-                searchFilter: document.getElementById('main-engine-search')?.value || ''
-            };
+            const savedFilters = captureMainEngineFilters();
             
             await loadMainTable();
-            
-            // Переприменяем фильтры если были установлены
-            if (Object.values(savedFilters).some(v => v !== '' && v !== false)) {
-                // Восстанавливаем значения фильтров
-                if (savedFilters.userFilter && document.getElementById('engine-user-filter')) 
-                    document.getElementById('engine-user-filter').value = savedFilters.userFilter;
-                if (savedFilters.dateFilter && document.getElementById('engine-date-filter'))
-                    document.getElementById('engine-date-filter').value = savedFilters.dateFilter;
-                if (savedFilters.statusFilter && document.getElementById('engine-status-filter'))
-                    document.getElementById('engine-status-filter').value = savedFilters.statusFilter;
-                if (savedFilters.modelFilter && document.getElementById('engine-model-filter'))
-                    document.getElementById('engine-model-filter').value = savedFilters.modelFilter;
-                if (savedFilters.esnFilter && document.getElementById('engine-esn-filter'))
-                    document.getElementById('engine-esn-filter').value = savedFilters.esnFilter;
-                if (savedFilters.gssFilter && document.getElementById('engine-gss-filter'))
-                    document.getElementById('engine-gss-filter').value = savedFilters.gssFilter;
-                if (savedFilters.locationFilter && document.getElementById('engine-location-filter'))
-                    document.getElementById('engine-location-filter').value = savedFilters.locationFilter;
-                if (savedFilters.removedFilter && document.getElementById('engine-removed-filter'))
-                    document.getElementById('engine-removed-filter').value = savedFilters.removedFilter;
-                if (savedFilters.ttMin && document.getElementById('engine-tt-min'))
-                    document.getElementById('engine-tt-min').value = savedFilters.ttMin;
-                if (savedFilters.ttMax && document.getElementById('engine-tt-max'))
-                    document.getElementById('engine-tt-max').value = savedFilters.ttMax;
-                if (savedFilters.tcMin && document.getElementById('engine-tc-min'))
-                    document.getElementById('engine-tc-min').value = savedFilters.tcMin;
-                if (savedFilters.tcMax && document.getElementById('engine-tc-max'))
-                    document.getElementById('engine-tc-max').value = savedFilters.tcMax;
-                if (savedFilters.remarksFilter && document.getElementById('engine-remarks-filter'))
-                    document.getElementById('engine-remarks-filter').value = savedFilters.remarksFilter;
-                if (document.getElementById('engine-has-photo'))
-                    document.getElementById('engine-has-photo').checked = savedFilters.hasPhoto;
-                
-                // Восстанавливаем простой поиск
-                if (savedFilters.searchFilter && document.getElementById('main-engine-search')) {
-                    document.getElementById('main-engine-search').value = savedFilters.searchFilter;
-                    filterTable('main-engine-body', 'main-engine-search');
-                }
-                
-                // Переприменяем фильтры
-                applyEngineFilters();
-            }
+            restoreMainEngineFilters(savedFilters);
             
             await loadDashboardData();
             
@@ -16529,15 +17348,17 @@ function onGssInputChange(engines) {
         const selected = Array.from(document.querySelectorAll('#main-engine-body tr'))
             .map(tr => ({
                 tr,
-                id: parseInt(tr.getAttribute('data-engine-id') || '0', 10),
+                id: Number.parseInt(tr.getAttribute('data-engine-id') || '0', 10),
                 sn: tr.getAttribute('data-original-sn') || ''
             }))
-            .filter(x => x.id > 0 && x.tr.querySelector('.row-select-delete')?.checked);
+            .filter(x => x.tr.querySelector('.row-select-delete')?.checked);
 
         if (selected.length === 0) {
             showErrorNotification('Выберите хотя бы одну строку для удаления.');
             return;
         }
+
+        const savedFilters = captureMainEngineFilters();
 
         const sample = selected.slice(0, 5).map(x => x.sn || x.id).join(', ');
         const more = selected.length > 5 ? ` … +${selected.length - 5}` : '';
@@ -16545,22 +17366,41 @@ function onGssInputChange(engines) {
         if (!okConfirm) return;
 
         try {
+            const localOnly = selected.filter(x => !Number.isFinite(x.id) || x.id <= 0);
+            localOnly.forEach(x => x.tr.remove());
+
+            const persisted = selected.filter(x => Number.isFinite(x.id) && x.id > 0);
+            if (persisted.length === 0 && localOnly.length === 0) {
+                showErrorNotification('Не удалось определить выбранные строки для удаления.');
+                return;
+            }
+            const uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.id) ? currentUser.id : null;
+            const deleteUrl = (id) => uid ? `/api/engines/${id}?user_id=${uid}` : `/api/engines/${id}`;
             const results = await Promise.allSettled(
-                selected.map(x => fetch(`/api/engines/${x.id}?user_id=${currentUser.id}`, { method: 'DELETE' }))
+                persisted.map(async (x) => {
+                    const response = await fetch(deleteUrl(x.id), { method: 'DELETE' });
+                    if (!response.ok) {
+                        const err = await response.json().catch(() => ({}));
+                        throw new Error(err.detail || `HTTP ${response.status}`);
+                    }
+                    return response;
+                })
             );
-            const ok = results.filter(r => r.status === 'fulfilled' && r.value.ok).length;
+            const ok = results.filter(r => r.status === 'fulfilled').length;
             const failed = results.length - ok;
 
             results.forEach((r, idx) => {
-                if (r.status === 'fulfilled' && r.value.ok) {
-                    markEngineDeleted(selected[idx].id);
+                if (r.status === 'fulfilled') {
+                    markEngineDeleted(persisted[idx].id);
                 }
             });
 
             await loadMainTable();
+            restoreMainEngineFilters(savedFilters);
             await loadDashboardData();
 
-            if (ok > 0) showSuccessNotification(`Удалено: ${ok}. Ошибок: ${failed}.`);
+            const localRemoved = localOnly.length;
+            if (ok > 0 || localRemoved > 0) showSuccessNotification(`Удалено: ${ok + localRemoved}. Ошибок: ${failed}.`);
             if (failed > 0) showErrorNotification(`Не удалось удалить ${failed} записи. Возможно, некоторые двигатели установлены (INSTALLED).`);
         } catch (e) {
             showErrorNotification('Ошибка пакетного удаления: ' + e.message);
@@ -16597,9 +17437,11 @@ function onGssInputChange(engines) {
             
             alert('✅ Двигатель успешно удален!');
             markEngineDeleted(engineId);
+            const savedFilters = captureMainEngineFilters();
             
             // Обновляем таблицу и Dashboard
             await loadMainTable();
+            restoreMainEngineFilters(savedFilters);
             await loadDashboardData();
             
         } catch (e) {
@@ -20521,6 +21363,16 @@ function onGssInputChange(engines) {
         hideAllViews();
         document.getElementById('view-utilization-param').style.display = 'block';
         updateHistory('utilization-param');
+
+        const dailySyncBlock = document.getElementById('daily-excel-sync-sources-block');
+        const periodicForm = document.getElementById('form-util-param');
+        const aircraftForm = document.getElementById('form-aircraft-util');
+        if (dailySyncBlock && periodicForm && periodicForm.parentElement) {
+            periodicForm.parentElement.insertBefore(dailySyncBlock, periodicForm);
+        }
+        if (aircraftForm && periodicForm) {
+            aircraftForm.insertAdjacentElement('afterend', periodicForm);
+        }
         
         // Устанавливаем сегодняшнюю дату по умолчанию для обеих форм
         document.getElementById('util-param-date').valueAsDate = new Date();
@@ -20530,21 +21382,8 @@ function onGssInputChange(engines) {
         await loadAircraftDropdown();
         await loadAircraftUtilSources();
 
-        // Attach auto-preview on paste/input for each URL field
-        ['bat', 'bar', 'baq'].forEach(tail => {
-            const input = document.getElementById(`util-source-${tail}`);
-            if (!input || input._previewBound) return;
-            input._previewBound = true;
-            let _previewTimer = null;
-            input.addEventListener('input', () => {
-                clearTimeout(_previewTimer);
-                const url = input.value.trim();
-                if (!url) { _clearPreviewFields(tail); return; }
-                const wrapEl = document.getElementById(`util-source-status-${tail}-wrap`);
-                if (wrapEl) wrapEl.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Reading file...</span>';
-                _previewTimer = setTimeout(() => previewExcelUrl(tail, url), 900);
-            });
-        });
+        // Auto-preview on input DISABLED — use Refresh button to check links
+        // This prevents server overload from automatic polling on page load.
     }
 
     function _clearPreviewFields(tail) {
@@ -20605,7 +21444,7 @@ function onGssInputChange(engines) {
             return data.job_id;
         }
 
-        async function waitForPreviewJob(jobId, timeoutMs = 300000) {
+        async function waitForPreviewJob(jobId, timeoutMs = 30000) {
             const startedAt = Date.now();
             while (Date.now() - startedAt < timeoutMs) {
                 const response = await fetch('/api/aircraft-utilization-sources/preview-jobs/' + encodeURIComponent(jobId));
@@ -20613,13 +21452,13 @@ function onGssInputChange(engines) {
                 if (!response.ok) throw new Error(data.detail || `Preview status failed (${response.status})`);
                 if (data.status === 'success') return data.result || { ok: false, error: 'No result' };
                 if (data.status === 'error') return { ok: false, error: data.error || 'Preview job failed' };
-                await new Promise(r => setTimeout(r, 2000));
+                await new Promise(r => setTimeout(r, 5000));
             }
             return { ok: false, error: 'Preview timed out on server' };
         }
 
         const useJobSystem = isSharePointUrl(url) || !isDirectFileLikeUrl(url);
-        const maxAttempts = useJobSystem ? 2 : 3;
+        const maxAttempts = useJobSystem ? 1 : 3;
 
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
             if (attempt === 0) {
@@ -20747,7 +21586,6 @@ function onGssInputChange(engines) {
             if (!response.ok) throw new Error('Failed to load utilization source links');
 
             const items = await response.json();
-            const previewQueue = [];
             items.forEach(item => {
                 const tail = item.aircraft_tail_number;
                 const input = document.getElementById(getUtilSourceInputId(tail));
@@ -20760,21 +21598,7 @@ function onGssInputChange(engines) {
                 if (input) input.value = item.source_url || '';
                 renderAircraftUtilSourceStatus(item, wrapEl, foundEl, dateEl, ttsnEl, tcsnEl);
                 renderUtilSourceRecentHistory(shortTail, item.recent_history || []);
-
-                // Run live preview on load so transient stored errors are refreshed automatically.
-                if (item.source_url && item.source_url.trim()) {
-                    if (wrapEl) {
-                        wrapEl.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Checking live link...</span>';
-                    }
-                    previewQueue.push({ tail: shortTail, url: item.source_url.trim() });
-                }
             });
-            if (previewQueue.length) {
-                for (const entry of previewQueue) {
-                    await previewExcelUrl(entry.tail, entry.url);
-                    await new Promise(r => setTimeout(r, 700));
-                }
-            }
         } catch (err) {
             console.error('Error loading aircraft utilization sources:', err);
         }
@@ -20820,31 +21644,44 @@ function onGssInputChange(engines) {
     async function refreshAircraftUtilSourcePreviews() {
         const btn = document.getElementById('btn-refresh-util-sources');
         const targets = [
-            { tail: 'bat', inputId: 'util-source-bat' },
-            { tail: 'bar', inputId: 'util-source-bar' },
-            { tail: 'baq', inputId: 'util-source-baq' },
+            { tail: 'bat', inputId: 'util-source-bat', label: 'ER-BAT' },
+            { tail: 'bar', inputId: 'util-source-bar', label: 'ER-BAR' },
+            { tail: 'baq', inputId: 'util-source-baq', label: 'ER-BAQ' },
         ];
+
+        // Filter to only those with a URL
+        const active = targets.filter(item => {
+            const input = document.getElementById(item.inputId);
+            return input?.value?.trim();
+        });
 
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Refreshing...';
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Refreshing 0/${active.length}...`;
         }
 
-        try {
-            for (const item of targets) {
-                const input = document.getElementById(item.inputId);
-                const url = input?.value?.trim() || '';
-                if (!url) continue;
+        let done = 0;
+        let errors = 0;
+        // Sequential: one by one to avoid server overload
+        for (const item of active) {
+            try {
+                const url = document.getElementById(item.inputId).value.trim();
+                if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> ${item.label} (${done + 1}/${active.length})...`;
                 await previewExcelUrl(item.tail, url);
+            } catch (err) {
+                errors++;
+                console.error(`Error refreshing ${item.label}:`, err);
             }
-        } catch (err) {
-            console.error('Error refreshing utilization source previews:', err);
-            showErrorNotification('Refresh error: ' + err.message);
-        } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
-            }
+            done++;
+        }
+
+        if (errors > 0) {
+            showErrorNotification(`Refresh done with ${errors} error(s)`);
+        }
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Refresh';
         }
     }
 
@@ -24572,6 +25409,1121 @@ async function editNameplateTracker(id) {
     } catch (err) {
         showErrorNotification('Error: ' + err.message);
     }
+}
+
+// ========== STAFF CENTRAL FUNCTIONS ==========
+
+let staffData = [];
+let carsData = [];
+let staffDrawerCurrentId = null;
+let carDrawerCurrentId = null;
+let staffDrawerCategory = 'certificate';
+let scCertUploadedUrls = [];
+let scCarDocUploadedUrls = [];
+let scCurrentEntityTab = 'employees';
+
+// --- Avatar hover zoom (fixed-position, escapes overflow) ---
+(function() {
+    let zoomEl = null;
+    function getZoom() {
+        if (!zoomEl) { zoomEl = document.createElement('div'); zoomEl.className = 'sc-avatar-zoom'; document.body.appendChild(zoomEl); }
+        return zoomEl;
+    }
+    document.addEventListener('mouseenter', function(e) {
+        const av = e.target.closest('.sc-mini-avatar');
+        if (!av) return;
+        const img = av.querySelector('img');
+        if (!img) return;
+        const z = getZoom();
+        z.innerHTML = `<img src="${img.src}" alt="">`;
+        const rect = av.getBoundingClientRect();
+        let top = rect.top - 160 - 8;
+        if (top < 4) top = rect.bottom + 8;
+        let left = rect.left + rect.width / 2 - 80;
+        if (left < 4) left = 4;
+        if (left + 160 > window.innerWidth) left = window.innerWidth - 164;
+        z.style.top = top + 'px';
+        z.style.left = left + 'px';
+        z.classList.add('visible');
+    }, true);
+    document.addEventListener('mouseleave', function(e) {
+        const av = e.target.closest('.sc-mini-avatar');
+        if (!av) return;
+        const z = getZoom();
+        z.classList.remove('visible');
+    }, true);
+})();
+
+async function openStaffCentralView() {
+    hideAllViews();
+    document.getElementById('view-staff-central').style.display = 'block';
+    updateHistory('staff-central');
+    bindStaffDropzones();
+    switchStaffEntityTab('employees');
+    await Promise.all([loadStaffTable(), loadCarsTable()]);
+}
+
+async function loadStaffTable() {
+    try {
+        const res = await fetch('/api/staff' + noCache());
+        if (!res.ok) throw new Error('Failed to load staff');
+        staffData = await res.json();
+        renderStaffTable();
+        updateStaffKPIs();
+        populateDeptFilter();
+    } catch (err) {
+        document.getElementById('staff-table-body').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">${escHtml(err.message)}</td></tr>`;
+    }
+}
+
+async function loadCarsTable() {
+    try {
+        const res = await fetch('/api/cars' + noCache());
+        if (!res.ok) throw new Error('Failed to load cars');
+        carsData = await res.json();
+        renderCarsTable();
+        populateCarsDeptFilter();
+        updateStaffKPIs();
+    } catch (err) {
+        document.getElementById('cars-table-body').innerHTML = `<tr><td colspan="9" class="text-center text-danger py-4">${escHtml(err.message)}</td></tr>`;
+    }
+}
+
+function switchStaffEntityTab(tab) {
+    scCurrentEntityTab = tab === 'cars' ? 'cars' : 'employees';
+    document.getElementById('sc-tab-employees').style.display = scCurrentEntityTab === 'employees' ? 'block' : 'none';
+    document.getElementById('sc-tab-cars').style.display = scCurrentEntityTab === 'cars' ? 'block' : 'none';
+    document.getElementById('sc-tab-employees-btn').classList.toggle('active', scCurrentEntityTab === 'employees');
+    document.getElementById('sc-tab-cars-btn').classList.toggle('active', scCurrentEntityTab === 'cars');
+}
+
+function getAuditStatus(member) {
+    const now = new Date();
+    const warn = new Date();
+    warn.setDate(warn.getDate() + 30);
+    let expired = 0;
+    let warning = 0;
+    const items = [...(member.certificates || []), ...(member.documents || [])];
+    for (const c of items) {
+        if (c.no_expiry || !c.expiry_date) continue;
+        const exp = new Date(c.expiry_date);
+        if (Number.isNaN(exp.getTime())) continue;
+        if (exp < now) expired++;
+        else if (exp <= warn) warning++;
+    }
+    if (expired > 0) return { status: 'expired', label: `${expired} Expired`, cls: 'audit-expired' };
+    if (warning > 0) return { status: 'warn', label: `${warning} Expiring Soon`, cls: 'audit-warn' };
+    return { status: 'ok', label: 'All Clear', cls: 'audit-ok' };
+}
+
+function certStatusInfo(cert) {
+    if (cert.no_expiry) return { cls: 'cert-lifetime', label: 'LIFETIME', cardCls: 'lifetime' };
+    if (!cert.expiry_date) return { cls: 'cert-valid', label: 'VALID', cardCls: 'valid' };
+    const now = new Date();
+    const exp = new Date(cert.expiry_date);
+    const days = Math.ceil((exp - now) / 86400000);
+    if (Number.isNaN(days)) return { cls: 'cert-valid', label: 'VALID', cardCls: 'valid' };
+    if (days < 0) return { cls: 'cert-expired', label: 'EXPIRED', cardCls: 'expired' };
+    if (days <= 30) return { cls: 'cert-warn', label: `${days}d left`, cardCls: 'warn' };
+    return { cls: 'cert-valid', label: 'VALID', cardCls: 'valid' };
+}
+
+function resolveStaffAssetUrl(url) {
+    const value = String(url || '').trim();
+    if (!value) return '';
+    if (/^https?:\/\//i.test(value) || value.startsWith('/')) return value;
+    return `/${value.replace(/^\/+/, '')}`;
+}
+
+function parseStaffAssetUrls(value) {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map(v => String(v || '').trim()).filter(Boolean);
+    const text = String(value).trim();
+    if (!text) return [];
+    if (text.startsWith('[')) {
+        try {
+            const arr = JSON.parse(text);
+            if (Array.isArray(arr)) return arr.map(v => String(v || '').trim()).filter(Boolean);
+        } catch (_) {}
+    }
+    return text.split('\n').map(v => v.trim()).filter(Boolean);
+}
+
+function stringifyStaffAssetUrls(urls) {
+    const normalized = [...new Set((urls || []).map(v => String(v || '').trim()).filter(Boolean))];
+    if (!normalized.length) return null;
+    if (normalized.length === 1) return normalized[0];
+    return JSON.stringify(normalized);
+}
+
+function truncateFileName(name, maxLen = 56) {
+    const txt = String(name || '').trim();
+    if (txt.length <= maxLen) return txt;
+    return `${txt.slice(0, maxLen - 1)}…`;
+}
+
+function isImageAsset(url) {
+    return /\.(png|jpe?g|gif|webp)(\?|#|$)/i.test(String(url || ''));
+}
+
+function isPdfAsset(url) {
+    return /\.pdf(\?|#|$)/i.test(String(url || ''));
+}
+
+function getStaffInitials(member) {
+    return String(member?.full_name || '?').split(' ').map(x => x[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+}
+
+function renderAvatarMarkup(member, className = '') {
+    const photoUrl = resolveStaffAssetUrl(member?.photo_url);
+    if (photoUrl) return `<div class="${className}"><img src="${escHtml(photoUrl)}" alt="${escHtml(member?.full_name || 'Staff photo')}"></div>`;
+    return `<div class="${className}">${escHtml(getStaffInitials(member))}</div>`;
+}
+
+function renderStaffTable() {
+    const tbody = document.getElementById('staff-table-body');
+    const search = (document.getElementById('sc-search')?.value || '').toLowerCase();
+    const deptFilter = document.getElementById('sc-filter-dept')?.value || '';
+    const auditFilter = document.getElementById('sc-filter-audit')?.value || '';
+
+    const rows = staffData.filter(m => {
+        if (search && !`${m.full_name} ${m.position || ''} ${m.department || ''} ${m.email || ''}`.toLowerCase().includes(search)) return false;
+        if (deptFilter && m.department !== deptFilter) return false;
+        if (auditFilter && getAuditStatus(m).status !== auditFilter) return false;
+        return true;
+    });
+
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No staff members found.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = rows.map((m, i) => {
+        const audit = getAuditStatus(m);
+        const certCount = (m.certificates || []).length;
+        const docCount = (m.documents || []).length;
+        return `<tr onclick="openStaffDrawer(${m.id})">
+            <td class="text-muted">${i + 1}</td>
+            <td>
+                <div class="d-flex align-items-center gap-3">
+                    ${renderAvatarMarkup(m, 'sc-mini-avatar')}
+                    <div>
+                        <button class="sc-name-trigger" onclick="event.stopPropagation(); openStaffDrawer(${m.id})">${escHtml(m.full_name)}</button>
+                        <div class="small text-muted">Open profile</div>
+                    </div>
+                </div>
+            </td>
+            <td>${escHtml(m.position || '—')}</td>
+            <td>${escHtml(m.department || '—')}</td>
+            <td>${m.email ? `<a href="mailto:${escHtml(m.email)}" onclick="event.stopPropagation()">${escHtml(m.email)}</a>` : '—'}</td>
+            <td><span class="text-muted small">${certCount} cert${certCount !== 1 ? 's' : ''}, ${docCount} doc${docCount !== 1 ? 's' : ''}</span></td>
+            <td><span class="${audit.cls}">${audit.label}</span></td>
+            <td class="text-center" onclick="event.stopPropagation()">
+                <button class="btn btn-xs btn-outline-secondary me-1" title="Edit" onclick="openStaffForm(${m.id})"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-xs btn-outline-danger" title="Delete" onclick="deleteStaffMember(${m.id})"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function getCarAuditStatus(car) {
+    const now = new Date();
+    const warn = new Date();
+    warn.setDate(warn.getDate() + 30);
+    let expired = 0;
+    let warning = 0;
+    const items = car.documents || [];
+    for (const d of items) {
+        if (d.no_expiry || !d.expiry_date) continue;
+        const exp = new Date(d.expiry_date);
+        if (Number.isNaN(exp.getTime())) continue;
+        if (exp < now) expired++;
+        else if (exp <= warn) warning++;
+    }
+    if (expired > 0) return { status: 'expired', label: `${expired} Expired`, cls: 'audit-expired' };
+    if (warning > 0) return { status: 'warn', label: `${warning} Expiring Soon`, cls: 'audit-warn' };
+    return { status: 'ok', label: 'All Clear', cls: 'audit-ok' };
+}
+
+function renderCarsTable() {
+    const tbody = document.getElementById('cars-table-body');
+    const search = (document.getElementById('sc-car-search')?.value || '').toLowerCase();
+    const deptFilter = document.getElementById('sc-car-filter-dept')?.value || '';
+    const auditFilter = document.getElementById('sc-car-filter-audit')?.value || '';
+
+    const rows = carsData.filter(car => {
+        if (search && !`${car.name || ''} ${car.plate_number || ''} ${car.department || ''} ${car.model || ''}`.toLowerCase().includes(search)) return false;
+        if (deptFilter && (car.department || '') !== deptFilter) return false;
+        if (auditFilter && getCarAuditStatus(car).status !== auditFilter) return false;
+        return true;
+    });
+
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No cars found.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = rows.map((car, i) => {
+        const audit = getCarAuditStatus(car);
+        const photo = resolveStaffAssetUrl(car.photo_url);
+        const docCount = (car.documents || []).length;
+        return `<tr onclick="openCarDrawer(${car.id})">
+            <td class="text-muted">${i + 1}</td>
+            <td>
+                <div class="sc-mini-avatar">
+                    ${photo ? `<img src="${escHtml(photo)}" alt="${escHtml(car.name || 'Car photo')}">` : '<i class="bi bi-car-front"></i>'}
+                </div>
+            </td>
+            <td><button class="sc-name-trigger" onclick="event.stopPropagation(); openCarDrawer(${car.id})">${escHtml(car.name || '—')}</button></td>
+            <td>${escHtml(car.plate_number || '—')}</td>
+            <td>${escHtml(car.department || '—')}</td>
+            <td>${escHtml(car.model || '—')}</td>
+            <td><span class="text-muted small">${docCount} doc${docCount !== 1 ? 's' : ''}</span></td>
+            <td><span class="${audit.cls}">${audit.label}</span></td>
+            <td class="text-center" onclick="event.stopPropagation()">
+                <button class="btn btn-xs btn-outline-secondary me-1" title="Edit" onclick="openCarForm(${car.id})"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-xs btn-outline-danger" title="Delete" onclick="deleteCar(${car.id})"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function populateCarsDeptFilter() {
+    const sel = document.getElementById('sc-car-filter-dept');
+    if (!sel) return;
+    const current = sel.value;
+    const depts = [...new Set(carsData.map(c => c.department).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    sel.innerHTML = '<option value="">All Departments</option>' + depts.map(d => `<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('');
+    sel.value = current;
+}
+
+function updateStaffKPIs() {
+    const allTrackedDocs = [];
+    staffData.forEach(m => {
+        allTrackedDocs.push(...(m.certificates || []), ...(m.documents || []));
+    });
+    carsData.forEach(c => {
+        allTrackedDocs.push(...(c.documents || []));
+    });
+
+    let warn = 0;
+    let expired = 0;
+    const now = new Date();
+    const threshold = new Date();
+    threshold.setDate(threshold.getDate() + 30);
+
+    allTrackedDocs.forEach(d => {
+        if (d.no_expiry || !d.expiry_date) return;
+        const exp = new Date(d.expiry_date);
+        if (Number.isNaN(exp.getTime())) return;
+        if (exp < now) expired++;
+        else if (exp <= threshold) warn++;
+    });
+
+    document.getElementById('sc-kpi-total').textContent = staffData.length;
+    document.getElementById('sc-kpi-cars').textContent = carsData.length;
+    document.getElementById('sc-kpi-warn').textContent = warn;
+    document.getElementById('sc-kpi-expired').textContent = expired;
+}
+
+function populateDeptFilter() {
+    const sel = document.getElementById('sc-filter-dept');
+    if (!sel) return;
+    const current = sel.value;
+    const depts = [...new Set(staffData.map(m => m.department).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    sel.innerHTML = '<option value="">All Departments</option>' + depts.map(d => `<option value="${escHtml(d)}">${escHtml(d)}</option>`).join('');
+    sel.value = current;
+}
+
+function getCurrentStaffMember() {
+    return staffData.find(x => x.id === staffDrawerCurrentId) || null;
+}
+
+function openStaffDrawer(id) {
+    staffDrawerCurrentId = id;
+    const m = staffData.find(x => x.id === id);
+    if (!m) return;
+
+    document.getElementById('staff-drawer-avatar').innerHTML = resolveStaffAssetUrl(m.photo_url)
+        ? `<img src="${escHtml(resolveStaffAssetUrl(m.photo_url))}" alt="${escHtml(m.full_name)}">`
+        : escHtml(getStaffInitials(m));
+    document.getElementById('staff-drawer-name').textContent = m.full_name;
+    document.getElementById('staff-drawer-role').textContent = [m.position, m.department].filter(Boolean).join(' · ') || 'No position specified';
+    document.getElementById('staff-drawer-meta').innerHTML = [
+        m.email ? `<span><i class="bi bi-envelope me-1"></i>${escHtml(m.email)}</span>` : '',
+        `<span><i class="bi bi-award me-1"></i>${(m.certificates || []).length} Certificates</span>`,
+        `<span><i class="bi bi-file-earmark-text me-1"></i>${(m.documents || []).length} Documents</span>`
+    ].filter(Boolean).join('');
+
+    renderDrawerCerts(m);
+    renderDrawerDocs(m);
+    renderDrawerHistory(m);
+    switchStaffDrawerTab('certs');
+
+    const backdrop = document.getElementById('staff-drawer-backdrop');
+    backdrop.style.display = 'block';
+    requestAnimationFrame(() => backdrop.classList.add('show'));
+    document.getElementById('staff-profile-drawer').classList.add('open');
+}
+
+function closeStaffDrawer() {
+    document.getElementById('staff-profile-drawer').classList.remove('open');
+    const backdrop = document.getElementById('staff-drawer-backdrop');
+    backdrop.classList.remove('show');
+    setTimeout(() => { backdrop.style.display = 'none'; }, 250);
+}
+
+function switchStaffDrawerTab(tab) {
+    ['certs', 'docs', 'history'].forEach(t => {
+        document.getElementById(`sdtab-${t}`).style.display = t === tab ? 'block' : 'none';
+        document.getElementById(`sdtab-${t}-btn`).classList.toggle('active', t === tab);
+    });
+}
+
+function buildAssetPreview(url, title) {
+    const assetUrl = resolveStaffAssetUrl(url);
+    if (!assetUrl) return '';
+    if (isImageAsset(assetUrl)) {
+        return `<div class="sc-file-preview"><div class="sc-file-thumb"><img src="${escHtml(assetUrl)}" alt="${escHtml(title || 'File preview')}"></div><div><div class="fw-semibold">Image preview</div><div class="small text-muted">Preview available inside the profile card.</div></div></div>`;
+    }
+    if (isPdfAsset(assetUrl)) {
+        return `<div class="sc-file-preview"><div class="sc-file-thumb pdf"><i class="bi bi-file-earmark-pdf"></i></div><div><div class="fw-semibold">PDF attached</div><div class="small text-muted">Open, download or print directly from this record.</div></div></div>`;
+    }
+    return `<div class="sc-file-preview"><div class="sc-file-thumb pdf"><i class="bi bi-paperclip"></i></div><div><div class="fw-semibold">Linked file</div><div class="small text-muted">External document is attached.</div></div></div>`;
+}
+
+function renderDrawerCerts(m) {
+    const certs = (m.certificates || []).filter(c => c.category !== 'document');
+    const el = document.getElementById('sc-certs-list');
+    if (!certs.length) {
+        el.innerHTML = '<div class="text-center text-muted py-4">No certificates on file.</div>';
+        return;
+    }
+    el.innerHTML = certs.map(c => buildCertCard(c)).join('');
+}
+
+function renderDrawerDocs(m) {
+    const docs = m.documents || [];
+    const el = document.getElementById('sc-docs-list');
+    if (!docs.length) {
+        el.innerHTML = '<div class="text-center text-muted py-4">No documents on file.</div>';
+        return;
+    }
+    el.innerHTML = docs.map(c => buildCertCard(c)).join('');
+}
+
+function buildCertCard(c) {
+    const si = certStatusInfo(c);
+    const issue = c.issue_date ? new Date(c.issue_date).toLocaleDateString('en-GB') : '—';
+    const expiryText = c.no_expiry ? 'Lifetime' : (c.expiry_date ? new Date(c.expiry_date).toLocaleDateString('en-GB') : '—');
+    const assetUrls = parseStaffAssetUrls(c.file_url).map(resolveStaffAssetUrl).filter(Boolean);
+    const firstAsset = assetUrls[0] || '';
+    const filesButtons = assetUrls.map((url, idx) => {
+        const arg = JSON.stringify(url);
+        const label = `File ${idx + 1}`;
+        return `<div class="d-flex gap-1 align-items-center mb-1">
+            <a href="${escHtml(url)}" target="_blank" class="btn btn-xs btn-outline-primary">Open ${label}</a>
+            <a href="${escHtml(url)}" download class="btn btn-xs btn-outline-success">Download</a>
+            <button class="btn btn-xs btn-outline-secondary" onclick='printStaffAsset(${arg})'>Print</button>
+        </div>`;
+    }).join('');
+    return `<div class="sc-cert-card ${si.cardCls}">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+            <div class="flex-grow-1">
+                <div class="sc-cert-title">${escHtml(c.name)}</div>
+                <div class="sc-cert-meta">
+                    ${c.issuer ? `<div><i class="bi bi-building me-1"></i>${escHtml(c.issuer)}</div>` : ''}
+                    <div><i class="bi bi-calendar2-week me-1"></i>Issued: ${issue}</div>
+                    <div><i class="bi bi-hourglass-split me-1"></i>Expiry: ${escHtml(expiryText)}</div>
+                </div>
+            </div>
+            <span class="cert-badge ${si.cls}">${si.label}</span>
+        </div>
+        ${firstAsset ? buildAssetPreview(firstAsset, c.name) : ''}
+        <div class="mt-3 d-flex gap-2 flex-wrap">
+            ${firstAsset ? `<a href="${escHtml(firstAsset)}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1"></i>Preview</a>` : ''}
+            <button class="btn btn-sm btn-outline-secondary" onclick="openCertForm(${c.id}, '${c.category || 'certificate'}')"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteCertificate(${c.id})"><i class="bi bi-trash me-1"></i>Delete</button>
+        </div>
+        ${filesButtons ? `<div class="mt-2">${filesButtons}</div>` : ''}
+    </div>`;
+}
+
+function renderDrawerHistory(m) {
+    const hist = m.history || [];
+    const el = document.getElementById('sc-history-list');
+    if (!hist.length) {
+        el.innerHTML = '<div class="text-center text-muted py-4">No change history yet.</div>';
+        return;
+    }
+    el.innerHTML = hist.map(h => `
+        <div class="sc-inline-field mb-2">
+            <div class="small text-muted mb-1">${h.created_at ? new Date(h.created_at).toLocaleString('en-GB') : '—'}</div>
+            <div class="fw-semibold text-dark">${escHtml(h.action)}</div>
+        </div>`).join('');
+}
+
+function updatePhotoPreviewBox(containerId, url, fallbackIcon = 'bi-person-vcard') {
+    const box = document.getElementById(containerId);
+    if (!box) return;
+    const assetUrl = resolveStaffAssetUrl(url);
+    if (!assetUrl) {
+        box.innerHTML = `<i class="bi ${fallbackIcon} text-primary" style="font-size:2.4rem;"></i>`;
+        return;
+    }
+    if (isImageAsset(assetUrl)) {
+        box.innerHTML = `<img src="${escHtml(assetUrl)}" alt="Preview">`;
+    } else if (isPdfAsset(assetUrl)) {
+        box.innerHTML = `<i class="bi bi-file-earmark-pdf text-danger" style="font-size:2.4rem;"></i>`;
+    } else {
+        box.innerHTML = `<i class="bi bi-paperclip text-primary" style="font-size:2.2rem;"></i>`;
+    }
+}
+
+function setUploadMetaText(id, html) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+}
+
+function bindStaffDropzones() {
+    [
+        { zoneId: 'sc-form-photo-drop', fileId: 'sc-form-photo-file', type: 'profile' },
+        { zoneId: 'sc-cert-drop', fileId: 'sc-cert-file-input', type: 'dynamic' },
+        { zoneId: 'sc-car-photo-drop', fileId: 'sc-car-photo-file', type: 'car' },
+        { zoneId: 'sc-car-doc-drop', fileId: 'sc-car-doc-file-input', type: 'car_document' }
+    ].forEach(cfg => {
+        const zone = document.getElementById(cfg.zoneId);
+        if (!zone || zone.dataset.bound === '1') return;
+        zone.dataset.bound = '1';
+        ['dragenter', 'dragover'].forEach(evt => zone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); zone.classList.add('dragover'); }));
+        ['dragleave', 'drop'].forEach(evt => zone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); if (evt !== 'drop') zone.classList.remove('dragover'); }));
+        zone.addEventListener('drop', e => {
+            zone.classList.remove('dragover');
+            const files = e.dataTransfer?.files;
+            if (!files || !files.length) return;
+            const assetType = cfg.type === 'dynamic' ? (document.getElementById('sc-cert-category')?.value || 'certificate') : cfg.type;
+            handleStaffAssetSelection(files, assetType);
+        });
+    });
+}
+
+function renderCertUploadListPreview() {
+    const urls = scCertUploadedUrls.slice();
+    if (!urls.length) {
+        setUploadMetaText('sc-cert-upload-preview', '<small>No uploaded file selected</small>');
+        return;
+    }
+    const lines = urls.map((url, idx) => {
+        const resolved = resolveStaffAssetUrl(url);
+        const fileName = truncateFileName(resolved.split('/').pop() || `File ${idx + 1}`);
+        return `<div class="d-flex align-items-center gap-2 mb-1">
+            <i class="bi ${isPdfAsset(resolved) ? 'bi-file-earmark-pdf text-danger' : (isImageAsset(resolved) ? 'bi-image text-primary' : 'bi-file-earmark-text text-primary')}"></i>
+            <span class="sc-upload-file-name" title="${escHtml(resolved)}">${escHtml(fileName)}</span>
+        </div>`;
+    }).join('');
+    setUploadMetaText('sc-cert-upload-preview', `${lines}<small>${urls.length} file(s) attached</small>`);
+}
+
+async function handleStaffAssetSelection(fileInput, assetType) {
+    const files = fileInput instanceof FileList ? Array.from(fileInput) : (Array.isArray(fileInput) ? fileInput : (fileInput ? [fileInput] : []));
+    if (!files.length) return;
+
+    const normalizedType = (() => {
+        if (assetType === 'profile') return 'profile';
+        if (assetType === 'document') return 'document';
+        if (assetType === 'car') return 'car';
+        if (assetType === 'car_document') return 'car_document';
+        return 'certificate';
+    })();
+
+    let uploadedCount = 0;
+    for (const file of files) {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('asset_type', normalizedType);
+            const res = await fetch('/api/staff/upload-asset', { method: 'POST', body: formData });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.detail || 'Upload failed');
+
+            if (normalizedType === 'profile') {
+                document.getElementById('sc-form-photo-url').value = data.url || '';
+                document.getElementById('sc-form-photo-link').value = data.url || '';
+                updatePhotoPreviewBox('sc-form-photo-preview', data.url, 'bi-person-vcard');
+                setUploadMetaText('sc-form-photo-name', `<span class="sc-upload-file-name" title="${escHtml(data.original_name || file.name)}">${escHtml(truncateFileName(data.original_name || file.name))}</span><small>Uploaded successfully</small>`);
+            } else if (normalizedType === 'car') {
+                document.getElementById('sc-car-photo-url').value = data.url || '';
+                document.getElementById('sc-car-photo-link').value = data.url || '';
+                updatePhotoPreviewBox('sc-car-photo-preview', data.url, 'bi-car-front');
+                setUploadMetaText('sc-car-photo-name', `<span class="sc-upload-file-name" title="${escHtml(data.original_name || file.name)}">${escHtml(truncateFileName(data.original_name || file.name))}</span><small>Uploaded successfully</small>`);
+            } else if (normalizedType === 'car_document') {
+                if (data.url) scCarDocUploadedUrls.push(data.url);
+                scCarDocUploadedUrls = [...new Set(scCarDocUploadedUrls)];
+                document.getElementById('sc-car-doc-file-url').value = stringifyStaffAssetUrls(scCarDocUploadedUrls) || '';
+                renderCarDocUploadListPreview();
+            } else {
+                if (data.url) scCertUploadedUrls.push(data.url);
+                scCertUploadedUrls = [...new Set(scCertUploadedUrls)];
+                document.getElementById('sc-cert-file-url').value = stringifyStaffAssetUrls(scCertUploadedUrls) || '';
+                renderCertUploadListPreview();
+            }
+
+            uploadedCount++;
+        } catch (err) {
+            showErrorNotification(`Upload error (${file.name}): ${err.message}`);
+        }
+    }
+
+    if (uploadedCount > 0) {
+        showSuccessNotification(`Uploaded ${uploadedCount} file(s).`);
+    }
+}
+
+function openStaffForm(id) {
+    bindStaffDropzones();
+    document.getElementById('sc-form-id').value = id || '';
+    document.getElementById('sc-form-title').textContent = id ? 'Edit Employee' : 'Add Employee';
+    const defaults = { full_name:'', position:'', department:'', email:'', notes:'', photo_url:'' };
+    const m = id ? (staffData.find(x => x.id === id) || defaults) : defaults;
+    document.getElementById('sc-form-name').value = m.full_name || '';
+    document.getElementById('sc-form-position').value = m.position || '';
+    document.getElementById('sc-form-dept').value = m.department || '';
+    document.getElementById('sc-form-email').value = m.email || '';
+    document.getElementById('sc-form-notes').value = m.notes || '';
+    document.getElementById('sc-form-photo-url').value = m.photo_url || '';
+    document.getElementById('sc-form-photo-link').value = m.photo_url || '';
+    document.getElementById('sc-form-photo-file').value = '';
+    updatePhotoPreviewBox('sc-form-photo-preview', m.photo_url, 'bi-person-vcard');
+    setUploadMetaText('sc-form-photo-name', m.photo_url ? `<div class="fw-semibold">Existing asset linked</div><small>${escHtml(m.photo_url)}</small>` : '<small>No file uploaded yet</small>');
+    document.getElementById('sc-employee-form-overlay').style.display = 'flex';
+}
+
+function closeStaffForm() {
+    document.getElementById('sc-employee-form-overlay').style.display = 'none';
+}
+
+async function saveStaffMember() {
+    const name = document.getElementById('sc-form-name').value.trim();
+    if (!name) { showErrorNotification('Full Name is required.'); return; }
+    const id = document.getElementById('sc-form-id').value;
+    const photoUrl = document.getElementById('sc-form-photo-link').value.trim() || document.getElementById('sc-form-photo-url').value.trim() || null;
+    const payload = {
+        full_name: name,
+        position: document.getElementById('sc-form-position').value.trim(),
+        department: document.getElementById('sc-form-dept').value.trim(),
+        email: document.getElementById('sc-form-email').value.trim(),
+        photo_url: photoUrl,
+        notes: document.getElementById('sc-form-notes').value.trim(),
+    };
+    try {
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/api/staff/${id}` : '/api/staff';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Save failed');
+        closeStaffForm();
+        await loadStaffTable();
+        if (id || data?.id) openStaffDrawer(parseInt(id || data.id, 10));
+        showSuccessNotification(id ? 'Employee updated.' : 'Employee added.');
+    } catch (err) {
+        showErrorNotification('Error: ' + err.message);
+    }
+}
+
+function deleteStaffMember(id) {
+    const m = staffData.find(x => x.id === id);
+    document.getElementById('sc-delete-modal-body').textContent = `Delete "${m?.full_name || 'this employee'}"? This will also remove all linked certificates and documents.`;
+    const btn = document.getElementById('sc-delete-confirm-btn');
+    btn.onclick = async () => {
+        try {
+            const res = await fetch(`/api/staff/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Delete failed');
+            bootstrap.Modal.getInstance(document.getElementById('sc-delete-modal'))?.hide();
+            if (staffDrawerCurrentId === id) closeStaffDrawer();
+            await loadStaffTable();
+            showSuccessNotification('Employee deleted.');
+        } catch (err) {
+            showErrorNotification('Error: ' + err.message);
+        }
+    };
+    const modalEl = document.getElementById('sc-delete-modal');
+    modalEl.addEventListener('hidden.bs.modal', () => document.body.classList.remove('sc-delete-open'), { once: true });
+    document.body.classList.add('sc-delete-open');
+    new bootstrap.Modal(modalEl).show();
+}
+
+function openCertForm(certId, category) {
+    bindStaffDropzones();
+    const current = getCurrentStaffMember();
+    document.getElementById('sc-cert-id').value = certId || '';
+    document.getElementById('sc-cert-staff-id').value = staffDrawerCurrentId || '';
+    const cat = category || staffDrawerCategory || 'certificate';
+    staffDrawerCategory = cat;
+    document.getElementById('sc-cert-category').value = cat;
+    document.getElementById('sc-cert-form-title').textContent = cat === 'document'
+        ? (certId ? 'Edit Document' : 'Add Document')
+        : (certId ? 'Edit Certificate' : 'Add Certificate');
+
+    const allItems = [...(current?.certificates || []), ...(current?.documents || [])];
+    const c = certId ? allItems.find(x => x.id === certId) : null;
+    document.getElementById('sc-cert-name').value = c?.name || '';
+    document.getElementById('sc-cert-issuer').value = c?.issuer || '';
+    document.getElementById('sc-cert-issue-date').value = c?.issue_date ? c.issue_date.split('T')[0] : '';
+    document.getElementById('sc-cert-no-expiry').checked = !!c?.no_expiry;
+    document.getElementById('sc-cert-expiry-date').value = c?.expiry_date ? c.expiry_date.split('T')[0] : '';
+    const existingUrls = parseStaffAssetUrls(c?.file_url || '');
+    scCertUploadedUrls = existingUrls.slice();
+    document.getElementById('sc-cert-file-url').value = stringifyStaffAssetUrls(existingUrls) || '';
+    document.getElementById('sc-cert-file-input').value = '';
+    renderCertUploadListPreview();
+    toggleCertExpiryField();
+    document.getElementById('sc-cert-form-overlay').style.display = 'flex';
+}
+
+function closeCertForm() {
+    document.getElementById('sc-cert-form-overlay').style.display = 'none';
+}
+
+function toggleCertExpiryField() {
+    const noExpiry = document.getElementById('sc-cert-no-expiry').checked;
+    document.getElementById('sc-cert-expiry-wrapper').style.display = noExpiry ? 'none' : '';
+}
+
+async function saveCertificate() {
+    const name = document.getElementById('sc-cert-name').value.trim();
+    if (!name) { showErrorNotification('Name is required.'); return; }
+    const staffId = document.getElementById('sc-cert-staff-id').value;
+    const certId = document.getElementById('sc-cert-id').value;
+    const noExpiry = document.getElementById('sc-cert-no-expiry').checked;
+    const manualLinks = parseStaffAssetUrls(document.getElementById('sc-cert-file-url').value || '');
+    const mergedLinks = [...new Set([...scCertUploadedUrls, ...manualLinks])];
+    const payload = {
+        name,
+        issuer: document.getElementById('sc-cert-issuer').value.trim(),
+        issue_date: document.getElementById('sc-cert-issue-date').value || null,
+        no_expiry: noExpiry,
+        expiry_date: noExpiry ? null : (document.getElementById('sc-cert-expiry-date').value || null),
+        file_url: stringifyStaffAssetUrls(mergedLinks),
+        category: document.getElementById('sc-cert-category').value || 'certificate',
+    };
+    try {
+        const method = certId ? 'PUT' : 'POST';
+        const url = certId ? `/api/staff/certificates/${certId}` : `/api/staff/${staffId}/certificates`;
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Save failed');
+        closeCertForm();
+        await loadStaffTable();
+        if (staffId) openStaffDrawer(parseInt(staffId, 10));
+        showSuccessNotification(payload.category === 'document' ? 'Document saved.' : 'Certificate saved.');
+    } catch (err) {
+        showErrorNotification('Error: ' + err.message);
+    }
+}
+
+function deleteCertificate(certId) {
+    document.getElementById('sc-delete-modal-body').textContent = 'Delete this certificate/document? This action cannot be undone.';
+    const btn = document.getElementById('sc-delete-confirm-btn');
+    btn.onclick = async () => {
+        try {
+            const res = await fetch(`/api/staff/certificates/${certId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Delete failed');
+            bootstrap.Modal.getInstance(document.getElementById('sc-delete-modal'))?.hide();
+            await loadStaffTable();
+            if (staffDrawerCurrentId) openStaffDrawer(staffDrawerCurrentId);
+            showSuccessNotification('Record deleted.');
+        } catch (err) {
+            showErrorNotification('Error: ' + err.message);
+        }
+    };
+    const modalEl = document.getElementById('sc-delete-modal');
+    modalEl.addEventListener('hidden.bs.modal', () => document.body.classList.remove('sc-delete-open'), { once: true });
+    document.body.classList.add('sc-delete-open');
+    new bootstrap.Modal(modalEl).show();
+}
+
+function printStaffAsset(url) {
+    if (!url) return;
+    const win = window.open(url, '_blank');
+    if (!win) {
+        showErrorNotification('Popup blocked by browser.');
+        return;
+    }
+    win.onload = () => { try { win.print(); } catch (_) {} };
+}
+
+function bulkDownloadCerts(staffId) {
+    const m = staffData.find(x => x.id === staffId);
+    if (!m) return;
+    const now = new Date();
+    const validItems = [...(m.certificates || []), ...(m.documents || [])].filter(c => {
+        if (c.no_expiry || !c.expiry_date) return true;
+        return new Date(c.expiry_date) > now;
+    });
+    const urls = validItems.flatMap(c => parseStaffAssetUrls(c.file_url)).map(resolveStaffAssetUrl).filter(Boolean);
+    if (!urls.length) {
+        showErrorNotification('No valid files to download.');
+        return;
+    }
+    urls.forEach(url => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    });
+    showSuccessNotification(`Started ${urls.length} file download(s).`);
+}
+
+function getCurrentCar() {
+    return carsData.find(c => c.id === carDrawerCurrentId) || null;
+}
+
+function openCarDrawer(id) {
+    carDrawerCurrentId = id;
+    const car = carsData.find(c => c.id === id);
+    if (!car) return;
+
+    const photoUrl = resolveStaffAssetUrl(car.photo_url);
+    document.getElementById('car-drawer-avatar').innerHTML = photoUrl
+        ? `<img src="${escHtml(photoUrl)}" alt="${escHtml(car.name || 'Car photo')}">`
+        : '<i class="bi bi-car-front"></i>';
+
+    document.getElementById('car-drawer-name').textContent = car.name || '—';
+    document.getElementById('car-drawer-role').textContent = [car.plate_number, car.model].filter(Boolean).join(' · ') || 'No plate/model specified';
+    document.getElementById('car-drawer-meta').innerHTML = [
+        car.department ? `<span><i class="bi bi-diagram-3 me-1"></i>${escHtml(car.department)}</span>` : '',
+        `<span><i class="bi bi-file-earmark-text me-1"></i>${(car.documents || []).length} Documents</span>`
+    ].filter(Boolean).join('');
+
+    renderCarDocs(car);
+    renderCarHistory(car);
+    switchCarDrawerTab('docs');
+
+    const backdrop = document.getElementById('car-drawer-backdrop');
+    backdrop.style.display = 'block';
+    requestAnimationFrame(() => backdrop.classList.add('show'));
+    document.getElementById('car-profile-drawer').classList.add('open');
+}
+
+function closeCarDrawer() {
+    document.getElementById('car-profile-drawer').classList.remove('open');
+    const backdrop = document.getElementById('car-drawer-backdrop');
+    backdrop.classList.remove('show');
+    setTimeout(() => { backdrop.style.display = 'none'; }, 250);
+}
+
+function switchCarDrawerTab(tab) {
+    ['docs', 'history'].forEach(t => {
+        document.getElementById(`cdtab-${t}`).style.display = t === tab ? 'block' : 'none';
+        document.getElementById(`cdtab-${t}-btn`).classList.toggle('active', t === tab);
+    });
+}
+
+function buildCarDocCard(doc) {
+    const si = certStatusInfo(doc);
+    const issue = doc.issue_date ? new Date(doc.issue_date).toLocaleDateString('en-GB') : '—';
+    const expiryText = doc.no_expiry ? 'Lifetime' : (doc.expiry_date ? new Date(doc.expiry_date).toLocaleDateString('en-GB') : '—');
+    const assetUrls = parseStaffAssetUrls(doc.file_url).map(resolveStaffAssetUrl).filter(Boolean);
+    const firstAsset = assetUrls[0] || '';
+    const filesButtons = assetUrls.map((url, idx) => {
+        const arg = JSON.stringify(url);
+        const label = `File ${idx + 1}`;
+        return `<div class="d-flex gap-1 align-items-center mb-1">
+            <a href="${escHtml(url)}" target="_blank" class="btn btn-xs btn-outline-primary">Open ${label}</a>
+            <a href="${escHtml(url)}" download class="btn btn-xs btn-outline-success">Download</a>
+            <button class="btn btn-xs btn-outline-secondary" onclick='printStaffAsset(${arg})'>Print</button>
+        </div>`;
+    }).join('');
+
+    return `<div class="sc-cert-card ${si.cardCls}">
+        <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+            <div class="flex-grow-1">
+                <div class="sc-cert-title">${escHtml(doc.name)}</div>
+                <div class="sc-cert-meta">
+                    ${doc.issuer ? `<div><i class="bi bi-building me-1"></i>${escHtml(doc.issuer)}</div>` : ''}
+                    <div><i class="bi bi-calendar2-week me-1"></i>Issued: ${issue}</div>
+                    <div><i class="bi bi-hourglass-split me-1"></i>Expiry: ${escHtml(expiryText)}</div>
+                </div>
+            </div>
+            <span class="cert-badge ${si.cls}">${si.label}</span>
+        </div>
+        ${firstAsset ? buildAssetPreview(firstAsset, doc.name) : ''}
+        <div class="mt-3 d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm btn-outline-secondary" onclick="openCarDocForm(${doc.id})"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteCarDocument(${doc.id})"><i class="bi bi-trash me-1"></i>Delete</button>
+        </div>
+        ${filesButtons ? `<div class="mt-2">${filesButtons}</div>` : ''}
+    </div>`;
+}
+
+function renderCarDocs(car) {
+    const docs = car.documents || [];
+    const el = document.getElementById('car-docs-list');
+    if (!docs.length) {
+        el.innerHTML = '<div class="text-center text-muted py-4">No documents on file.</div>';
+        return;
+    }
+    el.innerHTML = docs.map(d => buildCarDocCard(d)).join('');
+}
+
+function renderCarHistory(car) {
+    const hist = car.history || [];
+    const el = document.getElementById('car-history-list');
+    if (!hist.length) {
+        el.innerHTML = '<div class="text-center text-muted py-4">No change history yet.</div>';
+        return;
+    }
+    el.innerHTML = hist.map(h => `
+        <div class="sc-inline-field mb-2">
+            <div class="small text-muted mb-1">${h.created_at ? new Date(h.created_at).toLocaleString('en-GB') : '—'}</div>
+            <div class="fw-semibold text-dark">${escHtml(h.action)}</div>
+        </div>`).join('');
+}
+
+function openCarForm(id) {
+    bindStaffDropzones();
+    document.getElementById('sc-car-form-id').value = id || '';
+    document.getElementById('sc-car-form-title').textContent = id ? 'Edit Car' : 'Add Car';
+
+    const defaults = { name: '', plate_number: '', department: '', model: '', color: '', notes: '', photo_url: '' };
+    const car = id ? (carsData.find(c => c.id === id) || defaults) : defaults;
+
+    document.getElementById('sc-car-name').value = car.name || '';
+    document.getElementById('sc-car-plate').value = car.plate_number || '';
+    document.getElementById('sc-car-dept').value = car.department || '';
+    document.getElementById('sc-car-model').value = car.model || '';
+    document.getElementById('sc-car-color').value = car.color || '';
+    document.getElementById('sc-car-notes').value = car.notes || '';
+    document.getElementById('sc-car-photo-url').value = car.photo_url || '';
+    document.getElementById('sc-car-photo-link').value = car.photo_url || '';
+    document.getElementById('sc-car-photo-file').value = '';
+
+    updatePhotoPreviewBox('sc-car-photo-preview', car.photo_url, 'bi-car-front');
+    setUploadMetaText('sc-car-photo-name', car.photo_url ? `<div class="fw-semibold">Existing asset linked</div><small class="sc-upload-file-url">${escHtml(car.photo_url)}</small>` : '<small>No file uploaded yet</small>');
+    document.getElementById('sc-car-form-overlay').style.display = 'flex';
+}
+
+function closeCarForm() {
+    document.getElementById('sc-car-form-overlay').style.display = 'none';
+}
+
+async function saveCar() {
+    const name = document.getElementById('sc-car-name').value.trim();
+    const plate = document.getElementById('sc-car-plate').value.trim();
+    if (!name) { showErrorNotification('Car name is required.'); return; }
+    if (!plate) { showErrorNotification('Plate number is required.'); return; }
+
+    const id = document.getElementById('sc-car-form-id').value;
+    const photoUrl = document.getElementById('sc-car-photo-link').value.trim() || document.getElementById('sc-car-photo-url').value.trim() || null;
+    const payload = {
+        name,
+        plate_number: plate,
+        department: document.getElementById('sc-car-dept').value.trim(),
+        model: document.getElementById('sc-car-model').value.trim(),
+        color: document.getElementById('sc-car-color').value.trim(),
+        notes: document.getElementById('sc-car-notes').value.trim(),
+        photo_url: photoUrl,
+    };
+
+    try {
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/api/cars/${id}` : '/api/cars';
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Save failed');
+
+        closeCarForm();
+        await loadCarsTable();
+        updateStaffKPIs();
+        switchStaffEntityTab('cars');
+        openCarDrawer(parseInt(id || data.id, 10));
+        showSuccessNotification(id ? 'Car updated.' : 'Car added.');
+    } catch (err) {
+        showErrorNotification('Error: ' + err.message);
+    }
+}
+
+function deleteCar(id) {
+    const car = carsData.find(c => c.id === id);
+    document.getElementById('sc-delete-modal-body').textContent = `Delete "${car?.name || 'this car'}" (${car?.plate_number || '—'})? This will also remove all linked documents.`;
+    const btn = document.getElementById('sc-delete-confirm-btn');
+    btn.onclick = async () => {
+        try {
+            const res = await fetch(`/api/cars/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Delete failed');
+            bootstrap.Modal.getInstance(document.getElementById('sc-delete-modal'))?.hide();
+            if (carDrawerCurrentId === id) closeCarDrawer();
+            await loadCarsTable();
+            updateStaffKPIs();
+            showSuccessNotification('Car deleted.');
+        } catch (err) {
+            showErrorNotification('Error: ' + err.message);
+        }
+    };
+    const modalEl = document.getElementById('sc-delete-modal');
+    modalEl.addEventListener('hidden.bs.modal', () => document.body.classList.remove('sc-delete-open'), { once: true });
+    document.body.classList.add('sc-delete-open');
+    new bootstrap.Modal(modalEl).show();
+}
+
+function renderCarDocUploadListPreview() {
+    const urls = scCarDocUploadedUrls.slice();
+    if (!urls.length) {
+        setUploadMetaText('sc-car-doc-upload-preview', '<small>No uploaded file selected</small>');
+        return;
+    }
+    const lines = urls.map((url, idx) => {
+        const resolved = resolveStaffAssetUrl(url);
+        const fileName = truncateFileName(resolved.split('/').pop() || `File ${idx + 1}`);
+        return `<div class="d-flex align-items-center gap-2 mb-1">
+            <i class="bi ${isPdfAsset(resolved) ? 'bi-file-earmark-pdf text-danger' : (isImageAsset(resolved) ? 'bi-image text-primary' : 'bi-file-earmark-text text-primary')}"></i>
+            <span class="sc-upload-file-name" title="${escHtml(resolved)}">${escHtml(fileName)}</span>
+        </div>`;
+    }).join('');
+    setUploadMetaText('sc-car-doc-upload-preview', `${lines}<small>${urls.length} file(s) attached</small>`);
+}
+
+function toggleCarDocExpiryField() {
+    const noExpiry = document.getElementById('sc-car-doc-no-expiry').checked;
+    document.getElementById('sc-car-doc-expiry-wrapper').style.display = noExpiry ? 'none' : '';
+}
+
+function openCarDocForm(docId) {
+    bindStaffDropzones();
+    const currentCar = getCurrentCar();
+    if (!currentCar) {
+        showErrorNotification('Open a car profile first.');
+        return;
+    }
+
+    document.getElementById('sc-car-doc-id').value = docId || '';
+    document.getElementById('sc-car-doc-car-id').value = carDrawerCurrentId || '';
+    document.getElementById('sc-car-doc-form-title').textContent = docId ? 'Edit Car Document' : 'Add Car Document';
+
+    const doc = docId ? (currentCar.documents || []).find(d => d.id === docId) : null;
+    document.getElementById('sc-car-doc-name').value = doc?.name || '';
+    document.getElementById('sc-car-doc-issuer').value = doc?.issuer || '';
+    document.getElementById('sc-car-doc-issue-date').value = doc?.issue_date ? doc.issue_date.split('T')[0] : '';
+    document.getElementById('sc-car-doc-no-expiry').checked = !!doc?.no_expiry;
+    document.getElementById('sc-car-doc-expiry-date').value = doc?.expiry_date ? doc.expiry_date.split('T')[0] : '';
+
+    const existingUrls = parseStaffAssetUrls(doc?.file_url || '');
+    scCarDocUploadedUrls = existingUrls.slice();
+    document.getElementById('sc-car-doc-file-url').value = stringifyStaffAssetUrls(existingUrls) || '';
+    document.getElementById('sc-car-doc-file-input').value = '';
+    renderCarDocUploadListPreview();
+    toggleCarDocExpiryField();
+
+    document.getElementById('sc-car-doc-form-overlay').style.display = 'flex';
+}
+
+function closeCarDocForm() {
+    document.getElementById('sc-car-doc-form-overlay').style.display = 'none';
+}
+
+async function saveCarDocument() {
+    const name = document.getElementById('sc-car-doc-name').value.trim();
+    if (!name) { showErrorNotification('Document name is required.'); return; }
+
+    const carId = document.getElementById('sc-car-doc-car-id').value;
+    const docId = document.getElementById('sc-car-doc-id').value;
+    const noExpiry = document.getElementById('sc-car-doc-no-expiry').checked;
+    const manualLinks = parseStaffAssetUrls(document.getElementById('sc-car-doc-file-url').value || '');
+    const mergedLinks = [...new Set([...scCarDocUploadedUrls, ...manualLinks])];
+
+    const payload = {
+        name,
+        issuer: document.getElementById('sc-car-doc-issuer').value.trim(),
+        issue_date: document.getElementById('sc-car-doc-issue-date').value || null,
+        no_expiry: noExpiry,
+        expiry_date: noExpiry ? null : (document.getElementById('sc-car-doc-expiry-date').value || null),
+        file_url: stringifyStaffAssetUrls(mergedLinks),
+    };
+
+    try {
+        const method = docId ? 'PUT' : 'POST';
+        const url = docId ? `/api/cars/documents/${docId}` : `/api/cars/${carId}/documents`;
+        const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || 'Save failed');
+
+        closeCarDocForm();
+        await loadCarsTable();
+        updateStaffKPIs();
+        if (carId) openCarDrawer(parseInt(carId, 10));
+        showSuccessNotification('Car document saved.');
+    } catch (err) {
+        showErrorNotification('Error: ' + err.message);
+    }
+}
+
+function deleteCarDocument(docId) {
+    document.getElementById('sc-delete-modal-body').textContent = 'Delete this car document? This action cannot be undone.';
+    const btn = document.getElementById('sc-delete-confirm-btn');
+    btn.onclick = async () => {
+        try {
+            const res = await fetch(`/api/cars/documents/${docId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Delete failed');
+            bootstrap.Modal.getInstance(document.getElementById('sc-delete-modal'))?.hide();
+            await loadCarsTable();
+            updateStaffKPIs();
+            if (carDrawerCurrentId) openCarDrawer(carDrawerCurrentId);
+            showSuccessNotification('Document deleted.');
+        } catch (err) {
+            showErrorNotification('Error: ' + err.message);
+        }
+    };
+    const modalEl = document.getElementById('sc-delete-modal');
+    modalEl.addEventListener('hidden.bs.modal', () => document.body.classList.remove('sc-delete-open'), { once: true });
+    document.body.classList.add('sc-delete-open');
+    new bootstrap.Modal(modalEl).show();
+}
+
+const SC_NOTIFY_KEY = 'sc_notify_settings';
+function openStaffNotifySettings() {
+    const saved = JSON.parse(localStorage.getItem(SC_NOTIFY_KEY) || '{}');
+    document.getElementById('sc-notify-days').value = saved.days || 30;
+    document.getElementById('sc-notify-emails').value = saved.emails || '';
+    document.getElementById('sc-notify-template').value = saved.template || document.getElementById('sc-notify-template').value;
+    document.getElementById('sc-notify-overlay').style.display = 'flex';
+}
+function closeStaffNotifySettings() { document.getElementById('sc-notify-overlay').style.display = 'none'; }
+function saveNotifySettings() {
+    localStorage.setItem(SC_NOTIFY_KEY, JSON.stringify({
+        days: parseInt(document.getElementById('sc-notify-days').value) || 30,
+        emails: document.getElementById('sc-notify-emails').value.trim(),
+        template: document.getElementById('sc-notify-template').value,
+    }));
+    showSuccessNotification('Notification settings saved.');
+    closeStaffNotifySettings();
+}
+function sendQuickEmails() {
+    const settings = JSON.parse(localStorage.getItem(SC_NOTIFY_KEY) || '{}');
+    const days = settings.days || 30;
+    const now = new Date();
+    const threshold = new Date();
+    threshold.setDate(threshold.getDate() + days);
+    let count = 0;
+    staffData.forEach(m => {
+        [...(m.certificates || []), ...(m.documents || [])].forEach(c => {
+            if (c.no_expiry || !c.expiry_date) return;
+            const exp = new Date(c.expiry_date);
+            if (exp > now && exp <= threshold) count++;
+        });
+    });
+    showSuccessNotification(`Quick Email: ${count} deadline-based item(s) identified.`);
+    closeStaffNotifySettings();
+}
+
+function escHtml(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
 // ========== CALENDAR FUNCTIONS ==========

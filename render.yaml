@@ -1,9 +1,9 @@
-services:
+﻿services:
   - type: web
     name: aviation-mro
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt && PLAYWRIGHT_BROWSERS_PATH=0 python -m playwright install chromium
+    buildCommand: pip install -r requirements.txt
     startCommand: bash start.sh
     healthCheckPath: /health
     envVars:
@@ -13,16 +13,25 @@ services:
           property: connectionString
       - key: PLAYWRIGHT_BROWSERS_PATH
         value: "0"
-      - key: ALLOW_RENDER_SHAREPOINT_BROWSER
-        value: "1"
       - key: GH_SYNC_TOKEN
-        sync: false   # Set this secret manually in Render Dashboard → Environment
+        sync: false
       - key: GITHUB_TOKEN
-        sync: false   # GitHub Personal Access Token with Actions: write scope
+        sync: false
       - key: GITHUB_REPO
-        value: "PavelTonNik/aviation-mro-app"  # Update if your repo name differs
+        value: "PavelTonNik/aviation-mro-app"
       - key: GH_BRANCH
         value: "main"
+      # Cloudflare R2 — Staff / Cars file uploads (set secrets in Render Dashboard)
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_ACCESS_KEY
+        sync: false
+      - key: R2_SECRET_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
 
 databases:
   - name: aviation_db
