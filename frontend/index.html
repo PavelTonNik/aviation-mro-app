@@ -21382,8 +21382,21 @@ function onGssInputChange(engines) {
         await loadAircraftDropdown();
         await loadAircraftUtilSources();
 
-        // Auto-preview on input DISABLED — use Refresh button to check links
-        // This prevents server overload from automatic polling on page load.
+        // Auto-preview: only triggered on explicit paste (not on initial page load)
+        // This prevents polling storm while still giving instant feedback when user pastes a new URL.
+        ['bat', 'bar', 'baq'].forEach(tail => {
+            const input = document.getElementById('util-source-' + tail);
+            if (input) {
+                input.addEventListener('paste', () => {
+                    setTimeout(async () => {
+                        const url = input.value.trim();
+                        if (url && url.startsWith('http')) {
+                            await previewExcelUrl(tail, url);
+                        }
+                    }, 200);
+                });
+            }
+        });
     }
 
     function _clearPreviewFields(tail) {
@@ -21410,6 +21423,13 @@ function onGssInputChange(engines) {
             } catch { return false; }
         }
 
+        function isGssUrl(u) {
+            try {
+                const h = new URL(u).hostname.toLowerCase();
+                return h.includes('gss-fze') || h.includes('gss-') || new URL(u).href.includes('/view?token=');
+            } catch { return false; }
+        }
+
         function isDirectFileLikeUrl(u) {
             try {
                 const parsed = new URL(u);
@@ -21418,6 +21438,8 @@ function onGssInputChange(engines) {
                 if (href.endsWith('.csv') || href.endsWith('.xlsx')) return true;
                 if (href.includes('download=1')) return true;
                 if (host.includes('docs.google.com') || host.includes('drive.google.com')) return true;
+                // GSS File Manager links are direct-downloadable via API
+                if (isGssUrl(u)) return true;
                 return false;
             } catch {
                 return false;
@@ -21462,7 +21484,7 @@ function onGssInputChange(engines) {
 
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
             if (attempt === 0) {
-                if (wrapEl) wrapEl.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>' + (useJobSystem ? 'Opening SharePoint...' : 'Checking live link...') + '</span>';
+                if (wrapEl) wrapEl.innerHTML = '<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>' + (useJobSystem ? 'Opening SharePoint...' : 'Downloading & parsing...') + '</span>';
             } else {
                 if (wrapEl) wrapEl.innerHTML = `<span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Retrying... (${attempt + 1}/${maxAttempts})</span>`;
             }
@@ -21657,7 +21679,7 @@ function onGssInputChange(engines) {
 
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Refreshing 0/${active.length}...`;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Refreshing...`;
         }
 
         let done = 0;
@@ -21675,8 +21697,14 @@ function onGssInputChange(engines) {
             done++;
         }
 
-        if (errors > 0) {
-            showErrorNotification(`Refresh done with ${errors} error(s)`);
+        // Always reload saved data from DB so status/dates are fresh
+        await loadAircraftUtilSources();
+
+        if (errors > 0 && errors < active.length) {
+            showErrorNotification(`Refresh done with ${errors} error(s). Showing last saved data.`);
+        } else if (errors > 0) {
+            // All failed — likely Render/SharePoint, show friendly message
+            showErrorNotification('Live preview unavailable. Showing last synced data. Use Sync to update.');
         }
 
         if (btn) {
@@ -25430,6 +25458,7 @@ let scCurrentEntityTab = 'employees';
         return zoomEl;
     }
     document.addEventListener('mouseenter', function(e) {
+        if (!e.target || !e.target.closest) return;
         const av = e.target.closest('.sc-mini-avatar');
         if (!av) return;
         const img = av.querySelector('img');
@@ -25447,6 +25476,7 @@ let scCurrentEntityTab = 'employees';
         z.classList.add('visible');
     }, true);
     document.addEventListener('mouseleave', function(e) {
+        if (!e.target || !e.target.closest) return;
         const av = e.target.closest('.sc-mini-avatar');
         if (!av) return;
         const z = getZoom();

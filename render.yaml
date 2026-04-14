@@ -3,7 +3,7 @@
     name: aviation-mro
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && playwright install --with-deps chromium
     startCommand: bash start.sh
     healthCheckPath: /health
     envVars:

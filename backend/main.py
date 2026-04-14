@@ -20,8 +20,9 @@ from pathlib import Path
 import hashlib
 import secrets
 import os
+import ssl
 from io import BytesIO
-from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse, urljoin
+from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse, urljoin, quote
 from urllib.request import Request as UrlRequest, urlopen
 from zipfile import BadZipFile
 from passlib.context import CryptContext
@@ -124,14 +125,6 @@ def _run_aircraft_utilization_preview_job(job_id: str, url: str):
         normalized = _normalize_excel_url(stripped)
         if not normalized:
             raise Exception("Could not parse URL")
-
-        # On Render: SharePoint URLs cannot be previewed (Playwright disabled, HTML fallback unreliable).
-        # Fail fast instead of hanging for minutes on network timeouts.
-        if os.getenv("RENDER"):
-            host = (urlparse(normalized).hostname or "").lower()
-            orig_host = (urlparse(stripped).hostname or "").lower()
-            if any(kw in h for h in (host, orig_host) for kw in ("sharepoint.com", "onedrive.live.com", "1drv.ms")):
-                raise Exception("SharePoint preview is not available on this server. Use the Sync button or GitHub Actions to sync data.")
 
         # allow_browser=True: preview job runs in a background daemon thread (threading.Thread),
         # so the HTTP request returns immediately with job_id.
@@ -1053,6 +1046,11 @@ def _normalize_excel_url(url: Optional[str]) -> Optional[str]:
         file_id = m3.group(1)
         return f"https://drive.google.com/uc?export=download&confirm=t&id={file_id}"
 
+    # --- GSS File Manager: /view?token=XXX → /api/share/XXX/download ---
+    gss_m = re.search(r'^(https?://[^/]+)/view\?token=([A-Za-z0-9_-]+)', cleaned)
+    if gss_m:
+        return f"{gss_m.group(1)}/api/share/{gss_m.group(2)}/download"
+
     # --- SharePoint / OneDrive links: force direct download when possible ---
     # Note: for sharing links (/:x:/s/...), we keep the URL as-is with download=1.
     # If the HTTP download returns HTML, the browser fallback (Playwright) will handle it.
@@ -1071,8 +1069,76 @@ def _normalize_excel_url(url: Optional[str]) -> Optional[str]:
     return cleaned
 
 
+def _try_gss_download(source_url: str, original_url: Optional[str] = None) -> Optional[bytes]:
+    """
+    If source_url is a GSS File Manager API URL (/api/share/TOKEN/download),
+    try to download the file. On 403/404, fetch share metadata and retry
+    with ?path=linked_path. Returns file bytes or None.
+    """
+    urls_to_check = [source_url, original_url or ""]
+    gss_match = None
+    for u in urls_to_check:
+        gss_match = re.search(r'^(https?://[^/]+)/api/share/([A-Za-z0-9_-]+)', u)
+        if gss_match:
+            break
+    if not gss_match:
+        return None
+
+    base = gss_match.group(1)
+    token = gss_match.group(2)
+
+    _ssl_ctx = ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = ssl.CERT_NONE
+    _headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream,*/*",
+    }
+    _timeout = 30 if os.getenv("RENDER") else 90
+
+    # Collect candidate download URLs
+    download_urls = [f"{base}/api/share/{token}/download"]
+
+    # Fetch share metadata to get linked_path for ?path= parameter
+    try:
+        meta_req = UrlRequest(f"{base}/api/share/{token}", headers=_headers)
+        with urlopen(meta_req, timeout=15, context=_ssl_ctx) as meta_resp:
+            meta = json.loads(meta_resp.read())
+            linked_path = meta.get("linked_path") or meta.get("name") or ""
+            if linked_path:
+                download_urls.append(f"{base}/api/share/{token}/download?path={quote(linked_path)}")
+                # Also try view endpoint as some GSS configs serve raw file there
+                download_urls.append(f"{base}/api/share/{token}/view?path={quote(linked_path)}")
+    except Exception:
+        pass
+
+    for dl_url in download_urls:
+        try:
+            req = UrlRequest(dl_url, headers=_headers)
+            with urlopen(req, timeout=_timeout, context=_ssl_ctx) as resp:
+                data = resp.read()
+                if not data:
+                    continue
+                ct = str(resp.headers.get("Content-Type", "")).lower()
+                if b"<html" in data[:2048].lower() or "text/html" in ct:
+                    continue  # Skip HTML pages
+                if data.startswith(b"PK") or "csv" in ct or "octet-stream" in ct:
+                    return data
+                # Accept any non-HTML binary data as potential Excel/CSV
+                if len(data) > 100:
+                    return data
+        except Exception:
+            continue
+    return None
+
+
 def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, max_retries: int = 2, allow_browser: bool = True) -> bytes:
     from urllib.error import HTTPError, URLError
+
+    # --- GSS File Manager: try dedicated download logic first ---
+    gss_data = _try_gss_download(source_url, original_url)
+    if gss_data:
+        return gss_data
 
     def _is_sharepoint_url() -> bool:
         host = (urlparse(source_url).hostname or "").lower()
@@ -1087,12 +1153,6 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
         if not _is_sharepoint_url():
             return None
         if not allow_browser:
-            return None
-        # Render free plan: 512 MB RAM — Playwright + Chromium takes ~300-400 MB and
-        # will OOM-kill the entire uvicorn process, making all API calls fail.
-        # The HTML-based fallback (_try_sharepoint_html_fallback) works without a browser.
-        if os.getenv("RENDER"):
-            print("⚠️  Skipping Playwright browser on Render (OOM risk). Using HTML fallback only.")
             return None
         browser_url = original_url or source_url
         return _download_sharepoint_via_browser(browser_url)
@@ -1184,6 +1244,20 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
         return None
 
     _http_timeout = 30 if os.getenv("RENDER") else 90
+
+    # Build SSL context: skip certificate verification for self-signed servers
+    # (e.g. GSS File Manager on non-standard ports like 9443)
+    _ssl_ctx = None
+    try:
+        _parsed_host = (urlparse(source_url).hostname or "").lower()
+        _parsed_port = urlparse(source_url).port
+        if _parsed_port and _parsed_port not in (80, 443):
+            _ssl_ctx = ssl.create_default_context()
+            _ssl_ctx.check_hostname = False
+            _ssl_ctx.verify_mode = ssl.CERT_NONE
+    except Exception:
+        pass
+
     last_exception: Optional[Exception] = None
     for attempt in range(max_retries):
         req = UrlRequest(source_url, headers={
@@ -1191,7 +1265,7 @@ def _download_excel_bytes(source_url: str, original_url: Optional[str] = None, m
             "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream,*/*",
         })
         try:
-            with urlopen(req, timeout=_http_timeout) as response:
+            with urlopen(req, timeout=_http_timeout, context=_ssl_ctx) as response:
                 data = response.read()
                 content_type = str(response.headers.get("Content-Type", "")).lower()
                 final_url = getattr(response, 'geturl', lambda: source_url)()
@@ -1345,6 +1419,15 @@ def _download_sharepoint_via_browser(source_url: str, max_page_reloads: int = 6)
             except Exception:
                 continue
         return None
+
+    # Workaround: clear any inherited asyncio running-loop reference so
+    # Playwright Sync API does not falsely detect "asyncio loop" in worker threads
+    # (ThreadPoolExecutor / daemon Thread).
+    try:
+        asyncio.get_running_loop()
+        asyncio._set_running_loop(None)
+    except RuntimeError:
+        pass  # No running loop — safe to proceed
 
     with sharepoint_browser_fallback_lock:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1631,7 +1714,15 @@ def _parse_excel_date(value):
             return from_excel(value)
         except Exception:
             return None
-    return parse_input_date(str(value))
+    # Fallback: try parsing string as Excel serial number (e.g. "45408")
+    s = str(value).strip()
+    try:
+        num = float(s)
+        if 30000 <= num <= 80000:
+            return from_excel(num)
+    except (ValueError, Exception):
+        pass
+    return parse_input_date(s)
 
 
 def _parse_excel_ttsn(value):
@@ -1819,8 +1910,18 @@ def _extract_latest_utilization_from_csv(content: bytes):
 
 def _extract_latest_utilization_from_content(content: bytes, preferred_sheet: Optional[str] = None):
     if content.startswith(b"PK"):
-        return _extract_latest_utilization_from_workbook(content, preferred_sheet)
-    return _extract_latest_utilization_from_csv(content)
+        result = _extract_latest_utilization_from_workbook(content, preferred_sheet)
+    else:
+        result = _extract_latest_utilization_from_csv(content)
+
+    # GSS File Manager (and similar) stores TTSN as Excel time (fractional days).
+    # In normal operation TTSN (hours) is always > TCSN (cycles), so if TTSN < TCSN
+    # the value is likely in days and needs ×24 conversion to hours.
+    if result and result.get("ttsn", 0) > 0 and result.get("tcsn", 0) > 0:
+        if result["ttsn"] < result["tcsn"]:
+            result["ttsn"] = round(result["ttsn"] * 24, 4)
+
+    return result
 
 
 def _recalculate_engine_cost_fields(engine, tsn_on_ac: Optional[float], tcsn_on_ac: Optional[int]):
