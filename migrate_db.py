@@ -213,7 +213,7 @@ def run_migrations():
                 print(f"  ⚠ Warning: store_items columns issue: {e}")
 
             # Add cost_per_hour and cost_per_cycle to engines
-            print("\n[8/8] Adding engines.cost_per_hour and cost_per_cycle columns...")
+            print("\n[8/9] Adding engines.cost_per_hour and cost_per_cycle columns...")
             try:
                 conn.execute(text("""
                     DO $$
@@ -229,6 +229,36 @@ def run_migrations():
                 print("  ✓ engines cost columns ready")
             except Exception as e:
                 print(f"  ⚠ Warning: engines cost columns issue: {e}")
+
+            # Add permissions column to users
+            print("\n[9/9] Adding users.permissions column...")
+            try:
+                conn.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='permissions') THEN
+                            ALTER TABLE users ADD COLUMN permissions text;
+                        END IF;
+                    END$$;
+                """))
+                print("  ✓ users.permissions column ready")
+            except Exception as e:
+                print(f"  ⚠ Warning: users.permissions column issue: {e}")
+
+            # Add password_plain column to users
+            print("\n[10/10] Adding users.password_plain column...")
+            try:
+                conn.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='password_plain') THEN
+                            ALTER TABLE users ADD COLUMN password_plain varchar;
+                        END IF;
+                    END$$;
+                """))
+                print("  ✓ users.password_plain column ready")
+            except Exception as e:
+                print(f"  ⚠ Warning: users.password_plain column issue: {e}")
         
         print("\n" + "=" * 80)
         print("✅ ALL MIGRATIONS COMPLETED SUCCESSFULLY!")

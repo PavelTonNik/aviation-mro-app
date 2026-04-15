@@ -342,6 +342,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)  # Хэш пароля
+    password_plain = Column(String, nullable=True)   # Открытый пароль (виден только админу)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     position = Column(String, nullable=True)  # Должность в компании
@@ -350,6 +351,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
+    permissions = Column(Text, nullable=True)  # JSON list of allowed views; NULL = all access
 
 
 class Notification(Base):

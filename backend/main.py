@@ -552,6 +552,18 @@ def startup_event():
                         ) THEN
                             ALTER TABLE store_items ADD COLUMN invoice_no VARCHAR;
                         END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='users' AND column_name='permissions'
+                        ) THEN
+                            ALTER TABLE users ADD COLUMN permissions TEXT;
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='users' AND column_name='password_plain'
+                        ) THEN
+                            ALTER TABLE users ADD COLUMN password_plain VARCHAR;
+                        END IF;
                     END $$;
                 """))
                 db.commit()
@@ -614,6 +626,8 @@ def startup_event():
     ensure_sqlite_column("store_items", "price FLOAT")
     ensure_sqlite_column("store_items", "invoice_no TEXT")
     ensure_sqlite_column("staff_members", "photo_url TEXT")
+    ensure_sqlite_column("users", "permissions TEXT")
+    ensure_sqlite_column("users", "password_plain VARCHAR")
 
     # Открываем сессию базы данных
     db = database.SessionLocal()
@@ -2726,6 +2740,7 @@ class UserUpdateSchema(BaseModel):
     role: Optional[str] = None
     photo_url: Optional[str] = None
     is_active: Optional[bool] = None
+    permissions: Optional[List[str]] = None  # None = all access; list of view keys
 
 
 class LoginSchema(BaseModel):
@@ -4666,6 +4681,14 @@ class ActionLogUpdateSchema(BaseModel):
     work_type: Optional[str] = None
     inspector: Optional[str] = None
     comment: Optional[str] = None
+    # REMOVE-specific fields
+    ttsn: Optional[float] = None
+    tcsn: Optional[int] = None
+    ttsn_ac: Optional[float] = None
+    tcsn_ac: Optional[int] = None
+    condition_1_at_removal: Optional[str] = None
+    remarks_removal: Optional[str] = None
+    installed_plate_sn: Optional[str] = None
 
 class ActionLogCreateSchema(BaseModel):
     date: Optional[str] = None
@@ -4851,6 +4874,64 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
         db.refresh(log)
         db.refresh(engine)
         return {"message": f"Install record updated successfully (ID: {log_id})"}
+
+    # Специальная обработка для REMOVE
+    if action_type == "REMOVE":
+        log = db.query(models.ActionLog).filter(
+            models.ActionLog.id == log_id,
+            models.ActionLog.action_type == "REMOVE"
+        ).first()
+        if not log:
+            raise HTTPException(404, f"Remove record not found (ID: {log_id})")
+
+        if data.date:
+            parsed = parse_input_date(data.date)
+            if parsed:
+                log.date = parsed
+        if data.to_aircraft is not None:
+            log.to_aircraft = data.to_aircraft
+        if data.to_location is not None:
+            log.to_location = data.to_location
+        if data.current_sn is not None:
+            log.current_sn = data.current_sn
+        if data.ttsn is not None:
+            log.ttsn = data.ttsn
+        if data.tcsn is not None:
+            log.tcsn = data.tcsn
+        if data.ttsn_ac is not None:
+            log.ttsn_ac = data.ttsn_ac
+        if data.tcsn_ac is not None:
+            log.tcsn_ac = data.tcsn_ac
+        if data.condition_1_at_removal is not None:
+            log.condition_1_at_removal = data.condition_1_at_removal
+        if data.comments is not None:
+            log.comments = data.comments
+        if data.remarks_removal is not None:
+            log.remarks_removal = data.remarks_removal
+
+        # Синхронизируем данные двигателя если он все еще снят (REMOVED)
+        engine = log.engine
+        if engine and engine.status == "REMOVED":
+            # Обновляем техсостояние
+            if data.condition_1_at_removal is not None:
+                engine.condition_1 = data.condition_1_at_removal
+            # Обновляем текущий SN
+            if data.current_sn is not None:
+                engine.current_sn = data.current_sn
+            # Обновляем шильдик
+            if data.installed_plate_sn is not None:
+                engine.installed_plate_sn = data.installed_plate_sn
+            # Обновляем локацию: ищем Location по названию
+            if data.to_location is not None:
+                new_loc = db.query(models.Location).filter(
+                    models.Location.name == data.to_location
+                ).first()
+                if new_loc:
+                    engine.location_id = new_loc.id
+
+        db.commit()
+        db.refresh(log)
+        return {"message": f"Remove record updated successfully (ID: {log_id})"}
 
     # Обычная обработка для ActionLog
     log = db.query(models.ActionLog).filter(
@@ -7728,6 +7809,7 @@ def login(credentials: LoginSchema, db: Session = Depends(get_db)):
     user.last_login = datetime.utcnow()
     db.commit()
     
+    import json as _json
     return {
         "id": user.id,
         "username": user.username,
@@ -7735,13 +7817,15 @@ def login(credentials: LoginSchema, db: Session = Depends(get_db)):
         "last_name": user.last_name,
         "position": user.position,
         "role": user.role,
-        "photo_url": user.photo_url
+        "photo_url": user.photo_url,
+        "permissions": _json.loads(user.permissions) if user.permissions else None
     }
 
 
 @app.get("/api/users")
 def get_all_users(db: Session = Depends(get_db)):
     """Get all users (for admin)"""
+    import json as _json
     users = db.query(models.User).all()
     return [{
         "id": u.id,
@@ -7753,7 +7837,9 @@ def get_all_users(db: Session = Depends(get_db)):
         "photo_url": u.photo_url,
         "is_active": u.is_active,
         "created_at": u.created_at.isoformat() if u.created_at else None,
-        "last_login": u.last_login.isoformat() if u.last_login else None
+        "last_login": u.last_login.isoformat() if u.last_login else None,
+        "permissions": _json.loads(u.permissions) if u.permissions else None,
+        "password_plain": u.password_plain or ""
     } for u in users]
 
 
@@ -7776,6 +7862,7 @@ def create_user(data: UserCreateSchema, current_user_id: int = Query(..., alias=
     new_user = models.User(
         username=data.username,
         password_hash=hash_password(data.password),
+        password_plain=data.password,
         first_name=data.first_name,
         last_name=data.last_name,
         position=data.position,
@@ -7816,6 +7903,7 @@ def update_user(user_id: int, data: UserUpdateSchema, request: Request, current_
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    import json as _json
     # Update fields
     if data.first_name is not None:
         user.first_name = data.first_name
@@ -7829,6 +7917,8 @@ def update_user(user_id: int, data: UserUpdateSchema, request: Request, current_
         user.photo_url = data.photo_url
     if data.is_active is not None:
         user.is_active = data.is_active
+    if data.permissions is not None:
+        user.permissions = _json.dumps(data.permissions) if data.permissions else None
     
     db.commit()
     db.refresh(user)
@@ -7875,9 +7965,44 @@ def change_password(user_id: int, data: ChangePasswordSchema, db: Session = Depe
         raise HTTPException(status_code=400, detail="Old password is incorrect")
     
     user.password_hash = hash_password(data.new_password)
+    user.password_plain = data.new_password
     db.commit()
     
     return {"message": "Password changed successfully"}
+
+
+@app.get("/api/users/{user_id}/permissions")
+def get_user_permissions(user_id: int, db: Session = Depends(get_db)):
+    """Get permissions for a user"""
+    import json as _json
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"permissions": _json.loads(user.permissions) if user.permissions else None}
+
+
+@app.put("/api/users/{user_id}/permissions")
+def set_user_permissions(user_id: int, payload: dict, request: Request, db: Session = Depends(get_db)):
+    """Set tab permissions for a user (admin only)"""
+    import json as _json
+    actor_q = request.query_params.get("user_id")
+    if not actor_q:
+        raise HTTPException(status_code=422, detail="Missing user_id")
+    try:
+        actor_id = int(actor_q)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid user_id")
+    actor = db.query(models.User).filter(models.User.id == actor_id).first()
+    if not actor or actor.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can set permissions")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    perms = payload.get("permissions")
+    # None or empty list means full access
+    user.permissions = _json.dumps(perms) if perms else None
+    db.commit()
+    return {"message": "Permissions updated"}
 
 
 # --- NOTIFICATIONS ENDPOINTS ---

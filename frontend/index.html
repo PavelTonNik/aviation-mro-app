@@ -5521,71 +5521,138 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="row g-3">
-                            <div class="col-md-5">
-                                <h6 class="mb-3">Create / Edit User</h6>
-                                <form id="user-form">
-                                    <input type="hidden" id="user-id">
-                                    <div class="mb-2">
-                                        <label class="form-label">Имя *</label>
-                                        <input type="text" class="form-control" id="user-first-name" required>
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="form-label">Фамилия *</label>
-                                        <input type="text" class="form-control" id="user-last-name" required>
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="form-label">Логин (только англ. буквы/цифры) *</label>
-                                        <input type="text" class="form-control" id="user-username" required>
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="form-label">Пароль *</label>
-                                        <input type="password" class="form-control" id="user-password" required>
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="form-label">Позиция</label>
-                                        <input type="text" class="form-control" id="user-position" placeholder="Engineer, Manager...">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Роль *</label>
-                                        <select class="form-select" id="user-role" required>
-                                            <option value="viewer">Viewer</option>
-                                            <option value="user">User</option>
-                                            <option value="admin">Admin</option>
-                                        </select>
-                                    </div>
-                                    <div class="d-flex gap-2">
-                                        <button type="submit" class="btn btn-primary" id="user-submit-btn">Create User</button>
-                                        <button type="button" class="btn btn-secondary" id="user-reset-btn">Reset</button>
-                                    </div>
-                                </form>
+                        <!-- Collapsible form -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <button class="btn btn-outline-primary btn-sm" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#user-form-collapse"
+                                        aria-expanded="false" aria-controls="user-form-collapse"
+                                        id="user-form-toggle-btn">
+                                    <i class="bi bi-plus-circle me-1"></i><span id="user-form-toggle-label">Создать пользователя</span>
+                                </button>
+                                <button class="btn btn-outline-primary btn-sm" id="refresh-users-btn"><i class="bi bi-arrow-repeat"></i></button>
                             </div>
-                            <div class="col-md-7">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="mb-0">Активные пользователи</h6>
-                                    <button class="btn btn-outline-primary btn-sm" id="refresh-users-btn"><i class="bi bi-arrow-repeat"></i></button>
-                                </div>
-                                <div class="table-responsive" style="max-height: 360px;">
-                                    <table class="table table-sm align-middle">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Имя</th>
-                                                <th>Фамилия</th>
-                                                <th>Логин</th>
-                                                <th>Роль</th>
-                                                <th class="text-end">Действия</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="user-table-body"></tbody>
-                                    </table>
+                            <div class="collapse mt-3" id="user-form-collapse">
+                                <div class="card card-body py-3">
+                                    <h6 class="mb-3" id="user-form-heading">Create / Edit User</h6>
+                                    <form id="user-form">
+                                        <input type="hidden" id="user-id">
+                                        <div class="row g-2">
+                                            <div class="col-sm-6 mb-2">
+                                                <label class="form-label">Имя *</label>
+                                                <input type="text" class="form-control" id="user-first-name" required>
+                                            </div>
+                                            <div class="col-sm-6 mb-2">
+                                                <label class="form-label">Фамилия *</label>
+                                                <input type="text" class="form-control" id="user-last-name" required>
+                                            </div>
+                                            <div class="col-sm-6 mb-2">
+                                                <label class="form-label">Логин (только англ. буквы/цифры) *</label>
+                                                <input type="text" class="form-control" id="user-username" required>
+                                            </div>
+                                            <div class="col-sm-6 mb-2">
+                                                <label class="form-label">Пароль *</label>
+                                                <div class="input-group">
+                                                    <input type="password" class="form-control" id="user-password" required>
+                                                    <button type="button" class="btn btn-outline-secondary" onclick="togglePasswordVisibility('user-password', this)" tabindex="-1"><i class="bi bi-eye"></i></button>
+                                                </div>
+                                                <div class="form-text text-muted" id="user-password-hint">&#8212;</div>
+                                            </div>
+                                            <div class="col-sm-6 mb-2">
+                                                <label class="form-label">Позиция</label>
+                                                <input type="text" class="form-control" id="user-position" placeholder="Engineer, Manager...">
+                                            </div>
+                                            <div class="col-sm-6 mb-2">
+                                                <label class="form-label">Роль *</label>
+                                                <select class="form-select" id="user-role" required>
+                                                    <option value="viewer">Viewer</option>
+                                                    <option value="user">User</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex gap-2 mt-2">
+                                            <button type="submit" class="btn btn-primary btn-sm" id="user-submit-btn">Create User</button>
+                                            <button type="button" class="btn btn-secondary btn-sm" id="user-reset-btn">Reset</button>
+                                        </div>
+                                    </form>
                                 </div>
                             </div>
+                        </div>
+                        <!-- Users table -->
+                        <div class="table-responsive" style="max-height: 420px;">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Имя</th>
+                                        <th>Фамилия</th>
+                                        <th>Логин</th>
+                                        <th>Пароль</th>
+                                        <th>Роль</th>
+                                        <th class="text-end">Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="user-table-body"></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-           
+
+        <!-- Permissions Modal -->
+        <div class="modal fade" id="user-permissions-modal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-shield-lock me-2"></i>Access Permissions &mdash; <span id="perm-user-name"></span></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">Uncheck sections to hide them from this user's sidebar. Admin users always have full access.</p>
+                        <div class="mb-2 fw-semibold text-muted small text-uppercase">Quick Actions</div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-add_engine" value="add_engine"><label class="form-check-label" for="perm-add_engine">Add Engine</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-schedules" value="schedules"><label class="form-check-label" for="perm-schedules">Open Schedules</label></div></div>
+                        </div>
+                        <div class="mb-2 fw-semibold text-muted small text-uppercase">Reports</div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-borescope" value="borescope"><label class="form-check-label" for="perm-borescope">Borescope</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-engine_reports" value="engine_reports"><label class="form-check-label" for="perm-engine_reports">Engine Reports</label></div></div>
+                        </div>
+                        <div class="mb-2 fw-semibold text-muted small text-uppercase">Actions</div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-installation" value="installation"><label class="form-check-label" for="perm-installation">Installation</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-remove" value="remove"><label class="form-check-label" for="perm-remove">Remove</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-repair" value="repair"><label class="form-check-label" for="perm-repair">Repair</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-atlb" value="atlb"><label class="form-check-label" for="perm-atlb">Utilization (ATLB)</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-eng_parameters" value="eng_parameters"><label class="form-check-label" for="perm-eng_parameters">ENG Parameters</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-util_parameters" value="util_parameters"><label class="form-check-label" for="perm-util_parameters">Utilization Parameters</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-parts" value="parts"><label class="form-check-label" for="perm-parts">Parts Removal/Installation</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-gss_registry" value="gss_registry"><label class="form-check-label" for="perm-gss_registry">GSS Registry</label></div></div>
+                        </div>
+                        <div class="mb-2 fw-semibold text-muted small text-uppercase">Logistics</div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-engine_shipment" value="engine_shipment"><label class="form-check-label" for="perm-engine_shipment">Engine Shipment</label></div></div>
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-store_balance" value="store_balance"><label class="form-check-label" for="perm-store_balance">Store Balance</label></div></div>
+                        </div>
+                        <div class="mb-2 fw-semibold text-muted small text-uppercase">Management</div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="perm-staff_central" value="staff_central"><label class="form-check-label" for="perm-staff_central">Staff Central</label></div></div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setAllPermissions(true)">Check All</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setAllPermissions(false)">Uncheck All</button>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="perm-save-btn" onclick="saveUserPermissions()"><i class="bi bi-check-lg me-1"></i>Save Permissions</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="container-fluid p-4">
         
                 <!-- Edit Column Name Modal -->
@@ -6238,19 +6305,30 @@
                                     <button class="btn btn-circle btn-success d-none" id="add-row-remove" onclick="addEmptyRowTable('remove')" title="Add Row"><i class="bi bi-plus-lg"></i></button>
                                 </div>
                             </div>
-                            <table class="table table-hover table-bordered table-sm">
-                                <thead class="table-light">
+                            <div class="table-responsive">
+                            <table class="table table-hover table-bordered table-sm" style="min-width: 1400px;">
+                                <thead class="table-light sticky-top">
                                     <tr>
                                         <th class="delete-col-remove" style="width: 40px; display: none;"><i class="bi bi-trash"></i></th>
-                                        <th>Date</th>
-                                        <th>Engine SN</th>
-                                        <th>Removed From (AC)</th>
-                                        <th>Sent To (Loc)</th>
-                                        <th>Reason / Remarks</th>
+                                        <th style="white-space:nowrap;">Date</th>
+                                        <th style="white-space:nowrap;">Orig SN</th>
+                                        <th style="white-space:nowrap;">Current SN</th>
+                                        <th style="white-space:nowrap;">GSS ID</th>
+                                        <th style="white-space:nowrap;">From AC</th>
+                                        <th style="white-space:nowrap;">Sent To</th>
+                                        <th style="white-space:nowrap;">TTSN Eng</th>
+                                        <th style="white-space:nowrap;">TCSN Eng</th>
+                                        <th style="white-space:nowrap;">TTSN AC</th>
+                                        <th style="white-space:nowrap;">TCSN AC</th>
+                                        <th style="white-space:nowrap;">Cond.</th>
+                                        <th style="white-space:nowrap;">Plate SN</th>
+                                        <th style="white-space:nowrap;">Reason</th>
+                                        <th style="white-space:nowrap;">Remarks</th>
                                     </tr>
                                 </thead>
                                 <tbody id="remove-history-body"></tbody>
                             </table>
+                            </div>
                         </div>
                     </div>
                 </div>    
@@ -8538,6 +8616,121 @@
                 <div id="tab-util-param-entry">
                     <div class="card shadow-sm border-0">
                         <div class="card-body">
+                            <div id="daily-excel-sync-sources-block">
+                            <h5 class="mb-4 text-primary"><i class="bi bi-link-45deg"></i> Links</h5>
+                            <div class="row g-3 mb-3">
+                                <!-- BAT -->
+                                <div class="col-md-4">
+                                    <label class="small fw-bold">ER-BAT <span class="text-muted fw-normal">(MSN 23813)</span></label>
+                                    <input type="url" class="form-control form-control-sm" id="util-source-bat" placeholder="Paste Google Sheets / Excel link">
+                                    <div id="util-source-status-bat-wrap" class="mt-1"></div>
+                                    <div class="row g-1 mt-2" id="util-source-found-bat">
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
+                                            <div id="util-found-date-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
+                                            <div id="util-found-ttsn-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
+                                            <div id="util-found-tcsn-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                    </div>
+                                    <div id="util-source-history-bat" class="mt-2"></div>
+                                </div>
+                                <!-- BAR -->
+                                <div class="col-md-4">
+                                    <label class="small fw-bold">ER-BAR <span class="text-muted fw-normal">(MSN 22545)</span></label>
+                                    <input type="url" class="form-control form-control-sm" id="util-source-bar" placeholder="Paste Google Sheets / Excel link">
+                                    <div id="util-source-status-bar-wrap" class="mt-1"></div>
+                                    <div class="row g-1 mt-2" id="util-source-found-bar">
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
+                                            <div id="util-found-date-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
+                                            <div id="util-found-ttsn-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
+                                            <div id="util-found-tcsn-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                    </div>
+                                    <div id="util-source-history-bar" class="mt-2"></div>
+                                </div>
+                                <!-- BAQ -->
+                                <div class="col-md-4">
+                                    <label class="small fw-bold">ER-BAQ <span class="text-muted fw-normal">(MSN 23139)</span></label>
+                                    <input type="url" class="form-control form-control-sm" id="util-source-baq" placeholder="Paste Google Sheets / Excel link">
+                                    <div id="util-source-status-baq-wrap" class="mt-1"></div>
+                                    <div class="row g-1 mt-2" id="util-source-found-baq">
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
+                                            <div id="util-found-date-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
+                                            <div id="util-found-ttsn-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
+                                            <div id="util-found-tcsn-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
+                                        </div>
+                                    </div>
+                                    <div id="util-source-history-baq" class="mt-2"></div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-end gap-2">
+                                <span id="util-source-save-status" class="text-muted small me-2"></span>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-refresh-util-sources" onclick="refreshAircraftUtilSourcePreviews()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                <button type="button" class="btn btn-outline-primary" id="btn-save-util-sources" onclick="saveAircraftUtilSources()"><i class="bi bi-save"></i> Save Links</button>
+                                <button type="button" class="btn btn-primary" id="btn-sync-util-sources" onclick="syncAircraftUtilSourcesNow()"><i class="bi bi-arrow-repeat"></i> Sync Now</button>
+                            </div>
+                            </div>
+
+                            <!-- TOTAL AIRCRAFT UTILIZATION -->
+                            <hr class="my-5">
+                            <h5 class="mb-4 text-primary"><i class="bi bi-airplane"></i> Total Aircraft Utilization</h5>
+                            <form id="form-aircraft-util">
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">Date Aircraft *</label>
+                                        <select class="form-select" id="aircraft-util-ac" required onchange="onAircraftUtilChange()">
+                                            <option value="">Выберите самолет...</option>
+                                            <option value="ER-BAT">ER-BAT</option>
+                                            <option value="ER-BAR">ER-BAR</option>
+                                            <option value="ER-BAQ">ER-BAQ</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">Date *</label>
+                                        <input type="date" class="form-control" id="aircraft-util-date" required>
+                                        <small class="text-muted">По умолчанию сегодняшняя дата</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">Total A/C TTSN *</label>
+                                        <input type="text" class="form-control" id="aircraft-util-ttsn" required placeholder="e.g. 103999:34 or 103999.57">
+                                        <small class="text-muted">Format: HH:MM or decimal</small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="small fw-bold">Total A/C TCSN *</label>
+                                        <input type="number" class="form-control" id="aircraft-util-tcsn" required placeholder="Введите TCSN самолета">
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-end gap-2">
+                                    <button type="button" class="btn btn-success px-4" onclick="submitAircraftUtil()"><i class="bi bi-check-lg"></i> Сохранить</button>
+                                </div>
+                            </form>
+
+                            <!-- PERIOD UTILIZATION -->
+                            <hr class="my-5">
                             <h5 class="mb-4 text-primary"><i class="bi bi-bar-chart-steps"></i> Period Utilization</h5>
                             <form id="form-util-param">
                                 <div class="row mb-4">
@@ -8615,120 +8808,6 @@
                                     <button type="button" class="btn btn-primary px-4" onclick="submitUtilParams()">Сохранить</button>
                                 </div>
                             </form>
-                            
-                            <!-- SECTION 2: TOTAL AIRCRAFT UTILIZATION -->
-                            <hr class="my-5">
-                            <h5 class="mb-4 text-primary"><i class="bi bi-airplane"></i> Total Aircraft Utilization</h5>
-                            <form id="form-aircraft-util">
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <label class="small fw-bold">Date Aircraft *</label>
-                                        <select class="form-select" id="aircraft-util-ac" required onchange="onAircraftUtilChange()">
-                                            <option value="">Выберите самолет...</option>
-                                            <option value="ER-BAT">ER-BAT</option>
-                                            <option value="ER-BAR">ER-BAR</option>
-                                            <option value="ER-BAQ">ER-BAQ</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="small fw-bold">Date *</label>
-                                        <input type="date" class="form-control" id="aircraft-util-date" required>
-                                        <small class="text-muted">По умолчанию сегодняшняя дата</small>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <label class="small fw-bold">Total A/C TTSN *</label>
-                                        <input type="text" class="form-control" id="aircraft-util-ttsn" required placeholder="e.g. 103999:34 or 103999.57">
-                                        <small class="text-muted">Format: HH:MM or decimal</small>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="small fw-bold">Total A/C TCSN *</label>
-                                        <input type="number" class="form-control" id="aircraft-util-tcsn" required placeholder="Введите TCSN самолета">
-                                    </div>
-                                </div>
-                                
-                                <div class="d-flex justify-content-end gap-2">
-                                    <button type="button" class="btn btn-success px-4" onclick="submitAircraftUtil()"><i class="bi bi-check-lg"></i> Сохранить</button>
-                                </div>
-                            </form>
-
-                            <div id="daily-excel-sync-sources-block">
-                            <hr class="my-5">
-                            <h5 class="mb-4 text-primary"><i class="bi bi-link-45deg"></i> Links</h5>
-                            <div class="row g-3 mb-3">
-                                <!-- BAT -->
-                                <div class="col-md-4">
-                                    <label class="small fw-bold">ER-BAT <span class="text-muted fw-normal">(MSN 23813)</span></label>
-                                    <input type="url" class="form-control form-control-sm" id="util-source-bat" placeholder="Paste Google Sheets / Excel link">
-                                    <div id="util-source-status-bat-wrap" class="mt-1"></div>
-                                    <div class="row g-1 mt-2" id="util-source-found-bat">
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
-                                            <div id="util-found-date-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
-                                            <div id="util-found-ttsn-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
-                                            <div id="util-found-tcsn-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                    </div>
-                                    <div id="util-source-history-bat" class="mt-2"></div>
-                                </div>
-                                <!-- BAR -->
-                                <div class="col-md-4">
-                                    <label class="small fw-bold">ER-BAR <span class="text-muted fw-normal">(MSN 22545)</span></label>
-                                    <input type="url" class="form-control form-control-sm" id="util-source-bar" placeholder="Paste Google Sheets / Excel link">
-                                    <div id="util-source-status-bar-wrap" class="mt-1"></div>
-                                    <div class="row g-1 mt-2" id="util-source-found-bar">
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
-                                            <div id="util-found-date-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
-                                            <div id="util-found-ttsn-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
-                                            <div id="util-found-tcsn-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                    </div>
-                                    <div id="util-source-history-bar" class="mt-2"></div>
-                                </div>
-                                <!-- BAQ -->
-                                <div class="col-md-4">
-                                    <label class="small fw-bold">ER-BAQ <span class="text-muted fw-normal">(MSN 23139)</span></label>
-                                    <input type="url" class="form-control form-control-sm" id="util-source-baq" placeholder="Paste Google Sheets / Excel link">
-                                    <div id="util-source-status-baq-wrap" class="mt-1"></div>
-                                    <div class="row g-1 mt-2" id="util-source-found-baq">
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
-                                            <div id="util-found-date-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
-                                            <div id="util-found-ttsn-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
-                                            <div id="util-found-tcsn-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                    </div>
-                                    <div id="util-source-history-baq" class="mt-2"></div>
-                                </div>
-                            </div>
-                            <div class="d-flex align-items-center justify-content-end gap-2">
-                                <span id="util-source-save-status" class="text-muted small me-2"></span>
-                                <button type="button" class="btn btn-outline-secondary" id="btn-refresh-util-sources" onclick="refreshAircraftUtilSourcePreviews()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
-                                <button type="button" class="btn btn-outline-primary" id="btn-save-util-sources" onclick="saveAircraftUtilSources()"><i class="bi bi-save"></i> Save Links</button>
-                                <button type="button" class="btn btn-primary" id="btn-sync-util-sources" onclick="syncAircraftUtilSourcesNow()"><i class="bi bi-arrow-repeat"></i> Sync Now</button>
-                            </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -16126,7 +16205,7 @@ function onGssInputChange(engines) {
     async function loadRemoveHistory() {
         const tbody = document.getElementById('remove-history-body');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Loading…</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-3">Loading…</td></tr>';
 
         let res = await safeFetch('/api/history/REMOVE' + noCache());
         if (!res || !res.ok) res = await safeFetch('/api/history/REMOVE');
@@ -16146,7 +16225,7 @@ function onGssInputChange(engines) {
         tbody.innerHTML = '';
         if(allData.length === 0) {
             console.warn('⚠️ No REMOVE history found');
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No history found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="15" class="text-center text-muted">No history found</td></tr>';
             return;
         }
         
@@ -16154,69 +16233,39 @@ function onGssInputChange(engines) {
         allData.sort((a, b) => (b.id || 0) - (a.id || 0));
         allData.forEach(row => {
             const isTest = row.isTest ? 'table-warning' : '';
-            const ttsnText = row.ttsn !== null && row.ttsn !== undefined ? `${formatFlightTime(row.ttsn)}` : '-';
-            const tcsnText = row.tcsn !== null && row.tcsn !== undefined ? `${row.tcsn}` : '-';
-            const ttsnAcText = row.ttsn_ac !== null && row.ttsn_ac !== undefined ? `${formatFlightTime(row.ttsn_ac)}` : '-';
-            const tcsnAcText = row.tcsn_ac !== null && row.tcsn_ac !== undefined ? `${row.tcsn_ac}` : '-';
-            const remarksRemovalText = row.remarks_removal ? `${row.remarks_removal}` : '-';
-            const conditionText = row.condition_1_at_removal || '-';
-            const gssIdText = row.gss_id || '-';
-            const installedPlateText = row.installed_plate_sn || row.current_sn || '-';
-            
-            console.log('📝 Rendering row:', row);
-            
+            const ttsnText   = row.ttsn    != null ? formatFlightTime(row.ttsn)    : '-';
+            const tcsnText   = row.tcsn    != null ? row.tcsn                      : '-';
+            const ttsnAcText = row.ttsn_ac != null ? formatFlightTime(row.ttsn_ac) : '-';
+            const tcsnAcText = row.tcsn_ac != null ? row.tcsn_ac                   : '-';
+            const conditionText     = row.condition_1_at_removal || '-';
+            const condBadgeColor    = conditionText === 'SV' ? 'info' : conditionText === 'US' ? 'warning' : conditionText === 'Scrap' ? 'danger' : 'secondary';
+            const gssIdText         = row.gss_id || '-';
+            const installedPlateText = row.installed_plate_sn || '-';
+            const reasonText        = row.comments || '-';
+            const remarksText       = row.remarks_removal || row.remarks || '-';
+            const fromAcText        = row.to_aircraft || '-';
+            const origSnText        = row.original_sn || '-';
+            const currSnText        = row.current_sn  || row.original_sn || '-';
+
             tbody.innerHTML += `
-                <tr class="${isTest}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}" onclick="toggleRemovalDetails(this)" style="cursor: pointer;">
+                <tr class="${isTest}" data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || ''}">
                     <td class="delete-col-remove" style="display: none;">
-                        <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('REMOVE', ${row.id || 0}, '${row.current_sn || row.original_sn}'); event.stopPropagation();" title="Delete">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('REMOVE', ${row.id || 0}, '${(row.current_sn || row.original_sn || '').replace(/'/g, '')}')" title="Delete"><i class="bi bi-trash"></i></button>
                     </td>
-                    <td>${row.date}</td>
-                    <td><strong>${row.current_sn || row.original_sn}</strong></td>
-                    <td>${row.to_aircraft || row.from || '-'}</td>
-                    <td><span class="badge bg-success text-white" style="color: #ffffff !important;">${row.to || '-'}</span></td>
-                    <td>${row.remarks||'-'}</td>
-                </tr>
-                <tr class="removal-details-row" style="display: none;">
-                    <td colspan="6" class="bg-light p-4">
-                        <div class="container-fluid">
-                            <h6 class="mb-3 border-bottom pb-2"><i class="bi bi-info-circle"></i> Engine Removal Details</h6>
-                            
-                            <div class="row mb-3">
-                                <div class="col-md-3"><strong>Date:</strong> <span class="badge bg-info text-white">${row.date || '-'}</span></div>
-                                <div class="col-md-3"><strong>Original SN:</strong> <span class="text-monospace">${row.original_sn || '-'}</span></div>
-                                <div class="col-md-3"><strong>Current SN:</strong> <span class="text-monospace">${row.current_sn || '-'}</span></div>
-                                <div class="col-md-3"><strong>GSS ID:</strong> <span class="badge bg-primary text-white">${gssIdText}</span></div>
-                            </div>
-                            
-                            <div class="row mb-3">
-                                <div class="col-md-4"><strong>From Aircraft:</strong> <span class="badge bg-secondary text-white">${row.to_aircraft || '-'}</span></div>
-                                <div class="col-md-4"><strong>From Location:</strong> <span class="badge bg-secondary text-white">${row.from || '-'}</span></div>
-                                <div class="col-md-4"><strong>Sent To:</strong> <span class="badge bg-success text-white">${row.to || '-'}</span></div>
-                            </div>
-                            
-                            <div class="row mb-3">
-                                <div class="col-md-3"><strong>Removed Engine Flight:</strong> <span class="badge bg-warning text-white">${ttsnText}</span></div>
-                                <div class="col-md-3"><strong>Removed Engine Cycles:</strong> <span class="badge bg-warning text-white">${tcsnText}</span></div>
-                                <div class="col-md-3"><strong>TTSN (Aircraft):</strong> <span class="badge bg-warning text-white">${ttsnAcText}</span></div>
-                                <div class="col-md-3"><strong>TCSN (Aircraft):</strong> <span class="badge bg-warning text-white">${tcsnAcText}</span></div>
-                            </div>
-                            
-                            <div class="row mb-3">
-                                <div class="col-md-4"><strong>Condition 1:</strong> <span class="badge bg-info text-white">${conditionText}</span></div>
-                                <div class="col-md-4"><strong>Installed Plate SN:</strong> <span class="text-monospace">${installedPlateText}</span></div>
-                                <div class="col-md-4"><strong>Reason:</strong> <span>${row.comments || '-'}</span></div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <strong>Remarks:</strong>
-                                    <p class="border-start ps-3 text-muted">${remarksRemovalText}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </td>
+                    <td style="white-space:nowrap;">${row.date || '-'}</td>
+                    <td style="white-space:nowrap;"><span class="font-monospace">${origSnText}</span></td>
+                    <td style="white-space:nowrap;"><strong>${currSnText}</strong></td>
+                    <td style="white-space:nowrap;">${gssIdText !== '-' ? `<span class="badge bg-primary">${gssIdText}</span>` : '-'}</td>
+                    <td style="white-space:nowrap;">${fromAcText !== '-' ? `<span class="badge bg-secondary">${fromAcText}</span>` : '-'}</td>
+                    <td style="white-space:nowrap;">${row.to ? `<span class="badge bg-success">${row.to}</span>` : '-'}</td>
+                    <td style="white-space:nowrap;" data-raw="${row.ttsn != null ? row.ttsn : ''}">${ttsnText !== '-' ? `<span class="badge bg-warning text-dark">${ttsnText}</span>` : '-'}</td>
+                    <td style="white-space:nowrap;" data-raw="${row.tcsn != null ? row.tcsn : ''}">${tcsnText !== '-' ? `<span class="badge bg-warning text-dark">${tcsnText}</span>` : '-'}</td>
+                    <td style="white-space:nowrap;" data-raw="${row.ttsn_ac != null ? row.ttsn_ac : ''}">${ttsnAcText !== '-' ? `<span class="badge bg-warning text-dark">${ttsnAcText}</span>` : '-'}</td>
+                    <td style="white-space:nowrap;" data-raw="${row.tcsn_ac != null ? row.tcsn_ac : ''}">${tcsnAcText !== '-' ? `<span class="badge bg-warning text-dark">${tcsnAcText}</span>` : '-'}</td>
+                    <td style="white-space:nowrap;"><span class="badge bg-${condBadgeColor}">${conditionText}</span></td>
+                    <td style="white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${installedPlateText}">${installedPlateText}</td>
+                    <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${reasonText}">${reasonText}</td>
+                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${remarksText}">${remarksText}</td>
                 </tr>`;
         });
     }
@@ -17662,9 +17711,22 @@ function onGssInputChange(engines) {
         },
         'remove': {
             bodyId: 'remove-history-body',
-            columns: ['date', 'current_sn', 'from', 'to', 'remarks'],
+            columns: ['date', 'original_sn', 'current_sn', 'gss_id', 'to_aircraft', 'to', 'ttsn', 'tcsn', 'ttsn_ac', 'tcsn_ac', 'condition_1_at_removal', 'installed_plate_sn', 'comments', 'remarks_removal'],
             columnTypes: {
-                date: 'date'
+                date: 'date',
+                ttsn: 'number',
+                tcsn: 'number',
+                ttsn_ac: 'number',
+                tcsn_ac: 'number',
+                condition_1_at_removal: 'select'
+            },
+            selectOptions: {
+                condition_1_at_removal: [
+                    { value: 'SV', label: 'SV' },
+                    { value: 'US', label: 'US' },
+                    { value: 'Scrap', label: 'Scrap' },
+                    { value: 'BLK', label: 'BLK' }
+                ]
             },
             reloadFunction: loadRemoveHistory,
             hasDeleteCol: true,
@@ -18059,7 +18121,12 @@ function onGssInputChange(engines) {
                         cleanValue = cell.innerText.trim();
                     }
                 } else {
-                    cleanValue = cell.textContent.trim();
+                    // Use data-raw if present (e.g. formatted HH:MM numeric values)
+                    if (cell.hasAttribute('data-raw')) {
+                        cleanValue = cell.getAttribute('data-raw');
+                    } else {
+                        cleanValue = cell.textContent.trim();
+                    }
                 }
                 
                 // Для столбца Link извлекаем URL из data-link или href
@@ -18420,6 +18487,22 @@ function onGssInputChange(engines) {
                     inspector: rowData.inspector || null,
                     comment: rowData.comment || null,
                     file_url: rowData.link || null
+                };
+            } else if (tableName === 'remove') {
+                // Специальный маппинг для Remove history
+                apiData = {
+                    date: rowData.date || null,
+                    current_sn: rowData.current_sn || null,
+                    to_aircraft: rowData.to_aircraft || null,
+                    to_location: rowData.to || null,
+                    ttsn: rowData.ttsn !== '' && rowData.ttsn != null ? parseFloat(rowData.ttsn) : null,
+                    tcsn: rowData.tcsn !== '' && rowData.tcsn != null ? parseInt(rowData.tcsn) : null,
+                    ttsn_ac: rowData.ttsn_ac !== '' && rowData.ttsn_ac != null ? parseFloat(rowData.ttsn_ac) : null,
+                    tcsn_ac: rowData.tcsn_ac !== '' && rowData.tcsn_ac != null ? parseInt(rowData.tcsn_ac) : null,
+                    condition_1_at_removal: rowData.condition_1_at_removal || null,
+                    installed_plate_sn: rowData.installed_plate_sn || null,
+                    comments: rowData.comments || null,
+                    remarks_removal: rowData.remarks_removal || null
                 };
             } else {
                 // Универсальный маппинг для остальных таблиц
@@ -21364,16 +21447,6 @@ function onGssInputChange(engines) {
         document.getElementById('view-utilization-param').style.display = 'block';
         updateHistory('utilization-param');
 
-        const dailySyncBlock = document.getElementById('daily-excel-sync-sources-block');
-        const periodicForm = document.getElementById('form-util-param');
-        const aircraftForm = document.getElementById('form-aircraft-util');
-        if (dailySyncBlock && periodicForm && periodicForm.parentElement) {
-            periodicForm.parentElement.insertBefore(dailySyncBlock, periodicForm);
-        }
-        if (aircraftForm && periodicForm) {
-            aircraftForm.insertAdjacentElement('afterend', periodicForm);
-        }
-        
         // Устанавливаем сегодняшнюю дату по умолчанию для обеих форм
         document.getElementById('util-param-date').valueAsDate = new Date();
         document.getElementById('aircraft-util-date').valueAsDate = new Date();
@@ -21632,12 +21705,18 @@ function onGssInputChange(engines) {
         if (statusEl) statusEl.textContent = '';
         if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...'; }
 
+        const targets = [
+            { tail: 'bat', aircraft_tail_number: 'ER-BAT', inputId: 'util-source-bat', label: 'ER-BAT' },
+            { tail: 'bar', aircraft_tail_number: 'ER-BAR', inputId: 'util-source-bar', label: 'ER-BAR' },
+            { tail: 'baq', aircraft_tail_number: 'ER-BAQ', inputId: 'util-source-baq', label: 'ER-BAQ' },
+        ];
+
         const payload = {
-            items: [
-                { aircraft_tail_number: 'ER-BAT', source_url: document.getElementById('util-source-bat')?.value.trim() || '', is_enabled: true },
-                { aircraft_tail_number: 'ER-BAR', source_url: document.getElementById('util-source-bar')?.value.trim() || '', is_enabled: true },
-                { aircraft_tail_number: 'ER-BAQ', source_url: document.getElementById('util-source-baq')?.value.trim() || '', is_enabled: true }
-            ]
+            items: targets.map(t => ({
+                aircraft_tail_number: t.aircraft_tail_number,
+                source_url: document.getElementById(t.inputId)?.value.trim() || '',
+                is_enabled: true
+            }))
         };
 
         try {
@@ -21651,15 +21730,27 @@ function onGssInputChange(engines) {
                 throw new Error(error.detail || 'Failed to save source links');
             }
             if (statusEl) { statusEl.textContent = '✓ Saved!'; statusEl.className = 'text-success small me-2 fw-bold'; }
-            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save"></i> Save Links'; }
-            showSuccessNotification('Links saved successfully');
+            showSuccessNotification('Links saved');
+
+            // Load DB first (refreshes history rows), then preview each link for real status
             await loadAircraftUtilSources();
+
+            const active = targets.filter(t => document.getElementById(t.inputId)?.value?.trim());
+            let done = 0;
+            for (const item of active) {
+                const url = document.getElementById(item.inputId).value.trim();
+                if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Checking ${item.label} (${done + 1}/${active.length})...`;
+                try { await previewExcelUrl(item.tail, url); } catch (err) { console.error(`Preview error ${item.label}:`, err); }
+                done++;
+            }
+
             setTimeout(() => { if (statusEl) { statusEl.textContent = ''; statusEl.className = 'text-muted small me-2'; } }, 4000);
         } catch (err) {
             console.error('Error saving aircraft utilization sources:', err);
             if (statusEl) { statusEl.textContent = '✗ Error: ' + err.message; statusEl.className = 'text-danger small me-2'; }
+            showErrorNotification('Error saving links: ' + err.message);
+        } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save"></i> Save Links'; }
-            showErrorNotification('Error saving Excel links: ' + err.message);
         }
     }
 
@@ -21682,6 +21773,9 @@ function onGssInputChange(engines) {
             btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Refreshing...`;
         }
 
+        // Load saved DB data first so history is fresh before previews overwrite status
+        await loadAircraftUtilSources();
+
         let done = 0;
         let errors = 0;
         // Sequential: one by one to avoid server overload
@@ -21696,9 +21790,6 @@ function onGssInputChange(engines) {
             }
             done++;
         }
-
-        // Always reload saved data from DB so status/dates are fresh
-        await loadAircraftUtilSources();
 
         if (errors > 0 && errors < active.length) {
             showErrorNotification(`Refresh done with ${errors} error(s). Showing last saved data.`);
@@ -22674,6 +22765,32 @@ function applyRolePermissions() {
     // Hide Users button for non-admins (safety)
     const usersBtn = document.getElementById('add-user-btn');
     if (!isAdmin() && usersBtn) usersBtn.style.display = 'none';
+
+    // Apply per-user sidebar permissions (admin always has full access)
+    if (!isAdmin() && currentUser && Array.isArray(currentUser.permissions)) {
+        const perms = currentUser.permissions;
+        const sidebarMap = {
+            'add_engine':       'a[onclick*="openMainEngineView"]',
+            'schedules':        'a[onclick*="openSchedulesModal"]',
+            'borescope':        'a[onclick*="openBoroscopeView"]',
+            'engine_reports':   'a[onclick*="openEngineReportsView"]',
+            'installation':     'a[onclick*="openInstallView"]',
+            'remove':           'a[onclick*="openRemoveView"]',
+            'repair':           'a[onclick*="openRepairView"]',
+            'atlb':             'a[onclick*="openAtlbView"]',
+            'eng_parameters':   'a[onclick*="openEngParamView"]',
+            'util_parameters':  'a[onclick*="openUtilizationParamView"]',
+            'parts':            'a[onclick*="openPartsView"]',
+            'gss_registry':     'a[onclick*="openGSSModal"]',
+            'engine_shipment':  'a[onclick*="openShipmentView"]',
+            'store_balance':    'a[onclick*="openStoreBalanceView"]',
+            'staff_central':    'a[onclick*="openStaffCentralView"]',
+        };
+        Object.entries(sidebarMap).forEach(([key, selector]) => {
+            const el = document.querySelector(selector);
+            if (el) el.style.display = perms.includes(key) ? '' : 'none';
+        });
+    }
 
     // Hide Nameplate Tracker for viewers (admin only)
     if (isViewer()) {
@@ -23826,6 +23943,15 @@ function resetUserForm() {
     document.getElementById('user-position').value = '';
     document.getElementById('user-role').value = 'viewer';
     document.getElementById('user-submit-btn').textContent = 'Create User';
+    // Collapse form and reset label
+    const collapse = document.getElementById('user-form-collapse');
+    const label = document.getElementById('user-form-toggle-label');
+    if (collapse && collapse.classList.contains('show')) {
+        new bootstrap.Collapse(collapse, {toggle: false}).hide();
+        const toggleBtn = document.getElementById('user-form-toggle-btn');
+        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+    if (label) label.textContent = 'Создать пользователя';
 }
 
 function validateUsername(username) {
@@ -23891,19 +24017,42 @@ async function loadUsersList() {
 function renderUsersTable(users) {
     const tbody = document.getElementById('user-table-body');
     if (!tbody) return;
-    tbody.innerHTML = users.map(u => `
+    tbody.innerHTML = users.map(u => {
+        const hasRestrictions = Array.isArray(u.permissions) && u.permissions.length > 0;
+        const permBadge = u.role === 'admin' ? '' : (hasRestrictions ? '<span class="badge bg-warning text-dark ms-1" title="Custom permissions set"><i class="bi bi-shield-lock"></i></span>' : '<span class="badge bg-success ms-1" title="Full access"><i class="bi bi-shield-check"></i></span>');
+        const pwdVal = escapeHtml(u.password_plain || '');
+        return `
         <tr>
             <td>${u.first_name}</td>
             <td>${u.last_name}</td>
             <td>${u.username}</td>
-            <td><span class="badge bg-${u.role === 'admin' ? 'danger' : u.role === 'user' ? 'primary' : 'secondary'}">${u.role}</span></td>
-            <td class="text-end">
-                <button class="btn btn-outline-secondary btn-sm me-1" onclick="editUser(${u.id})"><i class="bi bi-pencil"></i></button>
-                <button class="btn btn-outline-warning btn-sm me-1" onclick="resetUserPassword(${u.id})"><i class="bi bi-key"></i></button>
-                <button class="btn btn-outline-danger btn-sm" onclick="deleteUser(${u.id})"><i class="bi bi-trash"></i></button>
+            <td>
+                <span class="user-pwd-mask" id="pwd-${u.id}">•••••</span>
+                <button class="btn btn-link btn-sm p-0 ms-1" data-pwd="${pwdVal}" onclick="toggleUserPwd(this, 'pwd-${u.id}')" title="Показать/скрыть пароль"><i class="bi bi-eye"></i></button>
             </td>
-        </tr>
-    `).join('');
+            <td><span class="badge bg-${u.role === 'admin' ? 'danger' : u.role === 'user' ? 'primary' : 'secondary'}">${u.role}</span>${permBadge}</td>
+            <td class="text-end">
+                <button class="btn btn-outline-secondary btn-sm me-1" onclick="editUser(${u.id})" title="Edit"><i class="bi bi-pencil"></i></button>
+                ${u.role !== 'admin' ? `<button class="btn btn-outline-info btn-sm me-1" onclick="openPermissionsModal(${u.id})" title="Permissions"><i class="bi bi-shield-lock"></i></button>` : ''}
+                <button class="btn btn-outline-warning btn-sm me-1" onclick="resetUserPassword(${u.id})" title="Reset password"><i class="bi bi-key"></i></button>
+                <button class="btn btn-outline-danger btn-sm" onclick="deleteUser(${u.id})" title="Delete"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function toggleUserPwd(btn, spanId) {
+    const span = document.getElementById(spanId);
+    if (!span) return;
+    const pwd = btn.getAttribute('data-pwd') || '';
+    const icon = btn.querySelector('i');
+    if (span.textContent === '•••••') {
+        span.textContent = pwd || '(не задан)';
+        if (icon) icon.className = 'bi bi-eye-slash';
+    } else {
+        span.textContent = '•••••';
+        if (icon) icon.className = 'bi bi-eye';
+    }
 }
 
 function editUser(id) {
@@ -23918,6 +24067,16 @@ function editUser(id) {
     document.getElementById('user-role').value = user.role;
     document.getElementById('user-password').value = '';
     document.getElementById('user-submit-btn').textContent = 'Save User';
+    // Auto-expand the form
+    const collapse = document.getElementById('user-form-collapse');
+    const label = document.getElementById('user-form-toggle-label');
+    if (collapse && !collapse.classList.contains('show')) {
+        new bootstrap.Collapse(collapse, {toggle: false}).show();
+        const toggleBtn = document.getElementById('user-form-toggle-btn');
+        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+    }
+    if (label) label.textContent = 'Редактировать: ' + user.first_name + ' ' + user.last_name;
+    collapse?.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
 async function resetUserPassword(id) {
@@ -23962,6 +24121,86 @@ async function deleteUser(id) {
         await loadUsersList();
     } catch (error) {
         showErrorNotification(error.message);
+    }
+}
+
+// === PASSWORD VISIBILITY TOGGLE ===
+function togglePasswordVisibility(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerHTML = '<i class="bi bi-eye-slash"></i>';
+    } else {
+        input.type = 'password';
+        btn.innerHTML = '<i class="bi bi-eye"></i>';
+    }
+}
+
+// === USER PERMISSIONS MANAGEMENT ===
+let permissionsTargetUserId = null;
+const ALL_PERMISSION_KEYS = [
+    'add_engine', 'schedules', 'borescope', 'engine_reports',
+    'installation', 'remove', 'repair', 'atlb', 'eng_parameters',
+    'util_parameters', 'parts', 'gss_registry',
+    'engine_shipment', 'store_balance', 'staff_central'
+];
+
+function openPermissionsModal(userId) {
+    const user = userCache.find(u => u.id === userId);
+    if (!user) return;
+    permissionsTargetUserId = userId;
+    document.getElementById('perm-user-name').textContent = `${user.first_name} ${user.last_name}`;
+
+    // Determine which boxes to check: null = all access (check all), array = only those in array
+    const perms = user.permissions; // null or array
+    ALL_PERMISSION_KEYS.forEach(key => {
+        const cb = document.getElementById('perm-' + key);
+        if (cb) cb.checked = (perms === null || perms.includes(key));
+    });
+
+    const modalEl = document.getElementById('user-permissions-modal');
+    if (modalEl) new bootstrap.Modal(modalEl).show();
+}
+
+function setAllPermissions(checked) {
+    ALL_PERMISSION_KEYS.forEach(key => {
+        const cb = document.getElementById('perm-' + key);
+        if (cb) cb.checked = checked;
+    });
+}
+
+async function saveUserPermissions() {
+    if (!permissionsTargetUserId) return;
+    const checked = ALL_PERMISSION_KEYS.filter(key => {
+        const cb = document.getElementById('perm-' + key);
+        return cb && cb.checked;
+    });
+    // If all checked, save null (full access); otherwise save the selected list
+    const perms = checked.length === ALL_PERMISSION_KEYS.length ? null : checked;
+    const btn = document.getElementById('perm-save-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...'; }
+    try {
+        const response = await fetch(`/api/users/${permissionsTargetUserId}/permissions?user_id=${currentUser.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permissions: perms })
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to save permissions');
+        }
+        showSuccessNotification('Permissions saved');
+        // Update local cache
+        const u = userCache.find(u => u.id === permissionsTargetUserId);
+        if (u) u.permissions = perms;
+        renderUsersTable(userCache);
+        const modalEl = document.getElementById('user-permissions-modal');
+        if (modalEl) bootstrap.Modal.getInstance(modalEl)?.hide();
+    } catch (err) {
+        showErrorNotification(err.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save Permissions'; }
     }
 }
 

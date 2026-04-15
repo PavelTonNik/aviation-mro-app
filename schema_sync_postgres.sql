@@ -321,4 +321,19 @@ BEGIN
     END IF;
 END$$;
 
-
+-- Add permissions column to users table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='permissions'
+    ) THEN
+        ALTER TABLE users ADD COLUMN permissions text;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='password_plain'
+    ) THEN
+        ALTER TABLE users ADD COLUMN password_plain varchar;
+    END IF;
+END$$;
