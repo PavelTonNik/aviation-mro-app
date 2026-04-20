@@ -4991,6 +4991,12 @@
         #sc-delete-modal.show { z-index: 1095 !important; }
         body.sc-delete-open .modal-backdrop.show { z-index: 1090 !important; }
 
+        /* File preview / picker must sit above the staff drawer (z-index:1060) */
+        #sc-file-picker-modal { z-index: 1080 !important; }
+        #sc-file-preview-modal { z-index: 1085 !important; }
+        body.sc-picker-open .modal-backdrop { z-index: 1079 !important; }
+        body.sc-preview-open .modal-backdrop { z-index: 1084 !important; }
+
         @media (max-width: 768px) {
             .sc-page-header { padding: 1.1rem; }
             .sc-page-header h4 { font-size: 1.55rem; }
@@ -7301,7 +7307,6 @@
                                 </select>
                             </div>
                             <div class="col-lg-2 text-lg-end">
-                                <span class="sc-header-chip"><i class="bi bi-fingerprint"></i> Audit-ready</span>
                             </div>
                         </div>
                     </div>
@@ -7550,10 +7555,10 @@
                                 <input type="file" id="sc-cert-file-input" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" multiple class="d-none" onchange="handleStaffAssetSelection(this.files, document.getElementById('sc-cert-category').value || 'certificate')">
                                 <div class="sc-upload-zone" id="sc-cert-drop" onclick="document.getElementById('sc-cert-file-input').click()">
                                     <i class="bi bi-file-earmark-arrow-up"></i>
-                                    <div class="fw-bold mt-2">Drop certificate/document file here</div>
-                                    <div class="small text-muted">Supported: PDF, JPG, PNG, WEBP, GIF</div>
+                                    <div class="fw-bold mt-2">Drop files here (up to 4)</div>
+                                    <div class="small text-muted">PDF, JPG, PNG, WEBP, DOC, XLS</div>
                                 </div>
-                                <div id="sc-cert-upload-preview" class="sc-upload-meta mt-3"><small>No uploaded file selected</small></div>
+                                <div id="sc-cert-upload-preview" class="sc-upload-meta mt-3"><small>No files selected</small></div>
                             </div>
                         </div>
                         <div class="d-flex justify-content-end gap-2 mt-4">
@@ -7692,6 +7697,36 @@
                             <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                             <button class="btn btn-danger" id="sc-delete-confirm-btn">Delete</button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Preview Lightbox -->
+            <div class="modal fade" id="sc-file-preview-modal" tabindex="-1" style="z-index:1085;">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h6 class="modal-title mb-0" id="sc-file-preview-title"><i class="bi bi-eye me-2"></i>Preview</h6>
+                            <div class="d-flex gap-2 ms-auto me-2">
+                                <a id="sc-file-preview-download" href="#" class="btn btn-sm btn-outline-success"><i class="bi bi-download me-1"></i>Download</a>
+                                <button id="sc-file-preview-print" class="btn btn-sm btn-outline-secondary" onclick="printStaffAsset(document.getElementById('sc-file-preview-download').href)"><i class="bi bi-printer me-1"></i>Print</button>
+                            </div>
+                            <button class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-0 bg-dark" id="sc-file-preview-body" style="min-height:70vh;display:flex;align-items:center;justify-content:center;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Picker (multiple files selector) -->
+            <div class="modal fade" id="sc-file-picker-modal" tabindex="-1" style="z-index:1080;">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h6 class="modal-title mb-0"><i class="bi bi-files me-2"></i>Выберите файл для просмотра</h6>
+                            <button class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body" id="sc-file-picker-body"></div>
                     </div>
                 </div>
             </div>
@@ -8624,20 +8659,34 @@
                                     <label class="small fw-bold">ER-BAT <span class="text-muted fw-normal">(MSN 23813)</span></label>
                                     <input type="url" class="form-control form-control-sm" id="util-source-bat" placeholder="Paste Google Sheets / Excel link">
                                     <div id="util-source-status-bat-wrap" class="mt-1"></div>
-                                    <div class="row g-1 mt-2" id="util-source-found-bat">
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
-                                            <div id="util-found-date-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
-                                            <div id="util-found-ttsn-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
-                                            <div id="util-found-tcsn-bat" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                    </div>
+                                    <table class="table table-bordered table-sm mt-2 mb-0" id="util-source-found-bat" style="font-size:0.78rem;">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Date</th><th>TTSN</th><th>TCSN</th><th>ATLB Sheet</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td id="util-found-date-bat" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-ttsn-bat" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-tcsn-bat" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-atlb-bat" class="fw-semibold">&#8212;</td>
+                                            </tr>
+                                        </tbody>
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>ENG1 Oil</th><th>ENG2 Oil</th><th>ENG3 Oil</th><th>ENG4 Oil</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td id="util-found-eng1-bat" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-eng2-bat" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-eng3-bat" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-eng4-bat" class="fw-semibold">&#8212;</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                     <div id="util-source-history-bat" class="mt-2"></div>
                                 </div>
                                 <!-- BAR -->
@@ -8645,20 +8694,34 @@
                                     <label class="small fw-bold">ER-BAR <span class="text-muted fw-normal">(MSN 22545)</span></label>
                                     <input type="url" class="form-control form-control-sm" id="util-source-bar" placeholder="Paste Google Sheets / Excel link">
                                     <div id="util-source-status-bar-wrap" class="mt-1"></div>
-                                    <div class="row g-1 mt-2" id="util-source-found-bar">
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
-                                            <div id="util-found-date-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
-                                            <div id="util-found-ttsn-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
-                                            <div id="util-found-tcsn-bar" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                    </div>
+                                    <table class="table table-bordered table-sm mt-2 mb-0" id="util-source-found-bar" style="font-size:0.78rem;">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Date</th><th>TTSN</th><th>TCSN</th><th>ATLB Sheet</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td id="util-found-date-bar" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-ttsn-bar" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-tcsn-bar" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-atlb-bar" class="fw-semibold">&#8212;</td>
+                                            </tr>
+                                        </tbody>
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>ENG1 Oil</th><th>ENG2 Oil</th><th>ENG3 Oil</th><th>ENG4 Oil</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td id="util-found-eng1-bar" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-eng2-bar" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-eng3-bar" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-eng4-bar" class="fw-semibold">&#8212;</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                     <div id="util-source-history-bar" class="mt-2"></div>
                                 </div>
                                 <!-- BAQ -->
@@ -8666,20 +8729,34 @@
                                     <label class="small fw-bold">ER-BAQ <span class="text-muted fw-normal">(MSN 23139)</span></label>
                                     <input type="url" class="form-control form-control-sm" id="util-source-baq" placeholder="Paste Google Sheets / Excel link">
                                     <div id="util-source-status-baq-wrap" class="mt-1"></div>
-                                    <div class="row g-1 mt-2" id="util-source-found-baq">
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">Date found</div>
-                                            <div id="util-found-date-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TTSN</div>
-                                            <div id="util-found-ttsn-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <div class="text-muted" style="font-size:0.72rem;">TCSN</div>
-                                            <div id="util-found-tcsn-baq" class="fw-semibold" style="font-size:0.9rem;min-height:1.4em;">&#8212;</div>
-                                        </div>
-                                    </div>
+                                    <table class="table table-bordered table-sm mt-2 mb-0" id="util-source-found-baq" style="font-size:0.78rem;">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Date</th><th>TTSN</th><th>TCSN</th><th>ATLB Sheet</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td id="util-found-date-baq" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-ttsn-baq" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-tcsn-baq" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-atlb-baq" class="fw-semibold">&#8212;</td>
+                                            </tr>
+                                        </tbody>
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>ENG1 Oil</th><th>ENG2 Oil</th><th>ENG3 Oil</th><th>ENG4 Oil</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td id="util-found-eng1-baq" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-eng2-baq" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-eng3-baq" class="fw-semibold">&#8212;</td>
+                                                <td id="util-found-eng4-baq" class="fw-semibold">&#8212;</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                     <div id="util-source-history-baq" class="mt-2"></div>
                                 </div>
                             </div>
@@ -8728,153 +8805,50 @@
                                     <button type="button" class="btn btn-success px-4" onclick="submitAircraftUtil()"><i class="bi bi-check-lg"></i> Сохранить</button>
                                 </div>
                             </form>
-
-                            <!-- PERIOD UTILIZATION -->
-                            <hr class="my-5">
-                            <h5 class="mb-4 text-primary"><i class="bi bi-bar-chart-steps"></i> Period Utilization</h5>
-                            <form id="form-util-param">
-                                <div class="row mb-4">
-                                    <div class="col-md-2">
-                                        <label class="small fw-bold">Дата *</label>
-                                        <input type="date" class="form-control" id="util-param-date" required>
-                                        <small class="text-muted">По умолчанию сегодняшняя дата</small>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="small fw-bold">Самолет *</label>
-                                        <select class="form-select" id="util-param-ac" required onchange="onUtilAircraftChange()">
-                                            <option value="">Выберите самолет...</option>
-                                            <option value="ER-BAT">ER-BAT</option>
-                                            <option value="ER-BAR">ER-BAR</option>
-                                            <option value="ER-BAQ">ER-BAQ</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="small fw-bold">Позиция *</label>
-                                        <select class="form-select" id="util-param-position" required onchange="onUtilPositionChange()">
-                                            <option value="">Выберите позицию...</option>
-                                            <option value="1">1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                            <option value="4">4</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                
-                                <!-- Информация о всех позициях для справки -->
-                                <div id="all-positions-info" class="row mb-3" style="display: none;">
-                                    <div class="col-12">
-                                        <div class="alert alert-info" style="background: #e7f3ff; border: 1px solid #0066cc; padding: 12px;">
-                                            <h6 class="mb-2">Двигатели на самолете:</h6>
-                                            <div id="positions-info-content" style="display: flex; gap: 15px; flex-wrap: wrap;"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-4">
-                                    <div class="col-md-3">
-                                        <label class="small fw-bold">Orig SN (выбранной позиции)</label>
-                                        <input type="text" class="form-control" id="util-param-orig-sn" readonly style="background-color: #f5f5f5;">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label class="small fw-bold">GSS ID (выбранной позиции)</label>
-                                        <input type="text" class="form-control" id="util-param-gss-sn" readonly style="background-color: #f5f5f5;">
-                                    </div>
-                                </div>
-                                <div class="row mb-4">
-                                    <div class="col-md-2">
-                                        <label class="small fw-bold">TTSN *</label>
-                                        <input type="number" step="0.1" class="form-control" id="util-param-ttsn" required placeholder="Введите TTSN">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="small fw-bold">TCSN *</label>
-                                        <input type="number" class="form-control" id="util-param-tcsn" required placeholder="Введите TCSN">
-                                    </div>
-                                </div>
-                                
-                                <!-- PERIOD FIELDS (always enabled and required) -->
-                                <div class="row mb-4" id="period-fields">
-                                    <div class="col-md-6">
-                                        <label class="small fw-bold">Date From *</label>
-                                        <input type="date" class="form-control" id="util-param-date-from" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="small fw-bold">Date To *</label>
-                                        <input type="date" class="form-control" id="util-param-date-to" required>
-                                    </div>
-                                </div>
-                                
-                                <div class="d-flex justify-content-end gap-2 mb-4">
-                                    <button type="button" class="btn btn-secondary" onclick="openDashboardView()">Отмена</button>
-                                    <button type="button" class="btn btn-primary px-4" onclick="submitUtilParams()">Сохранить</button>
-                                </div>
-                            </form>
                         </div>
                     </div>
                 </div>
                 
                 <!-- TAB 2: HISTORY TABLE -->
                 <div id="tab-util-param-history" style="display: none;">
-                    <!-- SUB-TABS: Periodic and Aircraft Util History -->
-                    <ul class="nav nav-tabs mb-3">
-                        <li class="nav-item"><button class="nav-link active" id="tab-util-param-periodic-btn" onclick="switchUtilHistoryTab('periodic')">Периодичный налет</button></li>
-                        <li class="nav-item"><button class="nav-link" id="tab-util-param-aircraft-btn" onclick="switchUtilHistoryTab('aircraft')">Общий налет самолёта</button></li>
-                    </ul>
-                    
-                    <!-- SUB-TAB 1: Periodic Utilization History -->
-                    <div id="tab-util-param-periodic" class="card shadow-sm">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-end mb-2">
-                                <button class="btn btn-sm btn-primary" onclick="loadUtilParamHistory()"><i class="bi bi-arrow-clockwise"></i> Обновить</button>
-                                <button class="btn btn-sm btn-warning ms-2" id="btn-util-param-edit" onclick="toggleEditModeTable('util-param')"><i class="bi bi-pencil-square"></i> Edit</button>
-                                <button class="btn btn-sm btn-success ms-2 d-none" id="btn-util-param-save" onclick="saveEditModeTable('util-param')"><i class="bi bi-check-lg"></i> Save Changes</button>
-                                <button class="btn btn-sm btn-secondary ms-2 d-none" id="btn-util-param-cancel" onclick="cancelEditModeTable('util-param')"><i class="bi bi-x-lg"></i> Cancel</button>
-                                <button class="btn btn-circle btn-success d-none" id="add-row-util-param" onclick="addEmptyRowTable('util-param')" title="Add Row"><i class="bi bi-plus-lg"></i></button>
-                            </div>
-                            <table class="table table-hover table-bordered table-sm text-center" id="util-param-history-table">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="delete-col-util-param" style="display: none;"><i class="bi bi-trash"></i></th>
-                                        <th>Дата</th>
-                                        <th>Самолет</th>
-                                        <th>Позиция</th>
-                                        <th>Orig SN</th>
-                                        <th>GSS ID</th>
-                                        <th>TTSN</th>
-                                        <th>TCSN</th>
-                                        <th>Period</th>
-                                        <th>Date From</th>
-                                        <th>Date To</th>
-                                        <th>Создано</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="util-param-history-body">
-                                    <tr><td colspan="12" class="text-muted">Нет данных</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    <!-- SUB-TAB 2: Aircraft Utilization History -->
-                    <div id="tab-util-param-aircraft" style="display: none;" class="card shadow-sm">
+                    <div class="card shadow-sm">
                         <div class="card-body">
                             <div class="d-flex justify-content-end mb-2">
                                 <button class="btn btn-sm btn-primary" onclick="loadAircraftUtilHistory()"><i class="bi bi-arrow-clockwise"></i> Обновить</button>
                             </div>
-                            <table class="table table-hover table-bordered table-sm text-center" id="aircraft-util-history-table">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Дата записи</th>
-                                        <th>Самолет</th>
-                                        <th>TTSN</th>
-                                        <th>TCSN</th>
-                                        <th>Источник</th>
-                                        <th>Синхронизировано</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="aircraft-util-history-body">
-                                    <tr><td colspan="6" class="text-muted">Нет данных</td></tr>
-                                </tbody>
-                            </table>
+                            <!-- Вкладки по самолётам -->
+                            <ul class="nav nav-pills mb-3" id="ac-util-tabs">
+                                <li class="nav-item">
+                                    <button class="nav-link active" onclick="switchAcUtilTab('ER-BAT', this)">ER-BAT</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link" onclick="switchAcUtilTab('ER-BAR', this)">ER-BAR</button>
+                                </li>
+                                <li class="nav-item">
+                                    <button class="nav-link" onclick="switchAcUtilTab('ER-BAQ', this)">ER-BAQ</button>
+                                </li>
+                            </ul>
+                            <div class="table-responsive">
+                                <table class="table table-hover table-bordered table-sm text-center" id="aircraft-util-history-table">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Дата записи</th>
+                                            <th>ATLB Sheet</th>
+                                            <th>TTSN</th>
+                                            <th>TCSN</th>
+                                            <th>ENG1 Oil</th>
+                                            <th>ENG2 Oil</th>
+                                            <th>ENG3 Oil</th>
+                                            <th>ENG4 Oil</th>
+                                            <th>Источник</th>
+                                            <th>Синхронизировано</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="aircraft-util-history-body">
+                                        <tr><td colspan="10" class="text-muted">Нет данных</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -11637,7 +11611,13 @@ function hideInstallTooltip() {
         // Fetch specific engines
         const res = await fetch(`/api/engines?status=${status}`);
         const engines = await res.json();
-        
+
+        // SV — показываем две вкладки: On Wing / Off Wing
+        if (status === 'SV') {
+            openSvTabModal(engines);
+            return;
+        }
+
         // Для INSTALLED добавляем колонки с данными самолета
         if (status === 'INSTALLED') {
             setupModal(`Engines Status: ${status}`, 
@@ -12883,18 +12863,92 @@ function hideInstallTooltip() {
         }
     }
 
+    function openSvTabModal(engines) {
+        document.getElementById('modalTitle').innerText = 'Engines Status: SV';
+
+        // On Wing = location contains "(Pos" pattern (e.g. "ER-BAT (Pos 2)")
+        const onWing  = engines.filter(e => e.location && e.location.includes('(Pos'));
+        const offWing = engines.filter(e => !e.location || !e.location.includes('(Pos'));
+
+        const thHtml = `<tr>
+            <th>GSS SN</th><th>Orig SN</th><th>Current SN</th>
+            <th>Location</th><th>TT</th><th>TC</th>
+        </tr>`;
+
+        function makeRows(list) {
+            if (!list.length) return `<tr><td colspan="6" class="text-center text-muted py-3">No engines</td></tr>`;
+            return list.map(e => `<tr>
+                <td>${e.gss_sn || '-'}</td>
+                <td>${e.original_sn}</td>
+                <td><strong>${e.current_sn}</strong></td>
+                <td>${e.location}</td>
+                <td>${e.tt}</td>
+                <td>${e.tc}</td>
+            </tr>`).join('');
+        }
+
+        const modalBody = document.querySelector('#dataModal .modal-body');
+        modalBody.innerHTML = `
+            <ul class="nav nav-tabs px-3 pt-2" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#sv-tab-offwing">
+                        <i class="bi bi-box-seam me-1"></i>Off Wing
+                        <span class="badge bg-secondary ms-1">${offWing.length}</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#sv-tab-onwing">
+                        <i class="bi bi-airplane me-1"></i>On Wing
+                        <span class="badge bg-primary ms-1">${onWing.length}</span>
+                    </button>
+                </li>
+            </ul>
+            <div class="tab-content">
+                <div class="tab-pane fade show active p-0" id="sv-tab-offwing">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-custom mb-0">
+                            <thead>${thHtml}</thead>
+                            <tbody>${makeRows(offWing)}</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="tab-pane fade p-0" id="sv-tab-onwing">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover table-custom mb-0">
+                            <thead>${thHtml}</thead>
+                            <tbody>${makeRows(onWing)}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+
+        const modal = new bootstrap.Modal(document.getElementById('dataModal'));
+        modal.show();
+    }
+
     // Helper to Show Modal
     function setupModal(title, headers, rowsHtml) {
         document.getElementById('modalTitle').innerText = title;
-        
+
+        // Restore standard single-table body if SV tabs are currently shown
+        const modalBody = document.querySelector('#dataModal .modal-body');
+        if (modalBody.querySelector('.nav-tabs')) {
+            modalBody.innerHTML = `<div class="table-responsive">
+                <table class="table table-striped table-hover table-custom mb-0">
+                    <thead id="modalTableHead"></thead>
+                    <tbody id="modalTableBody"></tbody>
+                </table>
+            </div>`;
+        }
+
         // Set Headers
         const thead = document.getElementById('modalTableHead');
         thead.innerHTML = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
-        
+
         // Set Body
         const tbody = document.getElementById('modalTableBody');
         tbody.innerHTML = Array.isArray(rowsHtml) ? rowsHtml.join('') : rowsHtml;
-        
+
         // Show
         const modal = new bootstrap.Modal(document.getElementById('dataModal'));
         modal.show();
@@ -12906,11 +12960,19 @@ function hideInstallTooltip() {
             // Get modal title for filename
             const modalTitle = document.getElementById('modalTitle').innerText || 'export';
             const filename = modalTitle.replace(/[^a-zA-Z0-9]/g, '_') + '.xlsx';
-            
-            // Get table headers
-            const thead = document.getElementById('modalTableHead');
-            const tbody = document.getElementById('modalTableBody');
-            
+
+            // Support tabbed SV modal — export the currently active tab
+            const modalBody = document.querySelector('#dataModal .modal-body');
+            const activePane = modalBody ? modalBody.querySelector('.tab-pane.show.active') : null;
+            let thead, tbody;
+            if (activePane) {
+                thead = activePane.querySelector('thead');
+                tbody = activePane.querySelector('tbody');
+            } else {
+                thead = document.getElementById('modalTableHead');
+                tbody = document.getElementById('modalTableBody');
+            }
+
             if (!thead || !tbody) {
                 alert('No data to export');
                 return;
@@ -17810,19 +17872,6 @@ function onGssInputChange(engines) {
             },
             reloadFunction: loadPartsHistory,
             hasDeleteCol: true
-        },
-        'util-param': {
-            bodyId: 'util-param-history-body',
-            columns: ['date', 'aircraft', 'position', 'orig_sn', 'gss_sn', 'ttsn', 'tcsn', 'period', 'date_from', 'date_to', 'created_at'],
-            columnTypes: {
-                date: 'date',
-                ttsn: 'number',
-                tcsn: 'number',
-                date_from: 'date',
-                date_to: 'date'
-            },
-            reloadFunction: loadUtilParamHistory,
-            hasDeleteCol: true
         }
     };
 
@@ -18238,69 +18287,6 @@ function onGssInputChange(engines) {
     async function saveEditModeTable(tableName) {
         const config = tableConfigs[tableName];
         if (!config) return;
-        
-        // Специальная обработка для util-param (работает с API)
-        if (tableName === 'util-param') {
-            const tbody = document.getElementById(config.bodyId);
-            const rows = tbody.querySelectorAll('tr.editing-row');
-            const updatePromises = [];
-            
-            for (const row of rows) {
-                const inputs = row.querySelectorAll('.editing-input');
-                if (inputs.length === 0) continue;
-                
-                const dataId = row.getAttribute('data-id');
-                const values = Array.from(inputs).map(inp => inp.value);
-                
-                // Колонки в таблице util-param идут так:
-                // 0: date, 1: aircraft, 2: position, 3: orig_sn, 4: gss_sn, 5: ttsn, 6: tcsn, 7: period, 8: date_from, 9: date_to, 10: created_at
-                const itemData = {
-                    date: values[0] || new Date().toISOString().split('T')[0],
-                    aircraft: values[1] || '',
-                    position: parseInt(values[2]) || null,
-                    ttsn: parseFloat(values[5]) || 0,
-                    tcsn: parseInt(values[6]) || 0,
-                    period: values[7] === 'Да' || values[7] === 'true',
-                    date_from: values[8] && values[8] !== '-' ? values[8] : null,
-                    date_to: values[9] && values[9] !== '-' ? values[9] : null
-                };
-                
-                // Обновляем через API
-                updatePromises.push(
-                    fetch(`/api/utilization-parameters/${dataId}`, {
-                        method: 'PUT',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(itemData)
-                    })
-                );
-            }
-            
-            try {
-                await Promise.all(updatePromises);
-                
-                showSuccessNotification('Данные успешно сохранены в базу данных!');
-            } catch (err) {
-                console.error('Error saving util-param:', err);
-                showErrorNotification('Ошибка сохранения: ' + err.message);
-            }
-            
-            // Выходим из режима редактирования
-            const editBtn = document.getElementById('btn-util-param-edit');
-            const saveBtn = document.getElementById('btn-util-param-save');
-            const cancelBtn = document.getElementById('btn-util-param-cancel');
-            const addBtn = document.getElementById('add-row-util-param');
-            
-            editBtn.classList.remove('d-none');
-            saveBtn.classList.add('d-none');
-            cancelBtn.classList.add('d-none');
-            if (addBtn) addBtn.classList.add('d-none');
-            
-            const deleteCols = document.querySelectorAll('.delete-col-util-param');
-            deleteCols.forEach(el => el.style.display = 'none');
-            
-            await loadUtilParamHistory();
-            return;
-        }
         
         const tbody = document.getElementById(config.bodyId);
         const rows = tbody.querySelectorAll('tr.editing-row');
@@ -21478,9 +21464,19 @@ function onGssInputChange(engines) {
         const dateEl = document.getElementById(`util-found-date-${tail}`);
         const ttsnEl = document.getElementById(`util-found-ttsn-${tail}`);
         const tcsnEl = document.getElementById(`util-found-tcsn-${tail}`);
+        const atlbEl = document.getElementById(`util-found-atlb-${tail}`);
+        const eng1El = document.getElementById(`util-found-eng1-${tail}`);
+        const eng2El = document.getElementById(`util-found-eng2-${tail}`);
+        const eng3El = document.getElementById(`util-found-eng3-${tail}`);
+        const eng4El = document.getElementById(`util-found-eng4-${tail}`);
         if (dateEl) dateEl.textContent = '—';
         if (ttsnEl) ttsnEl.textContent = '—';
         if (tcsnEl) tcsnEl.textContent = '—';
+        if (atlbEl) atlbEl.textContent = '—';
+        if (eng1El) eng1El.textContent = '—';
+        if (eng2El) eng2El.textContent = '—';
+        if (eng3El) eng3El.textContent = '—';
+        if (eng4El) eng4El.textContent = '—';
     }
 
     async function previewExcelUrl(tail, url) {
@@ -21488,6 +21484,11 @@ function onGssInputChange(engines) {
         const dateEl = document.getElementById(`util-found-date-${tail}`);
         const ttsnEl = document.getElementById(`util-found-ttsn-${tail}`);
         const tcsnEl = document.getElementById(`util-found-tcsn-${tail}`);
+        const atlbEl = document.getElementById(`util-found-atlb-${tail}`);
+        const eng1El = document.getElementById(`util-found-eng1-${tail}`);
+        const eng2El = document.getElementById(`util-found-eng2-${tail}`);
+        const eng3El = document.getElementById(`util-found-eng3-${tail}`);
+        const eng4El = document.getElementById(`util-found-eng4-${tail}`);
 
         function isSharePointUrl(u) {
             try {
@@ -21574,6 +21575,11 @@ function onGssInputChange(engines) {
                     if (dateEl) dateEl.textContent = data.date || '—';
                     if (ttsnEl) ttsnEl.textContent = data.ttsn_display || '—';
                     if (tcsnEl) tcsnEl.textContent = data.tcsn !== undefined ? data.tcsn : '—';
+                    if (atlbEl) atlbEl.textContent = data.atlb_sheet || '—';
+                    if (eng1El) eng1El.textContent = data.eng1_oil !== null && data.eng1_oil !== undefined ? data.eng1_oil : '—';
+                    if (eng2El) eng2El.textContent = data.eng2_oil !== null && data.eng2_oil !== undefined ? data.eng2_oil : '—';
+                    if (eng3El) eng3El.textContent = data.eng3_oil !== null && data.eng3_oil !== undefined ? data.eng3_oil : '—';
+                    if (eng4El) eng4El.textContent = data.eng4_oil !== null && data.eng4_oil !== undefined ? data.eng4_oil : '—';
                     return;
                 }
                 const isAccess = (data.error || '').includes('Access denied') || (data.error || '').includes('401') || (data.error || '').includes('403');
@@ -21604,22 +21610,37 @@ function onGssInputChange(engines) {
             return;
         }
 
+        const rows = items.map(item => {
+            const d = item.date ? new Date(item.date) : null;
+            const sync = item.synced_at ? new Date(item.synced_at) : null;
+            const dateText = d && !isNaN(d) ? d.toLocaleDateString('ru-RU') : '—';
+            const syncText = sync && !isNaN(sync) ? sync.toLocaleString('ru-RU') : '—';
+            const ttsnText = typeof formatWholeHours === 'function' ? formatWholeHours(item.ttsn) : (item.ttsn ?? '—');
+            const atlbText = item.atlb_sheet || '—';
+            const eng1Text = item.eng1_oil != null ? item.eng1_oil : '—';
+            const eng2Text = item.eng2_oil != null ? item.eng2_oil : '—';
+            const eng3Text = item.eng3_oil != null ? item.eng3_oil : '—';
+            const eng4Text = item.eng4_oil != null ? item.eng4_oil : '—';
+            return `<tr>
+                <td>${dateText}</td><td>${ttsnText}</td><td>${item.tcsn ?? '—'}</td><td>${atlbText}</td>
+                <td>${eng1Text}</td><td>${eng2Text}</td><td>${eng3Text}</td><td>${eng4Text}</td>
+                <td class="text-muted">${syncText}</td>
+            </tr>`;
+        }).join('');
+
         historyEl.innerHTML = `
             <div class="small text-muted mb-1">Previous found data</div>
-            <div style="max-height: 135px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 8px; background: #fafbfc;">
-                ${items.map(item => {
-                    const d = item.date ? new Date(item.date) : null;
-                    const sync = item.synced_at ? new Date(item.synced_at) : null;
-                    const dateText = d && !isNaN(d) ? d.toLocaleDateString('ru-RU') : '—';
-                    const syncText = sync && !isNaN(sync) ? sync.toLocaleString('ru-RU') : '—';
-                    const ttsnText = typeof formatWholeHours === 'function' ? formatWholeHours(item.ttsn) : (item.ttsn ?? '—');
-                    return `
-                        <div style="padding: 6px 8px; border-bottom: 1px solid #edf2f7; font-size: 0.78rem;">
-                            <div class="d-flex justify-content-between"><strong>${dateText}</strong><span class="text-muted">${syncText}</span></div>
-                            <div class="d-flex justify-content-between mt-1"><span>TTSN: <b>${ttsnText}</b></span><span>TCSN: <b>${item.tcsn ?? '—'}</b></span></div>
-                        </div>
-                    `;
-                }).join('')}
+            <div style="max-height: 175px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 8px; background: #fafbfc;">
+                <table class="table table-bordered table-sm mb-0" style="font-size:0.72rem;">
+                    <thead class="table-light" style="position:sticky;top:0;">
+                        <tr>
+                            <th>Date</th><th>TTSN</th><th>TCSN</th><th>ATLB</th>
+                            <th>ENG1</th><th>ENG2</th><th>ENG3</th><th>ENG4</th>
+                            <th>Synced</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
             </div>
         `;
     }
@@ -21639,13 +21660,18 @@ function onGssInputChange(engines) {
         return `util-source-found-${shortTail}`;
     }
 
-    function renderAircraftUtilSourceStatus(item, wrapEl, foundEl, dateEl, ttsnEl, tcsnEl) {
+    function renderAircraftUtilSourceStatus(item, wrapEl, foundEl, dateEl, ttsnEl, tcsnEl, atlbEl, eng1El, eng2El, eng3El, eng4El) {
         if (!wrapEl) return;
         if (!item || !item.source_url) {
             wrapEl.innerHTML = '<span class="badge bg-secondary">Not configured</span>';
             if (dateEl) dateEl.textContent = '—';
             if (ttsnEl) ttsnEl.textContent = '—';
             if (tcsnEl) tcsnEl.textContent = '—';
+            if (atlbEl) atlbEl.textContent = '—';
+            if (eng1El) eng1El.textContent = '—';
+            if (eng2El) eng2El.textContent = '—';
+            if (eng3El) eng3El.textContent = '—';
+            if (eng4El) eng4El.textContent = '—';
             return;
         }
         if (item.last_error) {
@@ -21666,6 +21692,13 @@ function onGssInputChange(engines) {
             if (dateEl) dateEl.textContent = dateStr;
             if (ttsnEl) ttsnEl.textContent = typeof formatWholeHours === 'function' ? formatWholeHours(item.last_ttsn) : item.last_ttsn;
             if (tcsnEl) tcsnEl.textContent = item.last_tcsn !== null && item.last_tcsn !== undefined ? item.last_tcsn : '—';
+            // ATLB Sheet + ENG1-4 come from the most recent history record
+            const recentItem = (item.recent_history && item.recent_history.length > 0) ? item.recent_history[0] : null;
+            if (atlbEl) atlbEl.textContent = recentItem?.atlb_sheet || '—';
+            if (eng1El) eng1El.textContent = recentItem?.eng1_oil !== null && recentItem?.eng1_oil !== undefined ? recentItem.eng1_oil : '—';
+            if (eng2El) eng2El.textContent = recentItem?.eng2_oil !== null && recentItem?.eng2_oil !== undefined ? recentItem.eng2_oil : '—';
+            if (eng3El) eng3El.textContent = recentItem?.eng3_oil !== null && recentItem?.eng3_oil !== undefined ? recentItem.eng3_oil : '—';
+            if (eng4El) eng4El.textContent = recentItem?.eng4_oil !== null && recentItem?.eng4_oil !== undefined ? recentItem.eng4_oil : '—';
             return;
         }
         if (item.last_status) {
@@ -21690,8 +21723,13 @@ function onGssInputChange(engines) {
                 const dateEl = document.getElementById(`util-found-date-${shortTail}`);
                 const ttsnEl = document.getElementById(`util-found-ttsn-${shortTail}`);
                 const tcsnEl = document.getElementById(`util-found-tcsn-${shortTail}`);
+                const atlbEl = document.getElementById(`util-found-atlb-${shortTail}`);
+                const eng1El = document.getElementById(`util-found-eng1-${shortTail}`);
+                const eng2El = document.getElementById(`util-found-eng2-${shortTail}`);
+                const eng3El = document.getElementById(`util-found-eng3-${shortTail}`);
+                const eng4El = document.getElementById(`util-found-eng4-${shortTail}`);
                 if (input) input.value = item.source_url || '';
-                renderAircraftUtilSourceStatus(item, wrapEl, foundEl, dateEl, ttsnEl, tcsnEl);
+                renderAircraftUtilSourceStatus(item, wrapEl, foundEl, dateEl, ttsnEl, tcsnEl, atlbEl, eng1El, eng2El, eng3El, eng4El);
                 renderUtilSourceRecentHistory(shortTail, item.recent_history || []);
             });
         } catch (err) {
@@ -21865,174 +21903,7 @@ function onGssInputChange(engines) {
         document.getElementById('tab-util-param-entry-btn').className = tab === 'entry' ? 'nav-link active' : 'nav-link';
         document.getElementById('tab-util-param-history-btn').className = tab === 'history' ? 'nav-link active' : 'nav-link';
         if (tab === 'history') {
-            loadUtilParamHistory();
             loadAircraftUtilHistory();
-        }
-    }
-
-    function switchUtilHistoryTab(tab) {
-        document.getElementById('tab-util-param-periodic').style.display = tab === 'periodic' ? 'block' : 'none';
-        document.getElementById('tab-util-param-aircraft').style.display = tab === 'aircraft' ? 'block' : 'none';
-        document.getElementById('tab-util-param-periodic-btn').className = tab === 'periodic' ? 'nav-link active' : 'nav-link';
-        document.getElementById('tab-util-param-aircraft-btn').className = tab === 'aircraft' ? 'nav-link active' : 'nav-link';
-        if (tab === 'aircraft') {
-            loadAircraftUtilHistory();
-        }
-    }
-
-    async function onUtilAircraftChange() {
-        // Clear engine details when aircraft changes
-        document.getElementById('util-param-orig-sn').value = '';
-        document.getElementById('util-param-gss-sn').value = '';
-        
-        const aircraft = document.getElementById('util-param-ac').value;
-        if (!aircraft) {
-            document.getElementById('all-positions-info').style.display = 'none';
-            return;
-        }
-        
-        try {
-            // Загружаем информацию о всех позициях
-            const response = await fetch(`/api/aircraft/${aircraft}`);
-            if (!response.ok) throw new Error('Failed to load aircraft');
-            
-            const aircraft_data = await response.json();
-            const infoContainer = document.getElementById('positions-info-content');
-            infoContainer.innerHTML = '';
-            
-            // Показываем все 4 позиции
-            for (let pos = 1; pos <= 4; pos++) {
-                const engine = aircraft_data.engines && aircraft_data.engines.find(e => e.position === pos);
-                if (engine) {
-                    infoContainer.innerHTML += `
-                        <div style="flex: 1; min-width: 200px; padding: 8px; background: white; border-radius: 4px; border: 1px solid #ddd;">
-                            <div style="font-weight: bold; color: #0066cc; margin-bottom: 4px;">Position ${pos}</div>
-                            <div style="font-size: 0.85rem;"><strong>Orig SN:</strong> ${engine.original_sn || '-'}</div>
-                            <div style="font-size: 0.85rem;"><strong>GSS ID:</strong> ${engine.gss_sn || engine.original_sn || '-'}</div>
-                            <div style="font-size: 0.85rem;"><strong>Current S/N:</strong> ${engine.current_sn || '-'}</div>
-                        </div>
-                    `;
-                } else {
-                    infoContainer.innerHTML += `
-                        <div style="flex: 1; min-width: 200px; padding: 8px; background: #f5f5f5; border-radius: 4px; border: 1px solid #ddd;">
-                            <div style="font-weight: bold; color: #999; margin-bottom: 4px;">Position ${pos}</div>
-                            <div style="font-size: 0.85rem; color: #999;">No Engine</div>
-                        </div>
-                    `;
-                }
-            }
-            
-            document.getElementById('all-positions-info').style.display = 'block';
-        } catch (err) {
-            console.error('Error loading aircraft positions:', err);
-        }
-        
-        // Auto-fetch when position is also selected
-        if (document.getElementById('util-param-position').value) {
-            await onUtilPositionChange();
-        }
-    }
-
-    async function onUtilPositionChange() {
-        const aircraft = document.getElementById('util-param-ac').value;
-        const position = parseInt(document.getElementById('util-param-position').value);
-        
-        // Clear if no aircraft or position selected
-        if (!aircraft || !position) {
-            document.getElementById('util-param-orig-sn').value = '';
-            document.getElementById('util-param-gss-sn').value = '';
-            return;
-        }
-        
-        try {
-            // Fetch aircraft details to get engine at this position
-            const response = await fetch(`/api/aircraft/${aircraft}`);
-            if (!response.ok) {
-                throw new Error('Failed to load aircraft');
-            }
-            
-            const aircraft_data = await response.json();
-            
-            // Find engine at the selected position
-            const engine = aircraft_data.engines && aircraft_data.engines.find(e => e.position === position);
-            
-            if (engine) {
-                document.getElementById('util-param-orig-sn').value = engine.original_sn || '';
-                document.getElementById('util-param-gss-sn').value = engine.gss_sn || engine.original_sn || '';
-            } else {
-                document.getElementById('util-param-orig-sn').value = '';
-                document.getElementById('util-param-gss-sn').value = '';
-            }
-        } catch (err) {
-            console.error('Error fetching engine details:', err);
-            document.getElementById('util-param-orig-sn').value = '';
-            document.getElementById('util-param-gss-sn').value = '';
-        }
-    }
-
-    // togglePeriodFields removed - period fields are always enabled now
-
-    let _utilParamSubmitting = false;
-    async function submitUtilParams() {
-        if (_utilParamSubmitting) { return; }
-        _utilParamSubmitting = true;
-        const saveBtn = document.querySelector('#tab-util-param-entry .btn.btn-primary.px-4');
-        if (saveBtn) { saveBtn.disabled = true; saveBtn.dataset._orig = saveBtn.innerHTML; saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...'; }
-        const date = document.getElementById('util-param-date').value;
-        const aircraft = document.getElementById('util-param-ac').value;
-        const position = document.getElementById('util-param-position').value;
-        const ttsn = document.getElementById('util-param-ttsn').value;
-        const tcsn = document.getElementById('util-param-tcsn').value;
-        const dateFrom = document.getElementById('util-param-date-from').value;
-        const dateTo = document.getElementById('util-param-date-to').value;
-
-        if (!date || !aircraft || !position || !ttsn || !tcsn || !dateFrom || !dateTo) {
-            showErrorNotification('Пожалуйста, заполните все обязательные поля: Дата, Самолет, Позиция, TTSN, TCSN, Date From и Date To');
-            return;
-        }
-
-        const data = {
-            date: date,
-            aircraft: aircraft,
-            position: parseInt(position),
-            ttsn: parseFloat(ttsn),
-            tcsn: parseInt(tcsn),
-            period: true,
-            date_from: dateFrom,
-            date_to: dateTo
-        };
-
-        // Сохраняем в базу данных через API
-        try {
-            const response = await fetch('/api/utilization-parameters', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Failed to save');
-            }
-            
-            showSuccessNotification('Данные по Utilization Parameters успешно сохранены в базу данных!');
-            
-            // Очищаем форму
-            document.getElementById('form-util-param').reset();
-            document.getElementById('util-param-date').valueAsDate = new Date();
-            
-            // Обновляем историю
-            await loadUtilParamHistory();
-            // Обновляем дашборд, чтобы новые TTSN/TCSN применились
-            if (typeof loadDashboardData === 'function') {
-                await loadDashboardData();
-            }
-        } catch (err) {
-            console.error('Error saving utilization parameters:', err);
-            showErrorNotification('Ошибка сохранения: ' + err.message);
-        } finally {
-            _utilParamSubmitting = false;
-            if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = saveBtn.dataset._orig || 'Сохранить'; }
         }
     }
 
@@ -22132,135 +22003,77 @@ function onGssInputChange(engines) {
         }
     }
 
-    async function loadUtilParamHistory() {
-        const tbody = document.getElementById('util-param-history-body');
-        tbody.innerHTML = '<tr><td colspan="12" class="text-muted">Loading...</td></tr>';
-        
-        try {
-            const response = await fetch('/api/utilization-parameters');
-            if (!response.ok) {
-                throw new Error('Failed to load data');
-            }
-            
-            const data = await response.json();
-            const periodicOnly = (Array.isArray(data) ? data : []).filter(item => item && item.period === true);
-            tbody.innerHTML = '';
-            
-            if (periodicOnly.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="12" class="text-muted">Нет данных</td></tr>';
-                return;
-            }
-
-        periodicOnly.sort((a, b) => (b.id || 0) - (a.id || 0));
-        periodicOnly.forEach((item, index) => {
-            const dateStr = new Date(item.date).toLocaleDateString('ru-RU');
-            const createdStr = new Date(item.created_at).toLocaleString('ru-RU');
-            const periodStr = item.period ? 'Да' : 'Нет';
-            const positionStr = item.position ? item.position : '-';
-            const origSnStr = item.orig_sn ? item.orig_sn : '-';
-            const gssSnStr = item.gss_sn ? item.gss_sn : '-';
-            const dateFromStr = item.date_from ? new Date(item.date_from).toLocaleDateString('ru-RU') : '-';
-            const dateToStr = item.date_to ? new Date(item.date_to).toLocaleDateString('ru-RU') : '-';
-
-            const row = document.createElement('tr');
-            row.setAttribute('data-id', item.id);
-            row.setAttribute('data-user', item.user || item.created_by || '');
-            row.innerHTML = `
-                <td class="delete-col-util-param" style="display: none;">
-                    <button class="btn btn-sm btn-danger" onclick="deleteUtilParamRecord(${item.id})" title="Delete">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </td>
-                <td>${dateStr}</td>
-                <td>${item.aircraft}</td>
-                <td>${positionStr}</td>
-                <td>${origSnStr}</td>
-                <td>${gssSnStr}</td>
-                <td>${item.ttsn}</td>
-                <td>${item.tcsn}</td>
-                <td>${periodStr}</td>
-                <td>${dateFromStr}</td>
-                <td>${dateToStr}</td>
-                <td>${createdStr}</td>
-            `;
-            tbody.appendChild(row);
-        });
-        } catch (err) {
-            console.error('Error loading utilization parameters:', err);
-            tbody.innerHTML = '<tr><td colspan="12" class="text-danger">Loading error данных</td></tr>';
-        }
-        attachAllTableResizers();
-    }
-    
-    async function deleteUtilParamRecord(id) {
-        if (!confirm('Удалить эту запись из базы данных?')) return;
-        
-        try {
-            const response = await fetch(`/api/utilization-parameters/${id}`, {
-                method: 'DELETE'
-            });
-            
-            if (!response.ok) {
-                throw new Error('Failed to delete');
-            }
-            
-            showSuccessNotification('Запись удалена из базы данных');
-            await loadUtilParamHistory();
-            if (typeof loadDashboardData === 'function') {
-                await loadDashboardData();
-            }
-        } catch (err) {
-            console.error('Error deleting record:', err);
-            showErrorNotification('Ошибка удаления: ' + err.message);
-        }
-    }
-
     async function loadAircraftUtilHistory() {
         const tbody = document.getElementById('aircraft-util-history-body');
-        if (!tbody) return; // Таблица не на этой странице
-        
-        tbody.innerHTML = '<tr><td colspan="5" class="text-muted">Loading...</td></tr>';
-        
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="10" class="text-muted">Loading...</td></tr>';
+
         try {
             const response = await fetch('/api/aircraft-utilization-history');
-            if (!response.ok) {
-                throw new Error('Failed to load data');
-            }
-            
+            if (!response.ok) throw new Error('Failed to load data');
             const data = await response.json();
-            tbody.innerHTML = '';
-            
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-muted">Нет данных</td></tr>';
-                return;
-            }
 
-            // Сортируем по дате (новые первыми)
-            data.sort((a, b) => new Date(b.synced_at || b.created_at) - new Date(a.synced_at || a.created_at));
-            
-            data.forEach((item) => {
-                const dateStr = item.date ? new Date(item.date).toLocaleDateString('ru-RU') : '—';
-                const syncedStr = item.synced_at ? new Date(item.synced_at).toLocaleString('ru-RU') : (item.created_at ? new Date(item.created_at).toLocaleString('ru-RU') : '—');
-                const isAuto = item.source === 'auto_sync';
-                const sourceBadge = isAuto
-                    ? '<span class="badge bg-success">Авто-синк</span>'
-                    : '<span class="badge bg-secondary">Вручную</span>';
+            // Сохраняем данные для фильтрации по вкладкам
+            window._acUtilHistoryData = data;
 
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${dateStr}</td>
-                    <td>${item.aircraft_tail_number || item.aircraft}</td>
-                    <td>${formatWholeHours(item.total_time || 0)}</td>
-                    <td>${item.total_cycles || 0}</td>
-                    <td>${sourceBadge}</td>
-                    <td>${syncedStr}</td>
-                `;
-                tbody.appendChild(row);
+            // Обновляем счётчики на вкладках
+            const counts = { 'ER-BAT': 0, 'ER-BAR': 0, 'ER-BAQ': 0 };
+            data.forEach(item => {
+                const tail = item.aircraft_tail_number || item.aircraft || '';
+                if (counts[tail] !== undefined) counts[tail]++;
             });
+
+            // Рендерим активную вкладку
+            const activeBtn = document.querySelector('#ac-util-tabs .nav-link.active');
+            const activeTail = activeBtn ? activeBtn.textContent.trim().split(/\s/)[0] : 'ER-BAT';
+            _renderAcUtilTab(activeTail, data, tbody);
+
         } catch (err) {
             console.error('Error loading aircraft utilization history:', err);
-            tbody.innerHTML = '<tr><td colspan="5" class="text-danger">Ошибка загрузки данных</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-danger">Ошибка загрузки данных</td></tr>';
         }
+    }
+
+    function switchAcUtilTab(tail, btn) {
+        document.querySelectorAll('#ac-util-tabs .nav-link').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tbody = document.getElementById('aircraft-util-history-body');
+        _renderAcUtilTab(tail, window._acUtilHistoryData || [], tbody);
+    }
+
+    function _renderAcUtilTab(tail, data, tbody) {
+        const filtered = data
+            .filter(item => (item.aircraft_tail_number || item.aircraft || '') === tail)
+            .sort((a, b) => new Date(b.synced_at || b.created_at) - new Date(a.synced_at || a.created_at));
+
+        if (!filtered.length) {
+            tbody.innerHTML = `<tr><td colspan="10" class="text-muted">Нет данных для ${tail}</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(item => {
+            const dateStr = item.date ? new Date(item.date).toLocaleDateString('ru-RU') : '—';
+            const syncedStr = item.synced_at
+                ? new Date(item.synced_at).toLocaleString('ru-RU')
+                : (item.created_at ? new Date(item.created_at).toLocaleString('ru-RU') : '—');
+            const sourceBadge = item.source === 'auto_sync'
+                ? '<span class="badge bg-success">Авто-синк</span>'
+                : '<span class="badge bg-secondary">Вручную</span>';
+            const fmt = v => (v != null ? v : '—');
+            return `<tr>
+                <td>${dateStr}</td>
+                <td>${fmt(item.atlb_sheet)}</td>
+                <td>${formatWholeHours(item.total_time || 0)}</td>
+                <td>${item.total_cycles || 0}</td>
+                <td>${fmt(item.eng1_oil)}</td>
+                <td>${fmt(item.eng2_oil)}</td>
+                <td>${fmt(item.eng3_oil)}</td>
+                <td>${fmt(item.eng4_oil)}</td>
+                <td>${sourceBadge}</td>
+                <td>${syncedStr}</td>
+            </tr>`;
+        }).join('');
     }
 
     // === UTILIZATION HISTORY MODAL ===
@@ -23955,7 +23768,7 @@ function resetUserForm() {
 }
 
 function validateUsername(username) {
-    return /^[A-Za-z0-9]+$/.test(username);
+    return /^[A-Za-z0-9_.-]+$/.test(username);
 }
 
 async function submitUserForm(event) {
@@ -23967,7 +23780,7 @@ async function submitUserForm(event) {
     const position = document.getElementById('user-position').value.trim();
     const role = document.getElementById('user-role').value;
     if (!validateUsername(username)) {
-        showErrorNotification('Логин: только английские буквы и цифры.');
+        showErrorNotification('Логин: только английские буквы, цифры, _ - .');
         return;
     }
     const payload = { first_name, last_name, username, position, role };
@@ -26068,7 +25881,7 @@ function renderDrawerCerts(m) {
         el.innerHTML = '<div class="text-center text-muted py-4">No certificates on file.</div>';
         return;
     }
-    el.innerHTML = certs.map(c => buildCertCard(c)).join('');
+    el.innerHTML = buildCertTable(certs);
 }
 
 function renderDrawerDocs(m) {
@@ -26078,10 +25891,89 @@ function renderDrawerDocs(m) {
         el.innerHTML = '<div class="text-center text-muted py-4">No documents on file.</div>';
         return;
     }
-    el.innerHTML = docs.map(c => buildCertCard(c)).join('');
+    el.innerHTML = buildCertTable(docs);
+}
+
+function buildCertTable(items) {
+    const rows = items.map(c => {
+        const si = certStatusInfo(c);
+        const issue = c.issue_date ? new Date(c.issue_date).toLocaleDateString('en-GB') : '—';
+        const expiryText = c.no_expiry ? '∞ Lifetime' : (c.expiry_date ? new Date(c.expiry_date).toLocaleDateString('en-GB') : '—');
+        const assetUrls = parseStaffAssetUrls(c.file_url).map(resolveStaffAssetUrl).filter(Boolean);
+        const collapseId = `cert-row-detail-${c.id}`;
+
+        // Files dropdown HTML
+        const fileItems = assetUrls.map((url, idx) => {
+            const arg = JSON.stringify(url);
+            const safeUrl = escHtml(url);
+            const icon = isPdfAsset(url) ? 'bi-file-earmark-pdf text-danger' : (isImageAsset(url) ? 'bi-image text-primary' : 'bi-file-earmark text-secondary');
+            return `<div class="d-flex align-items-center gap-2 p-2 border-bottom">
+                <i class="bi ${icon}"></i>
+                <span class="flex-grow-1 text-truncate small" title="${safeUrl}">File ${idx + 1}</span>
+                <button class="btn btn-xs btn-outline-primary py-0 px-1" onclick="openFilePreviewModal('${safeUrl}')" title="Preview"><i class="bi bi-eye"></i></button>
+                <a href="${safeUrl}" download class="btn btn-xs btn-outline-success py-0 px-1" title="Download"><i class="bi bi-download"></i></a>
+                <button class="btn btn-xs btn-outline-secondary py-0 px-1" onclick='printStaffAsset(${arg})' title="Print"><i class="bi bi-printer"></i></button>
+            </div>`;
+        }).join('');
+
+        const hasFiles = assetUrls.length > 0;
+        const filesCell = hasFiles
+            ? `<span class="badge bg-secondary">${assetUrls.length} file${assetUrls.length > 1 ? 's' : ''}</span>`
+            : `<span class="text-muted small">—</span>`;
+
+        const urlsJson = escHtml(JSON.stringify(assetUrls));
+
+        return `<tr>
+            <td>
+                <button class="btn btn-xs btn-outline-secondary py-0 px-1" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#${collapseId}"
+                    title="Expand">
+                    <i class="bi bi-chevron-down" style="font-size:.75rem;"></i>
+                </button>
+            </td>
+            <td class="fw-semibold" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(c.name)}">${escHtml(c.name)}</td>
+            <td class="small text-muted" style="white-space:nowrap;">${escHtml(c.issuer || '—')}</td>
+            <td class="small" style="white-space:nowrap;">${issue}</td>
+            <td class="small" style="white-space:nowrap;">${expiryText}</td>
+            <td><span class="cert-badge ${si.cls}">${si.label}</span></td>
+            <td>${filesCell}</td>
+            <td style="white-space:nowrap;">
+                ${hasFiles ? `<button class="btn btn-xs btn-outline-primary py-0 px-1 me-1" onclick="previewCertFile('${urlsJson}')" title="Preview"><i class="bi bi-eye"></i></button>` : ''}
+                ${hasFiles ? `<a href="${escHtml(assetUrls[0])}" download class="btn btn-xs btn-outline-success py-0 px-1 me-1" title="Download"><i class="bi bi-download"></i></a>` : ''}
+                <button class="btn btn-xs btn-outline-secondary py-0 px-1 me-1" onclick="openCertForm(${c.id}, '${c.category || 'certificate'}')" title="Edit"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-xs btn-outline-danger py-0 px-1" onclick="deleteCertificate(${c.id})" title="Delete"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>
+        <tr class="collapse" id="${collapseId}">
+            <td colspan="8" class="p-0">
+                <div class="px-3 py-2" style="background:#f8f9fa;">
+                    ${hasFiles ? fileItems : '<div class="text-muted small p-2">No files attached.</div>'}
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    return `<div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0" style="font-size:.87rem;">
+            <thead class="table-light sticky-top">
+                <tr>
+                    <th style="width:32px;"></th>
+                    <th>Name</th>
+                    <th>Issuer</th>
+                    <th>Issued</th>
+                    <th>Expiry</th>
+                    <th>Status</th>
+                    <th>Files</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    </div>`;
 }
 
 function buildCertCard(c) {
+    // Legacy wrapper – kept for compatibility; not used for main cert/doc tabs
     const si = certStatusInfo(c);
     const issue = c.issue_date ? new Date(c.issue_date).toLocaleDateString('en-GB') : '—';
     const expiryText = c.no_expiry ? 'Lifetime' : (c.expiry_date ? new Date(c.expiry_date).toLocaleDateString('en-GB') : '—');
@@ -26179,18 +26071,27 @@ function bindStaffDropzones() {
 function renderCertUploadListPreview() {
     const urls = scCertUploadedUrls.slice();
     if (!urls.length) {
-        setUploadMetaText('sc-cert-upload-preview', '<small>No uploaded file selected</small>');
+        setUploadMetaText('sc-cert-upload-preview', '<small>No files selected</small>');
         return;
     }
+    const MAX_FILES = 4;
+    const countBadge = `<div class="mb-1"><span class="badge ${urls.length >= MAX_FILES ? 'bg-danger' : 'bg-secondary'}">${urls.length}/${MAX_FILES} files</span></div>`;
     const lines = urls.map((url, idx) => {
         const resolved = resolveStaffAssetUrl(url);
         const fileName = truncateFileName(resolved.split('/').pop() || `File ${idx + 1}`);
         return `<div class="d-flex align-items-center gap-2 mb-1">
             <i class="bi ${isPdfAsset(resolved) ? 'bi-file-earmark-pdf text-danger' : (isImageAsset(resolved) ? 'bi-image text-primary' : 'bi-file-earmark-text text-primary')}"></i>
-            <span class="sc-upload-file-name" title="${escHtml(resolved)}">${escHtml(fileName)}</span>
+            <span class="sc-upload-file-name flex-grow-1" title="${escHtml(resolved)}">${escHtml(fileName)}</span>
+            <button type="button" class="btn btn-xs btn-outline-danger py-0 px-1" onclick="removeCertUploadedFile(${idx})" title="Remove"><i class="bi bi-x"></i></button>
         </div>`;
     }).join('');
-    setUploadMetaText('sc-cert-upload-preview', `${lines}<small>${urls.length} file(s) attached</small>`);
+    document.getElementById('sc-cert-upload-preview').innerHTML = countBadge + lines;
+}
+
+function removeCertUploadedFile(idx) {
+    scCertUploadedUrls.splice(idx, 1);
+    document.getElementById('sc-cert-file-url').value = stringifyStaffAssetUrls(scCertUploadedUrls) || '';
+    renderCertUploadListPreview();
 }
 
 async function handleStaffAssetSelection(fileInput, assetType) {
@@ -26204,6 +26105,20 @@ async function handleStaffAssetSelection(fileInput, assetType) {
         if (assetType === 'car_document') return 'car_document';
         return 'certificate';
     })();
+
+    // Enforce max 4 files for cert/document uploads
+    if (normalizedType === 'certificate' || normalizedType === 'document') {
+        const MAX_FILES = 4;
+        const remaining = MAX_FILES - scCertUploadedUrls.length;
+        if (remaining <= 0) {
+            showErrorNotification('Максимум 4 файла.');
+            return;
+        }
+        if (files.length > remaining) {
+            showErrorNotification(`Можно добавить ещё ${remaining} файл(а). Лишние пропущены.`);
+            files.splice(remaining);
+        }
+    }
 
     let uploadedCount = 0;
     for (const file of files) {
@@ -26409,6 +26324,87 @@ function deleteCertificate(certId) {
     modalEl.addEventListener('hidden.bs.modal', () => document.body.classList.remove('sc-delete-open'), { once: true });
     document.body.classList.add('sc-delete-open');
     new bootstrap.Modal(modalEl).show();
+}
+
+function openFilePreviewModal(url) {
+    const resolved = resolveStaffAssetUrl(url) || url;
+    const body = document.getElementById('sc-file-preview-body');
+    const dlBtn = document.getElementById('sc-file-preview-download');
+    const title = document.getElementById('sc-file-preview-title');
+
+    // Download button — force download
+    dlBtn.href = resolved;
+    dlBtn.setAttribute('download', resolved.split('/').pop() || 'file');
+
+    if (isPdfAsset(resolved)) {
+        title.innerHTML = '<i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF Preview';
+        // <embed> bypasses X-Frame-Options restrictions that object storage (R2/S3) sets on iframes
+        body.innerHTML = `<embed src="${escHtml(resolved)}" type="application/pdf" style="width:100%;height:80vh;" />
+            <div class="text-center mt-2">
+                <small class="text-white-50">Если PDF не отображается, нажмите кнопку Download выше.</small>
+            </div>`;
+    } else if (isImageAsset(resolved)) {
+        title.innerHTML = '<i class="bi bi-image me-2 text-primary"></i>Image Preview';
+        body.innerHTML = `<img src="${escHtml(resolved)}" style="max-width:100%;max-height:82vh;object-fit:contain;" alt="preview">`;
+    } else {
+        const isOffice = /\.(docx?|xlsx?|pptx?|odt|ods|odp)$/i.test(resolved);
+        title.innerHTML = '<i class="bi bi-file-earmark me-2"></i>File Preview';
+        if (isOffice) {
+            // Microsoft Office Online Viewer is more reliable than Google Docs for .docx/.xlsx
+            const msViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(resolved)}`;
+            body.innerHTML = `<iframe src="${escHtml(msViewerUrl)}" style="width:100%;height:80vh;border:0;" frameborder="0"></iframe>
+                <div class="text-center mt-2">
+                    <small class="text-white-50">Документ должен быть доступен по публичной ссылке.</small>
+                </div>`;
+        } else {
+            body.innerHTML = `<div class="text-center text-white p-5">
+                <i class="bi bi-file-earmark-text" style="font-size:4rem;opacity:.6;"></i>
+                <div class="mt-3 mb-4">Предпросмотр недоступен для этого типа файла.</div>
+                <button class="btn btn-outline-light" onclick="window.open('${escHtml(resolved).replace(/'/g,"\\'")}')">Открыть в новой вкладке</button>
+            </div>`;
+        }
+    }
+
+    const modalEl = document.getElementById('sc-file-preview-modal');
+    document.body.classList.add('sc-preview-open');
+    const modal = new bootstrap.Modal(modalEl, { backdrop: true });
+    modalEl.addEventListener('hidden.bs.modal', () => document.body.classList.remove('sc-preview-open'), { once: true });
+    modal.show();
+}
+
+function previewCertFile(urlsJson) {
+    let urls;
+    try { urls = JSON.parse(urlsJson); } catch { urls = [urlsJson]; }
+    if (!Array.isArray(urls)) urls = [urls];
+    urls = urls.map(u => resolveStaffAssetUrl(u) || u).filter(Boolean);
+    if (!urls.length) return;
+
+    if (urls.length === 1) {
+        openFilePreviewModal(urls[0]);
+        return;
+    }
+
+    // Multiple files — show picker on top of drawer
+    const pickerBody = document.getElementById('sc-file-picker-body');
+    pickerBody.innerHTML = urls.map((url, idx) => {
+        const name = url.split('/').pop() || `File ${idx + 1}`;
+        const icon = isPdfAsset(url) ? 'bi-file-earmark-pdf text-danger' : (isImageAsset(url) ? 'bi-image text-primary' : 'bi-file-earmark text-secondary');
+        const safeUrl = escHtml(url);
+        // On click: close picker, then open preview (preview z-index > picker z-index)
+        return `<div class="d-flex align-items-center gap-3 p-2 rounded mb-1" style="cursor:pointer;border:1px solid #e0e0e0;" 
+                    onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''"
+                    onclick="openFilePreviewModal('${safeUrl}');">
+            <i class="bi ${icon} fs-4"></i>
+            <span class="flex-grow-1 text-truncate small fw-semibold" title="${safeUrl}">Файл ${idx + 1}: ${escHtml(name)}</span>
+            <i class="bi bi-eye text-muted"></i>
+        </div>`;
+    }).join('');
+
+    const pickerEl = document.getElementById('sc-file-picker-modal');
+    document.body.classList.add('sc-picker-open');
+    const picker = new bootstrap.Modal(pickerEl, { backdrop: true });
+    pickerEl.addEventListener('hidden.bs.modal', () => document.body.classList.remove('sc-picker-open'), { once: true });
+    picker.show();
 }
 
 function printStaffAsset(url) {

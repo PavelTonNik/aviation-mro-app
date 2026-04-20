@@ -199,6 +199,11 @@ class AircraftUtilizationHistory(Base):
     source = Column(String, nullable=True)  # 'auto_sync' | 'manual' — откуда пришли данные
     synced_at = Column(DateTime(timezone=True), nullable=True)  # Когда была выполнена синхронизация
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    atlb_sheet = Column(String, nullable=True)   # Номер листа ATLB (из Excel), напр. A03264
+    eng1_oil = Column(Float, nullable=True)       # Масло ENG1 (qt)
+    eng2_oil = Column(Float, nullable=True)       # Масло ENG2 (qt)
+    eng3_oil = Column(Float, nullable=True)       # Масло ENG3 (qt)
+    eng4_oil = Column(Float, nullable=True)       # Масло ENG4 (qt)
     
     aircraft = relationship("Aircraft")
 

@@ -478,6 +478,41 @@ def startup_event():
                         ) THEN
                             ALTER TABLE aircraft_utilization_history ADD COLUMN synced_at TIMESTAMPTZ;
                         END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='aircraft_utilization_history' AND column_name='atlb_sheet'
+                        ) THEN
+                            ALTER TABLE aircraft_utilization_history ADD COLUMN atlb_sheet VARCHAR;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='aircraft_utilization_history' AND column_name='eng1_oil'
+                        ) THEN
+                            ALTER TABLE aircraft_utilization_history ADD COLUMN eng1_oil DOUBLE PRECISION;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='aircraft_utilization_history' AND column_name='eng2_oil'
+                        ) THEN
+                            ALTER TABLE aircraft_utilization_history ADD COLUMN eng2_oil DOUBLE PRECISION;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='aircraft_utilization_history' AND column_name='eng3_oil'
+                        ) THEN
+                            ALTER TABLE aircraft_utilization_history ADD COLUMN eng3_oil DOUBLE PRECISION;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='aircraft_utilization_history' AND column_name='eng4_oil'
+                        ) THEN
+                            ALTER TABLE aircraft_utilization_history ADD COLUMN eng4_oil DOUBLE PRECISION;
+                        END IF;
                         
                         IF NOT EXISTS (
                             SELECT 1 FROM information_schema.columns 
@@ -628,6 +663,11 @@ def startup_event():
     ensure_sqlite_column("staff_members", "photo_url TEXT")
     ensure_sqlite_column("users", "permissions TEXT")
     ensure_sqlite_column("users", "password_plain VARCHAR")
+    ensure_sqlite_column("aircraft_utilization_history", "atlb_sheet TEXT")
+    ensure_sqlite_column("aircraft_utilization_history", "eng1_oil FLOAT")
+    ensure_sqlite_column("aircraft_utilization_history", "eng2_oil FLOAT")
+    ensure_sqlite_column("aircraft_utilization_history", "eng3_oil FLOAT")
+    ensure_sqlite_column("aircraft_utilization_history", "eng4_oil FLOAT")
 
     # Открываем сессию базы данных
     db = database.SessionLocal()
@@ -1773,14 +1813,49 @@ def _normalize_header_name(value) -> str:
     return ''.join(ch for ch in str(value or '').strip().lower() if ch.isalnum())
 
 
+def _format_atlb_sheet(value) -> Optional[str]:
+    """Format ATLB sheet value to standard 'A03264' format."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s or s == 'None':
+        return None
+    # Already formatted: A03264
+    if len(s) > 1 and s[0].upper() == 'A' and s[1:].isdigit():
+        return s.upper()
+    # Pure number: 3264 → A03264
+    try:
+        num = int(float(s))
+        return f"A{num:05d}"
+    except (ValueError, TypeError):
+        return s if s else None
+
+
+def _safe_oil_float(value) -> Optional[float]:
+    """Parse oil uplift value; returns None if empty/zero."""
+    if value is None:
+        return None
+    try:
+        f = float(value)
+        return f if f > 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
 def _find_table_headers(rows):
+    """Returns (header_row, date_idx, ttsn_idx, tcsn_idx, atlb_idx, eng1_idx, eng2_idx, eng3_idx, eng4_idx)."""
     for row_index, row in enumerate(rows[:15], start=1):
         normalized = [_normalize_header_name(cell) for cell in row]
         date_idx = next((i for i, v in enumerate(normalized) if v in ("date", "datum") or "date" in v), None)
         ttsn_idx = next((i for i, v in enumerate(normalized) if "ttsn" in v or v == "totaltime"), None)
         tcsn_idx = next((i for i, v in enumerate(normalized) if "tcsn" in v or v == "totalcycles"), None)
         if date_idx is not None and ttsn_idx is not None and tcsn_idx is not None:
-            return row_index, date_idx, ttsn_idx, tcsn_idx
+            atlb_idx = next((i for i, v in enumerate(normalized) if "atlbsheet" in v or v == "atlbsheetno" or ("atlb" in v and "sheet" in v)), None)
+            eng1_idx = next((i for i, v in enumerate(normalized) if v in ("eng1", "engine1")), None)
+            eng2_idx = next((i for i, v in enumerate(normalized) if v in ("eng2", "engine2")), None)
+            eng3_idx = next((i for i, v in enumerate(normalized) if v in ("eng3", "engine3")), None)
+            eng4_idx = next((i for i, v in enumerate(normalized) if v in ("eng4", "engine4")), None)
+            return row_index, date_idx, ttsn_idx, tcsn_idx, atlb_idx, eng1_idx, eng2_idx, eng3_idx, eng4_idx
 
     # Fallback for files without recognizable headers:
     # Excel columns: 1 = Date, 11 = TTSN, 12 = TCSN (0-based indexes: 0, 10, 11)
@@ -1794,10 +1869,9 @@ def _find_table_headers(rows):
         row_ttsn = _parse_excel_ttsn(row[fallback_ttsn_idx] if len(row) > fallback_ttsn_idx else None)
         row_tcsn = _parse_excel_tcsn(row[fallback_tcsn_idx] if len(row) > fallback_tcsn_idx else None)
         if row_ttsn is not None and row_tcsn is not None:
-            # 0 means "no header row", caller starts scanning from first row
-            return 0, fallback_date_idx, fallback_ttsn_idx, fallback_tcsn_idx
+            return 0, fallback_date_idx, fallback_ttsn_idx, fallback_tcsn_idx, None, None, None, None, None
 
-    return None, None, None, None
+    return None, None, None, None, None, None, None, None, None
 
 
 def _find_sheet_headers(ws):
@@ -1806,16 +1880,24 @@ def _find_sheet_headers(ws):
 
 
 def _extract_latest_utilization_from_sheet(ws):
-    header_row, date_idx, ttsn_idx, tcsn_idx = _find_sheet_headers(ws)
+    header_row, date_idx, ttsn_idx, tcsn_idx, atlb_idx, eng1_idx, eng2_idx, eng3_idx, eng4_idx = _find_sheet_headers(ws)
     if header_row is None:
-        # Fallback for sheets without recognizable headers:
-        # Excel columns: 1 = Date, 11 = TTSN, 12 = TCSN (0-based indexes: 0, 10, 11)
         date_idx = 0
         ttsn_idx = 10
         tcsn_idx = 11
+        atlb_idx = eng1_idx = eng2_idx = eng3_idx = eng4_idx = None
         min_row = 1
     else:
         min_row = header_row + 1
+
+    def _get_extra(row):
+        return {
+            "atlb_sheet": _format_atlb_sheet(row[atlb_idx] if atlb_idx is not None and len(row) > atlb_idx else None),
+            "eng1_oil": _safe_oil_float(row[eng1_idx] if eng1_idx is not None and len(row) > eng1_idx else None),
+            "eng2_oil": _safe_oil_float(row[eng2_idx] if eng2_idx is not None and len(row) > eng2_idx else None),
+            "eng3_oil": _safe_oil_float(row[eng3_idx] if eng3_idx is not None and len(row) > eng3_idx else None),
+            "eng4_oil": _safe_oil_float(row[eng4_idx] if eng4_idx is not None and len(row) > eng4_idx else None),
+        }
 
     latest = None
     latest_without_date = None
@@ -1827,27 +1909,13 @@ def _extract_latest_utilization_from_sheet(ws):
         row_tcsn = _parse_excel_tcsn(row[tcsn_idx] if len(row) > tcsn_idx else None)
         if row_ttsn is None or row_tcsn is None:
             continue
-        latest_without_date = {
-            "ttsn": float(row_ttsn),
-            "tcsn": int(row_tcsn),
-            "sheet_name": ws.title,
-        }
+        latest_without_date = {"ttsn": float(row_ttsn), "tcsn": int(row_tcsn), "sheet_name": ws.title, **_get_extra(row)}
         if row_date is not None and (latest is None or row_date >= latest["date"]):
-            latest = {
-                "date": row_date,
-                "ttsn": float(row_ttsn),
-                "tcsn": int(row_tcsn),
-                "sheet_name": ws.title,
-            }
+            latest = {"date": row_date, "ttsn": float(row_ttsn), "tcsn": int(row_tcsn), "sheet_name": ws.title, **_get_extra(row)}
     if latest is not None:
         return latest
     if latest_without_date is not None:
-        return {
-            "date": datetime.now(timezone.utc),
-            "ttsn": latest_without_date["ttsn"],
-            "tcsn": latest_without_date["tcsn"],
-            "sheet_name": latest_without_date["sheet_name"],
-        }
+        return {"date": datetime.now(timezone.utc), **latest_without_date}
     return latest
 
 
@@ -1883,9 +1951,18 @@ def _extract_latest_utilization_from_csv(content: bytes):
         dialect = _DefaultDialect
 
     rows = list(csv.reader(text.splitlines(), dialect))
-    header_row, date_idx, ttsn_idx, tcsn_idx = _find_table_headers(rows)
+    header_row, date_idx, ttsn_idx, tcsn_idx, atlb_idx, eng1_idx, eng2_idx, eng3_idx, eng4_idx = _find_table_headers(rows)
     if header_row is None:
         raise ValueError("Could not find Date/TTSN/TCSN columns in CSV file")
+
+    def _get_extra_csv(row):
+        return {
+            "atlb_sheet": _format_atlb_sheet(row[atlb_idx] if atlb_idx is not None and len(row) > atlb_idx else None),
+            "eng1_oil": _safe_oil_float(row[eng1_idx] if eng1_idx is not None and len(row) > eng1_idx else None),
+            "eng2_oil": _safe_oil_float(row[eng2_idx] if eng2_idx is not None and len(row) > eng2_idx else None),
+            "eng3_oil": _safe_oil_float(row[eng3_idx] if eng3_idx is not None and len(row) > eng3_idx else None),
+            "eng4_oil": _safe_oil_float(row[eng4_idx] if eng4_idx is not None and len(row) > eng4_idx else None),
+        }
 
     latest = None
     latest_without_date = None
@@ -1897,28 +1974,14 @@ def _extract_latest_utilization_from_csv(content: bytes):
         row_tcsn = _parse_excel_tcsn(row[tcsn_idx] if len(row) > tcsn_idx else None)
         if row_ttsn is None or row_tcsn is None:
             continue
-        latest_without_date = {
-            "ttsn": float(row_ttsn),
-            "tcsn": int(row_tcsn),
-            "sheet_name": "CSV",
-        }
+        latest_without_date = {"ttsn": float(row_ttsn), "tcsn": int(row_tcsn), "sheet_name": "CSV", **_get_extra_csv(row)}
         if row_date is not None and (latest is None or row_date >= latest["date"]):
-            latest = {
-                "date": row_date,
-                "ttsn": float(row_ttsn),
-                "tcsn": int(row_tcsn),
-                "sheet_name": "CSV",
-            }
+            latest = {"date": row_date, "ttsn": float(row_ttsn), "tcsn": int(row_tcsn), "sheet_name": "CSV", **_get_extra_csv(row)}
 
     if latest is not None:
         return latest
     if latest_without_date is not None:
-        return {
-            "date": datetime.now(timezone.utc),
-            "ttsn": latest_without_date["ttsn"],
-            "tcsn": latest_without_date["tcsn"],
-            "sheet_name": "CSV",
-        }
+        return {"date": datetime.now(timezone.utc), **latest_without_date}
     raise ValueError("Could not find valid TTSN/TCSN data rows in CSV file")
 
 
@@ -1984,7 +2047,7 @@ def _calculate_engine_on_ac_usage(db: Session, engine):
     return tsn_on_ac, tcsn_on_ac
 
 
-def _save_aircraft_utilization_internal(db: Session, aircraft_tail: str, parsed_date: datetime, total_time: float, total_cycles: int, source: str = "manual"):
+def _save_aircraft_utilization_internal(db: Session, aircraft_tail: str, parsed_date: datetime, total_time: float, total_cycles: int, source: str = "manual", atlb_sheet: Optional[str] = None, eng1_oil: Optional[float] = None, eng2_oil: Optional[float] = None, eng3_oil: Optional[float] = None, eng4_oil: Optional[float] = None):
     aircraft_tail = normalize_aircraft_tail(aircraft_tail)
     aircraft = db.query(models.Aircraft).filter(models.Aircraft.tail_number == aircraft_tail).first()
     if not aircraft:
@@ -2064,8 +2127,25 @@ def _save_aircraft_utilization_internal(db: Session, aircraft_tail: str, parsed_
             total_cycles=total_cycles,
             source=source,
             synced_at=now_utc,
+            atlb_sheet=atlb_sheet,
+            eng1_oil=eng1_oil,
+            eng2_oil=eng2_oil,
+            eng3_oil=eng3_oil,
+            eng4_oil=eng4_oil,
         )
         db.add(history)
+    else:
+        # Update new fields on existing record if we have data
+        if atlb_sheet is not None:
+            existing_history.atlb_sheet = atlb_sheet
+        if eng1_oil is not None:
+            existing_history.eng1_oil = eng1_oil
+        if eng2_oil is not None:
+            existing_history.eng2_oil = eng2_oil
+        if eng3_oil is not None:
+            existing_history.eng3_oil = eng3_oil
+        if eng4_oil is not None:
+            existing_history.eng4_oil = eng4_oil
 
     existing_util_param = db.query(models.UtilizationParameter).filter(
         models.UtilizationParameter.aircraft == aircraft.tail_number,
@@ -2119,6 +2199,11 @@ def _sync_one_aircraft_utilization_source(db: Session, source, force: bool = Fal
             latest["ttsn"],
             latest["tcsn"],
             source="auto_sync",
+            atlb_sheet=latest.get("atlb_sheet"),
+            eng1_oil=latest.get("eng1_oil"),
+            eng2_oil=latest.get("eng2_oil"),
+            eng3_oil=latest.get("eng3_oil"),
+            eng4_oil=latest.get("eng4_oil"),
         )
         source.last_synced_at = datetime.now(timezone.utc)
         source.last_source_date = latest["date"]
@@ -2161,8 +2246,8 @@ def sync_aircraft_utilization_sources(db: Session, force: bool = False):
 _sync_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="util-sync")
 
 async def aircraft_utilization_sync_loop():
-    """Runs twice per day at 10:00 and 16:00 local time. Retries up to 3 times on failure."""
-    schedule_hours = (10, 16)
+    """Runs once per day at 14:00 local time. Retries up to 3 times on failure."""
+    schedule_hours = (14,)
     retry_interval_seconds = 5 * 60
     max_retries = 3
     while True:
@@ -3872,6 +3957,11 @@ def get_aircraft_utilization_history(aircraft: str = None, db: Session = Depends
                 "source": source_value or "manual",
                 "synced_at": (synced_at_value or record.created_at).isoformat() if (synced_at_value or record.created_at) else None,
                 "created_at": record.created_at.isoformat() if record.created_at else None,
+                "atlb_sheet": getattr(record, "atlb_sheet", None),
+                "eng1_oil": getattr(record, "eng1_oil", None),
+                "eng2_oil": getattr(record, "eng2_oil", None),
+                "eng3_oil": getattr(record, "eng3_oil", None),
+                "eng4_oil": getattr(record, "eng4_oil", None),
             })
         
         return result
@@ -3920,6 +4010,11 @@ def get_aircraft_utilization_sources(db: Session = Depends(get_db)):
                     "ttsn": row.total_time,
                     "tcsn": row.total_cycles,
                     "synced_at": (row.synced_at or row.created_at).isoformat() if (row.synced_at or row.created_at) else None,
+                    "atlb_sheet": getattr(row, "atlb_sheet", None),
+                    "eng1_oil": getattr(row, "eng1_oil", None),
+                    "eng2_oil": getattr(row, "eng2_oil", None),
+                    "eng3_oil": getattr(row, "eng3_oil", None),
+                    "eng4_oil": getattr(row, "eng4_oil", None),
                 }
                 for row in recent_history
             ],
@@ -4162,6 +4257,11 @@ def preview_excel_url(url: str):
             "ttsn_display": str(rounded_ttsn),
             "tcsn": latest["tcsn"],
             "sheet": latest.get("sheet_name", ""),
+            "atlb_sheet": latest.get("atlb_sheet"),
+            "eng1_oil": latest.get("eng1_oil"),
+            "eng2_oil": latest.get("eng2_oil"),
+            "eng3_oil": latest.get("eng3_oil"),
+            "eng4_oil": latest.get("eng4_oil"),
         }
     except Exception as e:
         return {"ok": False, "error": str(e)}
