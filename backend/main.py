@@ -599,6 +599,12 @@ def startup_event():
                         ) THEN
                             ALTER TABLE users ADD COLUMN password_plain VARCHAR;
                         END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='aircraft_utilization_sources' AND column_name='notification_emails'
+                        ) THEN
+                            ALTER TABLE aircraft_utilization_sources ADD COLUMN notification_emails TEXT;
+                        END IF;
                     END $$;
                 """))
                 db.commit()
@@ -668,6 +674,7 @@ def startup_event():
     ensure_sqlite_column("aircraft_utilization_history", "eng2_oil FLOAT")
     ensure_sqlite_column("aircraft_utilization_history", "eng3_oil FLOAT")
     ensure_sqlite_column("aircraft_utilization_history", "eng4_oil FLOAT")
+    ensure_sqlite_column("aircraft_utilization_sources", "notification_emails TEXT")
 
     # Открываем сессию базы данных
     db = database.SessionLocal()
@@ -2168,6 +2175,7 @@ def _save_aircraft_utilization_internal(db: Session, aircraft_tail: str, parsed_
     db.commit()
     if history is not None:
         db.refresh(history)
+    
     return aircraft, history
 
 
@@ -2240,6 +2248,15 @@ def sync_aircraft_utilization_sources(db: Session, force: bool = False):
             print(f"\u26a0\ufe0f  Sync source {source.aircraft_tail_number} crashed: {e}")
             r = {"aircraft": source.aircraft_tail_number, "status": "error", "error": str(e)}
         results.append(r)
+    
+    # После синхронизации всех самолетов, отправляем одно email со сводкой
+    # Берем email адреса из любого источника (они все должны иметь одинаковые значения)
+    if sources and sources[0].notification_emails:
+        try:
+            send_utilization_notification_email(db, sources[0].notification_emails)
+        except Exception as e:
+            print(f"❌ Failed to send fleet notification email: {e}")
+    
     return results
 
 # Thread pool for running blocking sync without freezing the event loop
@@ -2496,7 +2513,8 @@ class ShipmentSchema(BaseModel):
     engine_id: int
     engine_model: Optional[str] = None
     gss_id: Optional[str] = None
-    to_location_id: int  # Куда отправляем (ID локации)
+    to_location_id: Optional[int] = None  # Куда отправляем (ID локации) - опционально
+    to_location: Optional[str] = None  # Или название локации (city/name) для поиска или создания
     waybill: Optional[str] = "" # Номер накладной
     remarks: Optional[str] = ""
 
@@ -3974,8 +3992,13 @@ def get_aircraft_utilization_history(aircraft: str = None, db: Session = Depends
 def get_aircraft_utilization_sources(db: Session = Depends(get_db)):
     _ensure_aircraft_utilization_sources(db)
     sources = db.query(models.AircraftUtilizationSource).order_by(models.AircraftUtilizationSource.aircraft_tail_number.asc()).all()
+    
+    print(f"📊 Loading {len(sources)} aircraft utilization sources")
+    
     result = []
     for source in sources:
+        print(f"📊 {source.aircraft_tail_number}: URL={source.source_url[:50] if source.source_url else 'None'}, emails={source.notification_emails}")
+        
         recent_history = (
             db.query(models.AircraftUtilizationHistory)
             .join(models.Aircraft, models.Aircraft.id == models.AircraftUtilizationHistory.aircraft_id)
@@ -4003,6 +4026,7 @@ def get_aircraft_utilization_sources(db: Session = Depends(get_db)):
             "last_tcsn": source.last_tcsn,
             "last_status": source.last_status or "",
             "last_error": source.last_error or "",
+            "notification_emails": source.notification_emails or "",
             "recent_history": [
                 {
                     "id": row.id,
@@ -4033,17 +4057,84 @@ def save_aircraft_utilization_sources(payload: AircraftUtilizationSourceBatchSch
         source = db.query(models.AircraftUtilizationSource).filter(
             models.AircraftUtilizationSource.aircraft_tail_number == aircraft_tail
         ).first()
+        
+        # Track old values for debugging
+        old_url = source.source_url if source else None
+        old_emails = source.notification_emails if source else None
+        
         if not source:
             source = models.AircraftUtilizationSource(aircraft_tail_number=aircraft_tail)
             db.add(source)
+            print(f"🔗 Creating new source for {aircraft_tail}")
+        
+        # ВАЖНО: Сохраняем только source_url и is_enabled, НЕ трогаем notification_emails
         source.source_url = item.source_url.strip() if item.source_url else None
         source.is_enabled = bool(item.is_enabled)
         if not source.source_url:
             source.last_status = "Not configured"
             source.last_error = None
+        
+        # Verify notification_emails was preserved
+        print(f"🔗 {aircraft_tail}: URL {old_url} → {source.source_url}, emails preserved: {old_emails} == {source.notification_emails}")
+        
         updated.append(aircraft_tail)
     db.commit()
+    print(f"✅ Saved {len(updated)} aircraft utilization sources")
     return {"message": "Aircraft utilization sources saved", "updated": updated}
+
+
+class NotificationEmailSchema(BaseModel):
+    notification_emails: str  # Comma-separated emails for all aircraft
+
+
+@app.post("/api/aircraft-utilization-sources/notification-emails")
+def save_notification_emails(data: NotificationEmailSchema, db: Session = Depends(get_db)):
+    """Save notification email addresses for all aircraft utilization updates"""
+    try:
+        # Validate email format (basic)
+        emails = [e.strip() for e in data.notification_emails.split(',') if e.strip()]
+        if emails:
+            import re
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            for email in emails:
+                if not re.match(email_pattern, email):
+                    raise HTTPException(status_code=400, detail=f"Invalid email format: {email}")
+        
+        # Save the same email list to all aircraft sources
+        email_string = ','.join(emails) if emails else None
+        sources = db.query(models.AircraftUtilizationSource).all()
+        
+        print(f"📧 Saving notification emails: {email_string}")
+        print(f"📧 Found {len(sources)} aircraft sources to update")
+        
+        if not sources:
+            # Create sources for all known aircraft
+            for tail in ['ER-BAT', 'ER-BAR', 'ER-BAQ']:
+                source = models.AircraftUtilizationSource(
+                    aircraft_tail_number=tail,
+                    notification_emails=email_string
+                )
+                db.add(source)
+                print(f"📧 Created new source for {tail} with notification_emails={email_string}")
+        else:
+            for source in sources:
+                old_emails = source.notification_emails
+                source.notification_emails = email_string
+                print(f"📧 Updated {source.aircraft_tail_number}: {old_emails} → {email_string}")
+        
+        db.commit()
+        print(f"✅ Email notifications saved successfully for {len(sources) or 3} aircraft")
+        
+        return {
+            "message": "Notification emails saved successfully",
+            "emails": emails
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error saving notification emails: {e}")
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 
 @app.post("/api/aircraft-utilization-sources/sync")
@@ -5469,13 +5560,36 @@ def ship_engine(data: ShipmentSchema, db: Session = Depends(get_db)):
         }
     
     # Ищем локацию назначения
-    dest_loc = db.query(models.Location).filter(models.Location.id == data.to_location_id).first()
+    dest_loc = None
+    
+    # Сначала пытаемся найти по to_location_id
+    if data.to_location_id:
+        dest_loc = db.query(models.Location).filter(models.Location.id == data.to_location_id).first()
+    
+    # Если не найдена, пытаемся найти по to_location (city или name)
+    if not dest_loc and data.to_location:
+        dest_loc = db.query(models.Location).filter(
+            (models.Location.city.ilike(data.to_location)) | 
+            (models.Location.name.ilike(data.to_location))
+        ).first()
+        
+        # Если все еще не найдена - создаем новую локацию с введенным названием
+        if not dest_loc:
+            dest_loc = models.Location(
+                name=data.to_location,
+                city=data.to_location,
+                country="Unknown"
+            )
+            db.add(dest_loc)
+            db.flush()  # Получаем ID новой локации
+    
+    # Проверка: если локация так и не найдена/создана
     if not dest_loc:
         return {
             "status": "warning",
             "code": "LOCATION_NOT_FOUND",
-            "message": "⚠️ Локация назначения не найдена",
-            "hint": "Пожалуйста, проверьте выбранную локацию",
+            "message": "⚠️ Локация назначения не указана",
+            "hint": "Пожалуйста, укажите локацию назначения",
             "action": "check_location"
         }
 
@@ -9896,6 +10010,146 @@ def get_engine_parameters_data(aircraft_id: int, engine_id: int, months: int = 1
 
 
 # ==================== EMAIL REPORTING ====================
+
+def send_utilization_notification_email(db: Session, notification_emails: str):
+    """
+    Отправляет email-уведомление со сводкой по всем самолетам после обновления налета.
+    Включает таблицы для каждого самолета: Position, GSS ID, Orig SN, Current SN, Supplier, Status, TT, TC
+    """
+    if not notification_emails or not notification_emails.strip():
+        return False  # Нет email адресов для отправки
+    
+    try:
+        # Получаем все самолеты из флота
+        aircraft_tails = ['ER-BAT', 'ER-BAR', 'ER-BAQ']
+        aircraft_list = db.query(models.Aircraft).filter(
+            func.upper(models.Aircraft.tail_number).in_([t.upper() for t in aircraft_tails])
+        ).all()
+        
+        if not aircraft_list:
+            return False
+        
+        # Формируем HTML для всех самолетов
+        all_aircraft_html = ""
+        
+        for aircraft in aircraft_list:
+            # Получаем установленные двигатели
+            installed_engines = db.query(models.Engine).filter(
+                models.Engine.aircraft_id == aircraft.id,
+                models.Engine.status == models.EngineStatus.INSTALLED
+            ).order_by(models.Engine.position).all()
+            
+            # Формируем таблицу двигателей для этого самолета
+            engines_html = ""
+            if installed_engines:
+                engines_html = "<table style='width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 15px;'>"
+                engines_html += "<thead><tr style='background-color: #0066cc; color: white;'>"
+                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>Position</th>"
+                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>GSS ID</th>"
+                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>Orig SN</th>"
+                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>Current SN</th>"
+                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>Supplier</th>"
+                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>Status</th>"
+                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>TT</th>"
+                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>TC</th>"
+                engines_html += "</tr></thead><tbody>"
+                
+                for eng in installed_engines:
+                    alt_color = "background-color: #f9f9f9;" if installed_engines.index(eng) % 2 == 0 else ""
+                    engines_html += f"<tr style='{alt_color}'>"
+                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.position or '-'}</td>"
+                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.gss_sn or '-'}</td>"
+                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.original_sn or '-'}</td>"
+                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'><strong>{eng.current_sn or '-'}</strong></td>"
+                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{getattr(eng, 'supplier', '-') or '-'}</td>"
+                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.status or '-'}</td>"
+                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.total_time or '-'}</td>"
+                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.total_cycles or '-'}</td>"
+                    engines_html += "</tr>"
+                
+                engines_html += "</tbody></table>"
+            else:
+                engines_html = "<p style='color: #999;'>No engines installed</p>"
+            
+            # Добавляем секцию для самолета
+            all_aircraft_html += f"""
+            <div style="margin-bottom: 30px; padding: 15px; background-color: #f9f9f9; border-radius: 5px;">
+                <h2 style="color: #0066cc; margin-top: 0;">✈️ {aircraft.tail_number}</h2>
+                <div style="background-color: #f0f8ff; padding: 10px; border-left: 4px solid #0066cc; margin: 10px 0;">
+                    <p style="margin: 5px 0;"><strong>Model:</strong> {aircraft.model or 'N/A'}</p>
+                    <p style="margin: 5px 0;"><strong>Total Time:</strong> {aircraft.total_time:.1f} hrs</p>
+                    <p style="margin: 5px 0;"><strong>Total Cycles:</strong> {aircraft.total_cycles or 0}</p>
+                </div>
+                <h3 style="color: #0066cc; font-size: 14px;">Installed Engines</h3>
+                {engines_html}
+            </div>
+            """
+        
+        # Формируем полное HTML письма
+        email_body = f"""
+        <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; background-color: #f5f5f5; }}
+                    .container {{ background-color: white; padding: 20px; border-radius: 8px; max-width: 900px; margin: 0 auto; }}
+                    h1 {{ color: #333; border-bottom: 3px solid #0066cc; padding-bottom: 15px; }}
+                    .footer {{ color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 15px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>✈️ Fleet Utilization Update Summary</h1>
+                    <p style="color: #666; font-size: 14px;">This report contains updated utilization data for all aircraft in the fleet.</p>
+                    
+                    {all_aircraft_html}
+                    
+                    <div class="footer">
+                        <p><strong>Update Time:</strong> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
+                        <p>This is an automated notification from Aviation Engine Management System</p>
+                    </div>
+                </div>
+            </body>
+        </html>
+        """
+        
+        # SMTP configuration
+        smtp_server = os.getenv("OUTLOOK_SMTP_SERVER", "smtp-mail.outlook.com")
+        smtp_port = int(os.getenv("OUTLOOK_SMTP_PORT", "587"))
+        sender_email = os.getenv("OUTLOOK_EMAIL", "")
+        sender_password = os.getenv("OUTLOOK_PASSWORD", "")
+        
+        if not sender_email or not sender_password:
+            print(f"⚠️ Email credentials not configured - cannot send fleet notification")
+            return False
+        
+        # Отправляем письмо всем адресам в списке
+        emails_to_send = [e.strip() for e in notification_emails.split(',') if e.strip()]
+        
+        for recipient_email in emails_to_send:
+            try:
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = f"✈️ Fleet Utilization Update - {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
+                msg['From'] = sender_email
+                msg['To'] = recipient_email
+                
+                msg.attach(MIMEText(email_body, 'html'))
+                
+                server = smtplib.SMTP(smtp_server, smtp_port)
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+                server.quit()
+                
+                print(f"✅ Fleet utilization notification sent to {recipient_email}")
+            except Exception as e:
+                print(f"❌ Failed to send email to {recipient_email}: {str(e)}")
+        
+        return True
+    
+    except Exception as e:
+        print(f"❌ Error in send_utilization_notification_email: {e}")
+        return False
+
 
 class EmailReportRequest(BaseModel):
     recipient_email: str

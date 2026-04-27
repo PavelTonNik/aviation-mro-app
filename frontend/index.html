@@ -6247,13 +6247,17 @@
                                         <div class="row mb-3">
                                             <div class="col-md-4">
                                                 <label class="form-label small fw-bold">From (Location)</label>
-                                                <input type="text" class="form-control" id="ship-loc-from">
+                                                <select class="form-select" id="ship-loc-from">
+                                                    <option value="">Select location...</option>
+                                                    <!-- Заполнится JS -->
+                                                </select>
                                             </div>
                                             <div class="col-md-4">
                                                 <label class="form-label small fw-bold">Destination (To) <span class="text-danger">*</span></label>
-                                                <select class="form-select" id="ship-dest" required>
+                                                <input class="form-control" list="destination-options-ship" id="ship-dest" placeholder="Select or type destination..." required>
+                                                <datalist id="destination-options-ship">
                                                     <!-- Заполнится JS -->
-                                                </select>
+                                                </datalist>
                                             </div>
                                             <div class="col-md-4">
                                                 <label class="form-label small fw-bold">Waybill #</label>
@@ -8760,7 +8764,14 @@
                                     <div id="util-source-history-baq" class="mt-2"></div>
                                 </div>
                             </div>
-                            <div class="d-flex align-items-center justify-content-end gap-2">
+                            <div class="row mt-3">
+                                <div class="col-md-12">
+                                    <label class="small fw-bold"><i class="bi bi-envelope"></i> Email Notifications <span class="text-muted fw-normal">(comma-separated for multiple recipients)</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="util-notification-emails" placeholder="example@mail.com, another@mail.com" title="Email addresses to receive utilization update summary for all aircraft">
+                                    <small class="text-muted">After each sync, a summary email with all aircraft data will be sent to these addresses</small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-end gap-2 mt-3">
                                 <span id="util-source-save-status" class="text-muted small me-2"></span>
                                 <button type="button" class="btn btn-outline-secondary" id="btn-refresh-util-sources" onclick="refreshAircraftUtilSourcePreviews()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
                                 <button type="button" class="btn btn-outline-primary" id="btn-save-util-sources" onclick="saveAircraftUtilSources()"><i class="bi bi-save"></i> Save Links</button>
@@ -9851,6 +9862,7 @@ function restoreView(viewName) {
     } else if (viewName === 'utilization-param') {
         document.getElementById('view-utilization-param').style.display = 'block';
         loadAircraftDropdown();
+        loadAircraftUtilSources(); // Auto-load links and emails on tab open
     } else if (viewName === 'fake-installed') {
         document.getElementById('view-fake-installed').style.display = 'block';
         applyFakeHeaders();
@@ -16135,13 +16147,16 @@ function onGssInputChange(engines) {
         let engines = [];
         try { engines = engRes && engRes.ok ? await engRes.json() : []; } catch { engines = []; }
         
-        // ИСПРАВЛЕНО: Теперь мы ищем правильный datalist для Shipments
+        // ИСПРАВЛЕНО: Показываем Original SN, Current SN, GSS ID в списке
         const datalist = document.getElementById('engine-options-ship');
         if(datalist) {
             datalist.innerHTML = ''; 
             engines.forEach(eng => {
-                // Показываем в списке SN и где он сейчас лежит
-                datalist.innerHTML += `<option value="${eng.original_sn}">${eng.current_sn} (Сейчас: ${eng.location})</option>`;
+                const gssId = eng.gss_sn || '-';
+                const currentSn = eng.current_sn || eng.original_sn;
+                const origSn = eng.original_sn;
+                const location = eng.location || 'Unknown';
+                datalist.innerHTML += `<option value="${origSn}">${origSn} | Current: ${currentSn} | GSS: ${gssId} (${location})</option>`;
             });
         }
 
@@ -16165,7 +16180,9 @@ function onGssInputChange(engines) {
                 
                 // Если нашли в базе — ставим реальные данные
                 document.getElementById('ship-engine-id').value = found.id;
-                document.getElementById('ship-loc-from').value = found.location;
+                // ИСПРАВЛЕНО: Устанавливаем location как текст (город/название)
+                const locationText = found.location || '';
+                document.getElementById('ship-loc-from').value = locationText;
             } else {
                 // Если не нашли — очищаем ID, но текст оставляем (для теста)
                 document.getElementById('ship-engine-id').value = '';
@@ -16173,17 +16190,30 @@ function onGssInputChange(engines) {
             }
         };
 
-        // Загружаем список локаций (Куда)
+        // Загружаем список локаций
         let locRes = await safeFetch('/api/locations' + noCache());
         if (!locRes || !locRes.ok) locRes = await safeFetch('/api/locations');
         
         let locations = [];
         try { locations = locRes && locRes.ok ? await locRes.json() : []; } catch { locations = []; }
-        const sel = document.getElementById('ship-dest');
-        sel.innerHTML = '';
-        locations.forEach(loc => {
-            sel.innerHTML += `<option value="${loc.id}">${loc.name} - ${loc.city}</option>`;
-        });
+        
+        // Заполняем выпадающий список "From" (все локации)
+        const fromSelect = document.getElementById('ship-loc-from');
+        if (fromSelect) {
+            fromSelect.innerHTML = '<option value="">Select location...</option>';
+            locations.forEach(loc => {
+                fromSelect.innerHTML += `<option value="${loc.city}">${loc.name} - ${loc.city}</option>`;
+            });
+        }
+        
+        // Заполняем datalist "Destination" (можно выбрать или ввести вручную)
+        const destDatalist = document.getElementById('destination-options-ship');
+        if (destDatalist) {
+            destDatalist.innerHTML = '';
+            locations.forEach(loc => {
+                destDatalist.innerHTML += `<option value="${loc.city}">${loc.name} - ${loc.city}</option>`;
+            });
+        }
     }
 
    
@@ -16193,13 +16223,23 @@ function onGssInputChange(engines) {
         const engId = document.getElementById('ship-engine-id').value || 0;
         const engineModel = document.getElementById('ship-engine-model').value;
         const gssId = document.getElementById('ship-gss-id').value;
-        const destId = document.getElementById('ship-dest').value;
-        // Получаем текст назначения для отображения
-        const destText = document.getElementById('ship-dest').options[document.getElementById('ship-dest').selectedIndex]?.text || "Dest";
+        
+        // ИСПРАВЛЕНО: Получаем текстовое значение из input (datalist позволяет выбор или ручной ввод)
+        const destValue = document.getElementById('ship-dest').value;
+        const fromLocation = document.getElementById('ship-loc-from').value;
 
-        if(!date || !engInputVal || !destId) {
+        if(!date || !engInputVal || !destValue) {
             alert("Пожалуйста, заполните поля: Дата, Двигатель и Назначение.");
             return;
+        }
+
+        // Пытаемся найти location по city для получения ID
+        let destLocationId = null;
+        const locRes = await safeFetch('/api/locations' + noCache());
+        if (locRes && locRes.ok) {
+            const locations = await locRes.json();
+            const foundLoc = locations.find(l => l.city === destValue || l.name === destValue);
+            if (foundLoc) destLocationId = foundLoc.id;
         }
 
         const payload = {
@@ -16207,7 +16247,8 @@ function onGssInputChange(engines) {
             engine_id: parseInt(engId),
             engine_model: engineModel,
             gss_id: gssId,
-            to_location_id: parseInt(destId),
+            to_location_id: destLocationId,  // Может быть null если не найдена в списке
+            to_location: destValue,  // Всегда отправляем текст для бэкенда
             waybill: document.getElementById('ship-wb').value,
             remarks: document.getElementById('ship-rem').value
         };
@@ -17023,8 +17064,15 @@ function onGssInputChange(engines) {
             const currentSN = eng.current_sn || eng.original_sn || '-';
             const originalSN = eng.original_sn || '-';
             const gssSN = eng.gss_sn || '-';
-            const tt = eng.tt || 0;
-            const tc = eng.tc || 0;
+            
+            // Для INSTALLED двигателей показываем налет на самолете (TSN/CSN on A/C)
+            const tt = (eng.status === 'INSTALLED' && eng.tt_on_ac !== null && eng.tt_on_ac !== undefined) 
+                ? eng.tt_on_ac 
+                : (eng.tt || 0);
+            const tc = (eng.status === 'INSTALLED' && eng.tc_on_ac !== null && eng.tc_on_ac !== undefined) 
+                ? eng.tc_on_ac 
+                : (eng.tc || 0);
+            
             const price = eng.price || '-';
             const condition1 = eng.condition_1 || '-';
             const condition2 = eng.condition_2 || '-';
@@ -21729,9 +21777,23 @@ function onGssInputChange(engines) {
                 const eng3El = document.getElementById(`util-found-eng3-${shortTail}`);
                 const eng4El = document.getElementById(`util-found-eng4-${shortTail}`);
                 if (input) input.value = item.source_url || '';
+                
                 renderAircraftUtilSourceStatus(item, wrapEl, foundEl, dateEl, ttsnEl, tcsnEl, atlbEl, eng1El, eng2El, eng3El, eng4El);
                 renderUtilSourceRecentHistory(shortTail, item.recent_history || []);
             });
+            
+            // Load common notification emails from any source that has them (they all share the same value)
+            const emailInput = document.getElementById('util-notification-emails');
+            if (emailInput && items.length > 0) {
+                // Find first non-empty notification_emails value
+                const sourceWithEmails = items.find(item => item.notification_emails && item.notification_emails.trim());
+                if (sourceWithEmails) {
+                    emailInput.value = sourceWithEmails.notification_emails;
+                    console.log('✅ Loaded notification emails:', sourceWithEmails.notification_emails);
+                } else {
+                    emailInput.value = '';
+                }
+            }
         } catch (err) {
             console.error('Error loading aircraft utilization sources:', err);
         }
@@ -21758,6 +21820,7 @@ function onGssInputChange(engines) {
         };
 
         try {
+            // Save source links
             const response = await fetch('/api/aircraft-utilization-sources', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -21767,8 +21830,24 @@ function onGssInputChange(engines) {
                 const error = await response.json().catch(() => ({}));
                 throw new Error(error.detail || 'Failed to save source links');
             }
+
+            // Save common notification emails for all aircraft
+            const emailValue = document.getElementById('util-notification-emails')?.value.trim() || '';
+            try {
+                const emailResponse = await fetch('/api/aircraft-utilization-sources/notification-emails', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notification_emails: emailValue })
+                });
+                if (!emailResponse.ok) {
+                    console.error('Failed to save notification emails');
+                }
+            } catch (err) {
+                console.error('Error saving notification emails:', err);
+            }
+
             if (statusEl) { statusEl.textContent = '✓ Saved!'; statusEl.className = 'text-success small me-2 fw-bold'; }
-            showSuccessNotification('Links saved');
+            showSuccessNotification('Links and emails saved');
 
             // Load DB first (refreshes history rows), then preview each link for real status
             await loadAircraftUtilSources();
@@ -27233,6 +27312,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     await updateDashboardStats();
     await loadSchedulesData();
     await loadCalendarMonth(currentCalendarYear, currentCalendarMonth);
+    
+    // Load aircraft utilization sources (links and notification emails) on page load
+    await loadAircraftUtilSources();
 
     // When child modals close, reopen schedules modal with fresh data
     const engModalEl = document.getElementById('engineShipmentModal');

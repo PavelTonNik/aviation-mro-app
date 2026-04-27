@@ -336,6 +336,7 @@ class AircraftUtilizationSource(Base):
     last_tcsn = Column(Integer, nullable=True)
     last_status = Column(String, nullable=True)
     last_error = Column(Text, nullable=True)
+    notification_emails = Column(Text, nullable=True)  # Comma-separated emails для уведомлений
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
