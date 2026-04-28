@@ -605,6 +605,16 @@ def startup_event():
                         ) THEN
                             ALTER TABLE aircraft_utilization_sources ADD COLUMN notification_emails TEXT;
                         END IF;
+                        
+                        -- Добавляем уникальный индекс для current_sn (если еще не существует)
+                        -- Это позволит избежать дубликатов Current SN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_indexes 
+                            WHERE tablename = 'engines' AND indexname = 'engines_current_sn_unique_idx'
+                        ) THEN
+                            CREATE UNIQUE INDEX engines_current_sn_unique_idx ON engines (current_sn)
+                            WHERE current_sn IS NOT NULL;
+                        END IF;
                     END $$;
                 """))
                 db.commit()
@@ -2972,12 +2982,28 @@ def get_locations_overview(db: Session = Depends(get_db)):
         locations = db.query(models.Location).all()
         result = []
         for loc in locations:
+            # Общее количество двигателей в локации
             engine_count = db.query(models.Engine).filter(models.Engine.location_id == loc.id).count()
+            
+            # Количество SV двигателей (Condition 1 = 'SV')
+            sv_count = db.query(models.Engine).filter(
+                models.Engine.location_id == loc.id,
+                models.Engine.condition_1 == 'SV'
+            ).count()
+            
+            # Количество US двигателей (Condition 1 = 'US' или 'US - SHJ')
+            us_count = db.query(models.Engine).filter(
+                models.Engine.location_id == loc.id,
+                models.Engine.condition_1.in_(['US', 'US - SHJ'])
+            ).count()
+            
             result.append({
                 "id": loc.id,
                 "name": loc.name,
                 "city": loc.city,
-                "engine_count": engine_count
+                "engine_count": engine_count,
+                "sv_count": sv_count,
+                "us_count": us_count
             })
         return result
     except Exception as e:
@@ -4543,9 +4569,15 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
         actor_name = resolve_actor_name(db, current_user_id, "Admin")
         
         # Проверяем, существует ли уже двигатель с таким original_sn
-        existing = db.query(models.Engine).filter(models.Engine.original_sn == data.original_sn).first()
-        if existing:
-            raise HTTPException(400, f"Engine with ESN {data.original_sn} already exists")
+        existing_original = db.query(models.Engine).filter(models.Engine.original_sn == data.original_sn).first()
+        if existing_original:
+            raise HTTPException(400, f"Engine with Original SN {data.original_sn} already exists")
+        
+        # Проверяем, существует ли уже двигатель с таким current_sn (если current_sn указан)
+        if data.current_sn and data.current_sn.strip():
+            existing_current = db.query(models.Engine).filter(models.Engine.current_sn == data.current_sn).first()
+            if existing_current:
+                raise HTTPException(400, f"Engine with Current SN {data.current_sn} already exists")
         
         # Парсим дату если передана
         install_date = None
@@ -4657,6 +4689,25 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
         if not engine:
             raise HTTPException(404, "Engine not found")
+        
+        # Проверяем уникальность original_sn (если меняется)
+        if data.original_sn != engine.original_sn:
+            existing_original = db.query(models.Engine).filter(
+                models.Engine.original_sn == data.original_sn,
+                models.Engine.id != engine_id
+            ).first()
+            if existing_original:
+                raise HTTPException(400, f"Another engine with Original SN {data.original_sn} already exists")
+        
+        # Проверяем уникальность current_sn (если меняется и указан)
+        if data.current_sn and data.current_sn.strip():
+            if data.current_sn != engine.current_sn:
+                existing_current = db.query(models.Engine).filter(
+                    models.Engine.current_sn == data.current_sn,
+                    models.Engine.id != engine_id
+                ).first()
+                if existing_current:
+                    raise HTTPException(400, f"Another engine with Current SN {data.current_sn} already exists")
         
         # Парсим дату если передана
         install_date = None
