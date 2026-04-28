@@ -864,38 +864,46 @@
 
         #locations-container .btn-dashboard .stats-container {
             display: flex;
-            gap: 0.6rem;
+            gap: 0.4rem;
             justify-content: center;
-            margin: 1rem 0;
+            margin: 0.8rem 0;
+            padding: 0 0.3rem;
         }
 
         #locations-container .btn-dashboard .stat-box {
             flex: 1;
             background: rgba(255,255,255,0.08);
-            border-radius: 10px;
-            padding: 0.7rem 0.4rem;
+            border-radius: 12px;
+            padding: 1rem 0.6rem;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.1);
             transition: all 0.3s ease;
+            min-height: 75px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         #locations-container .btn-dashboard .stat-box.sv {
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.25) 0%, rgba(16, 185, 129, 0.25) 100%);
-            border-color: rgba(34, 197, 94, 0.4);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.3) 0%, rgba(16, 185, 129, 0.3) 100%);
+            border-color: rgba(34, 197, 94, 0.5);
+            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);
         }
 
         #locations-container .btn-dashboard .stat-box.us {
-            background: linear-gradient(135deg, rgba(251, 146, 60, 0.25) 0%, rgba(245, 158, 11, 0.25) 100%);
-            border-color: rgba(251, 146, 60, 0.4);
+            background: linear-gradient(135deg, rgba(251, 146, 60, 0.3) 0%, rgba(245, 158, 11, 0.3) 100%);
+            border-color: rgba(251, 146, 60, 0.5);
+            box-shadow: 0 2px 8px rgba(251, 146, 60, 0.2);
         }
 
         #locations-container .btn-dashboard .stat-number {
             display: block;
-            font-size: 1.8rem;
-            font-weight: 800;
+            font-size: 2.2rem;
+            font-weight: 900;
             font-family: 'Courier New', monospace;
             margin-bottom: 0.2rem;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            text-shadow: 0 3px 10px rgba(0,0,0,0.5);
+            line-height: 1;
         }
 
         #locations-container .btn-dashboard .stat-box.sv .stat-number {
@@ -908,23 +916,32 @@
 
         #locations-container .btn-dashboard .stat-label {
             display: block;
-            font-size: 0.7rem;
-            font-weight: 600;
-            letter-spacing: 1px;
-            opacity: 0.9;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            opacity: 0.95;
             text-transform: uppercase;
             color: white;
+            margin-top: 0.3rem;
         }
 
         #locations-container .btn-dashboard .total-info {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.5rem;
-            margin-top: 0.8rem;
-            font-size: 0.85rem;
-            color: rgba(255,255,255,0.7);
-            font-weight: 500;
+            gap: 0.6rem;
+            margin-top: 1rem;
+            font-size: 1.05rem;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            background: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 10px;
+            padding: 0.6rem 1rem;
+            color: rgba(255,255,255,0.9);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+            transition: all 0.3s ease;
         }
 
         #locations-container .btn-dashboard .count {
@@ -933,10 +950,10 @@
         }
 
         #locations-container .btn-dashboard i {
-            font-size: 1.2rem;
-            opacity: 0.6;
+            font-size: 1.3rem;
+            opacity: 0.8;
             transition: all 0.3s ease;
-            color: #4fc3f7;
+            color: #60a5fa;
         }
         
         #locations-container .btn-dashboard:hover {
@@ -952,6 +969,13 @@
         #locations-container .btn-dashboard:hover .stat-box {
             transform: scale(1.05);
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        #locations-container .btn-dashboard:hover .total-info {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+            transform: scale(1.03);
         }
         
         #locations-container .btn-dashboard:hover .label {
