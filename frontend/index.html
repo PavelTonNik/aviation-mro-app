@@ -897,11 +897,9 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.1);
             transition: all 0.3s ease;
-            width: 110px;
-            height: 110px;
-            max-width: 110px;
-            max-height: 110px;
             aspect-ratio: 1 / 1;
+            max-width: 110px;
+            width: 100%;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -1013,6 +1011,41 @@
         #locations-container .btn-dashboard:hover i {
             transform: scale(1.3) rotate(10deg);
             opacity: 1;
+        }
+
+        /* Адаптивность для карточек городов */
+        @media (max-width: 768px) {
+            #locations-container .btn-dashboard .stats-container {
+                width: 80%;
+            }
+            
+            #locations-container .btn-dashboard .stat-box {
+                max-width: 90px;
+            }
+
+            #locations-container .btn-dashboard .stat-number {
+                font-size: 1.8rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            #locations-container .btn-dashboard .stats-container {
+                width: 90%;
+                gap: 0.5rem;
+            }
+            
+            #locations-container .btn-dashboard .stat-box {
+                max-width: 70px;
+                padding: 0.7rem;
+            }
+
+            #locations-container .btn-dashboard .stat-number {
+                font-size: 1.5rem;
+            }
+
+            #locations-container .btn-dashboard .stat-label {
+                font-size: 0.65rem;
+            }
         }
 
         .aircraft-card {
@@ -6478,7 +6511,8 @@
                                         <th style="white-space:nowrap;">Orig SN</th>
                                         <th style="white-space:nowrap;">Current SN</th>
                                         <th style="white-space:nowrap;">GSS ID</th>
-                                        <th style="white-space:nowrap;">From AC</th>
+                                        <th style="white-space:nowrap;">Aircraft</th>
+                                        <th style="white-space:nowrap;">Position</th>
                                         <th style="white-space:nowrap;">Sent To</th>
                                         <th style="white-space:nowrap;">TTSN Eng</th>
                                         <th style="white-space:nowrap;">TCSN Eng</th>
@@ -6531,14 +6565,17 @@
                                         </div>
 
                                         <div class="row mb-3">
-                                            <div class="col-md-6">
-                                                <label class="form-label small fw-bold">From A/C <span class="text-danger">*</span></label>
-                                                <select class="form-select" id="rem-aircraft" required disabled>
-                                                    <option value="" selected>Select engine first...</option>
-                                                </select>
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-bold">Aircraft (From) <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" id="rem-aircraft" readonly required style="background-color: #e9ecef; cursor: default;">
                                                 <small class="text-muted">Автоматически определяется по двигателю</small>
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
+                                                <label class="form-label small fw-bold">Engine Position <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" id="rem-position" readonly required style="background-color: #e9ecef; cursor: default;">
+                                                <small class="text-muted">Автоматически определяется по двигателю</small>
+                                            </div>
+                                            <div class="col-md-4">
                                                 <label class="form-label small fw-bold">Send To (Location) <span class="text-danger">*</span></label>
                                                 <select class="form-select" id="rem-dest" required></select>
                                             </div>
@@ -8920,15 +8957,21 @@
                             </div>
                             <div class="row mt-3">
                                 <div class="col-md-12">
-                                    <label class="small fw-bold"><i class="bi bi-envelope"></i> Email Notifications <span class="text-muted fw-normal">(comma-separated for multiple recipients)</span></label>
-                                    <input type="text" class="form-control form-control-sm" id="util-notification-emails" placeholder="example@mail.com, another@mail.com" title="Email addresses to receive utilization update summary for all aircraft">
-                                    <small class="text-muted">After each sync, a summary email with all aircraft data will be sent to these addresses</small>
+                                    <label class="small fw-bold"><i class="bi bi-envelope"></i> Email Notifications</label>
+                                    <div class="d-flex gap-2 mb-2">
+                                        <input type="email" class="form-control form-control-sm" id="util-email-add-input" placeholder="add@example.com" style="max-width:280px;" onkeydown="if(event.key==='Enter'){event.preventDefault();addNotificationEmail();}">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addNotificationEmail()"><i class="bi bi-plus-lg"></i> Add</button>
+                                    </div>
+                                    <div id="util-email-tags" class="d-flex flex-wrap gap-1 mb-1" style="min-height:26px;"></div>
+                                    <small class="text-muted">After each sync, a full fleet report is sent to these addresses. Separate multiple recipients by adding each one.</small>
                                 </div>
                             </div>
                             <div class="d-flex align-items-center justify-content-end gap-2 mt-3">
                                 <span id="util-source-save-status" class="text-muted small me-2"></span>
                                 <button type="button" class="btn btn-outline-secondary" id="btn-refresh-util-sources" onclick="refreshAircraftUtilSourcePreviews()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                                <button type="button" class="btn btn-outline-secondary" id="btn-preview-report" onclick="previewFleetReport()"><i class="bi bi-eye"></i> Preview Report</button>
                                 <button type="button" class="btn btn-outline-primary" id="btn-save-util-sources" onclick="saveAircraftUtilSources()"><i class="bi bi-save"></i> Save Links</button>
+                                <button type="button" class="btn btn-outline-success" id="btn-send-report-now" onclick="sendReportNow()"><i class="bi bi-send"></i> Send Report Now</button>
                                 <button type="button" class="btn btn-primary" id="btn-sync-util-sources" onclick="syncAircraftUtilSourcesNow()"><i class="bi bi-arrow-repeat"></i> Sync Now</button>
                             </div>
                             </div>
@@ -16511,12 +16554,12 @@ function onGssInputChange(engines) {
             const ttsnAcText = row.ttsn_ac != null ? formatFlightTime(row.ttsn_ac) : '-';
             const tcsnAcText = row.tcsn_ac != null ? row.tcsn_ac                   : '-';
             const conditionText     = row.condition_1_at_removal || '-';
-            const condBadgeColor    = conditionText === 'SV' ? 'info' : conditionText === 'US' ? 'warning' : conditionText === 'Scrap' ? 'danger' : 'secondary';
             const gssIdText         = row.gss_id || '-';
             const installedPlateText = row.installed_plate_sn || '-';
             const reasonText        = row.comments || '-';
             const remarksText       = row.remarks_removal || row.remarks || '-';
-            const fromAcText        = row.to_aircraft || '-';
+            const aircraftText      = row.to_aircraft || '-';
+            const positionText      = row.engine_position || '-';
             const origSnText        = row.original_sn || '-';
             const currSnText        = row.current_sn  || row.original_sn || '-';
 
@@ -16528,14 +16571,15 @@ function onGssInputChange(engines) {
                     <td style="white-space:nowrap;">${row.date || '-'}</td>
                     <td style="white-space:nowrap;"><span class="font-monospace">${origSnText}</span></td>
                     <td style="white-space:nowrap;"><strong>${currSnText}</strong></td>
-                    <td style="white-space:nowrap;">${gssIdText !== '-' ? `<span class="badge bg-primary">${gssIdText}</span>` : '-'}</td>
-                    <td style="white-space:nowrap;">${fromAcText !== '-' ? `<span class="badge bg-secondary">${fromAcText}</span>` : '-'}</td>
-                    <td style="white-space:nowrap;">${row.to ? `<span class="badge bg-success">${row.to}</span>` : '-'}</td>
-                    <td style="white-space:nowrap;" data-raw="${row.ttsn != null ? row.ttsn : ''}">${ttsnText !== '-' ? `<span class="badge bg-warning text-dark">${ttsnText}</span>` : '-'}</td>
-                    <td style="white-space:nowrap;" data-raw="${row.tcsn != null ? row.tcsn : ''}">${tcsnText !== '-' ? `<span class="badge bg-warning text-dark">${tcsnText}</span>` : '-'}</td>
-                    <td style="white-space:nowrap;" data-raw="${row.ttsn_ac != null ? row.ttsn_ac : ''}">${ttsnAcText !== '-' ? `<span class="badge bg-warning text-dark">${ttsnAcText}</span>` : '-'}</td>
-                    <td style="white-space:nowrap;" data-raw="${row.tcsn_ac != null ? row.tcsn_ac : ''}">${tcsnAcText !== '-' ? `<span class="badge bg-warning text-dark">${tcsnAcText}</span>` : '-'}</td>
-                    <td style="white-space:nowrap;"><span class="badge bg-${condBadgeColor}">${conditionText}</span></td>
+                    <td style="white-space:nowrap;">${gssIdText}</td>
+                    <td style="white-space:nowrap;">${aircraftText}</td>
+                    <td style="white-space:nowrap;">${positionText}</td>
+                    <td style="white-space:nowrap;">${row.to || '-'}</td>
+                    <td style="white-space:nowrap;" data-raw="${row.ttsn != null ? row.ttsn : ''}">${ttsnText}</td>
+                    <td style="white-space:nowrap;" data-raw="${row.tcsn != null ? row.tcsn : ''}">${tcsnText}</td>
+                    <td style="white-space:nowrap;" data-raw="${row.ttsn_ac != null ? row.ttsn_ac : ''}">${ttsnAcText}</td>
+                    <td style="white-space:nowrap;" data-raw="${row.tcsn_ac != null ? row.tcsn_ac : ''}">${tcsnAcText}</td>
+                    <td style="white-space:nowrap;">${conditionText}</td>
                     <td style="white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${installedPlateText}">${installedPlateText}</td>
                     <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${reasonText}">${reasonText}</td>
                     <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${remarksText}">${remarksText}</td>
@@ -16646,12 +16690,12 @@ function onGssInputChange(engines) {
             });
         }
 
-        // Заполняем выпадающий список самолетов
-        const acSelect = document.getElementById('rem-aircraft');
-        acSelect.innerHTML = '<option value="" selected>Select engine first...</option>';
-        aircrafts.forEach(ac => {
-            acSelect.innerHTML += `<option value="${ac.tail_number}">${ac.tail_number} - ${ac.model}</option>`;
-        });
+        // Заполняем выпадающий список самолетов - БОЛЬШЕ НЕ НУЖЕН (теперь readonly input)
+        // const acSelect = document.getElementById('rem-aircraft');
+        // acSelect.innerHTML = '<option value="" selected>Select engine first...</option>';
+        // aircrafts.forEach(ac => {
+        //     acSelect.innerHTML += `<option value="${ac.tail_number}">${ac.tail_number} - ${ac.model}</option>`;
+        // });
 
         // Автозаполнение при вводе + Фильтр Кириллицы + Определение самолета
         const remEngineInput = document.getElementById('rem-engine-input');
@@ -16671,12 +16715,11 @@ function onGssInputChange(engines) {
                 document.getElementById('rem-loc-from').value = '';
                 document.getElementById('rem-gss-id').value = '';
                 document.getElementById('rem-aircraft').value = '';
+                document.getElementById('rem-position').value = '';
                 document.getElementById('rem-ttsn-ac').value = '';
                 document.getElementById('rem-tcsn-ac').value = '';
                 document.getElementById('rem-ttsn').value = '';
                 document.getElementById('rem-tcsn').value = '';
-                document.getElementById('rem-aircraft').disabled = true;
-                document.getElementById('rem-aircraft').classList.remove('border-success');
                 return;
             }
             
@@ -16690,8 +16733,7 @@ function onGssInputChange(engines) {
                 document.getElementById('rem-loc-from').value = '';
                 document.getElementById('rem-gss-id').value = '';
                 document.getElementById('rem-aircraft').value = '';
-                document.getElementById('rem-aircraft').disabled = true;
-                document.getElementById('rem-aircraft').classList.remove('border-success');
+                document.getElementById('rem-position').value = '';
                 return;
             }
             
@@ -16704,8 +16746,7 @@ function onGssInputChange(engines) {
                 document.getElementById('rem-loc-from').value = '';
                 document.getElementById('rem-gss-id').value = '';
                 document.getElementById('rem-aircraft').value = '';
-                document.getElementById('rem-aircraft').disabled = true;
-                document.getElementById('rem-aircraft').classList.remove('border-success');
+                document.getElementById('rem-position').value = '';
                 return;
             }
             
@@ -16718,8 +16759,7 @@ function onGssInputChange(engines) {
                 document.getElementById('rem-loc-from').value = '';
                 document.getElementById('rem-gss-id').value = '';
                 document.getElementById('rem-aircraft').value = '';
-                document.getElementById('rem-aircraft').disabled = true;
-                document.getElementById('rem-aircraft').classList.remove('border-success');
+                document.getElementById('rem-position').value = '';
                 return;
             }
             
@@ -16731,10 +16771,10 @@ function onGssInputChange(engines) {
             document.getElementById('rem-ttsn-ac').value = found.ac_ttsn !== null && found.ac_ttsn !== undefined ? formatWholeHours(found.ac_ttsn) : '';
             document.getElementById('rem-tcsn-ac').value = found.ac_tcsn !== null && found.ac_tcsn !== undefined ? found.ac_tcsn : '';
             
-            const acSelect = document.getElementById('rem-aircraft');
-            acSelect.value = found.aircraft;
-            acSelect.disabled = false;
-            acSelect.classList.add('border-success'); // Зеленая рамка = определено автоматически
+            // Заполняем Aircraft и Position отдельно
+            document.getElementById('rem-aircraft').value = found.aircraft || '';
+            document.getElementById('rem-position').value = found.position || '';
+            
             recalcRemoveEngineUtilization();
         });
 
@@ -16844,7 +16884,9 @@ function onGssInputChange(engines) {
             remarks: document.getElementById('rem-remarks').value,
             condition_1: document.getElementById('rem-condition-1').value,
             installed_plate_sn: document.getElementById('rem-installed-plate-sn').value || null,
-            current_sn: document.getElementById('rem-installed-plate-sn').value || null  // Отправляем как current_sn
+            current_sn: document.getElementById('rem-installed-plate-sn').value || null,  // Отправляем как current_sn
+            aircraft_tail: document.getElementById('rem-aircraft').value || null,  // Отправляем tail number
+            engine_position: document.getElementById('rem-position').value || null  // Отправляем позицию
         };
 
         try {
@@ -21952,7 +21994,7 @@ function onGssInputChange(engines) {
                 renderUtilSourceRecentHistory(shortTail, item.recent_history || []);
             });
             
-            // Load common notification emails from any source that has them (they all share the same value)
+            // Load common notification emails from any source that has them
             const emailInput = document.getElementById('util-notification-emails');
             if (emailInput && items.length > 0) {
                 // Find first non-empty notification_emails value
@@ -21964,10 +22006,110 @@ function onGssInputChange(engines) {
                     emailInput.value = '';
                 }
             }
+            // Load notification emails as tags
+            const sourceWithEmails = items.find(item => item.notification_emails && item.notification_emails.trim());
+            renderEmailTags(sourceWithEmails ? sourceWithEmails.notification_emails : '');
         } catch (err) {
             console.error('Error loading aircraft utilization sources:', err);
         }
     }
+
+    // ── Email tag helpers ──────────────────────────────────────────────────
+    function renderEmailTags(emailsString) {
+        const container = document.getElementById('util-email-tags');
+        if (!container) return;
+        container.innerHTML = '';
+        const emails = emailsString ? emailsString.split(',').map(e => e.trim()).filter(Boolean) : [];
+        emails.forEach(email => {
+            const tag = document.createElement('span');
+            tag.className = 'badge bg-primary d-flex align-items-center gap-1';
+            tag.style.cssText = 'font-size:12px;font-weight:normal;padding:5px 8px;';
+            tag.innerHTML = `${email} <button type="button" onclick="removeNotificationEmail('${email.replace(/'/g, "\\'")}')" style="background:none;border:none;color:white;cursor:pointer;padding:0;line-height:1;font-size:14px;" title="Remove">&times;</button>`;
+            container.appendChild(tag);
+        });
+    }
+
+    function getNotificationEmails() {
+        const container = document.getElementById('util-email-tags');
+        if (!container) return '';
+        const badges = container.querySelectorAll('.badge');
+        const emails = [];
+        badges.forEach(b => {
+            const text = b.childNodes[0] && b.childNodes[0].nodeType === Node.TEXT_NODE ? b.childNodes[0].textContent.trim() : '';
+            if (text) emails.push(text);
+        });
+        return emails.join(',');
+    }
+
+    function addNotificationEmail() {
+        const input = document.getElementById('util-email-add-input');
+        if (!input) return;
+        const email = input.value.trim();
+        if (!email) return;
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showErrorNotification('Invalid email format: ' + email);
+            return;
+        }
+        const current = getNotificationEmails();
+        const existing = current ? current.split(',').map(e => e.trim()) : [];
+        if (existing.includes(email)) {
+            showErrorNotification('This email is already added');
+            return;
+        }
+        existing.push(email);
+        renderEmailTags(existing.join(','));
+        input.value = '';
+    }
+
+    function removeNotificationEmail(email) {
+        const current = getNotificationEmails();
+        const updated = current.split(',').map(e => e.trim()).filter(e => e && e !== email);
+        renderEmailTags(updated.join(','));
+    }
+
+    function previewFleetReport() {
+        window.open('/api/aircraft-utilization-sources/email-preview', '_blank');
+    }
+
+    async function sendReportNow() {
+        const btn = document.getElementById('btn-send-report-now');
+        const statusEl = document.getElementById('util-source-save-status');
+        // Save emails first
+        const emailValue = getNotificationEmails();
+        if (!emailValue) {
+            showErrorNotification('No email addresses added. Please add at least one email.');
+            return;
+        }
+        try {
+            await fetch('/api/aircraft-utilization-sources/notification-emails', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notification_emails: emailValue })
+            });
+        } catch (e) { /* ignore, proceed to send */ }
+
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending...'; }
+        if (statusEl) { statusEl.textContent = 'Sending report...'; statusEl.className = 'text-muted small me-2'; }
+        try {
+            const resp = await fetch('/api/aircraft-utilization-sources/send-test-email', { method: 'POST' });
+            const data = await resp.json().catch(() => ({}));
+            if (resp.ok) {
+                if (statusEl) { statusEl.textContent = '✓ Report sent!'; statusEl.className = 'text-success small me-2 fw-bold'; }
+                showSuccessNotification(data.message || 'Fleet report sent successfully');
+            } else {
+                if (statusEl) { statusEl.textContent = '✗ Send failed'; statusEl.className = 'text-danger small me-2'; }
+                showErrorNotification(data.detail || 'Failed to send report');
+            }
+        } catch (err) {
+            if (statusEl) { statusEl.textContent = '✗ Send failed'; statusEl.className = 'text-danger small me-2'; }
+            showErrorNotification('Error sending report: ' + err.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send"></i> Send Report Now'; }
+            setTimeout(() => { if (statusEl) { statusEl.textContent = ''; statusEl.className = 'text-muted small me-2'; } }, 5000);
+        }
+    }
+    // ──────────────────────────────────────────────────────────────────────
 
     async function saveAircraftUtilSources() {
         const statusEl = document.getElementById('util-source-save-status');
@@ -22002,7 +22144,7 @@ function onGssInputChange(engines) {
             }
 
             // Save common notification emails for all aircraft
-            const emailValue = document.getElementById('util-notification-emails')?.value.trim() || '';
+            const emailValue = getNotificationEmails();
             try {
                 const emailResponse = await fetch('/api/aircraft-utilization-sources/notification-emails', {
                     method: 'POST',

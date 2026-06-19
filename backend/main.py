@@ -1936,6 +1936,53 @@ def _extract_latest_utilization_from_sheet(ws):
     return latest
 
 
+def _extract_all_utilization_rows_from_sheet(ws):
+    """Extract all valid utilization rows from one worksheet and keep latest row per calendar date."""
+    header_row, date_idx, ttsn_idx, tcsn_idx, atlb_idx, eng1_idx, eng2_idx, eng3_idx, eng4_idx = _find_sheet_headers(ws)
+    if header_row is None:
+        date_idx = 0
+        ttsn_idx = 10
+        tcsn_idx = 11
+        atlb_idx = eng1_idx = eng2_idx = eng3_idx = eng4_idx = None
+        min_row = 1
+    else:
+        min_row = header_row + 1
+
+    def _get_extra(row):
+        return {
+            "atlb_sheet": _format_atlb_sheet(row[atlb_idx] if atlb_idx is not None and len(row) > atlb_idx else None),
+            "eng1_oil": _safe_oil_float(row[eng1_idx] if eng1_idx is not None and len(row) > eng1_idx else None),
+            "eng2_oil": _safe_oil_float(row[eng2_idx] if eng2_idx is not None and len(row) > eng2_idx else None),
+            "eng3_oil": _safe_oil_float(row[eng3_idx] if eng3_idx is not None and len(row) > eng3_idx else None),
+            "eng4_oil": _safe_oil_float(row[eng4_idx] if eng4_idx is not None and len(row) > eng4_idx else None),
+        }
+
+    rows_by_day = {}
+    for row in ws.iter_rows(min_row=min_row, values_only=True):
+        if not row:
+            continue
+        row_date = _parse_excel_date(row[date_idx] if len(row) > date_idx else None)
+        row_ttsn = _parse_excel_ttsn(row[ttsn_idx] if len(row) > ttsn_idx else None)
+        row_tcsn = _parse_excel_tcsn(row[tcsn_idx] if len(row) > tcsn_idx else None)
+        if row_date is None or row_ttsn is None or row_tcsn is None:
+            continue
+
+        row_payload = {
+            "date": row_date,
+            "ttsn": float(row_ttsn),
+            "tcsn": int(row_tcsn),
+            "sheet_name": ws.title,
+            **_get_extra(row)
+        }
+
+        day_key = row_date.date()
+        existing = rows_by_day.get(day_key)
+        if existing is None or row_date >= existing["date"]:
+            rows_by_day[day_key] = row_payload
+
+    return sorted(rows_by_day.values(), key=lambda x: x["date"])
+
+
 def _extract_latest_utilization_from_workbook(content: bytes, preferred_sheet: Optional[str] = None):
     try:
         wb = load_workbook(BytesIO(content), data_only=True, read_only=True)
@@ -1955,6 +2002,31 @@ def _extract_latest_utilization_from_workbook(content: bytes, preferred_sheet: O
     if not latest:
         raise ValueError("Could not find Date/TTSN/TCSN columns in Excel file")
     return latest
+
+
+def _extract_all_utilization_rows_from_workbook(content: bytes, preferred_sheet: Optional[str] = None):
+    try:
+        wb = load_workbook(BytesIO(content), data_only=True, read_only=True)
+    except BadZipFile:
+        raise ValueError("Downloaded content is not a valid .xlsx file (ZIP)")
+
+    sheets = []
+    if preferred_sheet and preferred_sheet in wb.sheetnames:
+        sheets.append(wb[preferred_sheet])
+    sheets.extend([wb[name] for name in wb.sheetnames if not preferred_sheet or name != preferred_sheet])
+
+    rows_by_day = {}
+    for ws in sheets:
+        for row in _extract_all_utilization_rows_from_sheet(ws):
+            day_key = row["date"].date()
+            existing = rows_by_day.get(day_key)
+            if existing is None or row["date"] >= existing["date"]:
+                rows_by_day[day_key] = row
+
+    if not rows_by_day:
+        raise ValueError("Could not find Date/TTSN/TCSN columns in Excel file")
+
+    return sorted(rows_by_day.values(), key=lambda x: x["date"])
 
 
 def _extract_latest_utilization_from_csv(content: bytes):
@@ -2002,6 +2074,59 @@ def _extract_latest_utilization_from_csv(content: bytes):
     raise ValueError("Could not find valid TTSN/TCSN data rows in CSV file")
 
 
+def _extract_all_utilization_rows_from_csv(content: bytes):
+    text = content.decode('utf-8-sig', errors='ignore')
+    sample = text[:4096]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=',;\t')
+    except Exception:
+        class _DefaultDialect(csv.excel):
+            delimiter = ',' if sample.count(',') >= sample.count(';') else ';'
+        dialect = _DefaultDialect
+
+    rows = list(csv.reader(text.splitlines(), dialect))
+    header_row, date_idx, ttsn_idx, tcsn_idx, atlb_idx, eng1_idx, eng2_idx, eng3_idx, eng4_idx = _find_table_headers(rows)
+    if header_row is None:
+        raise ValueError("Could not find Date/TTSN/TCSN columns in CSV file")
+
+    def _get_extra_csv(row):
+        return {
+            "atlb_sheet": _format_atlb_sheet(row[atlb_idx] if atlb_idx is not None and len(row) > atlb_idx else None),
+            "eng1_oil": _safe_oil_float(row[eng1_idx] if eng1_idx is not None and len(row) > eng1_idx else None),
+            "eng2_oil": _safe_oil_float(row[eng2_idx] if eng2_idx is not None and len(row) > eng2_idx else None),
+            "eng3_oil": _safe_oil_float(row[eng3_idx] if eng3_idx is not None and len(row) > eng3_idx else None),
+            "eng4_oil": _safe_oil_float(row[eng4_idx] if eng4_idx is not None and len(row) > eng4_idx else None),
+        }
+
+    rows_by_day = {}
+    for row in rows[header_row:]:
+        if not row:
+            continue
+        row_date = _parse_excel_date(row[date_idx] if len(row) > date_idx else None)
+        row_ttsn = _parse_excel_ttsn(row[ttsn_idx] if len(row) > ttsn_idx else None)
+        row_tcsn = _parse_excel_tcsn(row[tcsn_idx] if len(row) > tcsn_idx else None)
+        if row_date is None or row_ttsn is None or row_tcsn is None:
+            continue
+
+        row_payload = {
+            "date": row_date,
+            "ttsn": float(row_ttsn),
+            "tcsn": int(row_tcsn),
+            "sheet_name": "CSV",
+            **_get_extra_csv(row)
+        }
+
+        day_key = row_date.date()
+        existing = rows_by_day.get(day_key)
+        if existing is None or row_date >= existing["date"]:
+            rows_by_day[day_key] = row_payload
+
+    if not rows_by_day:
+        raise ValueError("Could not find valid TTSN/TCSN data rows in CSV file")
+
+    return sorted(rows_by_day.values(), key=lambda x: x["date"])
+
+
 def _extract_latest_utilization_from_content(content: bytes, preferred_sheet: Optional[str] = None):
     if content.startswith(b"PK"):
         result = _extract_latest_utilization_from_workbook(content, preferred_sheet)
@@ -2016,6 +2141,19 @@ def _extract_latest_utilization_from_content(content: bytes, preferred_sheet: Op
             result["ttsn"] = round(result["ttsn"] * 24, 4)
 
     return result
+
+
+def _extract_all_utilization_rows_from_content(content: bytes, preferred_sheet: Optional[str] = None):
+    if content.startswith(b"PK"):
+        rows = _extract_all_utilization_rows_from_workbook(content, preferred_sheet)
+    else:
+        rows = _extract_all_utilization_rows_from_csv(content)
+
+    for row in rows:
+        if row.get("ttsn", 0) > 0 and row.get("tcsn", 0) > 0 and row["ttsn"] < row["tcsn"]:
+            row["ttsn"] = round(row["ttsn"] * 24, 4)
+
+    return rows
 
 
 def _recalculate_engine_cost_fields(engine, tsn_on_ac: Optional[float], tcsn_on_ac: Optional[int]):
@@ -2117,16 +2255,18 @@ def _save_aircraft_utilization_internal(db: Session, aircraft_tail: str, parsed_
     now_utc = datetime.now(timezone.utc)
 
     if source == "auto_sync":
-        # For auto sync: always write a new record so every sync is visible in history.
-        # Only skip if we already have an auto_sync record today for this aircraft with same ttsn/tcsn.
-        today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
-        existing_history = db.query(models.AircraftUtilizationHistory).filter(
-            models.AircraftUtilizationHistory.aircraft_id == aircraft.id,
-            models.AircraftUtilizationHistory.source == "auto_sync",
-            models.AircraftUtilizationHistory.synced_at >= today_start,
-            models.AircraftUtilizationHistory.total_time == total_time,
-            models.AircraftUtilizationHistory.total_cycles == total_cycles,
-        ).first()
+        # Allow duplicate source dates (as before), but prevent repeated writes
+        # when source date is today and sync runs multiple times the same day.
+        if parsed_date.date() == now_utc.date():
+            today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+            existing_history = db.query(models.AircraftUtilizationHistory).filter(
+                models.AircraftUtilizationHistory.aircraft_id == aircraft.id,
+                models.AircraftUtilizationHistory.source == "auto_sync",
+                models.AircraftUtilizationHistory.date == parsed_date,
+                models.AircraftUtilizationHistory.synced_at >= today_start,
+            ).order_by(models.AircraftUtilizationHistory.id.desc()).first()
+        else:
+            existing_history = None
     else:
         existing_history = db.query(models.AircraftUtilizationHistory).filter(
             models.AircraftUtilizationHistory.aircraft_id == aircraft.id,
@@ -2152,6 +2292,10 @@ def _save_aircraft_utilization_internal(db: Session, aircraft_tail: str, parsed_
         )
         db.add(history)
     else:
+        existing_history.total_time = total_time
+        existing_history.total_cycles = total_cycles
+        existing_history.source = source or existing_history.source
+        existing_history.synced_at = now_utc
         # Update new fields on existing record if we have data
         if atlb_sheet is not None:
             existing_history.atlb_sheet = atlb_sheet
@@ -2181,7 +2325,6 @@ def _save_aircraft_utilization_internal(db: Session, aircraft_tail: str, parsed_
             tcsn=total_cycles,
             period=False
         ))
-
     db.commit()
     if history is not None:
         db.refresh(history)
@@ -2209,25 +2352,42 @@ def _sync_one_aircraft_utilization_source(db: Session, source, force: bool = Fal
     try:
         normalized_url = _normalize_excel_url(source.source_url)
         content = _download_excel_bytes(normalized_url, original_url=source.source_url, max_retries=1)
-        latest = _extract_latest_utilization_from_content(content, source.sheet_name)
-        aircraft, history = _save_aircraft_utilization_internal(
-            db,
-            source.aircraft_tail_number,
-            latest["date"],
-            latest["ttsn"],
-            latest["tcsn"],
-            source="auto_sync",
-            atlb_sheet=latest.get("atlb_sheet"),
-            eng1_oil=latest.get("eng1_oil"),
-            eng2_oil=latest.get("eng2_oil"),
-            eng3_oil=latest.get("eng3_oil"),
-            eng4_oil=latest.get("eng4_oil"),
-        )
+        all_rows = _extract_all_utilization_rows_from_content(content, source.sheet_name)
+        latest = all_rows[-1]
+
+        from_date = source.last_source_date.date() + timedelta(days=1) if source.last_source_date else None
+        rows_to_sync = []
+        for row in all_rows:
+            row_day = row["date"].date()
+            if from_date and row_day < from_date:
+                continue
+            rows_to_sync.append(row)
+
+        if not rows_to_sync:
+            rows_to_sync = [latest]
+
+        aircraft = None
+        history = None
+        for row in rows_to_sync:
+            aircraft, history = _save_aircraft_utilization_internal(
+                db,
+                source.aircraft_tail_number,
+                row["date"],
+                row["ttsn"],
+                row["tcsn"],
+                source="auto_sync",
+                atlb_sheet=row.get("atlb_sheet"),
+                eng1_oil=row.get("eng1_oil"),
+                eng2_oil=row.get("eng2_oil"),
+                eng3_oil=row.get("eng3_oil"),
+                eng4_oil=row.get("eng4_oil"),
+            )
+
         source.last_synced_at = datetime.now(timezone.utc)
         source.last_source_date = latest["date"]
         source.last_ttsn = aircraft.total_time
         source.last_tcsn = latest["tcsn"]
-        source.last_status = f"Synced from {latest['sheet_name']}"
+        source.last_status = f"Synced from {latest['sheet_name']} ({len(rows_to_sync)} day(s))"
         source.last_error = None
         db.commit()
         return {
@@ -2237,6 +2397,7 @@ def _sync_one_aircraft_utilization_source(db: Session, source, force: bool = Fal
             "ttsn": aircraft.total_time,
             "tcsn": latest["tcsn"],
             "history_id": history.id if history else None,
+            "days_synced": len(rows_to_sync),
         }
     except Exception as e:
         # Do not mark as synced on error; keep last successful sync timestamp.
@@ -2261,9 +2422,10 @@ def sync_aircraft_utilization_sources(db: Session, force: bool = False):
     
     # После синхронизации всех самолетов, отправляем одно email со сводкой
     # Берем email адреса из любого источника (они все должны иметь одинаковые значения)
-    if sources and sources[0].notification_emails:
+    notification_emails = next((s.notification_emails for s in sources if s.notification_emails), None)
+    if notification_emails:
         try:
-            send_utilization_notification_email(db, sources[0].notification_emails)
+            send_utilization_notification_email(db, notification_emails, sync_results=results)
         except Exception as e:
             print(f"❌ Failed to send fleet notification email: {e}")
     
@@ -2541,6 +2703,8 @@ class RemoveSchema(BaseModel):
     remarks: Optional[str] = ""
     installed_plate_sn: Optional[str] = None  # Шильдик, установленный на снятый двигатель
     current_sn: Optional[str] = None  # Новый Current SN при снятии (Installed Plate)
+    aircraft_tail: Optional[str] = None  # Tail number самолета, с которого снят двигатель
+    engine_position: Optional[str] = None  # Позиция двигателя на самолете
 
 
 def _safe_float(value, default: float = 0.0) -> float:
@@ -4163,6 +4327,30 @@ def save_notification_emails(data: NotificationEmailSchema, db: Session = Depend
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 
+@app.post("/api/aircraft-utilization-sources/send-test-email")
+def send_test_utilization_email(db: Session = Depends(get_db)):
+    """Немедленно отправляет сводку флота на сохранённые email адреса (для проверки)"""
+    sources = db.query(models.AircraftUtilizationSource).all()
+    notification_emails = next((s.notification_emails for s in sources if s.notification_emails), None)
+    if not notification_emails:
+        raise HTTPException(status_code=400, detail="No notification emails configured. Please save at least one email address first.")
+    success = send_utilization_notification_email(db, notification_emails, sync_results=None)
+    if success:
+        emails_list = [e.strip() for e in notification_emails.split(',') if e.strip()]
+        return {"message": f"Report sent successfully to {len(emails_list)} recipient(s)", "emails": emails_list}
+    raise HTTPException(status_code=500, detail="Failed to send email. Check that OUTLOOK_EMAIL and OUTLOOK_PASSWORD are configured on the server.")
+
+
+@app.get("/api/aircraft-utilization-sources/email-preview")
+def preview_fleet_report(db: Session = Depends(get_db)):
+    """Возвращает HTML сводки флота для предпросмотра в браузере"""
+    from fastapi.responses import HTMLResponse
+    html = build_fleet_report_html(db, sync_results=None)
+    if not html:
+        return HTMLResponse("<p>No aircraft data found.</p>", status_code=404)
+    return HTMLResponse(content=html)
+
+
 @app.post("/api/aircraft-utilization-sources/sync")
 async def sync_aircraft_utilization_sources_endpoint(db: Session = Depends(get_db)):
     # Run blocking downloads in thread pool so uvicorn stays responsive
@@ -5703,6 +5891,8 @@ def get_remove_history(db: Session = Depends(get_db)):
             # Если нет - пробуем распарсить from_location
             
             to_aircraft = l.to_aircraft
+            engine_position = l.position  # Берем позицию из ActionLog
+            
             if not to_aircraft or to_aircraft == "Unknown":
                 # Пытаемся извлечь из from_location ("AC: ER-BAR (Pos 1)")
                 if l.from_location and "AC:" in l.from_location:
@@ -5715,7 +5905,18 @@ def get_remove_history(db: Session = Depends(get_db)):
                     except:
                         pass
             
+            # Если позиции нет в ActionLog, пытаемся извлечь из from_location
+            if not engine_position and l.from_location and "Pos" in l.from_location:
+                try:
+                    import re
+                    match = re.search(r"Pos[:\s]*(\d+)", l.from_location)
+                    if match:
+                        engine_position = match.group(1)
+                except:
+                    pass
+            
             to_aircraft = to_aircraft or "-"
+            engine_position = str(engine_position) if engine_position else "-"
             
             res.append({
                 "id": l.id,
@@ -5727,6 +5928,7 @@ def get_remove_history(db: Session = Depends(get_db)):
                 "from": l.from_location or "-",
                 "to": l.to_location or "-",
                 "to_aircraft": to_aircraft,
+                "engine_position": engine_position,  # Позиция двигателя на самолете
                 "remarks": l.comments,
                 "comments": l.comments,  # для reason в details
                 "condition_1_at_removal": l.condition_1_at_removal or "-",
@@ -5788,11 +5990,16 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
 
     # Запоминаем, откуда сняли (с самолета)
     from_txt = "Unknown"
-    to_aircraft_tail = None # Изначально NULL
+    to_aircraft_tail = data.aircraft_tail or None # Используем переданный tail number
+    engine_pos = data.engine_position or None # Используем переданную позицию
     
     if eng.aircraft:
-        from_txt = f"AC: {eng.aircraft.tail_number} (Pos {eng.position})"
-        to_aircraft_tail = eng.aircraft.tail_number  # Сохраняем tail_number для ActionLog
+        # Если не передали явно, берем из двигателя
+        if not to_aircraft_tail:
+            to_aircraft_tail = eng.aircraft.tail_number
+        if not engine_pos:
+            engine_pos = eng.position
+        from_txt = f"AC: {to_aircraft_tail} (Pos {engine_pos})"
     elif eng.location: # Если снимаем со склада (ошибка логики, но на всякий случай)
         from_txt = eng.location.name
 
@@ -5851,6 +6058,7 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         engine_id=eng.id,
         from_location=from_txt,
         to_aircraft=to_aircraft_tail,  # Сохраняем tail_number самолета откуда был снят
+        position=engine_pos,  # Сохраняем позицию двигателя на самолете
         to_location=dest_loc.name,
         current_sn=eng.current_sn or eng.original_sn,  # Сохраняем новый Current SN (Installed Plate)
         condition_1_at_removal=data.condition_1,
@@ -10062,139 +10270,205 @@ def get_engine_parameters_data(aircraft_id: int, engine_id: int, months: int = 1
 
 # ==================== EMAIL REPORTING ====================
 
-def send_utilization_notification_email(db: Session, notification_emails: str):
+def build_fleet_report_html(db: Session, sync_results: list = None) -> str:
+    """Генерирует HTML сводки по флоту. Используется и для email, и для превью."""
+    aircraft_tails = ['ER-BAT', 'ER-BAR', 'ER-BAQ']
+    aircraft_list = db.query(models.Aircraft).filter(
+        func.upper(models.Aircraft.tail_number).in_([t.upper() for t in aircraft_tails])
+    ).all()
+
+    if not aircraft_list:
+        return None
+
+    # ── Sync status banner ─────────────────────────────────────────────────
+    sync_errors = [r for r in (sync_results or []) if r.get("status") == "error"]
+    sync_ok     = [r for r in (sync_results or []) if r.get("status") != "error"]
+
+    if sync_errors:
+        error_rows = "".join(
+            f"<tr><td style='padding:6px 10px;border:1px solid #f5c6cb;'><strong>{r['aircraft']}</strong></td>"
+            f"<td style='padding:6px 10px;border:1px solid #f5c6cb;color:#721c24;'>{r.get('error','Unknown error')}</td></tr>"
+            for r in sync_errors
+        )
+        sync_banner = f"""
+        <div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px 15px;border-radius:4px;margin-bottom:20px;">
+            <strong style="color:#856404;">⚠️ Sync completed with errors</strong>
+            <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;">
+                <thead><tr style="background:#ffeeba;">
+                    <th style="padding:6px 10px;border:1px solid #f5c6cb;text-align:left;">Aircraft</th>
+                    <th style="padding:6px 10px;border:1px solid #f5c6cb;text-align:left;">Error</th>
+                </tr></thead>
+                <tbody>{error_rows}</tbody>
+            </table>
+        </div>"""
+    elif sync_results:
+        sync_banner = f"""
+        <div style="background:#d4edda;border-left:4px solid #28a745;padding:10px 15px;border-radius:4px;margin-bottom:20px;">
+            <strong style="color:#155724;">✅ All aircraft synced successfully ({len(sync_ok)} aircraft updated)</strong>
+        </div>"""
+    else:
+        sync_banner = """
+        <div style="background:#e2e3e5;border-left:4px solid #6c757d;padding:10px 15px;border-radius:4px;margin-bottom:20px;">
+            <strong style="color:#383d41;">📋 Manual report — current fleet utilization data</strong>
+        </div>"""
+
+    # ── Per-aircraft sections ──────────────────────────────────────────────
+    all_aircraft_html = ""
+
+    for aircraft in aircraft_list:
+        installed_engines = db.query(models.Engine).filter(
+            models.Engine.aircraft_id == aircraft.id,
+            models.Engine.status == models.EngineStatus.INSTALLED
+        ).order_by(models.Engine.position).all()
+
+        source = db.query(models.AircraftUtilizationSource).filter(
+            func.upper(models.AircraftUtilizationSource.aircraft_tail_number) == aircraft.tail_number.upper()
+        ).first()
+        last_atlb = getattr(aircraft, 'last_atlb_ref', None) or '-'
+        sync_date = source.last_synced_at.strftime('%Y-%m-%d %H:%M UTC') if source and source.last_synced_at else '-'
+
+        ac_result = next((r for r in (sync_results or []) if r.get('aircraft', '').upper() == aircraft.tail_number.upper()), None)
+        if ac_result and ac_result.get('status') == 'error':
+            ac_badge = "<span style='background:#dc3545;color:white;padding:2px 8px;border-radius:3px;font-size:11px;'>❌ SYNC ERROR</span>"
+        elif ac_result and ac_result.get('status') == 'ok':
+            ac_badge = "<span style='background:#28a745;color:white;padding:2px 8px;border-radius:3px;font-size:11px;'>✅ UPDATED</span>"
+        else:
+            ac_badge = ""
+
+        if installed_engines:
+            engines_html = """<table style='width:100%;border-collapse:collapse;font-size:12px;margin-bottom:15px;'>
+            <thead><tr style='background-color:#0066cc;color:white;'>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>Pos</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>GSS ID</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>Orig SN</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>Current SN</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>Supplier</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>Install Date</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>TT Total</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>TC Total</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>TSN@Install</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>CSN@Install</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>TT on A/C</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>TC on A/C</th>
+            </tr></thead><tbody>"""
+
+            for i, eng in enumerate(installed_engines):
+                install_log = db.query(models.ActionLog).filter(
+                    models.ActionLog.engine_id == eng.id,
+                    models.ActionLog.action_type == "INSTALL",
+                    models.ActionLog.is_active == True
+                ).order_by(models.ActionLog.date.desc()).first()
+                supplier = (install_log.supplier if install_log and install_log.supplier else None) or '-'
+                install_date = eng.install_date.strftime('%Y-%m-%d') if eng.install_date else '-'
+                tsn_at = eng.tsn_at_install
+                csn_at = eng.csn_at_install
+                tt_since = round(eng.total_time - tsn_at, 1) if eng.total_time and tsn_at is not None else '-'
+                tc_since = (eng.total_cycles - csn_at) if eng.total_cycles and csn_at is not None else '-'
+                row_bg = "background-color:#f2f7ff;" if i % 2 == 0 else ""
+                pos_label = f"ENG {eng.position}" if eng.position else '-'
+                engines_html += f"""<tr style='{row_bg}'>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'><strong>{pos_label}</strong></td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'>{eng.gss_sn or '-'}</td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'>{eng.original_sn or '-'}</td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'><strong>{eng.current_sn or '-'}</strong></td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'>{supplier}</td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'>{install_date}</td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'>{eng.total_time or '-'}</td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'>{eng.total_cycles or '-'}</td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'>{tsn_at if tsn_at is not None else "-"}</td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'>{csn_at if csn_at is not None else "-"}</td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'><strong style="color:#0066cc;">{tt_since}</strong></td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'><strong style="color:#0066cc;">{tc_since}</strong></td>
+                </tr>"""
+            engines_html += "</tbody></table>"
+        else:
+            engines_html = "<p style='color:#999;font-size:13px;'>No engines installed</p>"
+
+        all_aircraft_html += f"""
+        <div style="margin-bottom:25px;padding:15px;background-color:#f9f9f9;border-radius:5px;">
+            <h2 style="color:#0066cc;margin-top:0;">✈️ {aircraft.tail_number} &nbsp;{ac_badge}</h2>
+            <div style="background-color:#f0f8ff;padding:10px;border-left:4px solid #0066cc;margin:10px 0;display:flex;gap:40px;flex-wrap:wrap;">
+                <div>
+                    <p style="margin:4px 0;font-size:13px;"><strong>Model:</strong> {aircraft.model or 'N/A'}</p>
+                    <p style="margin:4px 0;font-size:13px;"><strong>MSN:</strong> {aircraft.msn or '-'}</p>
+                </div>
+                <div>
+                    <p style="margin:4px 0;font-size:13px;"><strong>Aircraft TTSN:</strong> {aircraft.total_time:.1f} hrs</p>
+                    <p style="margin:4px 0;font-size:13px;"><strong>Aircraft TCSN:</strong> {aircraft.total_cycles or 0} cycles</p>
+                </div>
+                <div>
+                    <p style="margin:4px 0;font-size:13px;"><strong>Last ATLB Sheet:</strong> {last_atlb}</p>
+                    <p style="margin:4px 0;font-size:13px;"><strong>Last Sync:</strong> {sync_date}</p>
+                </div>
+            </div>
+            <h3 style="color:#0066cc;font-size:14px;margin-bottom:6px;">Installed Engines</h3>
+            {engines_html}
+        </div>"""
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    body {{ font-family: Arial, sans-serif; background-color: #f5f5f5; margin:0; padding:20px; }}
+    .container {{ background-color: white; padding: 20px; border-radius: 8px; max-width: 980px; margin: 0 auto; }}
+    h1 {{ color: #333; border-bottom: 3px solid #0066cc; padding-bottom: 15px; margin-top:0; }}
+    .footer {{ color: #999; font-size: 11px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 15px; }}
+</style></head>
+<body>
+    <div class="container">
+        <h1>✈️ Fleet Utilization Update Summary</h1>
+        {sync_banner}
+        {all_aircraft_html}
+        <div class="footer">
+            <p><strong>Report Time:</strong> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')} &nbsp;|&nbsp; Aviation Engine Management System — engshop-gss.com</p>
+        </div>
+    </div>
+</body>
+</html>"""
+
+
+def send_utilization_notification_email(db: Session, notification_emails: str, sync_results: list = None):
     """
     Отправляет email-уведомление со сводкой по всем самолетам после обновления налета.
-    Включает таблицы для каждого самолета: Position, GSS ID, Orig SN, Current SN, Supplier, Status, TT, TC
+    sync_results: список результатов синка [{"aircraft": "ER-BAT", "status": "ok"|"error", "error": "..."}]
     """
     if not notification_emails or not notification_emails.strip():
-        return False  # Нет email адресов для отправки
-    
+        return False
+
     try:
-        # Получаем все самолеты из флота
-        aircraft_tails = ['ER-BAT', 'ER-BAR', 'ER-BAQ']
-        aircraft_list = db.query(models.Aircraft).filter(
-            func.upper(models.Aircraft.tail_number).in_([t.upper() for t in aircraft_tails])
-        ).all()
-        
-        if not aircraft_list:
+        email_body = build_fleet_report_html(db, sync_results=sync_results)
+        if not email_body:
             return False
-        
-        # Формируем HTML для всех самолетов
-        all_aircraft_html = ""
-        
-        for aircraft in aircraft_list:
-            # Получаем установленные двигатели
-            installed_engines = db.query(models.Engine).filter(
-                models.Engine.aircraft_id == aircraft.id,
-                models.Engine.status == models.EngineStatus.INSTALLED
-            ).order_by(models.Engine.position).all()
-            
-            # Формируем таблицу двигателей для этого самолета
-            engines_html = ""
-            if installed_engines:
-                engines_html = "<table style='width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 15px;'>"
-                engines_html += "<thead><tr style='background-color: #0066cc; color: white;'>"
-                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>Position</th>"
-                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>GSS ID</th>"
-                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>Orig SN</th>"
-                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>Current SN</th>"
-                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>Supplier</th>"
-                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>Status</th>"
-                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>TT</th>"
-                engines_html += "<th style='border: 1px solid #ddd; padding: 8px;'>TC</th>"
-                engines_html += "</tr></thead><tbody>"
-                
-                for eng in installed_engines:
-                    alt_color = "background-color: #f9f9f9;" if installed_engines.index(eng) % 2 == 0 else ""
-                    engines_html += f"<tr style='{alt_color}'>"
-                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.position or '-'}</td>"
-                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.gss_sn or '-'}</td>"
-                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.original_sn or '-'}</td>"
-                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'><strong>{eng.current_sn or '-'}</strong></td>"
-                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{getattr(eng, 'supplier', '-') or '-'}</td>"
-                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.status or '-'}</td>"
-                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.total_time or '-'}</td>"
-                    engines_html += f"<td style='border: 1px solid #ddd; padding: 8px;'>{eng.total_cycles or '-'}</td>"
-                    engines_html += "</tr>"
-                
-                engines_html += "</tbody></table>"
-            else:
-                engines_html = "<p style='color: #999;'>No engines installed</p>"
-            
-            # Добавляем секцию для самолета
-            all_aircraft_html += f"""
-            <div style="margin-bottom: 30px; padding: 15px; background-color: #f9f9f9; border-radius: 5px;">
-                <h2 style="color: #0066cc; margin-top: 0;">✈️ {aircraft.tail_number}</h2>
-                <div style="background-color: #f0f8ff; padding: 10px; border-left: 4px solid #0066cc; margin: 10px 0;">
-                    <p style="margin: 5px 0;"><strong>Model:</strong> {aircraft.model or 'N/A'}</p>
-                    <p style="margin: 5px 0;"><strong>Total Time:</strong> {aircraft.total_time:.1f} hrs</p>
-                    <p style="margin: 5px 0;"><strong>Total Cycles:</strong> {aircraft.total_cycles or 0}</p>
-                </div>
-                <h3 style="color: #0066cc; font-size: 14px;">Installed Engines</h3>
-                {engines_html}
-            </div>
-            """
-        
-        # Формируем полное HTML письма
-        email_body = f"""
-        <html>
-            <head>
-                <style>
-                    body {{ font-family: Arial, sans-serif; background-color: #f5f5f5; }}
-                    .container {{ background-color: white; padding: 20px; border-radius: 8px; max-width: 900px; margin: 0 auto; }}
-                    h1 {{ color: #333; border-bottom: 3px solid #0066cc; padding-bottom: 15px; }}
-                    .footer {{ color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 15px; }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>✈️ Fleet Utilization Update Summary</h1>
-                    <p style="color: #666; font-size: 14px;">This report contains updated utilization data for all aircraft in the fleet.</p>
-                    
-                    {all_aircraft_html}
-                    
-                    <div class="footer">
-                        <p><strong>Update Time:</strong> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}</p>
-                        <p>This is an automated notification from Aviation Engine Management System</p>
-                    </div>
-                </div>
-            </body>
-        </html>
-        """
-        
+
         # SMTP configuration
         smtp_server = os.getenv("OUTLOOK_SMTP_SERVER", "smtp-mail.outlook.com")
         smtp_port = int(os.getenv("OUTLOOK_SMTP_PORT", "587"))
         sender_email = os.getenv("OUTLOOK_EMAIL", "")
         sender_password = os.getenv("OUTLOOK_PASSWORD", "")
-        
+
         if not sender_email or not sender_password:
             print(f"⚠️ Email credentials not configured - cannot send fleet notification")
             return False
-        
-        # Отправляем письмо всем адресам в списке
+
         emails_to_send = [e.strip() for e in notification_emails.split(',') if e.strip()]
-        
+
         for recipient_email in emails_to_send:
             try:
                 msg = MIMEMultipart('alternative')
                 msg['Subject'] = f"✈️ Fleet Utilization Update - {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
                 msg['From'] = sender_email
                 msg['To'] = recipient_email
-                
                 msg.attach(MIMEText(email_body, 'html'))
-                
                 server = smtplib.SMTP(smtp_server, smtp_port)
                 server.starttls()
                 server.login(sender_email, sender_password)
                 server.send_message(msg)
                 server.quit()
-                
                 print(f"✅ Fleet utilization notification sent to {recipient_email}")
             except Exception as e:
                 print(f"❌ Failed to send email to {recipient_email}: {str(e)}")
-        
+
         return True
     
     except Exception as e:
