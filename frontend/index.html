@@ -12409,7 +12409,7 @@ function hideInstallTooltip() {
         const tsnAC = (e.tsn_on_aircraft !== undefined && e.tsn_on_aircraft !== null) ? `${e.tsn_on_aircraft} hrs` : 'N/A';
         const csnAC = (e.csn_on_aircraft !== undefined && e.csn_on_aircraft !== null) ? `${e.csn_on_aircraft} cyc` : 'N/A';
         const { hourCost, cycleCost } = calculateEngineCosts(e.price, e.tsn_on_aircraft, e.csn_on_aircraft);
-        const utilizationUpdateDate = e.utilization_update_date || 'N/A';
+        const utilizationUpdateDate = fmtDMY(e.utilization_update_date) || 'N/A';
         const n1TakeoffState = formatEngineParamWithSeverity(e.n1_takeoff, '%', 'n1');
         const n1CruiseState = formatEngineParamWithSeverity(e.n1_cruise, '%', 'n1');
         const n2TakeoffState = formatEngineParamWithSeverity(e.n2_takeoff, '%', 'n2');
@@ -12450,7 +12450,7 @@ function hideInstallTooltip() {
                 <div class="panel-row"><div class="row-label">1 Cycle Cost</div><div class="row-value cyan">${cycleCost}</div></div>
                 <div class="panel-divider"></div>
                 <div class="panel-title small">Last Borescope Inspection</div>
-                <div class="panel-row"><div class="row-label">Date</div><div class="row-value">${fmt(e.last_borescope)}</div></div>
+                <div class="panel-row"><div class="row-label">Date</div><div class="row-value">${fmtDMY(e.last_borescope)}</div></div>
                 <div class="panel-row"><div class="row-label">Report</div><div class="row-value">${e.borescope ? `<a href=\"#\" class=\"report-link\" onclick=\"loadBoroscopeReportData(document.getElementById('modal-aircraft-name').textContent, ${currentSelectedEnginePos + 1}); return false;\">View</a>` : '<span class="text-muted">N/A</span>'}</div></div>
             </div>`;
 
@@ -12464,7 +12464,7 @@ function hideInstallTooltip() {
                 <div class="panel-row"><div class="row-label">EGT Takeoff</div><div class="row-value ${egtTakeoffState.className}" title="${egtTakeoffState.label}">${egtTakeoffState.text}</div></div>
                 <div class="panel-row"><div class="row-label">EGT Cruise</div><div class="row-value ${egtCruiseState.className}" title="${egtCruiseState.label}">${egtCruiseState.text}</div></div>
                 <div class="panel-divider"></div>
-                <div class="panel-row"><div class="row-label">Last Updated</div><div class="row-value">${fmt(e.param_date)}</div></div>
+                <div class="panel-row"><div class="row-label">Last Updated</div><div class="row-value">${fmtDMY(e.param_date)}</div></div>
             </div>`;
 
         const panelsHTML = `<div class="engine-info-sections engine-section active" id="details-section-${currentSelectedEnginePos}">${leftPanel}${centerPanel}${rightPanel}</div>`;
@@ -12573,7 +12573,7 @@ function hideInstallTooltip() {
 
         content.innerHTML = `
             <div class="borescope-mini-meta">
-                <div><strong>Date:</strong> ${engine.borescope.date || 'N/A'}</div>
+                <div><strong>Date:</strong> ${fmtDMY(engine.borescope.date)}</div>
                 <div><strong>Inspector:</strong> ${engine.borescope.inspector || 'N/A'}</div>
                 <div><strong>Work Type:</strong> ${engine.borescope.work_type || 'N/A'}</div>
                 <div><strong>Comment:</strong> ${engine.borescope.comment || 'N/A'}</div>
@@ -13365,7 +13365,7 @@ function hideInstallTooltip() {
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
-                    <td>${row.date}</td>
+                    <td>${fmtDMY(row.date)}</td>
                     <td>${row.original_sn}</td>
                     <td>${row.current_sn}</td>
                     <td><span class="badge ${badgeClass}" style="color: #ffffff !important;">${row.install_to}</span></td>
@@ -13612,6 +13612,16 @@ function onGssInputChange(engines) {
         return decimal;
     }
     
+    // Formats ISO/datetime string to DD.MM.YYYY
+    function fmtDMY(v) {
+        if (!v || v === 'N/A') return v || 'N/A';
+        const s = String(v).replace('T', ' ');
+        const datePart = s.split(' ')[0];
+        const parts = datePart.split('-');
+        if (parts.length === 3 && parts[0].length === 4) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+        return v;
+    }
+
     // Converts decimal hours to HH:MM format (e.g., 103999.567 -> "103999:34")
     function formatFlightTime(decimalHours) {
         if (decimalHours === null || decimalHours === undefined) return '';
@@ -14671,11 +14681,11 @@ function onGssInputChange(engines) {
             
             const linkHtml = row.link ? `<a href="${row.link}" target="_blank" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation();"><i class="bi bi-link-45deg"></i></a>` : '-';
             
-            // Format date with time if available
-            let dateDisplay = row.date;
+            // Format date as DD.MM.YYYY with time below
+            let dateDisplay = fmtDMY(row.date);
             if (row.date && row.date.includes(' ')) {
-                const [datePart, timePart] = row.date.split(' ');
-                dateDisplay = `${datePart}<br><small class="text-muted">${timePart}</small>`;
+                const timePart = row.date.split(' ')[1];
+                dateDisplay = `${fmtDMY(row.date)}<br><small class="text-muted">${timePart}</small>`;
             }
             
             // Проверяем есть ли фото
@@ -16340,7 +16350,7 @@ function onGssInputChange(engines) {
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
-                    <td>${row.date}</td>
+                    <td>${fmtDMY(row.date)}</td>
                     <td><strong>${row.current_sn}</strong> <small class="text-muted">(${row.original_sn})</small></td>
                     <td>${row.engine_model || '-'}</td>
                     <td>${row.gss_id || '-'}</td>
