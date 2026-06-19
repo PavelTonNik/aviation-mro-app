@@ -10344,12 +10344,10 @@ def build_fleet_report_html(db: Session, sync_results: list = None) -> str:
                 <th style='border:1px solid #ccc;padding:7px 8px;'>Current SN</th>
                 <th style='border:1px solid #ccc;padding:7px 8px;'>Supplier</th>
                 <th style='border:1px solid #ccc;padding:7px 8px;'>Install Date</th>
-                <th style='border:1px solid #ccc;padding:7px 8px;'>TT Total</th>
-                <th style='border:1px solid #ccc;padding:7px 8px;'>TC Total</th>
-                <th style='border:1px solid #ccc;padding:7px 8px;'>TSN@Install</th>
-                <th style='border:1px solid #ccc;padding:7px 8px;'>CSN@Install</th>
                 <th style='border:1px solid #ccc;padding:7px 8px;'>TT on A/C</th>
                 <th style='border:1px solid #ccc;padding:7px 8px;'>TC on A/C</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>TT Total</th>
+                <th style='border:1px solid #ccc;padding:7px 8px;'>TC Total</th>
             </tr></thead><tbody>"""
 
             for i, eng in enumerate(installed_engines):
@@ -10358,12 +10356,30 @@ def build_fleet_report_html(db: Session, sync_results: list = None) -> str:
                     models.ActionLog.action_type == "INSTALL",
                     models.ActionLog.is_active == True
                 ).order_by(models.ActionLog.date.desc()).first()
+
                 supplier = (install_log.supplier if install_log and install_log.supplier else None) or '-'
                 install_date = eng.install_date.strftime('%Y-%m-%d') if eng.install_date else '-'
-                tsn_at = eng.tsn_at_install
-                csn_at = eng.csn_at_install
-                tt_since = round(eng.total_time - tsn_at, 1) if eng.total_time and tsn_at is not None else '-'
-                tc_since = (eng.total_cycles - csn_at) if eng.total_cycles and csn_at is not None else '-'
+
+                # TSN/CSN on A/C — same logic as main app:
+                # aircraft TTSN at install stored in block_time_str / block_in_str
+                def _safe_float(v):
+                    try: return float(v) if v is not None and str(v).strip() != "" else None
+                    except Exception: return None
+                def _safe_int(v):
+                    try: return int(v) if v is not None and str(v).strip() != "" else None
+                    except Exception: return None
+
+                ac_ttsn_at_install = _safe_float(getattr(install_log, 'block_time_str', None)) if install_log else None
+                ac_tcsn_at_install = _safe_int(getattr(install_log, 'block_in_str', None)) if install_log else None
+
+                tt_on_ac = round(aircraft.total_time - ac_ttsn_at_install, 1) if aircraft.total_time is not None and ac_ttsn_at_install is not None else '-'
+                tc_on_ac = (aircraft.total_cycles - ac_tcsn_at_install) if aircraft.total_cycles is not None and ac_tcsn_at_install is not None else '-'
+                if tt_on_ac != '-' and tt_on_ac < 0: tt_on_ac = 0.0
+                if tc_on_ac != '-' and tc_on_ac < 0: tc_on_ac = 0
+
+                tt_total = round(eng.total_time, 1) if eng.total_time is not None else '-'
+                tc_total = eng.total_cycles if eng.total_cycles is not None else '-'
+
                 row_bg = "background-color:#f2f7ff;" if i % 2 == 0 else ""
                 pos_label = f"ENG {eng.position}" if eng.position else '-'
                 engines_html += f"""<tr style='{row_bg}'>
@@ -10373,12 +10389,10 @@ def build_fleet_report_html(db: Session, sync_results: list = None) -> str:
                     <td style='border:1px solid #ddd;padding:7px 8px;'><strong>{eng.current_sn or '-'}</strong></td>
                     <td style='border:1px solid #ddd;padding:7px 8px;'>{supplier}</td>
                     <td style='border:1px solid #ddd;padding:7px 8px;'>{install_date}</td>
-                    <td style='border:1px solid #ddd;padding:7px 8px;'>{eng.total_time or '-'}</td>
-                    <td style='border:1px solid #ddd;padding:7px 8px;'>{eng.total_cycles or '-'}</td>
-                    <td style='border:1px solid #ddd;padding:7px 8px;'>{tsn_at if tsn_at is not None else "-"}</td>
-                    <td style='border:1px solid #ddd;padding:7px 8px;'>{csn_at if csn_at is not None else "-"}</td>
-                    <td style='border:1px solid #ddd;padding:7px 8px;'><strong style="color:#0066cc;">{tt_since}</strong></td>
-                    <td style='border:1px solid #ddd;padding:7px 8px;'><strong style="color:#0066cc;">{tc_since}</strong></td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'><strong style="color:#0066cc;">{tt_on_ac}</strong></td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'><strong style="color:#0066cc;">{tc_on_ac}</strong></td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'>{tt_total}</td>
+                    <td style='border:1px solid #ddd;padding:7px 8px;'>{tc_total}</td>
                 </tr>"""
             engines_html += "</tbody></table>"
         else:
