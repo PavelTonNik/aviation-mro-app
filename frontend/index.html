@@ -4397,6 +4397,24 @@
         .history-item.remove { border-left-color: #ef4444; }
         .history-item.boroscope { border-left-color: #f59e0b; }
 
+        /* Borescope table — modern animated row hover */
+        #borescope-history-body tr {
+            transition: transform 0.18s cubic-bezier(.4,0,.2,1),
+                        box-shadow 0.18s cubic-bezier(.4,0,.2,1),
+                        background-color 0.18s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        #borescope-history-body tr:hover {
+            transform: translateY(-2px) scale(1.005);
+            box-shadow: 0 6px 20px rgba(0,102,204,0.18), 0 2px 6px rgba(0,0,0,0.1);
+            background-color: rgba(0, 102, 204, 0.08) !important;
+            z-index: 2;
+        }
+        #borescope-history-body tr:hover td {
+            border-color: rgba(0,102,204,0.2);
+        }
+
         .history-date {
             font-weight: 700;
             color: #60a5fa;
@@ -12424,7 +12442,7 @@ function hideInstallTooltip() {
                 <div class="panel-row"><div class="row-label">Original SN</div><div class="row-value">${fmt(e.original_sn)}</div></div>
                 <div class="panel-row"><div class="row-label">GSS ID</div><div class="row-value">${fmt(e.gss_id)}</div></div>
                 <div class="panel-row"><div class="row-label">Supplier</div><div class="row-value">${fmt(e.supplier)}</div></div>
-                <div class="panel-row"><div class="row-label">Installed Date</div><div class="row-value">${fmt(e.install_date)}</div></div>
+                <div class="panel-row"><div class="row-label">Installed Date</div><div class="row-value">${fmtDMY(e.install_date)}</div></div>
                 <div class="panel-divider"></div>
                 <details class="mt-2">
                     <summary class="panel-title small" style="cursor:pointer; user-select:none;">Installed previously</summary>
@@ -14843,8 +14861,8 @@ function onGssInputChange(engines) {
             const csnOnAC = totalCsn - csnAtInstall;
             
             reportHtml += `
-                        <p><strong>Installation Date:</strong> <span style="color: #d9534f;">${inst.date || '—'}</span></p>
-                        <p><strong>Supplier:</strong> <span>${inst.location_from || inst.supplier || '—'}</span></p>
+                        <p><strong>Installation Date:</strong> <span style="color: #d9534f;">${fmtDMY(inst.date)}</span></p>
+                        <p><strong>Supplier:</strong> <span>${inst.supplier || eng.supplier || '—'}</span></p>
             `;
         } else {
             reportHtml += `
@@ -15467,8 +15485,8 @@ function onGssInputChange(engines) {
             
             // ✅ Показываем дату установки и поставщика (Aircraft и Position уже показаны выше)
             html += `
-                        <p><strong>Installation Date:</strong> <span style="color: #d9534f;">${inst.date || '—'}</span></p>
-                        <p><strong>Supplier:</strong> <span>${inst.location_from || inst.supplier || '—'}</span></p>
+                        <p><strong>Installation Date:</strong> <span style="color: #d9534f;">${fmtDMY(inst.date)}</span></p>
+                        <p><strong>Supplier:</strong> <span>${inst.supplier || eng.supplier || '—'}</span></p>
             `;
         } else if (engineData && engineData.engine) {
             // Двигатель найден но не установлен на самолет
@@ -20890,7 +20908,7 @@ function onGssInputChange(engines) {
                 originalSN: engineOnPosition.original_sn,
                 gssId: engineOnPosition.gss_sn || engineOnPosition.gss_id || 'N/A',
                 installDate: installationRecord ? installationRecord.date : '—',
-                supplier: installationRecord ? (installationRecord.location_from || '—') : '—',
+                supplier: installationRecord ? (installationRecord.supplier || '—') : '—',
                 tsn: tsn_on_ac,
                 csn: csn_on_ac,
                 tillDate: till_date,

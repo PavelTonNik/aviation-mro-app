@@ -4334,7 +4334,10 @@ def send_test_utilization_email(db: Session = Depends(get_db)):
     notification_emails = next((s.notification_emails for s in sources if s.notification_emails), None)
     if not notification_emails:
         raise HTTPException(status_code=400, detail="No notification emails configured. Please save at least one email address first.")
-    success = send_utilization_notification_email(db, notification_emails, sync_results=None)
+    try:
+        success = send_utilization_notification_email(db, notification_emails, sync_results=None)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     if success:
         emails_list = [e.strip() for e in notification_emails.split(',') if e.strip()]
         return {"message": f"Report sent successfully to {len(emails_list)} recipient(s)", "emails": emails_list}
@@ -4714,7 +4717,8 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
                 "ac_ttsn_at_install": _safe_float(getattr(last_install, "block_time_str", None), None) if eng.aircraft and last_install else None,
                 "ac_tcsn_at_install": _safe_int(getattr(last_install, "block_in_str", None), None) if eng.aircraft and last_install else None,
                 "condition_1": eng.condition_1 or "SV",
-                "condition_2": eng.condition_2 or "-"
+                "condition_2": eng.condition_2 or "-",
+                "supplier": getattr(last_install, "supplier", None) if last_install else None,
             })
 
         if costs_updated:
@@ -10467,6 +10471,9 @@ def send_utilization_notification_email(db: Session, notification_emails: str, s
 
         emails_to_send = [e.strip() for e in notification_emails.split(',') if e.strip()]
 
+        sent_ok = []
+        errors = []
+
         for recipient_email in emails_to_send:
             try:
                 msg = MIMEMultipart('alternative')
@@ -10480,10 +10487,17 @@ def send_utilization_notification_email(db: Session, notification_emails: str, s
                 server.send_message(msg)
                 server.quit()
                 print(f"✅ Fleet utilization notification sent to {recipient_email}")
+                sent_ok.append(recipient_email)
             except Exception as e:
-                print(f"❌ Failed to send email to {recipient_email}: {str(e)}")
+                err_msg = str(e)
+                print(f"❌ Failed to send email to {recipient_email}: {err_msg}")
+                errors.append({"email": recipient_email, "error": err_msg})
 
-        return True
+        if errors and not sent_ok:
+            # Все письма упали — пробрасываем первую ошибку наружу
+            raise Exception(f"SMTP error: {errors[0]['error']}")
+
+        return True if sent_ok else False
     
     except Exception as e:
         print(f"❌ Error in send_utilization_notification_email: {e}")
