@@ -321,6 +321,14 @@ def startup_event():
             except:
                 pass  # Column already exists
 
+            # Add location column if missing
+            try:
+                conn.execute(text("ALTER TABLE borescope_inspections ADD COLUMN location VARCHAR"))
+                conn.commit()
+                print("✅ Added borescope location column")
+            except:
+                pass  # Column already exists
+
             try:
                 conn.execute(text("ALTER TABLE aircraft_utilization_history ADD COLUMN source VARCHAR"))
                 conn.commit()
@@ -7059,6 +7067,7 @@ def get_borescope_history(db: Session = Depends(get_db)):
                 "inspector": insp.inspector,
                 "comment": insp.comment,
                 "link": insp.link,
+                "location": insp.location,
                 "inspection_report": insp.inspection_report or {"photos": []}  # Если NULL, возвращаем пустой объект с фото массивом
             })
         return result
@@ -7078,6 +7087,7 @@ async def create_borescope_inspection(
     comment: str = Form(""),
     link: str = Form(""),
     photo_labels: str = Form("[]"),  # JSON string with labels
+    location: str = Form(""),
     photos: Optional[List[UploadFile]] = File(None),  # Uploaded photo files (can be None)
     db: Session = Depends(get_db)
 ):
@@ -7103,6 +7113,7 @@ async def create_borescope_inspection(
             inspector=inspector,
             comment=comment,
             link=link,
+            location=location or None,
             inspection_report=None  # Will be updated after photo upload
         )
         db.add(new_inspection)

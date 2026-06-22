@@ -66,7 +66,7 @@ class Engine(Base):
     id = Column(Integer, primary_key=True, index=True)
     original_sn = Column(String, unique=True)
     gss_sn = Column(String, nullable=True)
-    current_sn = Column(String, nullable=True) # Текущий серийный номер (может отличаться от original)
+    current_sn = Column(String, unique=True, nullable=True) # Текущий серийный номер (может отличаться от original) - ДОЛЖЕН БЫТЬ УНИКАЛЬНЫМ
     model = Column(String, nullable=True) # Модель двигателя (CF6-80, CFM56 и т.д.)
     
     # В бизнес-логике статус отражает установку/снятие.
@@ -242,6 +242,7 @@ class BoroscopeInspection(Base):
     comment = Column(String, nullable=True)
     work_type = Column(String, nullable=False, default='All Engine')  # HPT, LPT, All Engine
     inspection_report = Column(JSONType, nullable=True)  # Хранение данных фото и других отчетов (JSONB для PostgreSQL, JSON для SQLite)
+    location = Column(String, nullable=True)  # Место проведения инспекции
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class BoroscopeSchedule(Base):

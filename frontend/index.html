@@ -6754,6 +6754,7 @@
                                         <th>Work Type</th>
                                         <th>GSS ID</th>
                                         <th>Кем выполнен</th>
+                                        <th>Location</th>
                                         <th>Comment</th>
                                         <th>Документ Link</th>
                                     </tr>
@@ -6838,7 +6839,11 @@
                                         <div class="mb-4">
                                             <label class="form-label small fw-bold">Документ Link</label>
                                             <input type="url" class="form-control" id="bore-link" placeholder="https://...">
-                                            <small class="text-muted">Ссылка на боре-скоп репорт</small>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label small fw-bold">Location</label>
+                                            <input type="text" class="form-control" id="bore-location" placeholder="e.g. GYD, Hangar 2, Line maintenance...">
                                         </div>
 
                                         <!-- Borescope Report Block -->
@@ -14724,6 +14729,7 @@ function onGssInputChange(engines) {
                     <td>${row.work_type || 'All Engine'}</td>
                     <td>${row.gss_id || '-'}</td>
                     <td>${row.inspector || '-'}</td>
+                    <td>${row.location || '-'}</td>
                     <td>${row.comment || '-'}</td>
                     <td data-key="link">${linkHtml}</td>
                 </tr>
@@ -14843,6 +14849,7 @@ function onGssInputChange(engines) {
                         <p><strong>GSS ID:</strong> <span>${inspection.gss_id || '—'}</span></p>
                         <p><strong>Aircraft:</strong> <span style="font-weight: bold; color: #0066cc;">${inspection.aircraft || '—'}</span></p>
                         <p><strong>Position:</strong> <span>${inspection.position || '—'}</span></p>
+                        ${inspection.location ? `<p><strong>Location:</strong> <span>${inspection.location}</span></p>` : ''}
                     </div>
                     <div class="col-md-6">
         `;
@@ -15215,6 +15222,8 @@ function onGssInputChange(engines) {
         formData.append('inspector', inspector);
         formData.append('comment', comment || '');
         formData.append('link', link || '');
+        const location = document.getElementById('bore-location')?.value || '';
+        formData.append('location', location);
         
         // Собираем фото и лейблы из таблицы
         const photoRows = document.querySelectorAll('#inspection-photos-tbody tr');
@@ -15461,6 +15470,7 @@ function onGssInputChange(engines) {
         const gssId = document.getElementById('bore-gss').value;
         const position = document.getElementById('bore-position').value;
         const aircraft = document.getElementById('bore-aircraft').value;
+        const location = document.getElementById('bore-location')?.value || '';
         
         const engineData = window.boroscopeEngineData;
         
@@ -15475,6 +15485,7 @@ function onGssInputChange(engines) {
                         <p><strong>GSS ID:</strong> <span id="report-gss">${gssId || '—'}</span></p>
                         <p><strong>Aircraft:</strong> <span id="report-aircraft" style="font-weight: bold; color: #0066cc;">${aircraft || '—'}</span></p>
                         <p><strong>Position:</strong> <span id="report-position">${position || '—'}</span></p>
+                        ${location ? `<p><strong>Location:</strong> <span>${location}</span></p>` : ''}
                     </div>
                     <div class="col-md-6">
         `;
@@ -20929,8 +20940,8 @@ function onGssInputChange(engines) {
         title.textContent = reportData.aircraft;
         
         let html = '';
-        for (const posData of reportData.positions) {
-            html += generatePositionHTML(posData);
+        for (let i = 0; i < reportData.positions.length; i++) {
+            html += generatePositionHTML(reportData.positions[i], i > 0);
         }
 
         container.innerHTML = html;
@@ -20939,9 +20950,10 @@ function onGssInputChange(engines) {
         window.boroscopeReportOpen = true;
     }
 
-    function generatePositionHTML(posData) {
+    function generatePositionHTML(posData, addPageBreak = false) {
+        const pageBreakStyle = addPageBreak ? 'page-break-before: always; break-before: page;' : '';
         let html = `
-            <div style="border: 2px solid #4fc3f7; border-radius: 8px; padding: 12px 15px; margin-bottom: 8px;">
+            <div style="border: 2px solid #4fc3f7; border-radius: 8px; padding: 12px 15px; margin-bottom: 8px; ${pageBreakStyle}">
                 <h2 style="color: #4fc3f7; text-decoration: underline; margin: 0 0 10px 0; padding-bottom: 6px; font-size: 16pt; border-bottom: 2px solid #4fc3f7;">POSITION #${posData.position}</h2>
                 
                 <table style="width: 100%; margin-bottom: 12px; border-collapse: collapse; font-size: 13px;">
