@@ -14671,14 +14671,14 @@ function onGssInputChange(engines) {
     async function loadBoroscopeHistory() {
         const tbody = document.getElementById('borescope-history-body');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Loading…</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">Loading…</td></tr>';;
 
         let res = await safeFetch('/api/history/BORESCOPE' + window.noCache());
         if (!res || !res.ok) res = await safeFetch('/api/history/BORESCOPE');
 
         if (!res || !res.ok) {
             console.error('Error loading borescope history', res && res.status);
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-3">Unable to load borescope history</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger py-3">Unable to load borescope history</td></tr>';;
             return;
         }
 
@@ -14687,7 +14687,7 @@ function onGssInputChange(engines) {
 
         tbody.innerHTML = '';
         if (!Array.isArray(serverData) || serverData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">No borescope inspections found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">No borescope inspections found</td></tr>';
             return;
         }
 

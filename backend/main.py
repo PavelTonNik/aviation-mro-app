@@ -323,7 +323,7 @@ def startup_event():
 
             # Add location column if missing
             try:
-                conn.execute(text("ALTER TABLE borescope_inspections ADD COLUMN location VARCHAR"))
+                conn.execute(text("ALTER TABLE borescope_inspections ADD COLUMN IF NOT EXISTS location VARCHAR"))
                 conn.commit()
                 print("✅ Added borescope location column")
             except:
@@ -7039,23 +7039,16 @@ def get_eng_parameters(serial_number: str = None, db: Session = Depends(get_db))
 
 @app.get("/api/history/BORESCOPE")
 def get_borescope_history(db: Session = Depends(get_db)):
+    from sqlalchemy import text as sa_text
     try:
         inspections = db.query(models.BoroscopeInspection).order_by(models.BoroscopeInspection.date.desc()).all()
         result = []
-        print("\n" + "="*60)
-        print(f"📥 LOADING BORESCOPE HISTORY ({len(inspections)} records)")
-        print("="*60)
         for insp in inspections:
             report = insp.inspection_report
-            print(f"\nID {insp.id}:")
-            print(f"  inspection_report type: {type(report)}")
-            print(f"  inspection_report value: {report}")
-            if report:
-                if isinstance(report, dict):
-                    photos = report.get('photos', [])
-                    print(f"  Photos: {len(photos) if isinstance(photos, list) else 'NOT A LIST'}")
-                elif isinstance(report, str):
-                    print(f"  WARNING: inspection_report is STRING, not DICT!")
+            if isinstance(report, str):
+                try:
+                    import json as _j; report = _j.loads(report)
+                except: report = None
             result.append({
                 "id": insp.id,
                 "date": insp.date,
@@ -7067,13 +7060,40 @@ def get_borescope_history(db: Session = Depends(get_db)):
                 "inspector": insp.inspector,
                 "comment": insp.comment,
                 "link": insp.link,
-                "location": insp.location,
-                "inspection_report": insp.inspection_report or {"photos": []}  # Если NULL, возвращаем пустой объект с фото массивом
+                "location": getattr(insp, 'location', None),
+                "inspection_report": report or {"photos": []}
             })
         return result
     except Exception as e:
-        print(f"❌ Error in get_borescope_history: {e}")
-        return []
+        err_str = str(e)
+        print(f"❌ Error in get_borescope_history: {err_str}")
+        # Колонка location ещё не в БД — fallback без неё
+        try:
+            db.rollback()
+            rows = db.execute(sa_text(
+                "SELECT id, date, aircraft, serial_number, position, work_type, "
+                "gss_id, inspector, comment, link, inspection_report "
+                "FROM borescope_inspections ORDER BY date DESC"
+            )).fetchall()
+            import json as _j
+            result = []
+            for r in rows:
+                report = r[10]
+                if isinstance(report, str):
+                    try: report = _j.loads(report)
+                    except: report = None
+                result.append({
+                    "id": r[0], "date": r[1], "aircraft": r[2],
+                    "serial_number": r[3], "position": r[4], "work_type": r[5],
+                    "gss_id": r[6], "inspector": r[7], "comment": r[8],
+                    "link": r[9], "location": None,
+                    "inspection_report": report or {"photos": []}
+                })
+            print(f"✅ Fallback returned {len(result)} records")
+            return result
+        except Exception as e2:
+            print(f"❌ Fallback also failed: {e2}")
+            return []
 
 @app.post("/api/history/BORESCOPE")
 async def create_borescope_inspection(
