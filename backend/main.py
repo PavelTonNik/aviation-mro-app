@@ -10532,7 +10532,7 @@ def send_utilization_notification_email(db: Session, notification_emails: str, s
     
     except Exception as e:
         print(f"❌ Error in send_utilization_notification_email: {e}")
-        return False
+        raise  # пробрасываем ошибку наверх чтобы endpoint показал реальную причину
 
 
 class EmailReportRequest(BaseModel):

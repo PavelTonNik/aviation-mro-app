@@ -13638,7 +13638,8 @@ function onGssInputChange(engines) {
     // Formats ISO/datetime string to DD.MM.YYYY
     function fmtDMY(v) {
         if (!v || v === 'N/A') return v || 'N/A';
-        const s = String(v).replace('T', ' ');
+        // Убираем timezone offset (+00:00 или -05:00) и заменяем T на пробел
+        const s = String(v).replace(/([+-]\d{2}:\d{2}|Z)$/, '').replace('T', ' ').trim();
         const datePart = s.split(' ')[0];
         const parts = datePart.split('-');
         if (parts.length === 3 && parts[0].length === 4) return `${parts[2]}.${parts[1]}.${parts[0]}`;
@@ -20951,6 +20952,16 @@ function onGssInputChange(engines) {
     }
 
     function generatePositionHTML(posData, addPageBreak = false) {
+        // Inline color helper — green/orange/red based on certified limits
+        function paramColor(type, val) {
+            const n = Number(val);
+            if (!Number.isFinite(n)) return '#000';
+            const s = getEngineParamSeverity(type, n);
+            if (s.className === 'text-success') return '#1a7a1a';
+            if (s.className === 'text-warning') return '#e07800';
+            if (s.className === 'text-danger')  return '#cc0000';
+            return '#000';
+        }
         const pageBreakStyle = addPageBreak ? 'page-break-before: always; break-before: page;' : '';
         let html = `
             <div style="border: 2px solid #4fc3f7; border-radius: 8px; padding: 12px 15px; margin-bottom: 8px; ${pageBreakStyle}">
@@ -20971,7 +20982,7 @@ function onGssInputChange(engines) {
                     </tr>
                     <tr style="background: #f5f5f5;">
                         <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Installation Date:</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.installDate}</td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${fmtDMY(posData.installDate)}</td>
                     </tr>
                     <tr>
                         <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Supplier:</strong></td>
@@ -20979,7 +20990,7 @@ function onGssInputChange(engines) {
                     </tr>
                     <tr style="background: #f5f5f5;">
                         <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">TSN and CSN (on A/C):</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">TSN ${posData.tsn} CSN ${posData.csn} (till: ${posData.tillDate})</td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">TSN ${posData.tsn} CSN ${posData.csn} (till: ${fmtDMY(posData.tillDate)})</td>
                     </tr>
                 </table>
         `;
@@ -20987,15 +20998,27 @@ function onGssInputChange(engines) {
         // ENG Parameters
         if (posData.engParams) {
             html += `
-                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">ENG Parameters (Date: <span style="color: #0066cc;">${posData.engParams.date || 'N/A'}</span>):</h3>
-                <ul style="margin: 4px 0; padding-left: 18px; color: #000; font-size: 12px; line-height: 1.3;">
-                    <li>N1 Take Off: <strong>${posData.engParams.n1_takeoff || 'N/A'}</strong>%</li>
-                    <li>N1 Cruise: <strong>${posData.engParams.n1_cruise || 'N/A'}</strong>%</li>
-                    <li>N2 Take Off: <strong>${posData.engParams.n2_takeoff || 'N/A'}</strong>%</li>
-                    <li>N2 Cruise: <strong>${posData.engParams.n2_cruise || 'N/A'}</strong>%</li>
-                    <li>EGT Take Off: <strong>${posData.engParams.egt_takeoff || 'N/A'}</strong> C</li>
-                    <li>EGT Cruise: <strong>${posData.engParams.egt_cruise || 'N/A'}</strong> C</li>
-                </ul>
+                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">ENG Parameters <span style="color: #0066cc; font-weight: normal;">(${fmtDMY(posData.engParams.date) || 'N/A'})</span></h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 6px;">
+                    <tr style="background: #f0f8ff;">
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; width: 25%; color: #000;"><strong>N1 Take Off</strong></td>
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; width: 25%; font-weight: bold; color: ${paramColor('n1', posData.engParams.n1_takeoff)};">${posData.engParams.n1_takeoff || 'N/A'}%</td>
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; width: 25%; color: #000;"><strong>N1 Cruise</strong></td>
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; width: 25%; font-weight: bold; color: ${paramColor('n1', posData.engParams.n1_cruise)};">${posData.engParams.n1_cruise || 'N/A'}%</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; color: #000;"><strong>N2 Take Off</strong></td>
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('n2', posData.engParams.n2_takeoff)};">${posData.engParams.n2_takeoff || 'N/A'}%</td>
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; color: #000;"><strong>N2 Cruise</strong></td>
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('n2', posData.engParams.n2_cruise)};">${posData.engParams.n2_cruise || 'N/A'}%</td>
+                    </tr>
+                    <tr style="background: #f0f8ff;">
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; color: #000;"><strong>EGT Take Off</strong></td>
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('egt_takeoff', posData.engParams.egt_takeoff)};">${posData.engParams.egt_takeoff || 'N/A'} °C</td>
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; color: #000;"><strong>EGT Cruise</strong></td>
+                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('egt_cruise', posData.engParams.egt_cruise)};">${posData.engParams.egt_cruise || 'N/A'} °C</td>
+                    </tr>
+                </table>
             `;
         } else {
             html += `
@@ -21007,11 +21030,19 @@ function onGssInputChange(engines) {
         // Borescope Report
         if (posData.borescope) {
             html += `
-                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">Borescope Report (Latest: <span style="color: #0066cc;">${posData.borescope.date || 'N/A'}</span>):</h3>
-                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong style="color: #000;">Inspector:</strong> <span style="font-weight: bold; color: #000;">${posData.borescope.inspector || 'N/A'}</span></p>
-                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong style="color: #000;">Work Type:</strong> <span style="font-weight: bold; color: #000;">${posData.borescope.work_type || 'N/A'}</span></p>
-                <p style="color: #000; margin: 2px 0; font-size: 12px;"><strong style="color: #000;">Comment:</strong> <span style="font-weight: bold; color: #000;">${posData.borescope.comment || 'N/A'}</span></p>
-                
+                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">Borescope Report <span style="color: #0066cc; font-weight: normal;">(${fmtDMY(posData.borescope.date) || 'N/A'})</span></h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px;">
+                    <tr style="background: #fffbf0;">
+                        <td style="padding: 5px 8px; border: 1px solid #f0d080; width: 25%;"><strong>Inspector</strong></td>
+                        <td style="padding: 5px 8px; border: 1px solid #f0d080; font-weight: bold;">${posData.borescope.inspector || 'N/A'}</td>
+                        <td style="padding: 5px 8px; border: 1px solid #f0d080; width: 25%;"><strong>Work Type</strong></td>
+                        <td style="padding: 5px 8px; border: 1px solid #f0d080; font-weight: bold;">${posData.borescope.work_type || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 5px 8px; border: 1px solid #f0d080;"><strong>Comment</strong></td>
+                        <td colspan="3" style="padding: 5px 8px; border: 1px solid #f0d080; font-style: italic;">${posData.borescope.comment || '—'}</td>
+                    </tr>
+                </table>
                 <h4 style="color: #000; margin: 8px 0 4px 0; font-size: 13px; font-weight: bold;">PHOTOS:</h4>
             `;
 
