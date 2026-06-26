@@ -21031,20 +21031,22 @@ function onGssInputChange(engines) {
         if (posData.borescope) {
             html += `
                 <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">Borescope Report <span style="color: #0066cc; font-weight: normal;">(${fmtDMY(posData.borescope.date) || 'N/A'})</span></h3>
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; border: 2px solid #c8a800;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; border: 1.5px solid #c8a800;">
                     <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; width: 20%; background: #ffe066; font-weight: bold; color: #000;">Inspector</td>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; width: 30%; background: #fff; color: #000;">${posData.borescope.inspector || '—'}</td>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; width: 20%; background: #ffe066; font-weight: bold; color: #000;">Work Type</td>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; width: 30%; background: #fff; color: #000;">${posData.borescope.work_type || '—'}</td>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; width: 25%; background: #ffe066; font-weight: bold; color: #000;">Inspector</td>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.inspector || '—'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Work Type</td>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.work_type || '—'}</td>
                     </tr>
                     <tr>
                         <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Location</td>
-                        <td colspan="3" style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.location || '—'}</td>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.location || '—'}</td>
                     </tr>
                     <tr>
                         <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Comment</td>
-                        <td colspan="3" style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000; font-style: italic;">${posData.borescope.comment || '—'}</td>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000; font-style: italic;">${posData.borescope.comment || '—'}</td>
                     </tr>
                 </table>
                 <h4 class="photos-section" style="color: #000; margin: 8px 0 4px 0; font-size: 13px; font-weight: bold;">PHOTOS:</h4>
@@ -21199,48 +21201,67 @@ function onGssInputChange(engines) {
             }
         }
         
+        // Лого берётся из той же папки что и index.html → /static/gss_logo.png
+        const gssLogoUrl = `${window.location.origin}/static/gss_logo.png`;
         const fullHtml = `
             <html>
                 <head>
                     <meta charset="UTF-8">
                     <style>
-                        @page {
-                            margin: 2cm 2.5cm;
-                            border: 1px solid #000;
-                        }
+                        @page { margin: 0.6cm 0.6cm; }
                         body {
                             font-family: Arial, sans-serif;
                             margin: 0;
+                            padding: 10px 14px;
                             color: #000;
                             border: 2px solid #000;
-                            padding: 16px;
+                            min-height: 96vh;
+                            box-sizing: border-box;
+                            position: relative;
                         }
+                        /* Лого — фиксированное в правом верхнем углу каждой страницы */
+                        .watermark-logo {
+                            position: fixed;
+                            top: 6px;
+                            right: 8px;
+                            width: 72px;
+                            opacity: 0.15;
+                            z-index: 0;
+                            pointer-events: none;
+                        }
+                        /* Самолёты по углам — фиксированные */
+                        .corner { position: fixed; font-size: 20pt; color: #bbb; opacity: 0.55; line-height: 1; z-index: 0; }
+                        .corner-tl { top: 4px;    left: 6px;   }
+                        .corner-tr { top: 4px;    right: 6px;  transform: scaleX(-1); display: inline-block; }
+                        .corner-bl { bottom: 4px; left: 6px;   }
+                        .corner-br { bottom: 4px; right: 6px;  transform: scaleX(-1); display: inline-block; }
+                        /* Контентный слой поверх декора */
+                        .doc-content { position: relative; z-index: 1; }
                         h1 {
-                            font-size: 22pt;
+                            font-size: 20pt;
                             font-weight: bold;
                             color: #000;
                             text-align: center;
-                            margin-bottom: 24px;
-                            border-bottom: 2px solid #000;
-                            padding-bottom: 10px;
+                            margin: 0 0 10px 0;
+                            padding-bottom: 8px;
+                            border-bottom: 1.5px solid #000;
                         }
                         h2 {
-                            font-size: 14pt;
+                            font-size: 13pt;
                             font-weight: bold;
                             color: #000;
-                            margin-top: 16px;
-                            padding: 8px 12px;
-                            border: 1.5px solid #000;
-                            border-radius: 3px;
+                            margin-top: 14px;
+                            padding: 6px 10px;
+                            border: 1px solid #000;
                             background: #f5f5f5;
                         }
                         h3 {
                             color: #000;
-                            margin-top: 12px;
-                            padding: 6px 10px;
+                            margin-top: 10px;
+                            padding: 5px 10px;
                             background: #f5f5f5;
                             border-left: 3px solid #000;
-                            font-size: 11pt;
+                            font-size: 10.5pt;
                         }
                         h4 {
                             color: #000;
@@ -21250,26 +21271,26 @@ function onGssInputChange(engines) {
                         table {
                             width: 100%;
                             border-collapse: collapse;
-                            margin: 8px 0;
-                            border: 1.5px solid #000;
+                            margin: 6px 0;
+                            border: 1px solid #000;
                         }
                         td {
                             border: 1px solid #000;
-                            padding: 6px 10px;
+                            padding: 5px 8px;
                             font-size: 10pt;
                         }
-                        img {
+                        img.photo {
                             width: 216px !important;
                             height: 158px !important;
                             display: block;
-                            margin: 5px auto;
+                            margin: 4px auto;
                             border: 1px solid #999;
                         }
                         div[style*="border: 2px solid #4fc3f7"],
                         div[style*="border: 5px solid #4fc3f7"] {
-                            border: 1.5px solid #000 !important;
-                            padding: 14px !important;
-                            margin: 10px 0 !important;
+                            border: 1px solid #000 !important;
+                            padding: 12px !important;
+                            margin: 8px 0 !important;
                             width: 100% !important;
                             box-sizing: border-box !important;
                         }
@@ -21277,18 +21298,18 @@ function onGssInputChange(engines) {
                             page-break-before: always;
                             break-before: page;
                         }
-                        /* Самолёты в углах через content (поддерживается в Word при печати) */
-                        @page {
-                            @top-left   { content: "✈"; font-size: 18pt; color: #aaa; }
-                            @top-right  { content: "✈"; font-size: 18pt; color: #aaa; transform: scaleX(-1); }
-                            @bottom-left  { content: "✈"; font-size: 18pt; color: #aaa; }
-                            @bottom-right { content: "✈"; font-size: 18pt; color: #aaa; transform: scaleX(-1); }
-                        }
                     </style>
                 </head>
                 <body>
-                    <h1>${reportData.aircraft}</h1>
-                    ${html}
+                    <img class="watermark-logo" src="${gssLogoUrl}" onerror="this.style.display='none'">
+                    <span class="corner corner-tl">✈</span>
+                    <span class="corner corner-tr">✈</span>
+                    <span class="corner corner-bl">✈</span>
+                    <span class="corner corner-br">✈</span>
+                    <div class="doc-content">
+                        <h1>${reportData.aircraft}</h1>
+                        ${html}
+                    </div>
                 </body>
             </html>
         `;
