@@ -20914,7 +20914,16 @@ function onGssInputChange(engines) {
                     .sort((a, b) => new Date(b.date) - new Date(a.date))[0] || null;
             }
             
-            // 6. Формируем данные позиции
+            // 6. Цена и стоимость из Master Engine List
+            const engineRecord = engines.find(e =>
+                e.original_sn === engineOnPosition.original_sn ||
+                e.current_sn === engineOnPosition.current_sn
+            );
+            const enginePrice      = engineRecord?.price        ?? null;
+            const engineCostHour   = engineRecord?.cost_per_hour  ?? null;
+            const engineCostCycle  = engineRecord?.cost_per_cycle ?? null;
+
+            // 7. Формируем данные позиции
             return {
                 position: position,
                 currentSN: engineOnPosition.current_sn,
@@ -20925,6 +20934,9 @@ function onGssInputChange(engines) {
                 tsn: tsn_on_ac,
                 csn: csn_on_ac,
                 tillDate: till_date,
+                price: enginePrice,
+                costPerHour: engineCostHour,
+                costPerCycle: engineCostCycle,
                 engParams: latestEngParams,
                 borescope: latestBorescope  // ✅ ПОСЛЕДНИЙ borescope с фотографиями!
             };
@@ -20964,35 +20976,53 @@ function onGssInputChange(engines) {
             return '#000';
         }
         const pageBreakStyle = addPageBreak ? 'page-break-before: always; break-before: page;' : '';
+        const fmtUSD = (v) => v !== null && v !== undefined ? '$ ' + Number(v).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—';
+        const hasPriceData = posData.price !== null && posData.price !== undefined
+                          || posData.costPerHour !== null && posData.costPerHour !== undefined
+                          || posData.costPerCycle !== null && posData.costPerCycle !== undefined;
+
         let html = `
             <div style="border: 2px solid #4fc3f7; border-radius: 8px; padding: 12px 15px; margin-bottom: 8px; ${pageBreakStyle}">
                 <h2 style="color: #4fc3f7; text-decoration: underline; margin: 0 0 10px 0; padding-bottom: 6px; font-size: 16pt; border-bottom: 2px solid #4fc3f7;">POSITION #${posData.position}</h2>
                 
                 <table style="width: 100%; margin-bottom: 12px; border-collapse: collapse; font-size: 13px;">
                     <tr style="background: #f5f5f5;">
-                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Current S/N:</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; width: 40%;"><strong style="color: #000;">Current S/N:</strong></td>
                         <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.currentSN}</td>
                     </tr>
                     <tr>
                         <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">GSS ID:</strong></td>
                         <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.gssId || 'N/A'}</td>
                     </tr>
-                    <tr>
+                    <tr style="background: #f5f5f5;">
                         <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Original S/N:</strong></td>
                         <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.originalSN}</td>
                     </tr>
-                    <tr style="background: #f5f5f5;">
+                    <tr>
                         <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Installation Date:</strong></td>
                         <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${fmtDMY(posData.installDate)}</td>
                     </tr>
-                    <tr>
+                    <tr style="background: #f5f5f5;">
                         <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Supplier:</strong></td>
                         <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.supplier}</td>
                     </tr>
-                    <tr style="background: #f5f5f5;">
-                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">TSN and CSN (on A/C):</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">TSN ${posData.tsn} CSN ${posData.csn} (till: ${fmtDMY(posData.tillDate)})</td>
+                    <tr>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">TSN / CSN (on A/C):</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">TSN ${posData.tsn} &nbsp; CSN ${posData.csn} &nbsp; (till: ${fmtDMY(posData.tillDate)})</td>
                     </tr>
+                    ${hasPriceData ? `
+                    <tr style="background: #f0fff0;">
+                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Engine Price:</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #1a6b1a; font-weight: bold;">${posData.price !== null && posData.price !== undefined ? '$ ' + Number(posData.price).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0}) : '—'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">1 Hour Cost:</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #1a6b1a; font-weight: bold;">${fmtUSD(posData.costPerHour)}</td>
+                    </tr>
+                    <tr style="background: #f0fff0;">
+                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">1 Cycle Cost:</strong></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #1a6b1a; font-weight: bold;">${fmtUSD(posData.costPerCycle)}</td>
+                    </tr>` : ''}
                 </table>
         `;
 
