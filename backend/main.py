@@ -5123,6 +5123,7 @@ class ActionLogUpdateSchema(BaseModel):
     work_type: Optional[str] = None
     inspector: Optional[str] = None
     comment: Optional[str] = None
+    location: Optional[str] = None
     # REMOVE-specific fields
     ttsn: Optional[float] = None
     tcsn: Optional[int] = None
@@ -5175,6 +5176,8 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
             inspection.comment = data.comment
         if data.file_url:
             inspection.link = data.file_url
+        if data.location is not None:
+            inspection.location = data.location or None
             
         db.commit()
         db.refresh(inspection)
