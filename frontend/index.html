@@ -21031,19 +21031,23 @@ function onGssInputChange(engines) {
         if (posData.borescope) {
             html += `
                 <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">Borescope Report <span style="color: #0066cc; font-weight: normal;">(${fmtDMY(posData.borescope.date) || 'N/A'})</span></h3>
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px;">
-                    <tr style="background: #fffbf0;">
-                        <td style="padding: 5px 8px; border: 1px solid #f0d080; width: 25%;"><strong>Inspector</strong></td>
-                        <td style="padding: 5px 8px; border: 1px solid #f0d080; font-weight: bold;">${posData.borescope.inspector || 'N/A'}</td>
-                        <td style="padding: 5px 8px; border: 1px solid #f0d080; width: 25%;"><strong>Work Type</strong></td>
-                        <td style="padding: 5px 8px; border: 1px solid #f0d080; font-weight: bold;">${posData.borescope.work_type || 'N/A'}</td>
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; border: 2px solid #c8a800;">
+                    <tr>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; width: 20%; background: #ffe066; font-weight: bold; color: #000;">Inspector</td>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; width: 30%; background: #fff; color: #000;">${posData.borescope.inspector || '—'}</td>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; width: 20%; background: #ffe066; font-weight: bold; color: #000;">Work Type</td>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; width: 30%; background: #fff; color: #000;">${posData.borescope.work_type || '—'}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 5px 8px; border: 1px solid #f0d080;"><strong>Comment</strong></td>
-                        <td colspan="3" style="padding: 5px 8px; border: 1px solid #f0d080; font-style: italic;">${posData.borescope.comment || '—'}</td>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Location</td>
+                        <td colspan="3" style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.location || '—'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Comment</td>
+                        <td colspan="3" style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000; font-style: italic;">${posData.borescope.comment || '—'}</td>
                     </tr>
                 </table>
-                <h4 style="color: #000; margin: 8px 0 4px 0; font-size: 13px; font-weight: bold;">PHOTOS:</h4>
+                <h4 class="photos-section" style="color: #000; margin: 8px 0 4px 0; font-size: 13px; font-weight: bold;">PHOTOS:</h4>
             `;
 
             // Парсим inspection_report если это строка JSON
@@ -21200,50 +21204,85 @@ function onGssInputChange(engines) {
                 <head>
                     <meta charset="UTF-8">
                     <style>
-                        body { font-family: Arial, sans-serif; margin: 10px; }
-                        h1 { font-size: 28pt; font-weight: bold; color: black; text-align: center; margin-bottom: 30px; }
-                        h2 { 
-                            font-size: 16pt; 
-                            font-weight: bold; 
-                            color: #4fc3f7; 
-                            text-decoration: underline; 
-                            margin-top: 20px;
-                            padding: 20px;
-                            border: 6px solid #4fc3f7;
-                            border-radius: 5px;
+                        @page {
+                            margin: 2cm 2.5cm;
+                            border: 1px solid #000;
                         }
-                        h3, h4 { 
-                            color: #000; 
-                            margin-top: 15px; 
-                            padding: 12px;
-                            background: #f0f8ff;
-                            border-left: 5px solid #4fc3f7;
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 0;
+                            color: #000;
+                            border: 2px solid #000;
+                            padding: 16px;
                         }
-                        table { 
-                            width: 100%; 
-                            border-collapse: collapse; 
-                            margin: 15px 0;
-                            border: 5px solid #4fc3f7;
+                        h1 {
+                            font-size: 22pt;
+                            font-weight: bold;
+                            color: #000;
+                            text-align: center;
+                            margin-bottom: 24px;
+                            border-bottom: 2px solid #000;
+                            padding-bottom: 10px;
                         }
-                        td { 
-                            border: 5px solid #4fc3f7; 
-                            padding: 20px;
+                        h2 {
+                            font-size: 14pt;
+                            font-weight: bold;
+                            color: #000;
+                            margin-top: 16px;
+                            padding: 8px 12px;
+                            border: 1.5px solid #000;
+                            border-radius: 3px;
+                            background: #f5f5f5;
                         }
-                        .label { font-weight: bold; }
-                        img { 
-                            width: 216px !important; 
+                        h3 {
+                            color: #000;
+                            margin-top: 12px;
+                            padding: 6px 10px;
+                            background: #f5f5f5;
+                            border-left: 3px solid #000;
+                            font-size: 11pt;
+                        }
+                        h4 {
+                            color: #000;
+                            margin: 8px 0 4px 0;
+                            font-size: 10pt;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 8px 0;
+                            border: 1.5px solid #000;
+                        }
+                        td {
+                            border: 1px solid #000;
+                            padding: 6px 10px;
+                            font-size: 10pt;
+                        }
+                        img {
+                            width: 216px !important;
                             height: 158px !important;
                             display: block;
                             margin: 5px auto;
-                            border: 2px solid #e0e0e0;
-                            border-radius: 4px;
+                            border: 1px solid #999;
                         }
-                        div[style*="border: 2px solid #4fc3f7"], div[style*="border: 5px solid #4fc3f7"] {
-                            border: 6px solid #4fc3f7 !important;
-                            padding: 25px !important;
+                        div[style*="border: 2px solid #4fc3f7"],
+                        div[style*="border: 5px solid #4fc3f7"] {
+                            border: 1.5px solid #000 !important;
+                            padding: 14px !important;
                             margin: 10px 0 !important;
                             width: 100% !important;
                             box-sizing: border-box !important;
+                        }
+                        .photos-section {
+                            page-break-before: always;
+                            break-before: page;
+                        }
+                        /* Самолёты в углах через content (поддерживается в Word при печати) */
+                        @page {
+                            @top-left   { content: "✈"; font-size: 18pt; color: #aaa; }
+                            @top-right  { content: "✈"; font-size: 18pt; color: #aaa; transform: scaleX(-1); }
+                            @bottom-left  { content: "✈"; font-size: 18pt; color: #aaa; }
+                            @bottom-right { content: "✈"; font-size: 18pt; color: #aaa; transform: scaleX(-1); }
                         }
                     </style>
                 </head>
