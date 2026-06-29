@@ -5152,36 +5152,58 @@ class ActionLogCreateSchema(BaseModel):
 def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSchema, db: Session = Depends(get_db)):
     # Специальная обработка для BORESCOPE
     if action_type == "BORESCOPE":
-        inspection = db.query(models.BoroscopeInspection).filter(models.BoroscopeInspection.id == log_id).first()
-        if not inspection:
-            raise HTTPException(404, f"Borescope inspection not found (ID: {log_id})")
-        
-        if data.date:
-            parsed = parse_input_date(data.date)
-            if parsed:
-                inspection.date = parsed.strftime("%Y-%m-%d")
-        if data.to_aircraft:
-            inspection.aircraft = data.to_aircraft
-        if data.from_location:  # serial_number
-            inspection.serial_number = data.from_location
-        if data.position:
-            inspection.position = data.position
-        if data.to_location:  # gss_id
-            inspection.gss_id = data.to_location
-        if data.work_type:
-            inspection.work_type = data.work_type
-        if data.inspector:
-            inspection.inspector = data.inspector
-        if data.comment is not None:
-            inspection.comment = data.comment
-        if data.file_url:
-            inspection.link = data.file_url
-        if data.location is not None:
-            inspection.location = data.location or None
-            
-        db.commit()
-        db.refresh(inspection)
-        return {"message": "Borescope inspection updated successfully"}
+        try:
+            from sqlalchemy import text as _text
+            # Ensure location column exists (idempotent)
+            try:
+                db.execute(_text("ALTER TABLE borescope_inspections ADD COLUMN IF NOT EXISTS location VARCHAR"))
+                db.commit()
+            except Exception:
+                db.rollback()
+
+            # Verify record exists
+            row = db.execute(_text("SELECT id FROM borescope_inspections WHERE id = :id"), {"id": log_id}).fetchone()
+            if not row:
+                raise HTTPException(404, f"Borescope inspection not found (ID: {log_id})")
+
+            # Build SET clause only for provided fields
+            fields = {}
+            if data.date:
+                parsed = parse_input_date(data.date)
+                if parsed:
+                    fields["date"] = parsed.strftime("%Y-%m-%d")
+            if data.to_aircraft:
+                fields["aircraft"] = data.to_aircraft
+            if data.from_location:
+                fields["serial_number"] = data.from_location
+            if data.position is not None:
+                fields["position"] = str(data.position)
+            if data.to_location is not None:
+                fields["gss_id"] = data.to_location or None
+            if data.work_type:
+                fields["work_type"] = data.work_type
+            if data.inspector:
+                fields["inspector"] = data.inspector
+            if data.comment is not None:
+                fields["comment"] = data.comment or None
+            if data.file_url is not None:
+                fields["link"] = data.file_url or None
+            if data.location is not None:
+                fields["location"] = data.location or None
+
+            if fields:
+                set_clause = ", ".join(f"{col} = :{col}" for col in fields)
+                fields["id"] = log_id
+                db.execute(_text(f"UPDATE borescope_inspections SET {set_clause} WHERE id = :id"), fields)
+                db.commit()
+
+            return {"message": "Borescope inspection updated successfully"}
+        except HTTPException:
+            raise
+        except Exception as e:
+            db.rollback()
+            import traceback; traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"Borescope update error: {str(e)}")
     
     # Специальная обработка для PURCHASE_ORDER
     if action_type == "PURCHASE_ORDER":
