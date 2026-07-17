@@ -16450,12 +16450,22 @@ function onGssInputChange(engines) {
         let locations = [];
         try { locations = locRes && locRes.ok ? await locRes.json() : []; } catch { locations = []; }
         
+        // Нормализация отображения города в Shipment UI.
+        // Нужна, чтобы код FJR отображался как Fujairah, а не Dubai.
+        const shipmentLocationDisplay = (loc) => {
+            const code = String(loc?.name || '').trim().toUpperCase();
+            const city = String(loc?.city || '').trim();
+            if (code === 'FJR') return 'Fujairah';
+            return city || loc?.name || '';
+        };
+
         // Заполняем выпадающий список "From" (все локации)
         const fromSelect = document.getElementById('ship-loc-from');
         if (fromSelect) {
             fromSelect.innerHTML = '<option value="">Select location...</option>';
             locations.forEach(loc => {
-                fromSelect.innerHTML += `<option value="${loc.city}">${loc.name} - ${loc.city}</option>`;
+                const displayName = shipmentLocationDisplay(loc);
+                fromSelect.innerHTML += `<option value="${displayName}">${displayName}</option>`;
             });
         }
         
@@ -16464,7 +16474,8 @@ function onGssInputChange(engines) {
         if (destDatalist) {
             destDatalist.innerHTML = '';
             locations.forEach(loc => {
-                destDatalist.innerHTML += `<option value="${loc.city}">${loc.name} - ${loc.city}</option>`;
+                const displayName = shipmentLocationDisplay(loc);
+                destDatalist.innerHTML += `<option value="${displayName}">${displayName}</option>`;
             });
         }
     }
@@ -16486,12 +16497,16 @@ function onGssInputChange(engines) {
             return;
         }
 
-        // Пытаемся найти location по city для получения ID
+        // Пытаемся найти location по city/name/нормализованному отображению для получения ID
         let destLocationId = null;
         const locRes = await safeFetch('/api/locations' + noCache());
         if (locRes && locRes.ok) {
             const locations = await locRes.json();
-            const foundLoc = locations.find(l => l.city === destValue || l.name === destValue);
+            const foundLoc = locations.find(l =>
+                l.city === destValue ||
+                l.name === destValue ||
+                shipmentLocationDisplay(l) === destValue
+            );
             if (foundLoc) destLocationId = foundLoc.id;
         }
 
@@ -18064,7 +18079,7 @@ function onGssInputChange(engines) {
         },
         'shipment': {
             bodyId: 'shipment-history-body',
-            columns: ['date', 'current_sn', 'from', 'to', 'remarks'],
+            columns: ['date', 'current_sn', 'engine_model', 'gss_id', 'from', 'to', 'remarks'],
             columnTypes: {
                 date: 'date'
             },
@@ -20982,106 +20997,112 @@ function onGssInputChange(engines) {
                           || posData.costPerCycle !== null && posData.costPerCycle !== undefined;
 
         let html = `
-            <div style="border: 2px solid #4fc3f7; border-radius: 8px; padding: 12px 15px; margin-bottom: 8px; ${pageBreakStyle}">
-                <h2 style="color: #4fc3f7; text-decoration: underline; margin: 0 0 10px 0; padding-bottom: 6px; font-size: 16pt; border-bottom: 2px solid #4fc3f7;">POSITION #${posData.position}</h2>
-                
-                <table style="width: 100%; margin-bottom: 12px; border-collapse: collapse; font-size: 13px;">
+            <div class="position-block" style="border: 2px solid #4fc3f7; border-radius: 6px; padding: 8px 10px; margin-bottom: 4px; ${pageBreakStyle}">
+                <h2 style="color: #4fc3f7; text-decoration: underline; margin: 0 0 6px 0; padding-bottom: 4px; font-size: 15pt; border-bottom: 2px solid #4fc3f7;">POSITION #${posData.position}</h2>
+
+                <table style="width: 100%; margin-bottom: 6px; border-collapse: collapse; font-size: 10pt; page-break-inside: avoid; break-inside: avoid-page;">
                     <tr style="background: #f5f5f5;">
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; width: 40%;"><strong style="color: #000;">Current S/N:</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.currentSN}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd; width: 34%;"><strong style="color: #000;">Current S/N:</strong></td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.currentSN}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">GSS ID:</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.gssId || 'N/A'}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd;"><strong style="color: #000;">GSS ID:</strong></td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.gssId || 'N/A'}</td>
                     </tr>
                     <tr style="background: #f5f5f5;">
-                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Original S/N:</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.originalSN}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd;"><strong style="color: #000;">Original S/N:</strong></td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.originalSN}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Installation Date:</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${fmtDMY(posData.installDate)}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd;"><strong style="color: #000;">Installation Date:</strong></td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd; color: #000; font-weight: bold;">${fmtDMY(posData.installDate)}</td>
                     </tr>
                     <tr style="background: #f5f5f5;">
-                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Supplier:</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.supplier}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd;"><strong style="color: #000;">Supplier:</strong></td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd; color: #000; font-weight: bold;">${posData.supplier}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">TSN / CSN (on A/C):</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #000; font-weight: bold;">TSN ${posData.tsn} &nbsp; CSN ${posData.csn} &nbsp; (till: ${fmtDMY(posData.tillDate)})</td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd;"><strong style="color: #000;">TSN / CSN (on A/C):</strong></td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd; color: #000; font-weight: bold;">TSN ${posData.tsn} &nbsp; CSN ${posData.csn} &nbsp; (till: ${fmtDMY(posData.tillDate)})</td>
                     </tr>
                     ${hasPriceData ? `
                     <tr style="background: #f0fff0;">
-                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">Engine Price:</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #1a6b1a; font-weight: bold;">${posData.price !== null && posData.price !== undefined ? '$ ' + Number(posData.price).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0}) : '—'}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd;"><strong style="color: #000;">Engine Price:</strong></td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd; color: #1a6b1a; font-weight: bold;">${posData.price !== null && posData.price !== undefined ? '$ ' + Number(posData.price).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0}) : '—'}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">1 Hour Cost:</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #1a6b1a; font-weight: bold;">${fmtUSD(posData.costPerHour)}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd;"><strong style="color: #000;">1 Hour Cost:</strong></td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd; color: #1a6b1a; font-weight: bold;">${fmtUSD(posData.costPerHour)}</td>
                     </tr>
                     <tr style="background: #f0fff0;">
-                        <td style="padding: 6px 8px; border: 1px solid #ddd;"><strong style="color: #000;">1 Cycle Cost:</strong></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; color: #1a6b1a; font-weight: bold;">${fmtUSD(posData.costPerCycle)}</td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd;"><strong style="color: #000;">1 Cycle Cost:</strong></td>
+                        <td style="padding: 4px 6px; border: 1px solid #ddd; color: #1a6b1a; font-weight: bold;">${fmtUSD(posData.costPerCycle)}</td>
                     </tr>` : ''}
                 </table>
         `;
 
-        // ENG Parameters
-        if (posData.engParams) {
-            html += `
-                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">ENG Parameters <span style="color: #0066cc; font-weight: normal;">(${fmtDMY(posData.engParams.date) || 'N/A'})</span></h3>
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 6px;">
-                    <tr style="background: #f0f8ff;">
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; width: 25%; color: #000;"><strong>N1 Take Off</strong></td>
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; width: 25%; font-weight: bold; color: ${paramColor('n1', posData.engParams.n1_takeoff)};">${posData.engParams.n1_takeoff || 'N/A'}%</td>
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; width: 25%; color: #000;"><strong>N1 Cruise</strong></td>
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; width: 25%; font-weight: bold; color: ${paramColor('n1', posData.engParams.n1_cruise)};">${posData.engParams.n1_cruise || 'N/A'}%</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; color: #000;"><strong>N2 Take Off</strong></td>
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('n2', posData.engParams.n2_takeoff)};">${posData.engParams.n2_takeoff || 'N/A'}%</td>
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; color: #000;"><strong>N2 Cruise</strong></td>
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('n2', posData.engParams.n2_cruise)};">${posData.engParams.n2_cruise || 'N/A'}%</td>
-                    </tr>
-                    <tr style="background: #f0f8ff;">
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; color: #000;"><strong>EGT Take Off</strong></td>
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('egt_takeoff', posData.engParams.egt_takeoff)};">${posData.engParams.egt_takeoff || 'N/A'} °C</td>
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; color: #000;"><strong>EGT Cruise</strong></td>
-                        <td style="padding: 5px 8px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('egt_cruise', posData.engParams.egt_cruise)};">${posData.engParams.egt_cruise || 'N/A'} °C</td>
-                    </tr>
-                </table>
-            `;
-        } else {
-            html += `
-                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">ENG Parameters:</h3>
-                <p style="color: #999; margin: 0; font-size: 12px;">No ENG parameters data available</p>
-            `;
-        }
-
-        // Borescope Report
-        if (posData.borescope) {
-            html += `
-                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">Borescope Report <span style="color: #0066cc; font-weight: normal;">(${fmtDMY(posData.borescope.date) || 'N/A'})</span></h3>
-                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; border: 1.5px solid #c8a800;">
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; width: 25%; background: #ffe066; font-weight: bold; color: #000;">Inspector</td>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.inspector || '—'}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Work Type</td>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.work_type || '—'}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Location</td>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.location || '—'}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Comment</td>
-                        <td style="padding: 6px 10px; border: 1px solid #c8a800; background: #fff; color: #000; font-style: italic;">${posData.borescope.comment || '—'}</td>
-                    </tr>
-                </table>
-                <h4 class="photos-section" style="color: #000; margin: 8px 0 4px 0; font-size: 13px; font-weight: bold;">PHOTOS:</h4>
-            `;
+        // ENG Parameters + Borescope in one row
+        html += `
+            <table class="two-col-row">
+                <tr>
+                    <td style="width: 50%; padding-right: 4px;">
+                        ${posData.engParams ? `
+                            <h3>ENG Parameters <span style="color: #0066cc; font-weight: normal;">(${fmtDMY(posData.engParams.date) || 'N/A'})</span></h3>
+                            <table class="panel" style="font-size: 9pt; margin-bottom: 0;">
+                                <tr style="background: #f0f8ff;">
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; width: 25%; color: #000;"><strong>N1 Take Off</strong></td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; width: 25%; font-weight: bold; color: ${paramColor('n1', posData.engParams.n1_takeoff)};">${posData.engParams.n1_takeoff || 'N/A'}%</td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; width: 25%; color: #000;"><strong>N1 Cruise</strong></td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; width: 25%; font-weight: bold; color: ${paramColor('n1', posData.engParams.n1_cruise)};">${posData.engParams.n1_cruise || 'N/A'}%</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; color: #000;"><strong>N2 Take Off</strong></td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('n2', posData.engParams.n2_takeoff)};">${posData.engParams.n2_takeoff || 'N/A'}%</td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; color: #000;"><strong>N2 Cruise</strong></td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('n2', posData.engParams.n2_cruise)};">${posData.engParams.n2_cruise || 'N/A'}%</td>
+                                </tr>
+                                <tr style="background: #f0f8ff;">
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; color: #000;"><strong>EGT Take Off</strong></td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('egt_takeoff', posData.engParams.egt_takeoff)};">${posData.engParams.egt_takeoff || 'N/A'} °C</td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; color: #000;"><strong>EGT Cruise</strong></td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8e0f4; font-weight: bold; color: ${paramColor('egt_cruise', posData.engParams.egt_cruise)};">${posData.engParams.egt_cruise || 'N/A'} °C</td>
+                                </tr>
+                            </table>
+                        ` : `
+                            <h3>ENG Parameters</h3>
+                            <p style="color: #999; margin: 0; font-size: 9pt;">No ENG parameters data available</p>
+                        `}
+                    </td>
+                    <td style="width: 50%; padding-left: 4px;">
+                        ${posData.borescope ? `
+                            <h3>Borescope Report <span style="color: #0066cc; font-weight: normal;">(${fmtDMY(posData.borescope.date) || 'N/A'})</span></h3>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 0; border: 1.5px solid #c8a800; page-break-inside: avoid; break-inside: avoid-page;">
+                                <tr>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8a800; width: 28%; background: #ffe066; font-weight: bold; color: #000;">Inspector</td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.inspector || '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Work Type</td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.work_type || '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Location</td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8a800; background: #fff; color: #000;">${posData.borescope.location || '—'}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8a800; background: #ffe066; font-weight: bold; color: #000;">Comment</td>
+                                    <td style="padding: 4px 6px; border: 1px solid #c8a800; background: #fff; color: #000; font-style: italic;">${posData.borescope.comment || '—'}</td>
+                                </tr>
+                            </table>
+                        ` : `
+                            <h3>Borescope Report</h3>
+                            <p style="color: #999; margin: 0; font-size: 9pt;">No borescope inspection data available</p>
+                        `}
+                    </td>
+                </tr>
+            </table>
+            <h4 class="photos-section" style="color: #000; margin: 4px 0 3px 0; font-size: 11px; font-weight: bold;">PHOTOS:</h4>
+        `;
 
             // Парсим inspection_report если это строка JSON
             let inspectionReport = posData.borescope.inspection_report;
@@ -21117,13 +21138,10 @@ function onGssInputChange(engines) {
                     html += '<p style="color: #999; margin: 0; font-size: 12px;">No photos available</p>';
                 }
             } else {
-                html += '<p style="color: #999; margin: 0; font-size: 12px;">No photos available</p>';
+                html += '<p style="color: #999; margin: 0; font-size: 9pt;">No photos available</p>';
             }
         } else {
-            html += `
-                <h3 style="color: #000; margin: 10px 0 6px 0; font-size: 14px;">Borescope Report:</h3>
-                <p style="color: #999; margin: 0; font-size: 12px;">No borescope inspection data available</p>
-            `;
+            html += '<p style="color: #999; margin: 0; font-size: 9pt;">No photos available</p>';
         }
 
         html += '</div>';
@@ -21144,6 +21162,104 @@ function onGssInputChange(engines) {
         }
     }
 
+    // ─── Airplane loader ────────────────────────────────────────────────────────
+    function showExportLoader(totalImages) {
+        // Remove existing
+        const existing = document.getElementById('export-loader-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'export-loader-overlay';
+        overlay.innerHTML = `
+            <style>
+                #export-loader-overlay {
+                    position: fixed; inset: 0; z-index: 99999;
+                    background: rgba(10, 20, 40, 0.82);
+                    display: flex; flex-direction: column;
+                    align-items: center; justify-content: center;
+                    backdrop-filter: blur(3px);
+                }
+                #export-plane {
+                    position: fixed;
+                    font-size: 38px;
+                    animation: planeFly 3.2s ease-in-out infinite alternate;
+                    filter: drop-shadow(0 0 12px #4fc3f7);
+                    z-index: 100000;
+                    pointer-events: none;
+                    user-select: none;
+                }
+                @keyframes planeFly {
+                    0%   { top: 18%; left: 10%; transform: rotate(-5deg) scaleX(1); }
+                    25%  { top: 65%; left: 75%; transform: rotate(8deg) scaleX(1); }
+                    50%  { top: 25%; left: 60%; transform: rotate(-12deg) scaleX(-1); }
+                    75%  { top: 72%; left: 20%; transform: rotate(5deg) scaleX(-1); }
+                    100% { top: 15%; left: 45%; transform: rotate(-8deg) scaleX(1); }
+                }
+                #export-loader-box {
+                    background: rgba(255,255,255,0.07);
+                    border: 1px solid rgba(79,195,247,0.4);
+                    border-radius: 16px;
+                    padding: 36px 48px;
+                    text-align: center;
+                    min-width: 320px;
+                    box-shadow: 0 0 40px rgba(79,195,247,0.15);
+                }
+                #export-loader-title {
+                    color: #fff; font-size: 20px; font-weight: 700;
+                    margin-bottom: 6px; letter-spacing: 1px;
+                }
+                #export-loader-status {
+                    color: #90caf9; font-size: 13px; margin-bottom: 20px;
+                    min-height: 18px;
+                }
+                #export-progress-wrap {
+                    background: rgba(255,255,255,0.12);
+                    border-radius: 20px; height: 10px;
+                    overflow: hidden; margin-bottom: 10px;
+                }
+                #export-progress-bar {
+                    height: 100%; width: 0%;
+                    background: linear-gradient(90deg, #4fc3f7, #0288d1);
+                    border-radius: 20px;
+                    transition: width 0.3s ease;
+                    box-shadow: 0 0 8px #4fc3f7;
+                }
+                #export-progress-pct {
+                    color: #b3e5fc; font-size: 12px;
+                }
+            </style>
+            <div id="export-plane">✈</div>
+            <div id="export-loader-box">
+                <div id="export-loader-title">Preparing Report</div>
+                <div id="export-loader-status">Initializing...</div>
+                <div id="export-progress-wrap">
+                    <div id="export-progress-bar"></div>
+                </div>
+                <div id="export-progress-pct">0%</div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    function updateExportLoader(status, pct) {
+        const el = document.getElementById('export-loader-status');
+        const bar = document.getElementById('export-progress-bar');
+        const pctEl = document.getElementById('export-progress-pct');
+        if (el) el.textContent = status;
+        if (bar) bar.style.width = pct + '%';
+        if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+    }
+
+    function hideExportLoader() {
+        const overlay = document.getElementById('export-loader-overlay');
+        if (overlay) {
+            overlay.style.transition = 'opacity 0.4s';
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 420);
+        }
+    }
+    // ────────────────────────────────────────────────────────────────────────────
+
     async function exportReportToWord() {
         const reportData = window.currentReportData;
         if (!reportData) {
@@ -21151,10 +21267,15 @@ function onGssInputChange(engines) {
             return;
         }
 
-        alert('Preparing document with photos... Please wait.');
-        
         const container = document.getElementById('report-content-container');
         let html = container.innerHTML;
+
+        // Count total images for progress
+        const totalImagesMatch = html.match(/<img[^>]*src="([^"]*)"[^>]*>/g) || [];
+        showExportLoader(totalImagesMatch.length);
+        updateExportLoader('Preparing document...', 5);
+
+        await new Promise(r => setTimeout(r, 30)); // let DOM paint
 
         // В Word увеличиваем изображения на 20% (216x158)
         html = html.replace(/<img([^>]*?)>/g, (match, attrs) => {
@@ -21169,9 +21290,9 @@ function onGssInputChange(engines) {
         html = html.replace(/data-photo-url="[^"]*"/g, '');
         html = html.replace(/class="borescope-photo"/g, '');
 
+        updateExportLoader('Finding photos...', 10);
         
         // Находим все img src с R2 URL и заменяем на proxy
-        // Паттерн: src="https://pub-...r2.dev/borescope/..."
         const r2UrlPattern = /src="(https:\/\/pub-[^"]+\.r2\.dev\/[^"]+)"/g;
         let match;
         const r2ToProxyMap = new Map();
@@ -21182,15 +21303,11 @@ function onGssInputChange(engines) {
             r2ToProxyMap.set(originalUrl, proxyUrl);
         }
         
-        console.log(`Found ${r2ToProxyMap.size} R2 images to replace with proxy`);
-        
-        // Заменяем все R2 URL на proxy URL
         for (const [originalUrl, proxyUrl] of r2ToProxyMap.entries()) {
             html = html.replace(`src="${originalUrl}"`, `src="${proxyUrl}"`);
-            console.log(`Replaced: ${originalUrl.substring(0, 60)}... -> ${proxyUrl.substring(0, 60)}...`);
         }
         
-        // Теперь загружаем все изображения (уже через proxy) и конвертируем в base64
+        // Загружаем все изображения и конвертируем в base64
         const allImgRegex = /<img[^>]*src="([^"]*)"[^>]*>/g;
         const imageUrls = [];
         
@@ -21198,14 +21315,16 @@ function onGssInputChange(engines) {
             imageUrls.push(match[1]);
         }
         
-        console.log(`Loading ${imageUrls.length} images through proxy...`);
-        
-        for (const url of imageUrls) {
+        const total = imageUrls.length;
+        updateExportLoader(`Loading ${total} photo(s)...`, 15);
+
+        for (let i = 0; i < imageUrls.length; i++) {
+            const url = imageUrls[i];
+            const pct = 15 + Math.round((i / Math.max(total, 1)) * 70);
+            updateExportLoader(`Loading photo ${i + 1} of ${total}...`, pct);
+
             try {
-                console.log(`Loading: ${url.substring(0, 80)}...`);
-                const response = await fetch(url, { 
-                    credentials: 'include'
-                });
+                const response = await fetch(url, { credentials: 'include' });
                 
                 if (response.ok) {
                     const blob = await response.blob();
@@ -21215,135 +21334,96 @@ function onGssInputChange(engines) {
                         reader.onloadend = () => {
                             const base64 = reader.result;
                             html = html.replace(`src="${url}"`, `src="${base64}"`);
-                            console.log(`✅ Embedded image: ${url.substring(0, 60)}...`);
                             resolve();
                         };
-                        reader.onerror = () => {
-                            console.warn(`FileReader error for: ${url}`);
-                            resolve();
-                        };
+                        reader.onerror = () => resolve();
                         reader.readAsDataURL(blob);
                     });
-                } else {
-                    console.warn(`⚠️ Server returned ${response.status} for ${url}`);
                 }
             } catch (e) {
                 console.warn(`Error loading ${url}: ${e.message}`);
             }
         }
         
-        // Лого берётся из той же папки что и index.html → /static/gss_logo.png
+        updateExportLoader('Building document...', 88);
+        await new Promise(r => setTimeout(r, 30));
+
         const gssLogoUrl = `${window.location.origin}/static/gss_logo.png`;
         const fullHtml = `
             <html>
                 <head>
                     <meta charset="UTF-8">
                     <style>
-                        @page { margin: 0.6cm 0.6cm; }
+                        @page { margin: 0.45cm 0.55cm; }
                         body {
                             font-family: Arial, sans-serif;
                             margin: 0;
-                            padding: 10px 14px;
+                            padding: 6px 8px;
                             color: #000;
                             border: 2px solid #000;
                             min-height: 96vh;
                             box-sizing: border-box;
                             position: relative;
                         }
-                        /* Лого — фиксированное в правом верхнем углу каждой страницы */
-                        .watermark-logo {
-                            position: fixed;
-                            top: 6px;
-                            right: 8px;
-                            width: 72px;
-                            opacity: 0.15;
-                            z-index: 0;
-                            pointer-events: none;
-                        }
-                        /* Самолёты по углам — фиксированные */
-                        .corner { position: fixed; font-size: 20pt; color: #bbb; opacity: 0.55; line-height: 1; z-index: 0; }
-                        .corner-tl { top: 4px;    left: 6px;   }
-                        .corner-tr { top: 4px;    right: 6px;  transform: scaleX(-1); display: inline-block; }
-                        .corner-bl { bottom: 4px; left: 6px;   }
-                        .corner-br { bottom: 4px; right: 6px;  transform: scaleX(-1); display: inline-block; }
-                        /* Контентный слой поверх декора */
-                        .doc-content { position: relative; z-index: 1; }
-                        h1 {
-                            font-size: 20pt;
-                            font-weight: bold;
-                            color: #000;
-                            text-align: center;
-                            margin: 0 0 10px 0;
-                            padding-bottom: 8px;
+                        .page-header {
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            gap: 10px;
+                            margin-bottom: 6px;
+                            padding-bottom: 4px;
                             border-bottom: 1.5px solid #000;
                         }
-                        h2 {
-                            font-size: 13pt;
+                        .page-header h1 {
+                            flex: 1;
+                            text-align: center;
+                            font-size: 18pt;
                             font-weight: bold;
                             color: #000;
-                            margin-top: 14px;
-                            padding: 6px 10px;
-                            border: 1px solid #000;
-                            background: #f5f5f5;
+                            margin: 0;
+                            line-height: 1.1;
                         }
-                        h3 {
-                            color: #000;
-                            margin-top: 10px;
-                            padding: 5px 10px;
-                            background: #f5f5f5;
-                            border-left: 3px solid #000;
-                            font-size: 10.5pt;
+                        .header-logo {
+                            width: 72px;
+                            height: auto;
+                            flex: 0 0 auto;
                         }
-                        h4 {
-                            color: #000;
-                            margin: 8px 0 4px 0;
-                            font-size: 10pt;
+                        .position-block {
+                            page-break-inside: avoid;
+                            break-inside: avoid-page;
+                            margin-bottom: 4px;
                         }
-                        table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            margin: 6px 0;
-                            border: 1px solid #000;
-                        }
-                        td {
-                            border: 1px solid #000;
-                            padding: 5px 8px;
-                            font-size: 10pt;
-                        }
-                        img.photo {
-                            width: 216px !important;
-                            height: 158px !important;
-                            display: block;
-                            margin: 4px auto;
-                            border: 1px solid #999;
-                        }
+                        h2 { font-size: 12.5pt; font-weight: bold; color: #000; margin: 0 0 6px 0; padding: 4px 8px; border: 1px solid #000; background: #f5f5f5; }
+                        h3 { color: #000; margin: 0 0 4px 0; padding: 3px 8px; background: #f5f5f5; border-left: 3px solid #000; font-size: 10pt; }
+                        h4 { color: #000; margin: 0 0 3px 0; font-size: 9.5pt; }
+                        table { width: 100%; border-collapse: collapse; margin: 4px 0; border: 1px solid #000; }
+                        td { border: 1px solid #000; padding: 4px 6px; font-size: 9pt; }
+                        img.photo { width: 216px !important; height: 158px !important; display: block; margin: 4px auto; border: 1px solid #999; }
                         div[style*="border: 2px solid #4fc3f7"],
                         div[style*="border: 5px solid #4fc3f7"] {
                             border: 1px solid #000 !important;
-                            padding: 12px !important;
-                            margin: 8px 0 !important;
-                            width: 100% !important;
-                            box-sizing: border-box !important;
+                            padding: 8px !important; margin: 4px 0 !important;
+                            width: 100% !important; box-sizing: border-box !important;
                         }
-                        .photos-section {
-                            page-break-before: always;
-                            break-before: page;
-                        }
+                        .photos-section { page-break-before: always; break-before: page; }
+                        .two-col-row { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0; }
+                        .two-col-row td { vertical-align: top; border: 0; padding: 0; }
+                        .panel { width: 100%; border-collapse: collapse; }
+                        .panel td { padding: 4px 6px; font-size: 9pt; }
                     </style>
                 </head>
                 <body>
-                    <img class="watermark-logo" src="${gssLogoUrl}" onerror="this.style.display='none'">
-                    <span class="corner corner-tl">✈</span>
-                    <span class="corner corner-tr">✈</span>
-                    <span class="corner corner-bl">✈</span>
-                    <span class="corner corner-br">✈</span>
-                    <div class="doc-content">
+                    <div class="page-header">
                         <h1>${reportData.aircraft}</h1>
-                        ${html}
+                        <img class="header-logo" src="${gssLogoUrl}" onerror="this.style.display='none'">
                     </div>
+                    ${html}
                 </body>
             </html>
         `;
+
+        updateExportLoader('Saving file...', 96);
+        await new Promise(r => setTimeout(r, 30));
 
         const blob = new Blob([fullHtml], { type: 'application/msword' });
         const url = URL.createObjectURL(blob);
@@ -21353,6 +21433,8 @@ function onGssInputChange(engines) {
         link.click();
         URL.revokeObjectURL(url);
         
+        updateExportLoader('Done! ✓', 100);
+        setTimeout(() => hideExportLoader(), 800);
         console.log('✅ Export complete');
     }
 
