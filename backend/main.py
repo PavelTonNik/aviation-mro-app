@@ -4617,15 +4617,15 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
             return "REMOVED"
         
         for eng in engines:
-            # 2. Безопасное определение локации (чтобы не было ошибок, если локация удалена)
-            loc_name = "Не указано" 
-            
+            # 2. Безопасное определение локации (для INSTALLED всегда приоритет: борт + позиция)
+            loc_name = "Не указано"
+
             try:
-                if eng.location:
-                    loc_name = eng.location.name
-                elif eng.aircraft:
+                if eng.aircraft_id is not None and eng.position is not None and eng.aircraft:
                     tail = eng.aircraft.tail_number if eng.aircraft.tail_number else "No Tail"
                     loc_name = f"{tail} (Pos {eng.position})"
+                elif eng.location:
+                    loc_name = eng.location.name
             except Exception:
                 loc_name = "Ошибка данных" # Если ссылка на удаленный объект
 
@@ -5277,8 +5277,9 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
         if data.to_location is not None:
             log.to_location = data.to_location
 
-            # Синхронизируем реальную локацию двигателя, чтобы карточки обновлялись корректно
-            if log.engine and data.to_location:
+            # Синхронизируем реальную локацию двигателя только для НЕустановленных двигателей.
+            # Для INSTALLED источник истины — aircraft/position, чтобы не ломать карточки.
+            if log.engine and data.to_location and not (log.engine.aircraft_id is not None and log.engine.position is not None):
                 to_value = data.to_location.strip()
                 aliases = {
                     "FUJAIRAH": "FJR",
