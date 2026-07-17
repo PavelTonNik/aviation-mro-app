@@ -5256,6 +5256,67 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
         db.commit()
         db.refresh(param)
         return {"message": "Engine parameter record updated successfully"}
+
+    # Специальная обработка для SHIP
+    if action_type == "SHIP":
+        log = db.query(models.ActionLog).filter(
+            models.ActionLog.id == log_id,
+            models.ActionLog.action_type == "SHIP"
+        ).first()
+        if not log:
+            raise HTTPException(404, f"Shipment record not found (ID: {log_id})")
+
+        if data.date:
+            parsed = parse_input_date(data.date)
+            if parsed:
+                log.date = parsed
+
+        if data.from_location is not None:
+            log.from_location = data.from_location
+
+        if data.to_location is not None:
+            log.to_location = data.to_location
+
+            # Синхронизируем реальную локацию двигателя, чтобы карточки обновлялись корректно
+            if log.engine and data.to_location:
+                to_value = data.to_location.strip()
+                aliases = {
+                    "FUJAIRAH": "FJR",
+                    "GYD": "GYD",
+                    "DUBAI": "DUBAI",
+                }
+                alias_code = aliases.get(to_value.upper())
+
+                new_loc = db.query(models.Location).filter(
+                    (models.Location.name.ilike(to_value)) |
+                    (models.Location.city.ilike(to_value))
+                ).first()
+
+                if not new_loc and alias_code:
+                    new_loc = db.query(models.Location).filter(models.Location.name.ilike(alias_code)).first()
+
+                # Если локации нет — создаём, как в /api/actions/ship
+                if not new_loc:
+                    new_loc = models.Location(
+                        name=alias_code or to_value,
+                        city=to_value
+                    )
+                    db.add(new_loc)
+                    db.flush()
+
+                log.engine.location_id = new_loc.id
+
+        if data.comments is not None:
+            log.comments = data.comments
+
+        if data.file_url is not None:
+            log.file_url = data.file_url
+
+        db.commit()
+        db.refresh(log)
+        if log.engine:
+            db.refresh(log.engine)
+        return {"message": "Shipment record updated successfully"}
     
     if action_type == "INSTALL":
         log = db.query(models.ActionLog).filter(
