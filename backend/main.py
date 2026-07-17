@@ -3154,18 +3154,24 @@ def get_locations_overview(db: Session = Depends(get_db)):
         locations = db.query(models.Location).all()
         result = []
         for loc in locations:
-            # Общее количество двигателей в локации
-            engine_count = db.query(models.Engine).filter(models.Engine.location_id == loc.id).count()
+            # Общее количество двигателей в локации (только off-wing)
+            base_q = db.query(models.Engine).filter(
+                models.Engine.location_id == loc.id,
+                models.Engine.aircraft_id.is_(None)
+            )
+            engine_count = base_q.count()
             
             # Количество SV двигателей (Condition 1 = 'SV')
             sv_count = db.query(models.Engine).filter(
                 models.Engine.location_id == loc.id,
+                models.Engine.aircraft_id.is_(None),
                 models.Engine.condition_1 == 'SV'
             ).count()
             
             # Количество US двигателей (Condition 1 = 'US' или 'US - SHJ')
             us_count = db.query(models.Engine).filter(
                 models.Engine.location_id == loc.id,
+                models.Engine.aircraft_id.is_(None),
                 models.Engine.condition_1.in_(['US', 'US - SHJ'])
             ).count()
             

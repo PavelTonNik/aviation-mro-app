@@ -12004,10 +12004,11 @@ function hideInstallTooltip() {
         const res = await fetch(`/api/engines`);
         const allEngines = await res.json();
         
-        // Фильтруем по имени локации (бэкенд возвращает location как текст)
+        // Фильтруем по location_id (источник истины) и только off-wing
         const filtered = allEngines.filter(e => {
-            // Проверяем, содержит ли location имя локации (например "SHJ")
-            return e.location && e.location.includes(locName);
+            const sameLocation = String(e.location_id) === String(locId);
+            const offWing = !e.aircraft_id;
+            return sameLocation && offWing;
         });
 
         if(filtered.length === 0) {
