@@ -16396,10 +16396,10 @@ function onGssInputChange(engines) {
 // Нормализация отображения города в Shipment UI.
 // Нужна, чтобы код FJR отображался как Fujairah, а не Dubai.
 function shipmentLocationDisplay(loc) {
-    const code = String(loc?.name || '').trim().toUpperCase();
     const city = String(loc?.city || '').trim();
-    if (code === 'FJR') return 'Fujairah';
-    return city || loc?.name || '';
+    if (city) return city;
+    const name = String(loc?.name || '').trim();
+    return name;
 }
 
 // Обновленная функция подготовки формы
@@ -16460,7 +16460,7 @@ function shipmentLocationDisplay(loc) {
         let locations = [];
         try { locations = locRes && locRes.ok ? await locRes.json() : []; } catch { locations = []; }
         
-        // Заполняем выпадающий список "From" (все локации)
+        // Заполняем выпадающий список "From" (только города из справочника)
         const fromSelect = document.getElementById('ship-loc-from');
         if (fromSelect) {
             fromSelect.innerHTML = '<option value="">Select location...</option>';
@@ -16470,7 +16470,7 @@ function shipmentLocationDisplay(loc) {
             });
         }
         
-        // Заполняем datalist "Destination" (можно выбрать или ввести вручную)
+        // Заполняем datalist "Destination" (подсказки только из городов, но ввод остаётся ручным)
         const destDatalist = document.getElementById('destination-options-ship');
         if (destDatalist) {
             destDatalist.innerHTML = '';
