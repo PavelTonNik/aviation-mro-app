@@ -16392,6 +16392,15 @@ function onGssInputChange(engines) {
         });
     }
 
+// Нормализация отображения города в Shipment UI.
+// Нужна, чтобы код FJR отображался как Fujairah, а не Dubai.
+function shipmentLocationDisplay(loc) {
+    const code = String(loc?.name || '').trim().toUpperCase();
+    const city = String(loc?.city || '').trim();
+    if (code === 'FJR') return 'Fujairah';
+    return city || loc?.name || '';
+}
+
 // Обновленная функция подготовки формы
     async function prepareShipmentForm() {
         let engRes = await safeFetch('/api/engines' + noCache());
@@ -16450,15 +16459,6 @@ function onGssInputChange(engines) {
         let locations = [];
         try { locations = locRes && locRes.ok ? await locRes.json() : []; } catch { locations = []; }
         
-        // Нормализация отображения города в Shipment UI.
-        // Нужна, чтобы код FJR отображался как Fujairah, а не Dubai.
-        const shipmentLocationDisplay = (loc) => {
-            const code = String(loc?.name || '').trim().toUpperCase();
-            const city = String(loc?.city || '').trim();
-            if (code === 'FJR') return 'Fujairah';
-            return city || loc?.name || '';
-        };
-
         // Заполняем выпадающий список "From" (все локации)
         const fromSelect = document.getElementById('ship-loc-from');
         if (fromSelect) {
@@ -21104,6 +21104,7 @@ function onGssInputChange(engines) {
             <h4 class="photos-section" style="color: #000; margin: 4px 0 3px 0; font-size: 11px; font-weight: bold;">PHOTOS:</h4>
         `;
 
+        if (posData.borescope) {
             // Парсим inspection_report если это строка JSON
             let inspectionReport = posData.borescope.inspection_report;
             if (typeof inspectionReport === 'string') {
