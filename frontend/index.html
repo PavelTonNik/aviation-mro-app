@@ -16393,13 +16393,13 @@ function onGssInputChange(engines) {
         });
     }
 
-// Нормализация отображения города в Shipment UI.
-// Нужна, чтобы код FJR отображался как Fujairah, а не Dubai.
+// Нормализация отображения локации в Shipment UI.
+// Для выбора используем код локации (SHJ/FRU/FJR/GYD), как на карточках.
 function shipmentLocationDisplay(loc) {
+    const code = String(loc?.name || '').trim().toUpperCase();
     const city = String(loc?.city || '').trim();
-    if (city) return city;
-    const name = String(loc?.name || '').trim();
-    return name;
+    if (code) return code;
+    return city;
 }
 
 // Обновленная функция подготовки формы
@@ -16460,23 +16460,39 @@ function shipmentLocationDisplay(loc) {
         let locations = [];
         try { locations = locRes && locRes.ok ? await locRes.json() : []; } catch { locations = []; }
         
-        // Заполняем выпадающий список "From" (только города из справочника)
+        // Заполняем выпадающий список "From" (коды локаций как на карточках)
         const fromSelect = document.getElementById('ship-loc-from');
         if (fromSelect) {
             fromSelect.innerHTML = '<option value="">Select location...</option>';
+            const seenFrom = new Set();
             locations.forEach(loc => {
-                const displayName = shipmentLocationDisplay(loc);
-                fromSelect.innerHTML += `<option value="${displayName}">${displayName}</option>`;
+                const code = shipmentLocationDisplay(loc);
+                const city = String(loc?.city || '').trim();
+                if (!code || seenFrom.has(code)) return;
+                seenFrom.add(code);
+                const text = city && city.toUpperCase() !== code ? `${code} - ${city}` : code;
+                fromSelect.innerHTML += `<option value="${code}">${text}</option>`;
             });
         }
         
-        // Заполняем datalist "Destination" (подсказки только из городов, но ввод остаётся ручным)
+        // Заполняем datalist "Destination" (подсказки из справочника + ручной ввод остаётся)
         const destDatalist = document.getElementById('destination-options-ship');
         if (destDatalist) {
             destDatalist.innerHTML = '';
+            const seenDest = new Set();
             locations.forEach(loc => {
-                const displayName = shipmentLocationDisplay(loc);
-                destDatalist.innerHTML += `<option value="${displayName}">${displayName}</option>`;
+                const code = shipmentLocationDisplay(loc);
+                const city = String(loc?.city || '').trim();
+                if (code && !seenDest.has(code)) {
+                    seenDest.add(code);
+                    const label = city && city.toUpperCase() !== code ? `${code} - ${city}` : code;
+                    destDatalist.innerHTML += `<option value="${code}">${label}</option>`;
+                }
+                if (city && !seenDest.has(city)) {
+                    seenDest.add(city);
+                    const cityLabel = code && city.toUpperCase() !== code ? `${city} (${code})` : city;
+                    destDatalist.innerHTML += `<option value="${city}">${cityLabel}</option>`;
+                }
             });
         }
     }
@@ -16503,10 +16519,11 @@ function shipmentLocationDisplay(loc) {
         const locRes = await safeFetch('/api/locations' + noCache());
         if (locRes && locRes.ok) {
             const locations = await locRes.json();
+            const typed = String(destValue || '').trim();
             const foundLoc = locations.find(l =>
-                l.city === destValue ||
-                l.name === destValue ||
-                shipmentLocationDisplay(l) === destValue
+                String(l.city || '').trim().toLowerCase() === typed.toLowerCase() ||
+                String(l.name || '').trim().toLowerCase() === typed.toLowerCase() ||
+                shipmentLocationDisplay(l).toLowerCase() === typed.toLowerCase()
             );
             if (foundLoc) destLocationId = foundLoc.id;
         }
