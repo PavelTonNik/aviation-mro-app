@@ -64,9 +64,9 @@ class Engine(Base):
     __tablename__ = "engines"
 
     id = Column(Integer, primary_key=True, index=True)
-    original_sn = Column(String, unique=True)
+    original_sn = Column(String, nullable=True)
     gss_sn = Column(String, nullable=True)
-    current_sn = Column(String, unique=True, nullable=True) # Текущий серийный номер (может отличаться от original) - ДОЛЖЕН БЫТЬ УНИКАЛЬНЫМ
+    current_sn = Column(String, nullable=True) # Текущий серийный номер; уникальность сохраняется только для реальных SN, не для "-"/пустых значений
     model = Column(String, nullable=True) # Модель двигателя (CF6-80, CFM56 и т.д.)
     
     # В бизнес-логике статус отражает установку/снятие.

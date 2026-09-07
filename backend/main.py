@@ -614,14 +614,27 @@ def startup_event():
                             ALTER TABLE aircraft_utilization_sources ADD COLUMN notification_emails TEXT;
                         END IF;
                         
-                        -- Добавляем уникальный индекс для current_sn (если еще не существует)
-                        -- Это позволит избежать дубликатов Current SN
+                        -- Удаляем старые жёсткие уникальные ограничения: повторяющиеся "-" и пустые значения должны быть допустимыми
+                        ALTER TABLE engines DROP CONSTRAINT IF EXISTS engines_original_sn_key;
+                        ALTER TABLE engines DROP CONSTRAINT IF EXISTS engines_current_sn_key;
+                        DROP INDEX IF EXISTS engines_current_sn_unique_idx;
+                        DROP INDEX IF EXISTS engines_original_sn_unique_idx;
+
+                        -- Оставляем уникальность только для реальных SN: не пустых и не равных "-"
                         IF NOT EXISTS (
                             SELECT 1 FROM pg_indexes 
                             WHERE tablename = 'engines' AND indexname = 'engines_current_sn_unique_idx'
                         ) THEN
                             CREATE UNIQUE INDEX engines_current_sn_unique_idx ON engines (current_sn)
-                            WHERE current_sn IS NOT NULL;
+                            WHERE current_sn IS NOT NULL AND TRIM(current_sn) <> '' AND TRIM(current_sn) <> '-';
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_indexes 
+                            WHERE tablename = 'engines' AND indexname = 'engines_original_sn_unique_idx'
+                        ) THEN
+                            CREATE UNIQUE INDEX engines_original_sn_unique_idx ON engines (original_sn)
+                            WHERE original_sn IS NOT NULL AND TRIM(original_sn) <> '' AND TRIM(original_sn) <> '-';
                         END IF;
                     END $$;
                 """))
@@ -4747,6 +4760,31 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
 
 # --- API (ACTIONS & HISTORY) ---
 
+def _normalize_serial_value(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    if normalized in ("", "-", "—"):
+        return None
+    return normalized
+
+
+def _find_duplicate_engine_by_serial(db: Session, field_name: str, value: Optional[str], exclude_engine_id: Optional[int] = None):
+    normalized_value = _normalize_serial_value(value)
+    if not normalized_value:
+        return None
+
+    query = db.query(models.Engine)
+    if exclude_engine_id is not None:
+        query = query.filter(models.Engine.id != exclude_engine_id)
+
+    if field_name == "original_sn":
+        return query.filter(models.Engine.original_sn == normalized_value).first()
+    if field_name == "current_sn":
+        return query.filter(models.Engine.current_sn == normalized_value).first()
+    return None
+
+
 # СОЗДАНИЕ НОВОГО ДВИГАТЕЛЯ
 class EngineCreateSchema(BaseModel):
     date: Optional[str] = None
@@ -4774,14 +4812,13 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             raise HTTPException(status_code=403, detail="Only admins can create engines")
         actor_name = resolve_actor_name(db, current_user_id, "Admin")
         
-        # Проверяем, существует ли уже двигатель с таким original_sn
-        existing_original = db.query(models.Engine).filter(models.Engine.original_sn == data.original_sn).first()
+        # Проверяем уникальность только для реальных SN; "-" и пустые значения разрешены
+        existing_original = _find_duplicate_engine_by_serial(db, "original_sn", data.original_sn)
         if existing_original:
             raise HTTPException(400, f"Engine with Original SN {data.original_sn} already exists")
-        
-        # Проверяем, существует ли уже двигатель с таким current_sn (если current_sn указан)
-        if data.current_sn and data.current_sn.strip():
-            existing_current = db.query(models.Engine).filter(models.Engine.current_sn == data.current_sn).first()
+
+        if data.current_sn is not None:
+            existing_current = _find_duplicate_engine_by_serial(db, "current_sn", data.current_sn)
             if existing_current:
                 raise HTTPException(400, f"Engine with Current SN {data.current_sn} already exists")
         
@@ -4896,24 +4933,16 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         if not engine:
             raise HTTPException(404, "Engine not found")
         
-        # Проверяем уникальность original_sn (если меняется)
+        # Проверяем уникальность только для реальных SN; "-" и пустые значения разрешены
         if data.original_sn != engine.original_sn:
-            existing_original = db.query(models.Engine).filter(
-                models.Engine.original_sn == data.original_sn,
-                models.Engine.id != engine_id
-            ).first()
+            existing_original = _find_duplicate_engine_by_serial(db, "original_sn", data.original_sn, exclude_engine_id=engine_id)
             if existing_original:
                 raise HTTPException(400, f"Another engine with Original SN {data.original_sn} already exists")
-        
-        # Проверяем уникальность current_sn (если меняется и указан)
-        if data.current_sn and data.current_sn.strip():
-            if data.current_sn != engine.current_sn:
-                existing_current = db.query(models.Engine).filter(
-                    models.Engine.current_sn == data.current_sn,
-                    models.Engine.id != engine_id
-                ).first()
-                if existing_current:
-                    raise HTTPException(400, f"Another engine with Current SN {data.current_sn} already exists")
+
+        if data.current_sn and data.current_sn.strip() and data.current_sn != engine.current_sn:
+            existing_current = _find_duplicate_engine_by_serial(db, "current_sn", data.current_sn, exclude_engine_id=engine_id)
+            if existing_current:
+                raise HTTPException(400, f"Another engine with Current SN {data.current_sn} already exists")
         
         # Парсим дату если передана
         install_date = None
