@@ -614,28 +614,6 @@ def startup_event():
                             ALTER TABLE aircraft_utilization_sources ADD COLUMN notification_emails TEXT;
                         END IF;
                         
-                        -- Удаляем старые жёсткие уникальные ограничения: повторяющиеся "-" и пустые значения должны быть допустимыми
-                        ALTER TABLE engines DROP CONSTRAINT IF EXISTS engines_original_sn_key;
-                        ALTER TABLE engines DROP CONSTRAINT IF EXISTS engines_current_sn_key;
-                        DROP INDEX IF EXISTS engines_current_sn_unique_idx;
-                        DROP INDEX IF EXISTS engines_original_sn_unique_idx;
-
-                        -- Оставляем уникальность только для реальных SN: не пустых и не равных "-"
-                        IF NOT EXISTS (
-                            SELECT 1 FROM pg_indexes 
-                            WHERE tablename = 'engines' AND indexname = 'engines_current_sn_unique_idx'
-                        ) THEN
-                            CREATE UNIQUE INDEX engines_current_sn_unique_idx ON engines (current_sn)
-                            WHERE current_sn IS NOT NULL AND TRIM(current_sn) <> '' AND TRIM(current_sn) <> '-';
-                        END IF;
-
-                        IF NOT EXISTS (
-                            SELECT 1 FROM pg_indexes 
-                            WHERE tablename = 'engines' AND indexname = 'engines_original_sn_unique_idx'
-                        ) THEN
-                            CREATE UNIQUE INDEX engines_original_sn_unique_idx ON engines (original_sn)
-                            WHERE original_sn IS NOT NULL AND TRIM(original_sn) <> '' AND TRIM(original_sn) <> '-';
-                        END IF;
                     END $$;
                 """))
                 db.commit()
@@ -647,6 +625,50 @@ def startup_event():
                 db.close()
         except Exception as e:
             print(f"ℹ️  Column sync skipped: {e}")
+
+        # Отдельная изолированная миграция в своей транзакции: полностью убираем защиту от дублей
+        # SN на уровне БД (любые unique constraint/index на engines.original_sn / current_sn).
+        # Вынесена в отдельный блок, чтобы сбой в других миграциях выше не откатывал это удаление.
+        try:
+            db2 = database.SessionLocal()
+            try:
+                db2.execute(text("""
+                    DO $$
+                    DECLARE
+                        r RECORD;
+                    BEGIN
+                        FOR r IN
+                            SELECT con.conname
+                            FROM pg_constraint con
+                            JOIN pg_class rel ON rel.oid = con.conrelid
+                            JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = ANY(con.conkey)
+                            WHERE rel.relname = 'engines'
+                              AND con.contype = 'u'
+                              AND att.attname IN ('original_sn', 'current_sn')
+                        LOOP
+                            EXECUTE format('ALTER TABLE engines DROP CONSTRAINT IF EXISTS %I', r.conname);
+                        END LOOP;
+
+                        FOR r IN
+                            SELECT indexname
+                            FROM pg_indexes
+                            WHERE tablename = 'engines'
+                              AND indexdef ILIKE '%UNIQUE%'
+                              AND (indexdef ILIKE '%original_sn%' OR indexdef ILIKE '%current_sn%')
+                        LOOP
+                            EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
+                        END LOOP;
+                    END $$;
+                """))
+                db2.commit()
+                print("✅ Removed all unique SN constraints on engines table")
+            except Exception as sn_e:
+                print(f"ℹ️  SN constraint cleanup: {sn_e}")
+                db2.rollback()
+            finally:
+                db2.close()
+        except Exception as e:
+            print(f"ℹ️  SN constraint cleanup skipped: {e}")
     
     ensure_sqlite_column("aircrafts", "initial_total_time FLOAT DEFAULT 0")
     ensure_sqlite_column("aircrafts", "initial_total_cycles INTEGER DEFAULT 0")
@@ -4812,15 +4834,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             raise HTTPException(status_code=403, detail="Only admins can create engines")
         actor_name = resolve_actor_name(db, current_user_id, "Admin")
         
-        # Проверяем уникальность только для реальных SN; "-" и пустые значения разрешены
-        existing_original = _find_duplicate_engine_by_serial(db, "original_sn", data.original_sn)
-        if existing_original:
-            raise HTTPException(400, f"Engine with Original SN {data.original_sn} already exists")
-
-        if data.current_sn is not None:
-            existing_current = _find_duplicate_engine_by_serial(db, "current_sn", data.current_sn)
-            if existing_current:
-                raise HTTPException(400, f"Engine with Current SN {data.current_sn} already exists")
+        # Защита от дублей Serial Number отключена полностью по требованию пользователя
         
         # Парсим дату если передана
         install_date = None
@@ -4933,16 +4947,7 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         if not engine:
             raise HTTPException(404, "Engine not found")
         
-        # Проверяем уникальность только для реальных SN; "-" и пустые значения разрешены
-        if data.original_sn != engine.original_sn:
-            existing_original = _find_duplicate_engine_by_serial(db, "original_sn", data.original_sn, exclude_engine_id=engine_id)
-            if existing_original:
-                raise HTTPException(400, f"Another engine with Original SN {data.original_sn} already exists")
-
-        if data.current_sn and data.current_sn.strip() and data.current_sn != engine.current_sn:
-            existing_current = _find_duplicate_engine_by_serial(db, "current_sn", data.current_sn, exclude_engine_id=engine_id)
-            if existing_current:
-                raise HTTPException(400, f"Another engine with Current SN {data.current_sn} already exists")
+        # Защита от дублей Serial Number отключена полностью по требованию пользователя
         
         # Парсим дату если передана
         install_date = None
