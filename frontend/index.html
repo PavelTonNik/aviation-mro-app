@@ -196,6 +196,25 @@
             color: #e2e8f0;
         }
 
+        /* ============ WORK ORDERS MODULE — ultra-modern light card style ============ */
+        .wo-card { background:#ffffff; color:#212529; border-radius:16px; border:1px solid #e9ecef; box-shadow:0 4px 20px rgba(0,0,0,.06); }
+        .wo-card .table { color:#212529; }
+        .wo-card .table thead th { background:#f8f9fa; color:#495057; border-color:#e9ecef; font-weight:700; font-size:.78rem; text-transform:uppercase; letter-spacing:.02em; }
+        .wo-card .table tbody tr { background:#ffffff; border-color:#eef0f2; }
+        .wo-card .table tbody tr:hover { background:#f8f9fa; }
+        .wo-card .table tbody tr.table-danger { background:#fff5f5 !important; }
+        .wo-card .table tbody tr.table-warning { background:#fffbf0 !important; }
+        .wo-card .table tbody tr.table-success { background:#f4fbf6 !important; }
+        .wo-kpi-box { background:#f8f9fa; border:1px solid #e9ecef; border-radius:12px; padding:14px 8px; text-align:center; }
+        .wo-kpi-num { font-size:1.7rem; font-weight:800; line-height:1; }
+        .wo-kpi-lbl { font-size:.72rem; color:#6c757d; margin-top:4px; text-transform:uppercase; letter-spacing:.03em; }
+        .wo-status-pill { padding:4px 12px; border-radius:20px; font-size:.72rem; font-weight:700; letter-spacing:.02em; white-space:nowrap; }
+        .wo-status-pill.wo-overdue { background:#f8d7da; color:#842029; border:1px solid #f5c2c7; }
+        .wo-status-pill.wo-due-soon { background:#fff3cd; color:#7a5b00; border:1px solid #ffe69c; }
+        .wo-status-pill.wo-ontrack { background:#d1e7dd; color:#0f5132; border:1px solid #a3cfbb; }
+        .wo-status-pill.wo-open { background:#cfe2ff; color:#084298; border:1px solid #b6d4fe; }
+        .wo-status-pill.wo-closed { background:#d1e7dd; color:#0f5132; border:1px solid #a3cfbb; }
+
         /* Light Background Mode - minimal changes */
         body.light-bg {
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
@@ -5580,6 +5599,7 @@
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openInstallView(); return false;"><i class="bi bi-arrow-up-circle"></i> Installation</a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openRemoveView(); return false;"><i class="bi bi-arrow-down-circle"></i> Remove</a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openRepairView(); return false;"><i class="bi bi-wrench"></i> Repair</a>
+                <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openWorkOrdersView(); return false;"><i class="bi bi-clipboard2-pulse"></i> Work Orders</a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openAtlbView(); return false;"><i class="bi bi-journal-richtext"></i> Utilization (ATLB)</a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openEngParamView(); return false;"><i class="bi bi-sliders"></i> ENG Parameters</a>
                 <a href="#" class="list-group-item list-group-item-action ps-4" onclick="openUtilizationParamView(); return false;"><i class="bi bi-bar-chart-line"></i> Utilization Parameters</a>
@@ -8075,6 +8095,54 @@
                     </div>
                 </div>
             </div>   
+           <!-- WORK ORDERS VIEW -->
+            <div id="view-workorders" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <h4 class="mb-0 text-warning"><i class="bi bi-clipboard2-pulse"></i> Work Orders — Status Monitoring</h4>
+                    <button class="btn btn-warning" onclick="showSuccessNotification ? null : null; alert('Issue Work Order — модалка будет добавлена на следующем этапе');"><i class="bi bi-file-earmark-plus"></i> Issue Work Order</button>
+                </div>
+
+                <ul class="nav nav-tabs mb-3">
+                    <li class="nav-item"><button class="nav-link active" id="tab-wo-dash-btn" onclick="switchWorkOrdersTab('dash')">Dashboard</button></li>
+                    <li class="nav-item"><button class="nav-link" id="tab-wo-inprogress-btn" onclick="switchWorkOrdersTab('inprogress')">In Progress <span class="badge bg-warning text-dark ms-1" id="wo-inprogress-badge">0</span></button></li>
+                    <li class="nav-item"><button class="nav-link" id="tab-wo-closed-btn" onclick="switchWorkOrdersTab('closed')">Closed <span class="badge bg-success ms-1" id="wo-closed-badge">0</span></button></li>
+                </ul>
+
+                <!-- DASHBOARD TAB -->
+                <div id="tab-wo-dash">
+                    <div class="wo-card p-4">
+                        <div class="row g-2 mb-3">
+                            <div class="col"><div class="wo-kpi-box"><div class="wo-kpi-num text-danger" id="wo-kpi-overdue">0</div><div class="wo-kpi-lbl">Overdue</div></div></div>
+                            <div class="col"><div class="wo-kpi-box"><div class="wo-kpi-num" style="color:#b98400;" id="wo-kpi-duesoon">0</div><div class="wo-kpi-lbl">Due soon (≤3 days)</div></div></div>
+                            <div class="col"><div class="wo-kpi-box"><div class="wo-kpi-num text-success" id="wo-kpi-ontrack">0</div><div class="wo-kpi-lbl">On track</div></div></div>
+                            <div class="col"><div class="wo-kpi-box"><div class="wo-kpi-num" id="wo-kpi-total">0</div><div class="wo-kpi-lbl">Total Open</div></div></div>
+                        </div>
+                        <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr><th>WO #</th><th>Type of Work</th><th>Engine</th><th>Assignee</th><th>Due</th><th>Days Left</th><th>Status</th><th>Files</th><th></th></tr></thead>
+                            <tbody class="small" id="wo-dash-body">
+                                <tr><td colspan="9" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
+                        <div class="small text-muted mt-2"><i class="bi bi-info-circle"></i> Demo data — backend integration (real /api/work-orders) is the next step.</div>
+                    </div>
+                </div>
+
+                <!-- IN PROGRESS TAB -->
+                <div id="tab-wo-inprogress" style="display:none;">
+                    <div class="wo-card p-4 text-center text-muted py-5">
+                        <i class="bi bi-hourglass-split fs-2 d-block mb-2"></i> In Progress list — coming on the next step
+                    </div>
+                </div>
+
+                <!-- CLOSED TAB -->
+                <div id="tab-wo-closed" style="display:none;">
+                    <div class="wo-card p-4 text-center text-muted py-5">
+                        <i class="bi bi-archive fs-2 d-block mb-2"></i> Closed WO archive — coming on the next step
+                    </div>
+                </div>
+            </div>
            <!-- 10. PARTS VIEW -->
             <div id="view-parts" style="display: none;">
                 <h4 class="mb-3 text-secondary"><i class="bi bi-box-seam"></i> Parts Management</h4>
@@ -9284,6 +9352,23 @@
                                     <button class="btn btn-sm btn-secondary d-none" id="btn-main-cancel" onclick="cancelEditMode()"><i class="bi bi-x-lg"></i> Cancel</button>
                                 </div>
                             </div>
+
+                            <!-- Быстрые кнопки фильтра/сортировки -->
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-3" id="engine-quick-filters-bar" style="overflow-x: auto;">
+                                <span class="small fw-bold text-muted mb-0">Status:</span>
+                                <button type="button" class="btn btn-sm btn-secondary quick-status-btn" data-status="" onclick="setEngineStatusQuickFilter('')">All</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary quick-status-btn" data-status="INSTALLED" onclick="setEngineStatusQuickFilter('INSTALLED')">Installed</button>
+                                <button type="button" class="btn btn-sm btn-outline-warning quick-status-btn" data-status="REMOVED" onclick="setEngineStatusQuickFilter('REMOVED')">Removed</button>
+                                <button type="button" class="btn btn-sm btn-outline-dark quick-status-btn" data-status="-" onclick="setEngineStatusQuickFilter('-')">Unassigned</button>
+
+                                <span class="small fw-bold text-muted ms-3 mb-0">City:</span>
+                                <div id="engine-quick-city-buttons" class="d-flex flex-wrap gap-2"></div>
+
+                                <span class="small fw-bold text-muted ms-3 mb-0">Sort:</span>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-sort-btn" data-field="gss" onclick="toggleEngineSort('gss')">GSS ID <i class="bi bi-arrow-down-up"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-sort-btn" data-field="tt" onclick="toggleEngineSort('tt')">TT <i class="bi bi-arrow-down-up"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-sort-btn" data-field="tc" onclick="toggleEngineSort('tc')">TC <i class="bi bi-arrow-down-up"></i></button>
+                            </div>
                             
                             <div class="table-responsive" style="max-height: 80vh; overflow: auto; position: relative;">
                                 <table class="table table-bordered table-hover table-sm text-center align-middle" style="font-size: 0.85rem; min-width: 100%; position: relative; z-index: 1;">
@@ -9992,6 +10077,7 @@ function openDashboardView() {
             'view-add-engine',
             'view-main-engine',
             'view-repair',
+            'view-workorders',
             'view-parts',
             'view-store-balance',
             'view-util',
@@ -10068,6 +10154,9 @@ function restoreView(viewName) {
     } else if (viewName === 'repair') {
         document.getElementById('view-repair').style.display = 'block';
         loadRepairHistory();
+    } else if (viewName === 'workorders') {
+        document.getElementById('view-workorders').style.display = 'block';
+        loadWorkOrdersDashboard();
     } else if (viewName === 'parts') {
         document.getElementById('view-parts').style.display = 'block';
         loadPartsHistory();
@@ -17046,6 +17135,119 @@ function shipmentLocationDisplay(loc) {
     // Сохраняем полный список двигателей для фильтрации
     let allEnginesData = [];
     let engineFilterState = { date: '', status: '', user: '', model: '', esn: '', gss: '', location: '', removed: '', ttMin: '', ttMax: '', tcMin: '', tcMax: '', remarks: '', hasPhoto: false, search: '' };
+    // Состояние быстрой сортировки (применяется ПОСЛЕ всех фильтров, поэтому работает внутри отфильтрованной выборки)
+    let engineSortState = { field: null, dir: 'asc' };
+
+    // Сортирует переданный список (уже отфильтрованный) согласно engineSortState.
+    // Если сортировка не выбрана - возвращает порядок по id по убыванию (поведение по умолчанию).
+    function applyEngineSort(list) {
+        const sorted = [...list];
+        const { field, dir } = engineSortState;
+        if (!field) {
+            sorted.sort((a, b) => (b.id || 0) - (a.id || 0));
+            return sorted;
+        }
+        const mult = dir === 'asc' ? 1 : -1;
+        sorted.sort((a, b) => {
+            let va, vb;
+            if (field === 'gss') {
+                const na = parseFloat(a.gss_sn), nb = parseFloat(b.gss_sn);
+                if (!isNaN(na) && !isNaN(nb)) { va = na; vb = nb; }
+                else { va = (a.gss_sn || '').toString().toLowerCase(); vb = (b.gss_sn || '').toString().toLowerCase(); }
+            } else if (field === 'tt') {
+                va = (a.status === 'INSTALLED' && a.tt_on_ac !== null && a.tt_on_ac !== undefined) ? a.tt_on_ac : (a.tt || 0);
+                vb = (b.status === 'INSTALLED' && b.tt_on_ac !== null && b.tt_on_ac !== undefined) ? b.tt_on_ac : (b.tt || 0);
+            } else if (field === 'tc') {
+                va = (a.status === 'INSTALLED' && a.tc_on_ac !== null && a.tc_on_ac !== undefined) ? a.tc_on_ac : (a.tc || 0);
+                vb = (b.status === 'INSTALLED' && b.tc_on_ac !== null && b.tc_on_ac !== undefined) ? b.tc_on_ac : (b.tc || 0);
+            } else {
+                va = a[field]; vb = b[field];
+            }
+            if (typeof va === 'string' || typeof vb === 'string') {
+                return (va || '').toString().localeCompare((vb || '').toString()) * mult;
+            }
+            return ((va || 0) - (vb || 0)) * mult;
+        });
+        return sorted;
+    }
+
+    // Быстрый фильтр по Status (кнопки All/Installed/Removed/Unassigned)
+    function setEngineStatusQuickFilter(status) {
+        const select = document.getElementById('engine-status-filter');
+        if (select) select.value = status;
+        applyEngineFilters();
+    }
+
+    // Быстрый фильтр по городу/локации - повторное нажатие той же кнопки сбрасывает фильтр
+    function setEngineLocationQuickFilter(city) {
+        const input = document.getElementById('engine-location-filter');
+        if (!input) return;
+        input.value = (input.value === city) ? '' : city;
+        applyEngineFilters();
+    }
+
+    // Быстрая сортировка - повторное нажатие переключает asc/desc, третье - снимает сортировку
+    function toggleEngineSort(field) {
+        if (engineSortState.field === field) {
+            if (engineSortState.dir === 'asc') {
+                engineSortState.dir = 'desc';
+            } else {
+                engineSortState.field = null;
+                engineSortState.dir = 'asc';
+            }
+        } else {
+            engineSortState.field = field;
+            engineSortState.dir = 'asc';
+        }
+        applyEngineFilters();
+    }
+
+    // Строит список кнопок городов/локаций на основе реальных данных
+    function populateEngineQuickCityButtons() {
+        const container = document.getElementById('engine-quick-city-buttons');
+        if (!container) return;
+        const cities = new Set();
+        allEnginesData.forEach(eng => {
+            const loc = (eng.location || '').trim();
+            if (loc && loc !== '-') cities.add(loc);
+        });
+        const sortedCities = Array.from(cities).sort((a, b) => a.localeCompare(b));
+        const activeVal = (document.getElementById('engine-location-filter')?.value || '');
+        container.innerHTML = sortedCities.map(city => {
+            const isActive = city.toLowerCase() === activeVal.toLowerCase() && activeVal !== '';
+            const cls = isActive ? 'btn-info' : 'btn-outline-info';
+            const safeCity = city.replace(/'/g, "\\'");
+            return `<button type="button" class="btn btn-sm ${cls} quick-city-btn" data-city="${city}" onclick="setEngineLocationQuickFilter('${safeCity}')">${city}</button>`;
+        }).join('');
+    }
+
+    // Обновляет визуальное состояние быстрых кнопок (активная подсвечена) после каждого применения фильтров
+    function updateEngineQuickButtonStates() {
+        const statusVal = document.getElementById('engine-status-filter')?.value || '';
+        document.querySelectorAll('.quick-status-btn').forEach(btn => {
+            const isActive = btn.dataset.status === statusVal;
+            btn.classList.toggle('btn-secondary', isActive && statusVal === '');
+            btn.classList.toggle('btn-outline-secondary', !isActive && statusVal !== '');
+            if (btn.dataset.status === 'INSTALLED') { btn.classList.toggle('btn-primary', isActive); btn.classList.toggle('btn-outline-primary', !isActive); }
+            if (btn.dataset.status === 'REMOVED') { btn.classList.toggle('btn-warning', isActive); btn.classList.toggle('btn-outline-warning', !isActive); }
+            if (btn.dataset.status === '-') { btn.classList.toggle('btn-dark', isActive); btn.classList.toggle('btn-outline-dark', !isActive); }
+        });
+
+        const locVal = document.getElementById('engine-location-filter')?.value || '';
+        document.querySelectorAll('.quick-city-btn').forEach(btn => {
+            const isActive = locVal !== '' && btn.dataset.city.toLowerCase() === locVal.toLowerCase();
+            btn.classList.toggle('btn-info', isActive);
+            btn.classList.toggle('btn-outline-info', !isActive);
+        });
+
+        document.querySelectorAll('.quick-sort-btn').forEach(btn => {
+            const isActive = engineSortState.field === btn.dataset.field;
+            const icon = btn.querySelector('i');
+            btn.classList.toggle('btn-success', isActive);
+            btn.classList.toggle('btn-outline-success', !isActive);
+            if (icon) icon.className = isActive ? (engineSortState.dir === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down') : 'bi bi-arrow-down-up';
+        });
+    }
 
     function captureMainEngineFilters() {
         return {
@@ -17222,7 +17424,9 @@ function shipmentLocationDisplay(loc) {
             });
         }
         
+        filtered = applyEngineSort(filtered);
         renderEngineTable(filtered);
+        updateEngineQuickButtonStates();
     }
     
     function filterEnginesByDate() {
@@ -17254,7 +17458,9 @@ function shipmentLocationDisplay(loc) {
         document.getElementById('engine-has-photo').checked = false;
         if (document.getElementById('main-engine-search')) document.getElementById('main-engine-search').value = '';
         engineFilterState = { date: '', status: '', user: '', model: '', esn: '', gss: '', location: '', removed: '', ttMin: '', ttMax: '', tcMin: '', tcMax: '', remarks: '', hasPhoto: false, search: '' };
-        renderEngineTable(allEnginesData);
+        engineSortState = { field: null, dir: 'asc' };
+        renderEngineTable(applyEngineSort(allEnginesData));
+        updateEngineQuickButtonStates();
     }
     
     async function loadMainTable() {
@@ -17293,7 +17499,9 @@ function shipmentLocationDisplay(loc) {
             console.log('Filtered engines:', filteredEngines);
             
             allEnginesData = filteredEngines;
-            renderEngineTable(filteredEngines);
+            populateEngineQuickCityButtons();
+            renderEngineTable(applyEngineSort(filteredEngines));
+            updateEngineQuickButtonStates();
             if (Object.values(engineFilterState || {}).some(v => v !== '' && v !== false && v !== null)) {
                 applyEngineFilters();
             }
@@ -17339,9 +17547,6 @@ function shipmentLocationDisplay(loc) {
             console.log('No engines, displaying empty message');
             return;
         }
-        
-        // Сортируем по ID в обратном порядке (последние добавленные сверху)
-        engines.sort((a, b) => (b.id || 0) - (a.id || 0));
         
         let rowsHTML = '';
         
@@ -19444,6 +19649,51 @@ function shipmentLocationDisplay(loc) {
         document.getElementById('tab-rep-info-btn').className = t==='info'?'nav-link active':'nav-link';
         document.getElementById('tab-rep-entry-btn').className = t==='entry'?'nav-link active':'nav-link';
         if(t==='info') loadRepairHistory(); else prepareRepairForm();
+    }
+
+    // ============ WORK ORDERS MODULE ============
+    async function openWorkOrdersView() {
+        hideAllViews();
+        document.getElementById('view-workorders').style.display = 'block';
+        updateHistory('workorders');
+        await loadWorkOrdersDashboard();
+    }
+
+    function switchWorkOrdersTab(t) {
+        document.getElementById('tab-wo-dash').style.display = t==='dash'?'block':'none';
+        document.getElementById('tab-wo-inprogress').style.display = t==='inprogress'?'block':'none';
+        document.getElementById('tab-wo-closed').style.display = t==='closed'?'block':'none';
+        document.getElementById('tab-wo-dash-btn').className = t==='dash'?'nav-link active':'nav-link';
+        document.getElementById('tab-wo-inprogress-btn').className = t==='inprogress'?'nav-link active':'nav-link';
+        document.getElementById('tab-wo-closed-btn').className = t==='closed'?'nav-link active':'nav-link';
+    }
+
+    // TEMPORARY demo data — replaced by real /api/work-orders calls once the backend (Этап 1-2) is built
+    async function loadWorkOrdersDashboard() {
+        const demo = [
+            { wo:'WO-2026-0039', work:'Scheduled borescope', engine:'GSS 118', assignee:'S. Petrov', due:'04.09.2026', days:'−3 days', status:'wo-overdue', label:'OVERDUE', row:'table-danger', files:'1/2' },
+            { wo:'WO-2026-0042', work:'HPT seal replacement', engine:'GSS 235', assignee:'A. Ivanov', due:'13.09.2026', days:'2 days', status:'wo-due-soon', label:'DUE SOON', row:'table-warning', files:'2/3' },
+            { wo:'WO-2026-0041', work:'Defect investigation', engine:'GSS 302', assignee:'A. Ivanov', due:'09.09.2026', days:'3 days', status:'wo-due-soon', label:'DUE SOON', row:'table-warning', files:'3/3' },
+            { wo:'WO-2026-0044', work:'Oil filter change', engine:'GSS 067', assignee:'S. Petrov', due:'19.09.2026', days:'12 days', status:'wo-ontrack', label:'ON TRACK', row:'table-success', files:'0/2' }
+        ];
+        const overdue = demo.filter(d => d.label === 'OVERDUE').length;
+        const dueSoon = demo.filter(d => d.label === 'DUE SOON').length;
+        const onTrack = demo.filter(d => d.label === 'ON TRACK').length;
+
+        document.getElementById('wo-kpi-overdue').textContent = overdue;
+        document.getElementById('wo-kpi-duesoon').textContent = dueSoon;
+        document.getElementById('wo-kpi-ontrack').textContent = onTrack;
+        document.getElementById('wo-kpi-total').textContent = demo.length;
+        document.getElementById('wo-inprogress-badge').textContent = demo.length;
+
+        const tb = document.getElementById('wo-dash-body');
+        tb.innerHTML = demo.map(d => `
+            <tr class="${d.row}">
+                <td class="fw-bold">${d.wo}</td><td>${d.work}</td><td>${d.engine}</td><td>${d.assignee}</td><td>${d.due}</td>
+                <td class="fw-bold">${d.days}</td>
+                <td><span class="wo-status-pill ${d.status}">${d.label}</span></td><td>${d.files}</td>
+                <td><button class="btn btn-sm btn-outline-primary">Open</button></td>
+            </tr>`).join('');
     }
 
     async function loadRepairHistory() {
