@@ -214,6 +214,13 @@
         .wo-status-pill.wo-ontrack { background:#d1e7dd; color:#0f5132; border:1px solid #a3cfbb; }
         .wo-status-pill.wo-open { background:#cfe2ff; color:#084298; border:1px solid #b6d4fe; }
         .wo-status-pill.wo-closed { background:#d1e7dd; color:#0f5132; border:1px solid #a3cfbb; }
+        .wo-engine-pick-list { max-height:220px; overflow-y:auto; border:1px solid #dee2e6; border-radius:8px; background:#fff; }
+        .wo-engine-pick-row { display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid #eee; cursor:pointer; color:#212529; }
+        .wo-engine-pick-row:last-child { border-bottom:none; }
+        .wo-engine-pick-row:hover { background:#f8f9fa; }
+        .wo-engine-pick-row.selected { background:#fff8e6; }
+        .wo-engine-pick-row .wo-eng-name { font-weight:700; min-width:110px; }
+        .wo-engine-pick-row .wo-eng-meta { color:#6c757d; font-size:.8rem; }
 
         /* Light Background Mode - minimal changes */
         body.light-bg {
@@ -8099,7 +8106,7 @@
             <div id="view-workorders" style="display: none;">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h4 class="mb-0 text-warning"><i class="bi bi-clipboard2-pulse"></i> Work Orders — Status Monitoring</h4>
-                    <button class="btn btn-warning" onclick="showSuccessNotification ? null : null; alert('Issue Work Order — модалка будет добавлена на следующем этапе');"><i class="bi bi-file-earmark-plus"></i> Issue Work Order</button>
+                    <button class="btn btn-warning" onclick="openIssueWoModal()"><i class="bi bi-file-earmark-plus"></i> Issue Work Order</button>
                 </div>
 
                 <ul class="nav nav-tabs mb-3">
@@ -8119,29 +8126,96 @@
                         </div>
                         <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
-                            <thead><tr><th>WO #</th><th>Type of Work</th><th>Engine</th><th>Assignee</th><th>Due</th><th>Days Left</th><th>Status</th><th>Files</th><th></th></tr></thead>
+                            <thead><tr><th>WO #</th><th>Type of Work</th><th>Engine</th><th>Assignee</th><th>Due</th><th>Days Left</th><th>Status</th><th></th></tr></thead>
                             <tbody class="small" id="wo-dash-body">
-                                <tr><td colspan="9" class="text-center text-muted py-3">Loading…</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>
                             </tbody>
                         </table>
                         </div>
-                        <div class="small text-muted mt-2"><i class="bi bi-info-circle"></i> Demo data — backend integration (real /api/work-orders) is the next step.</div>
                     </div>
                 </div>
 
                 <!-- IN PROGRESS TAB -->
                 <div id="tab-wo-inprogress" style="display:none;">
-                    <div class="wo-card p-4 text-center text-muted py-5">
-                        <i class="bi bi-hourglass-split fs-2 d-block mb-2"></i> In Progress list — coming on the next step
+                    <div class="wo-card p-4">
+                        <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr><th>WO #</th><th>Type of Work</th><th>Engine</th><th>Assignee</th><th>Issued</th><th>Due</th><th></th></tr></thead>
+                            <tbody class="small" id="wo-inprogress-body">
+                                <tr><td colspan="7" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
                     </div>
                 </div>
 
                 <!-- CLOSED TAB -->
                 <div id="tab-wo-closed" style="display:none;">
-                    <div class="wo-card p-4 text-center text-muted py-5">
-                        <i class="bi bi-archive fs-2 d-block mb-2"></i> Closed WO archive — coming on the next step
+                    <div class="wo-card p-4">
+                        <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr><th>WO #</th><th>Type of Work</th><th>Engine</th><th>Assignee</th><th>Issued</th><th>Closed</th><th>Closed by</th></tr></thead>
+                            <tbody class="small" id="wo-closed-body">
+                                <tr><td colspan="7" class="text-center text-muted py-3">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- ISSUE WORK ORDER MODAL -->
+            <div class="modal fade" id="issueWoModal" tabindex="-1">
+              <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-file-earmark-plus"></i> Issue Work Order</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="small fw-bold">Issue Date *</label>
+                            <input type="date" class="form-control" id="wo-issue-date">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="small fw-bold">Due Date</label>
+                            <input type="date" class="form-control" id="wo-due-date">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="small fw-bold">Assignee</label>
+                            <input type="text" class="form-control" id="wo-assignee" placeholder="e.g. A. Ivanov">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="small fw-bold">Engine * <span class="text-muted fw-normal">(pick from the engine list)</span></label>
+                        <div class="input-group mb-2">
+                            <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" id="wo-engine-search" placeholder="Search by tail #, model or SN…" oninput="filterWoEnginePicker()">
+                        </div>
+                        <div class="wo-engine-pick-list" id="wo-engine-pick-list"></div>
+                        <input type="hidden" id="wo-engine-id">
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-12">
+                            <label class="small fw-bold">Type of Work</label>
+                            <input type="text" class="form-control" id="wo-type-of-work" placeholder="e.g. HPT seal replacement">
+                        </div>
+                    </div>
+
+                    <div class="mb-1">
+                        <label class="small fw-bold">Scope of Work *</label>
+                        <textarea class="form-control" id="wo-scope-of-work" rows="3"></textarea>
+                    </div>
+                  </div>
+                  <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-warning px-4" id="wo-issue-submit-btn" onclick="submitIssueWo()"><i class="bi bi-magic"></i> Generate & Issue WO</button>
+                  </div>
+                </div>
+              </div>
             </div>
            <!-- 10. PARTS VIEW -->
             <div id="view-parts" style="display: none;">
@@ -19652,11 +19726,15 @@ function shipmentLocationDisplay(loc) {
     }
 
     // ============ WORK ORDERS MODULE ============
+    let _woEngines = [];
+    let _woSelectedEngineId = null;
+
     async function openWorkOrdersView() {
         hideAllViews();
         document.getElementById('view-workorders').style.display = 'block';
         updateHistory('workorders');
         await loadWorkOrdersDashboard();
+        await refreshWoBadges();
     }
 
     function switchWorkOrdersTab(t) {
@@ -19666,34 +19744,224 @@ function shipmentLocationDisplay(loc) {
         document.getElementById('tab-wo-dash-btn').className = t==='dash'?'nav-link active':'nav-link';
         document.getElementById('tab-wo-inprogress-btn').className = t==='inprogress'?'nav-link active':'nav-link';
         document.getElementById('tab-wo-closed-btn').className = t==='closed'?'nav-link active':'nav-link';
+        if (t === 'dash') loadWorkOrdersDashboard();
+        else if (t === 'inprogress') loadWorkOrdersInProgress();
+        else if (t === 'closed') loadWorkOrdersClosed();
     }
 
-    // TEMPORARY demo data — replaced by real /api/work-orders calls once the backend (Этап 1-2) is built
-    async function loadWorkOrdersDashboard() {
-        const demo = [
-            { wo:'WO-2026-0039', work:'Scheduled borescope', engine:'GSS 118', assignee:'S. Petrov', due:'04.09.2026', days:'−3 days', status:'wo-overdue', label:'OVERDUE', row:'table-danger', files:'1/2' },
-            { wo:'WO-2026-0042', work:'HPT seal replacement', engine:'GSS 235', assignee:'A. Ivanov', due:'13.09.2026', days:'2 days', status:'wo-due-soon', label:'DUE SOON', row:'table-warning', files:'2/3' },
-            { wo:'WO-2026-0041', work:'Defect investigation', engine:'GSS 302', assignee:'A. Ivanov', due:'09.09.2026', days:'3 days', status:'wo-due-soon', label:'DUE SOON', row:'table-warning', files:'3/3' },
-            { wo:'WO-2026-0044', work:'Oil filter change', engine:'GSS 067', assignee:'S. Petrov', due:'19.09.2026', days:'12 days', status:'wo-ontrack', label:'ON TRACK', row:'table-success', files:'0/2' }
-        ];
-        const overdue = demo.filter(d => d.label === 'OVERDUE').length;
-        const dueSoon = demo.filter(d => d.label === 'DUE SOON').length;
-        const onTrack = demo.filter(d => d.label === 'ON TRACK').length;
+    function _woStatusPill(label) {
+        if (label === 'OVERDUE') return `<span class="wo-status-pill wo-overdue">OVERDUE</span>`;
+        if (label === 'DUE_SOON') return `<span class="wo-status-pill wo-due-soon">DUE SOON</span>`;
+        if (label === 'ON_TRACK') return `<span class="wo-status-pill wo-ontrack">ON TRACK</span>`;
+        return '-';
+    }
 
+    function _woRowClass(label) {
+        if (label === 'OVERDUE') return 'table-danger';
+        if (label === 'DUE_SOON') return 'table-warning';
+        if (label === 'ON_TRACK') return 'table-success';
+        return '';
+    }
+
+    async function fetchWorkOrders(status) {
+        let res = await safeFetch(`/api/work-orders?status=${status}` + noCache());
+        if (!res || !res.ok) res = await safeFetch(`/api/work-orders?status=${status}`);
+        try { return res && res.ok ? await res.json() : []; } catch { return []; }
+    }
+
+    async function refreshWoBadges() {
+        const open = await fetchWorkOrders('OPEN');
+        const closed = await fetchWorkOrders('CLOSED');
+        document.getElementById('wo-inprogress-badge').textContent = open.length;
+        document.getElementById('wo-closed-badge').textContent = closed.length;
+    }
+
+    async function loadWorkOrdersDashboard() {
+        const tb = document.getElementById('wo-dash-body');
+        tb.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>';
+
+        const open = await fetchWorkOrders('OPEN');
+        document.getElementById('wo-inprogress-badge').textContent = open.length;
+
+        const overdue = open.filter(w => w.status_label === 'OVERDUE').length;
+        const dueSoon = open.filter(w => w.status_label === 'DUE_SOON').length;
+        const onTrack = open.filter(w => w.status_label === 'ON_TRACK').length;
         document.getElementById('wo-kpi-overdue').textContent = overdue;
         document.getElementById('wo-kpi-duesoon').textContent = dueSoon;
         document.getElementById('wo-kpi-ontrack').textContent = onTrack;
-        document.getElementById('wo-kpi-total').textContent = demo.length;
-        document.getElementById('wo-inprogress-badge').textContent = demo.length;
+        document.getElementById('wo-kpi-total').textContent = open.length;
 
-        const tb = document.getElementById('wo-dash-body');
-        tb.innerHTML = demo.map(d => `
-            <tr class="${d.row}">
-                <td class="fw-bold">${d.wo}</td><td>${d.work}</td><td>${d.engine}</td><td>${d.assignee}</td><td>${d.due}</td>
-                <td class="fw-bold">${d.days}</td>
-                <td><span class="wo-status-pill ${d.status}">${d.label}</span></td><td>${d.files}</td>
-                <td><button class="btn btn-sm btn-outline-primary">Open</button></td>
+        if (open.length === 0) {
+            tb.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No open Work Orders</td></tr>';
+            return;
+        }
+
+        open.sort((a, b) => (a.days_left ?? 999) - (b.days_left ?? 999));
+        tb.innerHTML = open.map(w => `
+            <tr class="${_woRowClass(w.status_label)}">
+                <td class="fw-bold">${w.wo_number}</td><td>${w.type_of_work}</td><td>${w.engine_tail}</td><td>${w.assignee}</td>
+                <td>${w.due_date || '-'}</td>
+                <td class="fw-bold">${w.days_left !== null ? w.days_left + ' days' : '-'}</td>
+                <td>${_woStatusPill(w.status_label)}</td>
+                <td><button class="btn btn-sm btn-outline-primary" onclick="viewWorkOrder(${w.id})">View</button></td>
             </tr>`).join('');
+    }
+
+    async function loadWorkOrdersInProgress() {
+        const tb = document.getElementById('wo-inprogress-body');
+        tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Loading…</td></tr>';
+
+        const open = await fetchWorkOrders('OPEN');
+        document.getElementById('wo-inprogress-badge').textContent = open.length;
+
+        if (open.length === 0) {
+            tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No open Work Orders</td></tr>';
+            return;
+        }
+
+        tb.innerHTML = open.map(w => `
+            <tr>
+                <td class="fw-bold">${w.wo_number}</td><td>${w.type_of_work}</td><td>${w.engine_tail}</td><td>${w.assignee}</td>
+                <td>${w.issue_date || '-'}</td><td>${w.due_date || '-'}</td>
+                <td><button class="btn btn-sm btn-success" onclick="closeWorkOrder(${w.id}, '${w.wo_number}')"><i class="bi bi-lock-fill"></i> Close</button></td>
+            </tr>`).join('');
+    }
+
+    async function loadWorkOrdersClosed() {
+        const tb = document.getElementById('wo-closed-body');
+        tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Loading…</td></tr>';
+
+        const closed = await fetchWorkOrders('CLOSED');
+        document.getElementById('wo-closed-badge').textContent = closed.length;
+
+        if (closed.length === 0) {
+            tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No closed Work Orders yet</td></tr>';
+            return;
+        }
+
+        tb.innerHTML = closed.map(w => `
+            <tr>
+                <td class="fw-bold">${w.wo_number}</td><td>${w.type_of_work}</td><td>${w.engine_tail}</td><td>${w.assignee}</td>
+                <td>${w.issue_date || '-'}</td><td>${w.closed_at || '-'}</td><td>${w.closed_by || '-'}</td>
+            </tr>`).join('');
+    }
+
+    function viewWorkOrder(id) {
+        alert('Открытие полной карточки Work Order (Folder view) будет добавлено на следующем этапе.');
+    }
+
+    let _woClosing = false;
+    async function closeWorkOrder(id, woNumber) {
+        if (_woClosing) return;
+        if (!confirm(`Закрыть Work Order ${woNumber}?`)) return;
+        _woClosing = true;
+        try {
+            const res = await fetch(`/api/work-orders/${id}/close?closed_by=User`, { method: 'POST' });
+            const result = await handleApiResponse(res, 'Work Order');
+            if (!result) return;
+            await loadWorkOrdersInProgress();
+            await refreshWoBadges();
+        } catch (e) {
+            alert('❌ Error: ' + e.message);
+        } finally {
+            _woClosing = false;
+        }
+    }
+
+    // --- Issue Work Order modal ---
+    async function openIssueWoModal() {
+        document.getElementById('wo-issue-date').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('wo-due-date').value = '';
+        document.getElementById('wo-assignee').value = '';
+        document.getElementById('wo-type-of-work').value = '';
+        document.getElementById('wo-scope-of-work').value = '';
+        document.getElementById('wo-engine-search').value = '';
+        document.getElementById('wo-engine-id').value = '';
+        _woSelectedEngineId = null;
+
+        const res = await fetch('/api/engines' + noCache());
+        _woEngines = res.ok ? await res.json() : [];
+        renderWoEnginePicker(_woEngines);
+
+        const modalEl = document.getElementById('issueWoModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+
+    function renderWoEnginePicker(list) {
+        const box = document.getElementById('wo-engine-pick-list');
+        if (!list.length) {
+            box.innerHTML = '<div class="p-3 text-muted small text-center">No engines found</div>';
+            return;
+        }
+        box.innerHTML = list.map(e => `
+            <div class="wo-engine-pick-row ${_woSelectedEngineId === e.id ? 'selected' : ''}" onclick="selectWoEngine(${e.id})">
+                <input type="radio" name="wo-eng-pick" ${_woSelectedEngineId === e.id ? 'checked' : ''}>
+                <div class="wo-eng-name">${e.current_sn}</div>
+                <div class="wo-eng-meta">${e.model || '-'} · SN ${e.original_sn} · Status: ${e.status}</div>
+            </div>`).join('');
+    }
+
+    function selectWoEngine(id) {
+        _woSelectedEngineId = id;
+        document.getElementById('wo-engine-id').value = id;
+        renderWoEnginePicker(_woEngines.filter(e => _matchesWoSearch(e, document.getElementById('wo-engine-search').value)));
+    }
+
+    function _matchesWoSearch(e, q) {
+        if (!q) return true;
+        q = q.toLowerCase();
+        return (e.current_sn||'').toLowerCase().includes(q) ||
+               (e.original_sn||'').toLowerCase().includes(q) ||
+               (e.model||'').toLowerCase().includes(q);
+    }
+
+    function filterWoEnginePicker() {
+        const q = document.getElementById('wo-engine-search').value;
+        renderWoEnginePicker(_woEngines.filter(e => _matchesWoSearch(e, q)));
+    }
+
+    let _woIssuing = false;
+    async function submitIssueWo() {
+        if (_woIssuing) return;
+        const engineId = document.getElementById('wo-engine-id').value;
+        const scope = document.getElementById('wo-scope-of-work').value.trim();
+        const issueDate = document.getElementById('wo-issue-date').value;
+
+        if (!engineId) { alert('Выберите двигатель из списка!'); return; }
+        if (!scope) { alert('Заполните Scope of Work!'); return; }
+        if (!issueDate) { alert('Укажите Issue Date!'); return; }
+
+        _woIssuing = true;
+        const btn = document.getElementById('wo-issue-submit-btn');
+        if (btn) { btn.disabled = true; btn.dataset._orig = btn.innerHTML; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Issuing...'; }
+
+        const payload = {
+            engine_id: parseInt(engineId),
+            issue_date: issueDate,
+            due_date: document.getElementById('wo-due-date').value || null,
+            assignee: document.getElementById('wo-assignee').value,
+            type_of_work: document.getElementById('wo-type-of-work').value,
+            scope_of_work: scope,
+            created_by: 'User'
+        };
+
+        try {
+            const res = await fetch('/api/work-orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const result = await handleApiResponse(res, 'Work Order');
+            if (!result) return;
+
+            const modalEl = document.getElementById('issueWoModal');
+            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+
+            switchWorkOrdersTab('dash');
+            await refreshWoBadges();
+        } catch (e) {
+            alert('❌ Error: ' + e.message);
+        } finally {
+            _woIssuing = false;
+            if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset._orig || 'Generate & Issue WO'; }
+        }
     }
 
     async function loadRepairHistory() {

@@ -187,6 +187,28 @@ class ActionLog(Base):
     is_active = Column(Boolean, default=True)  # Для INSTALL: активна ли установка (False если двигатель снят)
     engine = relationship("Engine", back_populates="logs")
 
+class WorkOrder(Base):
+    """Work Order (наряд на ремонт/работу): выдача, статус-мониторинг, закрытие."""
+    __tablename__ = "work_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    wo_number = Column(String, unique=True, nullable=False, index=True)  # WO-2026-0001
+    engine_id = Column(Integer, ForeignKey("engines.id"), nullable=True)
+
+    issue_date = Column(Date, nullable=True)
+    due_date = Column(Date, nullable=True)
+    assignee = Column(String, nullable=True)          # Ответственный инженер
+    type_of_work = Column(String, nullable=True)       # Краткое описание типа работы
+    scope_of_work = Column(Text, nullable=True)        # Полный текст задания
+
+    status = Column(String, default="OPEN")            # OPEN / CLOSED
+    created_by = Column(String, nullable=True)
+    closed_by = Column(String, nullable=True)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    engine = relationship("Engine")
+
 class AircraftUtilizationHistory(Base):
     """История общего налета самолёта (TTSN/TCSN)"""
     __tablename__ = "aircraft_utilization_history"

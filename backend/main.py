@@ -6316,6 +6316,159 @@ def repair_engine(data: RepairSchema, db: Session = Depends(get_db)):
         "message": f"✅ Ремонт двигателя {eng.current_sn} успешно зарегистрирован (вендор: {data.vendor})",
         "data": {"engine_id": eng.id, "vendor": data.vendor, "log_id": new_log.id}
     } 
+
+# ============ WORK ORDERS (Status Monitoring) ============
+
+class WorkOrderCreateSchema(BaseModel):
+    engine_id: int
+    issue_date: str
+    due_date: Optional[str] = None
+    assignee: Optional[str] = None
+    type_of_work: Optional[str] = None
+    scope_of_work: str
+    created_by: Optional[str] = "User"
+
+
+def _parse_wo_date(value: Optional[str]):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _wo_to_dict(wo: "models.WorkOrder") -> dict:
+    eng = wo.engine
+    days_left = None
+    status_label = None
+    if wo.status == "OPEN" and wo.due_date:
+        days_left = (wo.due_date - DateType.today()).days
+        if days_left < 0:
+            status_label = "OVERDUE"
+        elif days_left <= 3:
+            status_label = "DUE_SOON"
+        else:
+            status_label = "ON_TRACK"
+    return {
+        "id": wo.id,
+        "wo_number": wo.wo_number,
+        "engine_id": wo.engine_id,
+        "engine_tail": eng.current_sn if eng else "-",
+        "engine_model": eng.model if eng else "-",
+        "engine_original_sn": eng.original_sn if eng else "-",
+        "type_of_work": wo.type_of_work or "-",
+        "assignee": wo.assignee or "-",
+        "issue_date": wo.issue_date.strftime("%Y-%m-%d") if wo.issue_date else None,
+        "due_date": wo.due_date.strftime("%Y-%m-%d") if wo.due_date else None,
+        "days_left": days_left,
+        "status": wo.status,
+        "status_label": status_label,
+        "scope_of_work": wo.scope_of_work or "",
+        "created_by": wo.created_by,
+        "closed_by": wo.closed_by,
+        "closed_at": wo.closed_at.strftime("%Y-%m-%d") if wo.closed_at else None,
+    }
+
+
+@app.get("/api/work-orders")
+def get_work_orders(status: str = None, db: Session = Depends(get_db)):
+    try:
+        query = db.query(models.WorkOrder)
+        if status:
+            query = query.filter(models.WorkOrder.status == status.upper())
+        wos = query.order_by(models.WorkOrder.id.desc()).all()
+        return [_wo_to_dict(w) for w in wos]
+    except Exception as e:
+        print(f"❌ Error in get_work_orders: {e}")
+        return []
+
+
+@app.get("/api/work-orders/{wo_id}")
+def get_work_order(wo_id: int, db: Session = Depends(get_db)):
+    wo = db.query(models.WorkOrder).filter(models.WorkOrder.id == wo_id).first()
+    if not wo:
+        raise HTTPException(404, "Work Order not found")
+    return _wo_to_dict(wo)
+
+
+@app.post("/api/work-orders")
+def create_work_order(data: WorkOrderCreateSchema, db: Session = Depends(get_db)):
+    eng = db.query(models.Engine).filter(models.Engine.id == data.engine_id).first()
+    if not eng:
+        return {
+            "status": "warning",
+            "code": "ENGINE_NOT_FOUND",
+            "message": "⚠️ Двигатель не найден в базе данных",
+        }
+
+    year = datetime.now().year
+    prefix = f"WO-{year}-"
+    last = db.query(models.WorkOrder).filter(
+        models.WorkOrder.wo_number.like(f"{prefix}%")
+    ).order_by(models.WorkOrder.id.desc()).first()
+    seq = 1
+    if last and last.wo_number:
+        try:
+            seq = int(last.wo_number.split("-")[-1]) + 1
+        except Exception:
+            seq = 1
+    wo_number = f"{prefix}{seq:04d}"
+
+    wo = models.WorkOrder(
+        wo_number=wo_number,
+        engine_id=eng.id,
+        issue_date=_parse_wo_date(data.issue_date) or DateType.today(),
+        due_date=_parse_wo_date(data.due_date),
+        assignee=data.assignee,
+        type_of_work=data.type_of_work,
+        scope_of_work=data.scope_of_work,
+        status="OPEN",
+        created_by=data.created_by or "User",
+    )
+    db.add(wo)
+    db.commit()
+    db.refresh(wo)
+
+    create_notification(
+        db,
+        action_type="created",
+        entity_type="work_order",
+        entity_id=wo.id,
+        message=f"Выдан Work Order {wo_number} на двигатель {eng.current_sn}",
+        performed_by=data.created_by or "User"
+    )
+
+    return {
+        "status": "success",
+        "message": f"✅ Work Order {wo_number} выдан",
+        "data": _wo_to_dict(wo)
+    }
+
+
+@app.post("/api/work-orders/{wo_id}/close")
+def close_work_order(wo_id: int, closed_by: str = Query("User"), db: Session = Depends(get_db)):
+    wo = db.query(models.WorkOrder).filter(models.WorkOrder.id == wo_id).first()
+    if not wo:
+        raise HTTPException(404, "Work Order not found")
+    if wo.status == "CLOSED":
+        return {"status": "warning", "message": "Work Order уже закрыт"}
+
+    wo.status = "CLOSED"
+    wo.closed_by = closed_by
+    wo.closed_at = datetime.now()
+    db.commit()
+
+    create_notification(
+        db,
+        action_type="updated",
+        entity_type="work_order",
+        entity_id=wo.id,
+        message=f"Work Order {wo.wo_number} закрыт пользователем {closed_by}",
+        performed_by=closed_by
+    )
+    return {"status": "success", "message": f"✅ Work Order {wo.wo_number} закрыт"}
+
 # 13. История запчастей (PARTS LOGISTICS / STORE BALANCE)
 @app.get("/api/parts/history")
 def get_parts_history(db: Session = Depends(get_db)):
