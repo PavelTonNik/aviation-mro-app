@@ -8154,9 +8154,9 @@
                     <div class="wo-card p-4">
                         <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">
-                            <thead><tr><th>WO #</th><th>Type of Work</th><th>Engine</th><th>Assignee</th><th>Issued</th><th>Closed</th><th>Closed by</th></tr></thead>
+                            <thead><tr><th>WO #</th><th>Type of Work</th><th>Engine</th><th>Assignee</th><th>Issued</th><th>Closed</th><th>Closed by</th><th>Doc</th></tr></thead>
                             <tbody class="small" id="wo-closed-body">
-                                <tr><td colspan="7" class="text-center text-muted py-3">Loading…</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>
                             </tbody>
                         </table>
                         </div>
@@ -19803,7 +19803,10 @@ function shipmentLocationDisplay(loc) {
                 <td>${w.due_date || '-'}</td>
                 <td class="fw-bold">${w.days_left !== null ? w.days_left + ' days' : '-'}</td>
                 <td>${_woStatusPill(w.status_label)}</td>
-                <td><button class="btn btn-sm btn-outline-primary" onclick="viewWorkOrder(${w.id})">View</button></td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewWorkOrder(${w.id})">View</button>
+                    ${w.doc_url ? `<a class="btn btn-sm btn-outline-secondary ms-1" href="${w.doc_url}" target="_blank" title="Download WO document"><i class="bi bi-file-earmark-word"></i></a>` : ''}
+                </td>
             </tr>`).join('');
     }
 
@@ -19823,19 +19826,22 @@ function shipmentLocationDisplay(loc) {
             <tr>
                 <td class="fw-bold">${w.wo_number}</td><td>${w.type_of_work}</td><td>${w.engine_tail}</td><td>${w.assignee}</td>
                 <td>${w.issue_date || '-'}</td><td>${w.due_date || '-'}</td>
-                <td><button class="btn btn-sm btn-success" onclick="closeWorkOrder(${w.id}, '${w.wo_number}')"><i class="bi bi-lock-fill"></i> Close</button></td>
+                <td>
+                    <button class="btn btn-sm btn-success" onclick="closeWorkOrder(${w.id}, '${w.wo_number}')"><i class="bi bi-lock-fill"></i> Close</button>
+                    ${w.doc_url ? `<a class="btn btn-sm btn-outline-secondary ms-1" href="${w.doc_url}" target="_blank" title="Download WO document"><i class="bi bi-file-earmark-word"></i></a>` : ''}
+                </td>
             </tr>`).join('');
     }
 
     async function loadWorkOrdersClosed() {
         const tb = document.getElementById('wo-closed-body');
-        tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Loading…</td></tr>';
+        tb.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>';
 
         const closed = await fetchWorkOrders('CLOSED');
         document.getElementById('wo-closed-badge').textContent = closed.length;
 
         if (closed.length === 0) {
-            tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">No closed Work Orders yet</td></tr>';
+            tb.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No closed Work Orders yet</td></tr>';
             return;
         }
 
@@ -19843,6 +19849,7 @@ function shipmentLocationDisplay(loc) {
             <tr>
                 <td class="fw-bold">${w.wo_number}</td><td>${w.type_of_work}</td><td>${w.engine_tail}</td><td>${w.assignee}</td>
                 <td>${w.issue_date || '-'}</td><td>${w.closed_at || '-'}</td><td>${w.closed_by || '-'}</td>
+                <td>${w.doc_url ? `<a class="btn btn-sm btn-outline-secondary" href="${w.doc_url}" target="_blank" title="Download WO document"><i class="bi bi-file-earmark-word"></i></a>` : '-'}</td>
             </tr>`).join('');
     }
 
@@ -19896,9 +19903,9 @@ function shipmentLocationDisplay(loc) {
         }
         box.innerHTML = list.map(e => `
             <div class="wo-engine-pick-row ${_woSelectedEngineId === e.id ? 'selected' : ''}" onclick="selectWoEngine(${e.id})">
-                <input type="radio" name="wo-eng-pick" ${_woSelectedEngineId === e.id ? 'checked' : ''}>
-                <div class="wo-eng-name">${e.current_sn}</div>
-                <div class="wo-eng-meta">${e.model || '-'} · SN ${e.original_sn} · Status: ${e.status}</div>
+                <input type="radio" name="wo-eng-pick" onclick="selectWoEngine(${e.id})" ${_woSelectedEngineId === e.id ? 'checked' : ''}>
+                <div class="wo-eng-name">${e.gss_sn || '-'}</div>
+                <div class="wo-eng-meta">Current SN ${e.current_sn || '-'} · Orig SN ${e.original_sn || '-'} · Status: ${e.status}</div>
             </div>`).join('');
     }
 
@@ -19911,7 +19918,8 @@ function shipmentLocationDisplay(loc) {
     function _matchesWoSearch(e, q) {
         if (!q) return true;
         q = q.toLowerCase();
-        return (e.current_sn||'').toLowerCase().includes(q) ||
+        return (e.gss_sn||'').toLowerCase().includes(q) ||
+               (e.current_sn||'').toLowerCase().includes(q) ||
                (e.original_sn||'').toLowerCase().includes(q) ||
                (e.model||'').toLowerCase().includes(q);
     }

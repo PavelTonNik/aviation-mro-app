@@ -342,6 +342,13 @@ def startup_event():
                 print("✅ Added aircraft_utilization_history.synced_at column")
             except:
                 pass  # Column already exists
+
+            try:
+                conn.execute(text("ALTER TABLE work_orders ADD COLUMN doc_url VARCHAR"))
+                conn.commit()
+                print("✅ Added work_orders.doc_url column")
+            except:
+                pass  # Column already exists
         
         print("✅ Schema verification complete")
     except Exception as e:
@@ -612,6 +619,13 @@ def startup_event():
                             WHERE table_name='aircraft_utilization_sources' AND column_name='notification_emails'
                         ) THEN
                             ALTER TABLE aircraft_utilization_sources ADD COLUMN notification_emails TEXT;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='work_orders' AND column_name='doc_url'
+                        ) THEN
+                            ALTER TABLE work_orders ADD COLUMN doc_url VARCHAR;
                         END IF;
                         
                     END $$;
@@ -6368,7 +6382,68 @@ def _wo_to_dict(wo: "models.WorkOrder") -> dict:
         "created_by": wo.created_by,
         "closed_by": wo.closed_by,
         "closed_at": wo.closed_at.strftime("%Y-%m-%d") if wo.closed_at else None,
+        "doc_url": wo.doc_url,
     }
+
+
+def _generate_wo_document(wo: "models.WorkOrder") -> Optional[str]:
+    """Генерирует Word-документ (бланк Work Order) из шаблона и сохраняет его (R2 в проде, локально в dev).
+    Возвращает публичный URL документа или None при ошибке (не прерывает создание WO)."""
+    try:
+        from docxtpl import DocxTemplate
+    except Exception as e:
+        print(f"⚠️ docxtpl не установлен, документ WO не сгенерирован: {e}")
+        return None
+
+    template_path = Path(__file__).parent / "templates" / "work_order_template.docx"
+    if not template_path.exists():
+        print(f"⚠️ Шаблон WO не найден: {template_path}")
+        return None
+
+    eng = wo.engine
+    context = {
+        "wo_number": wo.wo_number,
+        "issue_date": wo.issue_date.strftime("%d.%m.%Y") if wo.issue_date else "-",
+        "due_date": wo.due_date.strftime("%d.%m.%Y") if wo.due_date else "-",
+        "assignee": wo.assignee or "-",
+        "type_of_work": wo.type_of_work or "-",
+        "scope_of_work": wo.scope_of_work or "-",
+        "engine_gss_sn": eng.gss_sn if eng else "-",
+        "engine_current_sn": eng.current_sn if eng else "-",
+        "engine_original_sn": eng.original_sn if eng else "-",
+        "engine_model": eng.model if eng else "-",
+        "created_by": wo.created_by or "-",
+        "status": wo.status,
+    }
+
+    try:
+        tpl = DocxTemplate(str(template_path))
+        tpl.render(context)
+        buf = BytesIO()
+        tpl.save(buf)
+        file_bytes = buf.getvalue()
+    except Exception as e:
+        print(f"❌ Ошибка рендеринга документа WO: {e}")
+        return None
+
+    final_name = f"{wo.wo_number}.docx"
+    try:
+        if _is_production():
+            return r2_storage.upload_asset_to_r2(
+                file_bytes=file_bytes,
+                folder="work_orders",
+                filename=final_name,
+                content_type=r2_storage.ext_to_mime(".docx"),
+            )
+        else:
+            target_dir = UPLOADS_ROOT_DIR / "work_orders"
+            target_dir.mkdir(parents=True, exist_ok=True)
+            with open(target_dir / final_name, "wb") as fp:
+                fp.write(file_bytes)
+            return f"/uploads/work_orders/{final_name}"
+    except Exception as e:
+        print(f"❌ Ошибка сохранения документа WO: {e}")
+        return None
 
 
 @app.get("/api/work-orders")
@@ -6429,6 +6504,12 @@ def create_work_order(data: WorkOrderCreateSchema, db: Session = Depends(get_db)
     db.add(wo)
     db.commit()
     db.refresh(wo)
+
+    doc_url = _generate_wo_document(wo)
+    if doc_url:
+        wo.doc_url = doc_url
+        db.commit()
+        db.refresh(wo)
 
     create_notification(
         db,

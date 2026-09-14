@@ -206,6 +206,7 @@ class WorkOrder(Base):
     closed_by = Column(String, nullable=True)
     closed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    doc_url = Column(String, nullable=True)             # Ссылка на сгенерированный Word-документ (бланк WO)
 
     engine = relationship("Engine")
 
