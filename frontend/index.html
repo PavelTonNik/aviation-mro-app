@@ -3422,20 +3422,38 @@
         }
         .engine-list-modal tbody tr.engine-list-row {
             cursor: pointer;
-            transition: background-color 0.15s ease;
+            position: relative;
+            transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.16s ease, background-color 0.16s ease;
+            transform-origin: center;
+        }
+        .engine-list-modal tbody tr.engine-list-row td {
+            transition: box-shadow 0.16s ease;
         }
         .engine-list-modal tbody tr.engine-list-row:hover {
-            background-color: rgba(13, 110, 253, 0.08);
+            background: linear-gradient(90deg, rgba(102, 126, 234, 0.14), rgba(118, 75, 162, 0.08));
+            transform: scale(1.012) translateY(-2px);
+            box-shadow: 0 10px 22px rgba(31, 38, 135, 0.16), 0 2px 8px rgba(102, 126, 234, 0.22);
+            z-index: 2;
+        }
+        .engine-list-modal tbody tr.engine-list-row:hover td:first-child {
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+            box-shadow: inset 3px 0 0 #667eea;
+        }
+        .engine-list-modal tbody tr.engine-list-row:hover td:last-child {
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
         }
         .engine-list-modal .nav-tabs .nav-link.active {
             font-weight: 600;
         }
         @keyframes engineRowHighlightPulse {
-            0% { background-color: rgba(255, 193, 7, 0.55); }
-            100% { background-color: transparent; }
+            0%   { background-color: rgba(255, 193, 7, 0.75); box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.6) inset; }
+            60%  { background-color: rgba(255, 193, 7, 0.45); box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.35) inset; }
+            100% { background-color: transparent; box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
         }
-        tr.engine-row-highlight {
-            animation: engineRowHighlightPulse 1.8s ease-out;
+        tr.engine-row-highlight td {
+            animation: engineRowHighlightPulse 2.4s ease-out;
         }
 
         .timeline-content .badge {
@@ -9519,6 +9537,7 @@
                                             <th style="min-width: 100px;">Current SN</th>
                                             <th style="min-width: 100px;">Orig. ESN</th>
                                             <th style="min-width: 80px;">GSS ID</th>
+                                            <th style="min-width: 50px;" title="Borescope Inspection">BI</th>
                                             <th style="min-width: 70px;">Price</th>
                                             <th style="min-width: 90px;">Status</th>
                                             <th style="min-width: 70px;">LPRT3</th>
@@ -9886,8 +9905,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <small class="text-muted me-auto"><i class="bi bi-info-circle"></i> Click a row to open it in Master Engine List</small>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary me-auto" data-bs-dismiss="modal">Close</button>
                 <button type="button" class="btn btn-primary" onclick="exportEngineListModalToExcel()">Export to Excel</button>
             </div>
         </div>
@@ -13503,8 +13521,8 @@ function hideInstallTooltip() {
             { label: 'Supplier', render: e => e.supplier || '-' },
             { label: 'Condition 1', render: e => engineListCondition1Badge(e.condition_1) },
             { label: 'LPRT3', render: e => engineListLprt3Badge(e.lprt3) },
-            { label: 'TT', render: e => (e.tt ?? '-') },
-            { label: 'TC', render: e => (e.tc ?? '-') },
+            { label: 'TT', render: e => (e.tt !== null && e.tt !== undefined ? formatLiftValue(e.tt) : '-') },
+            { label: 'TC', render: e => formatCyclesValue(e.tc) },
             { label: 'Remarks', render: e => e.remarks || '-' },
             { label: 'Removed From', render: e => e.removed_from || '-' }
         );
@@ -13629,11 +13647,49 @@ function hideInstallTooltip() {
 
         setTimeout(() => {
             const row = document.querySelector(`#main-engine-body tr[data-engine-id="${engineId}"]`);
-            if (row) {
-                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (!row) return;
+
+            const pulse = () => {
+                row.classList.remove('engine-row-highlight');
+                void row.offsetWidth; // force reflow so the animation restarts reliably
                 row.classList.add('engine-row-highlight');
-                setTimeout(() => row.classList.remove('engine-row-highlight'), 1800);
+                setTimeout(() => row.classList.remove('engine-row-highlight'), 2400);
+            };
+
+            const rect = row.getBoundingClientRect();
+            const alreadyVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+
+            if (alreadyVisible) {
+                pulse();
+                return;
             }
+
+            // Scroll, then wait until the smooth-scroll actually settles before
+            // triggering the highlight, so the pulse is never missed/finished mid-scroll.
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            let lastTop = null;
+            let stableFrames = 0;
+            let framesChecked = 0;
+            const maxFrames = 180; // ~3s safety cap at 60fps
+
+            const waitForScrollToSettle = () => {
+                const top = row.getBoundingClientRect().top;
+                if (lastTop !== null && Math.abs(top - lastTop) < 0.5) {
+                    stableFrames++;
+                } else {
+                    stableFrames = 0;
+                }
+                lastTop = top;
+                framesChecked++;
+
+                if (stableFrames >= 4 || framesChecked >= maxFrames) {
+                    pulse();
+                } else {
+                    requestAnimationFrame(waitForScrollToSettle);
+                }
+            };
+            requestAnimationFrame(waitForScrollToSettle);
         }, 150);
     }
 
@@ -17735,11 +17791,14 @@ function shipmentLocationDisplay(loc) {
     
     async function loadMainTable() {
         const tb = document.getElementById('main-engine-body');
-        tb.innerHTML = '<tr><td colspan="18" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
+        tb.innerHTML = '<tr><td colspan="19" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
         
         try {
             console.log('Fetching engines from API...');
-            const res = await fetch('/api/engines' + noCache());
+            const [res] = await Promise.all([
+                fetch('/api/engines' + noCache()),
+                loadBorescopeLatestMap()
+            ]);
             console.log('API response status:', res.status);
             
             if (!res.ok) {
@@ -17777,8 +17836,45 @@ function shipmentLocationDisplay(loc) {
             }
         } catch(e) {
             console.error('Loading error двигателей:', e);
-            tb.innerHTML = '<tr><td colspan="18" class="text-center text-danger">Error loading engines: ' + e.message + '</td></tr>';
+            tb.innerHTML = '<tr><td colspan="19" class="text-center text-danger">Error loading engines: ' + e.message + '</td></tr>';
         }
+    }
+
+    // --- BORESCOPE INSPECTION (BI) COLUMN LOOKUP ---
+    // Maps GSS ID -> the latest matching borescope_inspections record (by id desc,
+    // same recency convention used by loadBoroscopeHistory()). Refreshed every time
+    // loadMainTable() runs, so newly added inspections are picked up automatically.
+    let borescopeLatestByGss = {};
+
+    async function loadBorescopeLatestMap() {
+        try {
+            const res = await fetch('/api/history/BORESCOPE' + noCache());
+            if (!res.ok) { borescopeLatestByGss = {}; return; }
+            const data = await res.json();
+            const map = {};
+            if (Array.isArray(data)) {
+                data.sort((a, b) => (b.id || 0) - (a.id || 0));
+                data.forEach(insp => {
+                    const key = (insp.gss_id || '').trim();
+                    if (!key || key === '-') return;
+                    if (!map[key]) map[key] = insp; // first after desc sort = most recent
+                });
+            }
+            borescopeLatestByGss = map;
+        } catch (e) {
+            console.error('Failed to load borescope-by-GSS map:', e);
+            borescopeLatestByGss = {};
+        }
+    }
+
+    function renderBiIcon(gssId) {
+        const key = (gssId || '').trim();
+        const insp = (key && key !== '-') ? borescopeLatestByGss[key] : null;
+        if (insp) {
+            const dateLabel = insp.date ? fmtDMY(insp.date) : '';
+            return `<i class="bi bi-camera-video-fill text-info" style="cursor: pointer;" title="Borescope inspection found${dateLabel ? ' (' + dateLabel + ')' : ''} — click to open" onclick="event.stopPropagation(); showBoroscopeInspectionDetails(${insp.id});"></i>`;
+        }
+        return `<i class="bi bi-camera-video text-muted" style="opacity: 0.35;" title="No borescope inspection found for this GSS ID"></i>`;
     }
     
     function getCondition1BadgeColor(condition) {
@@ -17813,7 +17909,7 @@ function shipmentLocationDisplay(loc) {
         tb.innerHTML = '';
         
         if(engines.length === 0) {
-            tb.innerHTML = '<tr><td colspan="18" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
+            tb.innerHTML = '<tr><td colspan="19" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
             console.log('No engines, displaying empty message');
             return;
         }
@@ -17889,6 +17985,7 @@ function shipmentLocationDisplay(loc) {
                         onmouseover="showGSSTooltip(event, '${gssSN}')" 
                         onmouseleave="hideGSSTooltip()"
                         onmousemove="if(gssTooltip) { gssTooltip.style.left = (event.clientX + 15) + 'px'; gssTooltip.style.top = (event.clientY + 15) + 'px'; }">${gssSN}</td>
+                    <td class="text-center">${renderBiIcon(gssSN)}</td>
                     <td data-key="price">${price}</td>
                     <td data-key="status">
                         ${eng.status === 'REMOVED' ? 
@@ -17907,8 +18004,8 @@ function shipmentLocationDisplay(loc) {
                     <td data-key="lprt3">${eng.lprt3 === 'Yes' ? '<span class="badge bg-success text-white">Yes</span>' : (eng.lprt3 === 'No' ? '<span class="badge bg-secondary text-white">No</span>' : '')}</td>
                     <td data-key="condition-1"><span class="badge ${getCondition1BadgeColor(condition1)} text-white" style="color: #ffffff !important;">${condition1}</span></td>
                     <td data-key="condition-2"><span class="badge ${getCondition2BadgeColor(condition2)} text-white" style="color: #ffffff !important;">${condition2}</span></td>
-                    <td data-key="tt">${tt}</td>
-                    <td data-key="tc">${tc}</td>
+                    <td data-key="tt">${formatLiftValue(tt)}</td>
+                    <td data-key="tc">${formatCyclesValue(tc)}</td>
                     <td data-key="location" data-location-id="${eng.location_id || ''}">${location}</td>
                     <td data-key="moved">${movedFrom}</td>
                     <td data-key="removed">${removedFrom}</td>
@@ -18084,6 +18181,7 @@ function shipmentLocationDisplay(loc) {
             <td data-key="csn"><input type="text" class="editing-input" placeholder="Current SN"></td>
             <td data-key="esn"><input type="text" class="editing-input" placeholder="Orig. SN"></td>
             <td data-key="gss"><input type="text" class="editing-input" placeholder="GSS ID"></td>
+            <td class="text-center"><i class="bi bi-camera-video text-muted" style="opacity: 0.35;" title="Save the row first, then refresh to detect a matching borescope inspection"></i></td>
             <td data-key="price"><input type="number" class="editing-input" step="0.01" value=""></td>
             <td data-key="status"><select class="editing-input"><option value="">-</option><option>INSTALLED</option><option>REMOVED</option></select></td>
             <td data-key="lprt3"><select class="editing-input"><option value="" selected></option><option>Yes</option><option>No</option></select></td>
@@ -21289,6 +21387,18 @@ function shipmentLocationDisplay(loc) {
             return '0';
         }
         return Number.isInteger(num) ? num.toString() : num.toFixed(1);
+    }
+
+    // Cycles (TC) are always whole numbers - round any float drift away
+    function formatCyclesValue(value) {
+        if (value === null || value === undefined || value === '') {
+            return '-';
+        }
+        const num = Number(value);
+        if (Number.isNaN(num)) {
+            return '-';
+        }
+        return String(Math.round(num));
     }
 
     // --- ENGINE BUTTON LOGIC ---
