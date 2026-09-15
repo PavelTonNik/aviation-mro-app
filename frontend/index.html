@@ -8106,7 +8106,11 @@
             <div id="view-workorders" style="display: none;">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
                     <h4 class="mb-0 text-warning"><i class="bi bi-clipboard2-pulse"></i> Work Orders — Status Monitoring</h4>
-                    <button class="btn btn-warning" onclick="openIssueWoModal()"><i class="bi bi-file-earmark-plus"></i> Issue Work Order</button>
+                    <div class="d-flex gap-2">
+                        <input type="file" id="wo-template-file-input" accept=".docx" style="display:none" onchange="uploadWoTemplate(this)">
+                        <button class="btn btn-outline-secondary" onclick="document.getElementById('wo-template-file-input').click()" title="Загрузить свой .docx шаблон с плейсхолдерами для Work Order"><i class="bi bi-upload"></i> Upload Template</button>
+                        <button class="btn btn-warning" onclick="openIssueWoModal()"><i class="bi bi-file-earmark-plus"></i> Issue Work Order</button>
+                    </div>
                 </div>
 
                 <ul class="nav nav-tabs mb-3">
@@ -9461,6 +9465,7 @@
                                             <th style="min-width: 80px;">GSS ID</th>
                                             <th style="min-width: 70px;">Price</th>
                                             <th style="min-width: 90px;">Status</th>
+                                            <th style="min-width: 70px;">LPRT3</th>
                                             <th style="min-width: 100px;">Condition 1</th>
                                             <th style="min-width: 120px;">Condition 2</th>
                                             <th style="min-width: 50px;">TT</th>
@@ -9612,6 +9617,14 @@
                                     <div class="col-md-6"><label class="small fw-bold">Removed From (AC)</label><input type="text" class="form-control" id="m-removed"></div>
                                 </div>
                                 <div class="row mb-3">
+                                    <div class="col-md-3">
+                                        <label class="small fw-bold">LPRT3</label>
+                                        <select class="form-select" id="m-lprt3">
+                                            <option value="" selected></option>
+                                            <option value="Yes">Yes</option>
+                                            <option value="No">No</option>
+                                        </select>
+                                    </div>
                                     <div class="col-md-3">
                                         <label class="small fw-bold">Condition 1 (Operational)</label>
                                         <select class="form-select" id="m-condition-1">
@@ -17539,7 +17552,7 @@ function shipmentLocationDisplay(loc) {
     
     async function loadMainTable() {
         const tb = document.getElementById('main-engine-body');
-        tb.innerHTML = '<tr><td colspan="17" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
+        tb.innerHTML = '<tr><td colspan="18" class="text-center"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</td></tr>';
         
         try {
             console.log('Fetching engines from API...');
@@ -17581,7 +17594,7 @@ function shipmentLocationDisplay(loc) {
             }
         } catch(e) {
             console.error('Loading error двигателей:', e);
-            tb.innerHTML = '<tr><td colspan="17" class="text-center text-danger">Error loading engines: ' + e.message + '</td></tr>';
+            tb.innerHTML = '<tr><td colspan="18" class="text-center text-danger">Error loading engines: ' + e.message + '</td></tr>';
         }
     }
     
@@ -17617,7 +17630,7 @@ function shipmentLocationDisplay(loc) {
         tb.innerHTML = '';
         
         if(engines.length === 0) {
-            tb.innerHTML = '<tr><td colspan="17" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
+            tb.innerHTML = '<tr><td colspan="18" class="text-center text-muted">No engines found. Add your first engine!</td></tr>';
             console.log('No engines, displaying empty message');
             return;
         }
@@ -17667,6 +17680,7 @@ function shipmentLocationDisplay(loc) {
                     data-status="${eng.status}"
                     data-condition-1="${condition1}"
                     data-condition-2="${condition2}"
+                    data-lprt3="${eng.lprt3 || ''}"
                     data-tt="${tt}"
                     data-tc="${tc}"
                     data-price="${price}"
@@ -17707,6 +17721,7 @@ function shipmentLocationDisplay(loc) {
                             : `<span class="badge ${badge} text-white" style="color: #ffffff !important;">${statusText}</span>`
                         }
                     </td>
+                    <td data-key="lprt3">${eng.lprt3 === 'Yes' ? '<span class="badge bg-success text-white">Yes</span>' : (eng.lprt3 === 'No' ? '<span class="badge bg-secondary text-white">No</span>' : '')}</td>
                     <td data-key="condition-1"><span class="badge ${getCondition1BadgeColor(condition1)} text-white" style="color: #ffffff !important;">${condition1}</span></td>
                     <td data-key="condition-2"><span class="badge ${getCondition2BadgeColor(condition2)} text-white" style="color: #ffffff !important;">${condition2}</span></td>
                     <td data-key="tt">${tt}</td>
@@ -17760,6 +17775,7 @@ function shipmentLocationDisplay(loc) {
                 status: tr.getAttribute('data-status') || 'SV',
                 condition1: tr.getAttribute('data-condition-1') || '-',
                 condition2: tr.getAttribute('data-condition-2') || '-',
+                lprt3: tr.getAttribute('data-lprt3') || '',
                 tt: tr.getAttribute('data-tt') || '0',
                 tc: tr.getAttribute('data-tc') || '0',
                 price: tr.getAttribute('data-price') || '0',
@@ -17794,6 +17810,13 @@ function shipmentLocationDisplay(loc) {
                             <option value="" ${!rowData.status || rowData.status === '-' ? 'selected' : ''}>-</option>
                             <option value="INSTALLED" ${rowData.status === 'INSTALLED' ? 'selected' : ''}>INSTALLED</option>
                             <option value="REMOVED" ${rowData.status === 'REMOVED' ? 'selected' : ''}>REMOVED</option>
+                        </select>`;
+                } else if (key === 'lprt3') {
+                    inputHTML = `
+                        <select class="editing-input">
+                            <option value="" ${!rowData.lprt3 ? 'selected' : ''}></option>
+                            <option value="Yes" ${rowData.lprt3 === 'Yes' ? 'selected' : ''}>Yes</option>
+                            <option value="No" ${rowData.lprt3 === 'No' ? 'selected' : ''}>No</option>
                         </select>`;
                 } else if (key === 'condition-1') {
                     inputHTML = `
@@ -17880,6 +17903,7 @@ function shipmentLocationDisplay(loc) {
             <td data-key="gss"><input type="text" class="editing-input" placeholder="GSS ID"></td>
             <td data-key="price"><input type="number" class="editing-input" step="0.01" value=""></td>
             <td data-key="status"><select class="editing-input"><option value="">-</option><option>INSTALLED</option><option>REMOVED</option></select></td>
+            <td data-key="lprt3"><select class="editing-input"><option value="" selected></option><option>Yes</option><option>No</option></select></td>
             <td data-key="condition-1"><select class="editing-input"><option value="-">-</option><option>SV</option><option>US</option><option>Scrap</option></select></td>
             <td data-key="condition-2"><select class="editing-input"><option value="-">-</option><option>Overhauled</option><option>Repaired</option><option>Inspected tested</option><option>As removed</option></select></td>
             <td data-key="tt"><input type="number" class="editing-input" value="0"></td>
@@ -17914,6 +17938,7 @@ function shipmentLocationDisplay(loc) {
             const gssInput = tr.querySelector('td[data-key="gss"] .editing-input');
             const priceInput = tr.querySelector('td[data-key="price"] .editing-input');
             const statusInput = tr.querySelector('td[data-key="status"] .editing-input');
+            const lprt3Input = tr.querySelector('td[data-key="lprt3"] .editing-input');
             const condition1Input = tr.querySelector('td[data-key="condition-1"] .editing-input');
             const condition2Input = tr.querySelector('td[data-key="condition-2"] .editing-input');
             const ttInput = tr.querySelector('td[data-key="tt"] .editing-input');
@@ -17937,6 +17962,7 @@ function shipmentLocationDisplay(loc) {
                 gss_sn: gssInput ? gssInput.value || originalSN : originalSN,
                 price: priceInput ? parseFloat(priceInput.value) || null : null,
                 status: statusInput ? (statusInput.value ? statusInput.value.trim() : '-') : '-',
+                lprt3: lprt3Input ? (lprt3Input.value || null) : null,
                 condition_1: condition1Input ? (condition1Input.value ? condition1Input.value.trim() : '-') : '-',
                 condition_2: condition2Input ? (condition2Input.value ? condition2Input.value.trim() : '-') : '-',
                 total_time: ttInput ? parseFloat(ttInput.value) || 0 : 0,
@@ -19625,6 +19651,7 @@ function shipmentLocationDisplay(loc) {
         const removedFrom = document.getElementById('m-removed').value.trim();
         const condition1 = document.getElementById('m-condition-1').value;
         const condition2 = document.getElementById('m-condition-2').value;
+        const lprt3 = document.getElementById('m-lprt3').value;
         
         const payload = {
             date: date || null,
@@ -19642,7 +19669,8 @@ function shipmentLocationDisplay(loc) {
             from_location: movedFrom || null,
             removed_from: removedFrom || null,
             condition_1: condition1,
-            condition_2: condition2
+            condition_2: condition2,
+            lprt3: lprt3 || null
         };
 
         try {
@@ -19764,7 +19792,7 @@ function shipmentLocationDisplay(loc) {
     }
 
     async function fetchWorkOrders(status) {
-        let res = await safeFetch(`/api/work-orders?status=${status}` + noCache());
+        let res = await safeFetch(`/api/work-orders?status=${status}&${noCache().slice(1)}`);
         if (!res || !res.ok) res = await safeFetch(`/api/work-orders?status=${status}`);
         try { return res && res.ok ? await res.json() : []; } catch { return []; }
     }
@@ -19774,6 +19802,23 @@ function shipmentLocationDisplay(loc) {
         const closed = await fetchWorkOrders('CLOSED');
         document.getElementById('wo-inprogress-badge').textContent = open.length;
         document.getElementById('wo-closed-badge').textContent = closed.length;
+    }
+
+    async function uploadWoTemplate(inputEl) {
+        const file = inputEl.files && inputEl.files[0];
+        if (!file) return;
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/work-orders/template', { method: 'POST', body: formData });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.detail || 'Upload failed');
+            showSuccessNotification(data.message || '✅ Шаблон Work Order обновлён');
+        } catch (e) {
+            showErrorNotification(e.message || 'Не удалось загрузить шаблон');
+        } finally {
+            inputEl.value = '';
+        }
     }
 
     async function loadWorkOrdersDashboard() {

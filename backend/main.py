@@ -349,6 +349,13 @@ def startup_event():
                 print("✅ Added work_orders.doc_url column")
             except:
                 pass  # Column already exists
+
+            try:
+                conn.execute(text("ALTER TABLE engines ADD COLUMN lprt3 VARCHAR"))
+                conn.commit()
+                print("✅ Added engines.lprt3 column")
+            except:
+                pass  # Column already exists
         
         print("✅ Schema verification complete")
     except Exception as e:
@@ -626,6 +633,13 @@ def startup_event():
                             WHERE table_name='work_orders' AND column_name='doc_url'
                         ) THEN
                             ALTER TABLE work_orders ADD COLUMN doc_url VARCHAR;
+                        END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='engines' AND column_name='lprt3'
+                        ) THEN
+                            ALTER TABLE engines ADD COLUMN lprt3 VARCHAR;
                         END IF;
                         
                     END $$;
@@ -4781,6 +4795,7 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
                 "ac_tcsn_at_install": _safe_int(getattr(last_install, "block_in_str", None), None) if eng.aircraft and last_install else None,
                 "condition_1": eng.condition_1 or "SV",
                 "condition_2": eng.condition_2 or "-",
+                "lprt3": eng.lprt3 or "",
                 "supplier": getattr(last_install, "supplier", None) if last_install else None,
             })
 
@@ -4839,6 +4854,7 @@ class EngineCreateSchema(BaseModel):
     remarks: Optional[str] = None
     from_location: Optional[str] = None
     removed_from: Optional[str] = None
+    lprt3: Optional[str] = None
 
 @app.post("/api/engines")
 def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., alias="user_id"), db: Session = Depends(get_db)):
@@ -4882,6 +4898,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             remarks=data.remarks,
             from_location=data.from_location,
             removed_from=data.removed_from,
+            lprt3=data.lprt3 if data.lprt3 in ("Yes", "No") else None,
             install_date=install_date
         )
 
@@ -5015,6 +5032,7 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         engine.remarks = data.remarks
         engine.from_location = data.from_location
         engine.removed_from = data.removed_from
+        engine.lprt3 = data.lprt3 if data.lprt3 in ("Yes", "No") else None
         engine.install_date = install_date
 
         if engine.aircraft_id is not None and engine.position is not None:
@@ -6386,6 +6404,28 @@ def _wo_to_dict(wo: "models.WorkOrder") -> dict:
     }
 
 
+_WO_TEMPLATE_LOCAL_PATH = Path(__file__).parent / "templates" / "work_order_template.docx"
+_WO_TEMPLATE_R2_FOLDER = "templates"
+_WO_TEMPLATE_R2_FILENAME = "work_order_template.docx"
+
+
+def _load_wo_template():
+    """Возвращает источник шаблона WO для DocxTemplate (путь к файлу или BytesIO).
+    В проде сперва пытается взять пользовательский шаблон, загруженный через
+    /api/work-orders/template (хранится в R2), иначе — локальный файл из репозитория."""
+    if _is_production():
+        try:
+            r2_key = f"{_WO_TEMPLATE_R2_FOLDER}/{_WO_TEMPLATE_R2_FILENAME}"
+            content = r2_storage.get_file(r2_key)
+            if content:
+                return BytesIO(content)
+        except Exception as e:
+            print(f"⚠️ Не удалось загрузить пользовательский шаблон WO из R2: {e}")
+    if _WO_TEMPLATE_LOCAL_PATH.exists():
+        return str(_WO_TEMPLATE_LOCAL_PATH)
+    return None
+
+
 def _generate_wo_document(wo: "models.WorkOrder") -> Optional[str]:
     """Генерирует Word-документ (бланк Work Order) из шаблона и сохраняет его (R2 в проде, локально в dev).
     Возвращает публичный URL документа или None при ошибке (не прерывает создание WO)."""
@@ -6395,9 +6435,9 @@ def _generate_wo_document(wo: "models.WorkOrder") -> Optional[str]:
         print(f"⚠️ docxtpl не установлен, документ WO не сгенерирован: {e}")
         return None
 
-    template_path = Path(__file__).parent / "templates" / "work_order_template.docx"
-    if not template_path.exists():
-        print(f"⚠️ Шаблон WO не найден: {template_path}")
+    template_src = _load_wo_template()
+    if not template_src:
+        print("⚠️ Шаблон WO не найден (ни пользовательский, ни локальный)")
         return None
 
     eng = wo.engine
@@ -6417,7 +6457,7 @@ def _generate_wo_document(wo: "models.WorkOrder") -> Optional[str]:
     }
 
     try:
-        tpl = DocxTemplate(str(template_path))
+        tpl = DocxTemplate(template_src)
         tpl.render(context)
         buf = BytesIO()
         tpl.save(buf)
@@ -6444,6 +6484,45 @@ def _generate_wo_document(wo: "models.WorkOrder") -> Optional[str]:
     except Exception as e:
         print(f"❌ Ошибка сохранения документа WO: {e}")
         return None
+
+
+@app.post("/api/work-orders/template")
+async def upload_wo_template(file: UploadFile = File(...)):
+    """Загрузка собственного шаблона Work Order (.docx с {{ плейсхолдерами }}).
+    Заменяет шаблон, который используется для генерации документов при выдаче WO."""
+    original_name = file.filename or "template.docx"
+    ext = Path(original_name).suffix.lower()
+    if ext != ".docx":
+        raise HTTPException(400, "Допустим только файл формата .docx")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(400, "Пустой файл")
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(400, "Файл слишком большой. Максимум 15 МБ")
+
+    try:
+        from docx import Document as _DocxDocument
+        _DocxDocument(BytesIO(content))
+    except Exception:
+        raise HTTPException(400, "Файл повреждён или не является корректным .docx документом")
+
+    try:
+        if _is_production():
+            r2_storage.upload_asset_to_r2(
+                file_bytes=content,
+                folder=_WO_TEMPLATE_R2_FOLDER,
+                filename=_WO_TEMPLATE_R2_FILENAME,
+                content_type=r2_storage.ext_to_mime(".docx"),
+            )
+        else:
+            _WO_TEMPLATE_LOCAL_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with open(_WO_TEMPLATE_LOCAL_PATH, "wb") as fp:
+                fp.write(content)
+    except Exception as e:
+        raise HTTPException(500, f"Не удалось сохранить шаблон: {e}")
+
+    return {"status": "success", "message": "✅ Шаблон Work Order обновлён", "original_name": original_name}
 
 
 @app.get("/api/work-orders")
