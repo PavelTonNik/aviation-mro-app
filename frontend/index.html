@@ -3382,6 +3382,62 @@
         /* Ensure preview modal stacks above history */
         .table-preview-modal { z-index: 1065 !important; }
 
+        /* Modern Engine List Modal (dashboard summary cards: cities, SV/US/Installed/Removed, condition2 breakdown) */
+        .engine-list-modal .modal-content {
+            border-radius: 16px;
+            overflow: hidden;
+            border: none;
+        }
+        .engine-list-modal .modal-header {
+            border-bottom: none;
+            padding: 1.25rem 1.5rem;
+        }
+        .engine-list-modal .modal-header .modal-title {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .engine-list-modal .modal-header .badge-count {
+            background: rgba(255,255,255,0.25);
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        .engine-list-modal .modal-body {
+            padding: 0;
+            max-height: 65vh;
+        }
+        .engine-list-modal table.table-custom thead th {
+            position: sticky;
+            top: 0;
+            background: #f8f9fb;
+            z-index: 1;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #6c757d;
+            border-bottom: 2px solid #eef0f3;
+        }
+        .engine-list-modal tbody tr.engine-list-row {
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+        .engine-list-modal tbody tr.engine-list-row:hover {
+            background-color: rgba(13, 110, 253, 0.08);
+        }
+        .engine-list-modal .nav-tabs .nav-link.active {
+            font-weight: 600;
+        }
+        @keyframes engineRowHighlightPulse {
+            0% { background-color: rgba(255, 193, 7, 0.55); }
+            100% { background-color: transparent; }
+        }
+        tr.engine-row-highlight {
+            animation: engineRowHighlightPulse 1.8s ease-out;
+        }
+
         .timeline-content .badge {
             font-size: 0.75rem;
             padding: 4px 8px;
@@ -9809,6 +9865,35 @@
     </div>
 </div>
 
+<!-- MODERN ENGINE LIST MODAL (dashboard summary cards: cities, SV/US/Installed/Removed, condition2 breakdown) -->
+<div class="modal fade engine-list-modal" id="engineListModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="true" data-bs-keyboard="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header text-white" id="engineListModalHeader" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+                <h5 class="modal-title">
+                    <i class="bi bi-table" id="engineListModalIcon"></i>
+                    <span id="engineListModalTitle">Engines</span>
+                    <span class="badge-count" id="engineListModalCount">0</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="engineListModalBody">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-custom mb-0">
+                        <thead id="engineListModalHead"></thead>
+                        <tbody id="engineListModalTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <small class="text-muted me-auto"><i class="bi bi-info-circle"></i> Click a row to open it in Master Engine List</small>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="exportEngineListModalToExcel()">Export to Excel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
         <!-- SETTINGS MODAL -->
         <div class="modal fade" id="settings-modal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -12048,6 +12133,13 @@ function hideInstallTooltip() {
     // --- 3. MODAL LOGIC (The "Magic" part) ---
     
     // A. Open Status Table (SV, US, REMOVED...)
+    const engineStatusModalConfig = {
+        'US': { icon: 'bi-x-circle-fill', color: 'linear-gradient(135deg, #ee0979, #ff6a00)' },
+        'REMOVED': { icon: 'bi-arrow-down-left-circle-fill', color: 'linear-gradient(135deg, #f7b733, #fc4a1a)' },
+        'INSTALLED': { icon: 'bi-airplane-engines-fill', color: 'linear-gradient(135deg, #4facfe, #00f2fe)' },
+        'SCRAP': { icon: 'bi-trash3-fill', color: 'linear-gradient(135deg, #485563, #29323c)' }
+    };
+
     async function openTableModal(status) {
         // Fetch specific engines
         const res = await fetch(`/api/engines?status=${status}`);
@@ -12059,39 +12151,24 @@ function hideInstallTooltip() {
             return;
         }
 
-        // Для INSTALLED добавляем колонки с данными самолета
-        if (status === 'INSTALLED') {
-            setupModal(`Engines Status: ${status}`, 
-                ['GSS SN', 'Orig SN', 'Current SN', 'Location', 'TT (Engine)', 'TC (Engine)', 'TSN (on A/C)', 'CSN (on A/C)'],
-                engines.map(e => `
-                    <tr>
-                        <td>${e.gss_sn || '-'}</td>
-                        <td>${e.original_sn}</td>
-                        <td><strong>${e.current_sn}</strong></td>
-                        <td>${e.location}</td>
-                        <td>${e.tt}</td>
-                        <td>${e.tc}</td>
-                        <td><strong>${e.tt_on_ac !== null && e.tt_on_ac !== undefined ? formatFlightTime(e.tt_on_ac) : '-'}</strong></td>
-                        <td><strong>${e.tc_on_ac !== null && e.tc_on_ac !== undefined ? e.tc_on_ac : '-'}</strong></td>
-                    </tr>
-                `)
-            );
-        } else {
-            setupModal(`Engines Status: ${status}`, 
-                ['GSS SN', 'Orig SN', 'Current SN', 'Location', 'TT', 'TC'],
-                engines.map(e => `
-                    <tr>
-                        <td>${e.gss_sn || '-'}</td>
-                        <td>${e.original_sn}</td>
-                        <td><strong>${e.current_sn}</strong></td>
-                        <td>${e.location}</td>
-                        <td>${e.tt}</td>
-                        <td>${e.tc}</td>
-                    </tr>
-                `)
-            );
-        }
+        const cfg = engineStatusModalConfig[status] || { icon: 'bi-table', color: 'linear-gradient(135deg, #667eea, #764ba2)' };
+
+        openEngineListModal({
+            title: `Engines Status: ${status}`,
+            icon: cfg.icon,
+            color: cfg.color,
+            engines: engines,
+            includeLocation: true,
+            includeAcColumns: status === 'INSTALLED'
+        });
     }
+
+    const condition2ModalConfig = {
+        '-': { icon: 'bi-question-circle-fill', color: 'linear-gradient(135deg, #757f9a, #d7dde8)' },
+        'Overhauled': { icon: 'bi-gear-fill', color: 'linear-gradient(135deg, #43e97b, #38f9d7)' },
+        'Inspected tested': { icon: 'bi-clipboard-check-fill', color: 'linear-gradient(135deg, #4facfe, #00f2fe)' },
+        'AS': { icon: 'bi-box-arrow-in-down', color: 'linear-gradient(135deg, #fa709a, #fee140)' }
+    };
 
     async function openCondition2Modal(base, cond2) {
         // If base is 'ALL', don't filter by status, only by condition_2
@@ -12109,32 +12186,17 @@ function hideInstallTooltip() {
         
         const res = await fetch(url);
         const engines = await res.json();
-        
-        // Для INSTALLED добавляем колонки TSN/CSN on A/C
-        const isInstalled = base === 'INSTALLED';
-        const headers = isInstalled 
-            ? ['GSS SN','Orig SN','Current SN','Location','TT','TC','TSN (on A/C)','CSN (on A/C)']
-            : ['GSS SN','Orig SN','Current SN','Location','TT','TC'];
-        
-        const rows = engines.length ? engines.map(e => {
-            const baseRow = `
-                <td>${e.gss_sn || '-'}</td>
-                <td>${e.original_sn}</td>
-                <td><strong>${e.current_sn}</strong></td>
-                <td>${e.location}</td>
-                <td>${e.tt}</td>
-                <td>${e.tc}</td>
-            `;
-            
-            const onAcCols = isInstalled ? `
-                <td><strong>${e.tt_on_ac !== null && e.tt_on_ac !== undefined ? formatFlightTime(e.tt_on_ac) : '-'}</strong></td>
-                <td><strong>${e.tc_on_ac !== null && e.tc_on_ac !== undefined ? e.tc_on_ac : '-'}</strong></td>
-            ` : '';
-            
-            return `<tr>${baseRow}${onAcCols}</tr>`;
-        }) : `<tr><td colspan="${isInstalled ? 8 : 6}" class="text-center text-muted">No engines</td></tr>`;
-        
-        setupModal(`${base} - ${cond2}`, headers, rows);
+
+        const cfg = condition2ModalConfig[cond2] || { icon: 'bi-table', color: 'linear-gradient(135deg, #667eea, #764ba2)' };
+
+        openEngineListModal({
+            title: `${base} - ${cond2}`,
+            icon: cfg.icon,
+            color: cfg.color,
+            engines: engines,
+            includeLocation: true,
+            includeAcColumns: base === 'INSTALLED'
+        });
     }
 
     async function toggleCondition2Breakdown() {
@@ -12191,7 +12253,7 @@ function hideInstallTooltip() {
         }).join('');
     }
 
-    // B. Open Location Table (FRU, SHJ...)
+    // B. Open Location Table (FRU, SHJ...) - modern modal, no Location column (implied by the card)
     async function openLocationModal(locId, locName) {
         // Загружаем все двигатели и фильтруем по локации
         const res = await fetch(`/api/engines`);
@@ -12204,28 +12266,13 @@ function hideInstallTooltip() {
             return sameLocation && offWing;
         });
 
-        if(filtered.length === 0) {
-            setupModal(`Location: ${locName}`, 
-                ['GSS SN', 'Orig SN', 'Current SN', 'Status', 'Condition 1', 'Condition 2'],
-                '<tr><td colspan="6" class="text-center text-muted">No engines at this location</td></tr>'
-            );
-            return;
-        }
-
-        setupModal(`Location: ${locName}`,
-            ['Model', 'GSS SN', 'Orig SN', 'Current SN', 'Status', 'Condition 1', 'Condition 2'],
-            filtered.map(e => `
-                <tr>
-                    <td>${e.model || '-'}</td>
-                    <td>${e.gss_sn || '-'}</td>
-                    <td>${e.original_sn}</td>
-                    <td><strong>${e.current_sn}</strong></td>
-                    <td><span class="badge bg-secondary">${e.status}</span></td>
-                    <td><span class="badge ${e.condition_1 === 'SV' ? 'bg-success' : e.condition_1 === 'US' ? 'bg-danger' : 'bg-secondary'}">${e.condition_1 || '-'}</span></td>
-                    <td><span class="badge bg-info">${e.condition_2 || '-'}</span></td>
-                </tr>
-            `)
-        );
+        openEngineListModal({
+            title: `Location: ${locName}`,
+            icon: 'bi-geo-alt-fill',
+            color: 'linear-gradient(135deg, #11998e, #38ef7d)',
+            engines: filtered,
+            includeLocation: false
+        });
     }
 
     // Toggle Engine Positions Expansion
@@ -13306,66 +13353,20 @@ function hideInstallTooltip() {
     }
 
     function openSvTabModal(engines) {
-        document.getElementById('modalTitle').innerText = 'Engines Status: SV';
-
         // On Wing = location contains "(Pos" pattern (e.g. "ER-BAT (Pos 2)")
         const onWing  = engines.filter(e => e.location && e.location.includes('(Pos'));
         const offWing = engines.filter(e => !e.location || !e.location.includes('(Pos'));
 
-        const thHtml = `<tr>
-            <th>GSS SN</th><th>Orig SN</th><th>Current SN</th>
-            <th>Location</th><th>TT</th><th>TC</th>
-        </tr>`;
-
-        function makeRows(list) {
-            if (!list.length) return `<tr><td colspan="6" class="text-center text-muted py-3">No engines</td></tr>`;
-            return list.map(e => `<tr>
-                <td>${e.gss_sn || '-'}</td>
-                <td>${e.original_sn}</td>
-                <td><strong>${e.current_sn}</strong></td>
-                <td>${e.location}</td>
-                <td>${e.tt}</td>
-                <td>${e.tc}</td>
-            </tr>`).join('');
-        }
-
-        const modalBody = document.querySelector('#dataModal .modal-body');
-        modalBody.innerHTML = `
-            <ul class="nav nav-tabs px-3 pt-2" role="tablist">
-                <li class="nav-item">
-                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#sv-tab-offwing">
-                        <i class="bi bi-box-seam me-1"></i>Off Wing
-                        <span class="badge bg-secondary ms-1">${offWing.length}</span>
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#sv-tab-onwing">
-                        <i class="bi bi-airplane me-1"></i>On Wing
-                        <span class="badge bg-primary ms-1">${onWing.length}</span>
-                    </button>
-                </li>
-            </ul>
-            <div class="tab-content">
-                <div class="tab-pane fade show active p-0" id="sv-tab-offwing">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover table-custom mb-0">
-                            <thead>${thHtml}</thead>
-                            <tbody>${makeRows(offWing)}</tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="tab-pane fade p-0" id="sv-tab-onwing">
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover table-custom mb-0">
-                            <thead>${thHtml}</thead>
-                            <tbody>${makeRows(onWing)}</tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>`;
-
-        const modal = new bootstrap.Modal(document.getElementById('dataModal'));
-        modal.show();
+        openEngineListModal({
+            title: 'Engines Status: SV',
+            icon: 'bi-check-circle-fill',
+            color: 'linear-gradient(135deg, #11998e, #38ef7d)',
+            includeLocation: true,
+            tabs: [
+                { label: 'Off Wing', icon: 'bi-box-seam', engines: offWing },
+                { label: 'On Wing', icon: 'bi-airplane', engines: onWing }
+            ]
+        });
     }
 
     // Helper to Show Modal
@@ -13461,6 +13462,179 @@ function hideInstallTooltip() {
             console.error('Export error:', err);
             alert('Export failed: ' + err.message);
         }
+    }
+
+    // === Modern Engine List Modal (used by all dashboard summary cards: cities, SV/US/Installed/Removed, condition2 breakdown) ===
+    function engineListStatusBadge(status) {
+        let cls = 'bg-light text-dark';
+        if (status === 'SV') cls = 'bg-success';
+        else if (status === 'US') cls = 'bg-danger';
+        else if (status === 'INSTALLED') cls = 'bg-primary';
+        else if (status === 'REMOVED') cls = 'bg-warning';
+        return `<span class="badge ${cls}">${status || '-'}</span>`;
+    }
+
+    function engineListCondition1Badge(cond1) {
+        const cls = cond1 === 'SV' ? 'bg-success' : (cond1 === 'US' ? 'bg-danger' : 'bg-secondary');
+        return `<span class="badge ${cls}">${cond1 || '-'}</span>`;
+    }
+
+    function engineListLprt3Badge(lprt3) {
+        if (lprt3 === 'Yes') return '<span class="badge bg-success text-white">Yes</span>';
+        if (lprt3 === 'No') return '<span class="badge bg-secondary text-white">No</span>';
+        return '-';
+    }
+
+    // Unified column set requested for all modern dashboard popups.
+    // includeLocation - add Location column (all cards except city cards, where it's redundant)
+    // includeAcColumns - add TSN/CSN (on A/C) columns (only for the "Installed on AC" card)
+    function buildEngineListColumns(includeLocation, includeAcColumns) {
+        const cols = [
+            { label: 'Model', render: e => e.model || '-' },
+            { label: 'GSS ID', render: e => e.gss_sn || '-' },
+            { label: 'Current SN', render: e => `<strong>${e.current_sn || '-'}</strong>` },
+            { label: 'Orig SN', render: e => e.original_sn || '-' }
+        ];
+        if (includeLocation) {
+            cols.push({ label: 'Location', render: e => e.location || '-' });
+        }
+        cols.push(
+            { label: 'Status', render: e => engineListStatusBadge(e.status) },
+            { label: 'Supplier', render: e => e.supplier || '-' },
+            { label: 'Condition 1', render: e => engineListCondition1Badge(e.condition_1) },
+            { label: 'LPRT3', render: e => engineListLprt3Badge(e.lprt3) },
+            { label: 'TT', render: e => (e.tt ?? '-') },
+            { label: 'TC', render: e => (e.tc ?? '-') },
+            { label: 'Remarks', render: e => e.remarks || '-' },
+            { label: 'Removed From', render: e => e.removed_from || '-' }
+        );
+        if (includeAcColumns) {
+            cols.push(
+                { label: 'TSN (on A/C)', render: e => `<strong>${e.tt_on_ac !== null && e.tt_on_ac !== undefined ? formatFlightTime(e.tt_on_ac) : '-'}</strong>` },
+                { label: 'CSN (on A/C)', render: e => `<strong>${e.tc_on_ac !== null && e.tc_on_ac !== undefined ? e.tc_on_ac : '-'}</strong>` }
+            );
+        }
+        return cols;
+    }
+
+    function renderEngineListTable(engines, columns) {
+        const theadHtml = '<tr>' + columns.map(c => `<th>${c.label}</th>`).join('') + '</tr>';
+        const tbodyHtml = engines.length
+            ? engines.map(e => `<tr class="engine-list-row" onclick="openEngineFromListModal(${e.id})">${columns.map(c => `<td>${c.render(e)}</td>`).join('')}</tr>`).join('')
+            : `<tr><td colspan="${columns.length}" class="text-center text-muted py-4">No engines found</td></tr>`;
+        return { theadHtml, tbodyHtml };
+    }
+
+    // Opens the shared modern modal.
+    // config: { title, icon, color, engines, includeLocation, includeAcColumns, tabs }
+    // tabs (optional): [{ label, icon, engines }] - renders a tabbed layout (used by the SV card: On Wing / Off Wing)
+    function openEngineListModal(config) {
+        const { title, icon, color, engines, includeLocation, includeAcColumns, tabs } = config;
+
+        document.getElementById('engineListModalTitle').innerText = title;
+        document.getElementById('engineListModalIcon').className = `bi ${icon || 'bi-table'}`;
+        document.getElementById('engineListModalHeader').style.background = color || 'linear-gradient(135deg, #667eea, #764ba2)';
+
+        const bodyEl = document.getElementById('engineListModalBody');
+        const columns = buildEngineListColumns(!!includeLocation, !!includeAcColumns);
+
+        if (tabs && tabs.length) {
+            const totalCount = tabs.reduce((sum, t) => sum + t.engines.length, 0);
+            document.getElementById('engineListModalCount').innerText = totalCount;
+            bodyEl.innerHTML = `
+                <ul class="nav nav-tabs px-3 pt-2" role="tablist">
+                    ${tabs.map((t, i) => `
+                        <li class="nav-item">
+                            <button class="nav-link ${i === 0 ? 'active' : ''}" data-bs-toggle="tab" data-bs-target="#engine-list-tab-${i}">
+                                <i class="bi ${t.icon || 'bi-list'} me-1"></i>${t.label}
+                                <span class="badge bg-secondary ms-1">${t.engines.length}</span>
+                            </button>
+                        </li>
+                    `).join('')}
+                </ul>
+                <div class="tab-content">
+                    ${tabs.map((t, i) => {
+                        const { theadHtml, tbodyHtml } = renderEngineListTable(t.engines, columns);
+                        return `
+                            <div class="tab-pane fade ${i === 0 ? 'show active' : ''} p-0" id="engine-list-tab-${i}">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover table-custom mb-0">
+                                        <thead>${theadHtml}</thead>
+                                        <tbody>${tbodyHtml}</tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>`;
+        } else {
+            document.getElementById('engineListModalCount').innerText = engines.length;
+            bodyEl.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-custom mb-0">
+                        <thead id="engineListModalHead"></thead>
+                        <tbody id="engineListModalTableBody"></tbody>
+                    </table>
+                </div>`;
+            const { theadHtml, tbodyHtml } = renderEngineListTable(engines, columns);
+            document.getElementById('engineListModalHead').innerHTML = theadHtml;
+            document.getElementById('engineListModalTableBody').innerHTML = tbodyHtml;
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('engineListModal'));
+        modal.show();
+    }
+
+    // Exports the currently visible table (active tab, if tabbed) to Excel
+    function exportEngineListModalToExcel() {
+        try {
+            const titleText = document.getElementById('engineListModalTitle').innerText || 'export';
+            const filename = titleText.replace(/[^a-zA-Z0-9]/g, '_') + '.xlsx';
+
+            const bodyEl = document.getElementById('engineListModalBody');
+            const activePane = bodyEl.querySelector('.tab-pane.show.active');
+            const thead = activePane ? activePane.querySelector('thead') : bodyEl.querySelector('thead');
+            const tbody = activePane ? activePane.querySelector('tbody') : bodyEl.querySelector('tbody');
+
+            if (!thead || !tbody) { alert('No data to export'); return; }
+
+            const headers = Array.from(thead.querySelectorAll('th')).map(th => th.textContent.trim());
+            const rows = Array.from(tbody.querySelectorAll('tr')).map(tr =>
+                Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+            );
+
+            const wb = XLSX.utils.book_new();
+            const wsData = [headers, ...rows];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const colWidths = headers.map((h, i) => {
+                const maxLen = Math.max(h.length, ...rows.map(r => (r[i] || '').toString().length));
+                return { wch: Math.min(maxLen + 2, 30) };
+            });
+            ws['!cols'] = colWidths;
+            XLSX.utils.book_append_sheet(wb, ws, 'Engines');
+            XLSX.writeFile(wb, filename);
+        } catch (err) {
+            console.error('Export error:', err);
+            alert('Export failed: ' + err.message);
+        }
+    }
+
+    // Row click handler: closes the popup and jumps to the engine inside Master Engine List
+    async function openEngineFromListModal(engineId) {
+        const modalEl = document.getElementById('engineListModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) modalInstance.hide();
+
+        await openMainEngineView();
+
+        setTimeout(() => {
+            const row = document.querySelector(`#main-engine-body tr[data-engine-id="${engineId}"]`);
+            if (row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.classList.add('engine-row-highlight');
+                setTimeout(() => row.classList.remove('engine-row-highlight'), 1800);
+            }
+        }, 150);
     }
 
 // --- INSTALLATION MODULE LOGIC ---
@@ -17289,16 +17463,25 @@ function shipmentLocationDisplay(loc) {
         applyEngineFilters();
     }
 
-    // Строит список кнопок городов/локаций на основе реальных данных
-    function populateEngineQuickCityButtons() {
+    // Строит список кнопок городов на основе РЕАЛЬНЫХ локаций дашборда (/api/locations),
+    // а не по строкам location у двигателей - иначе в список попадали позиции на самолете (например "ER-BAQ (Pos 1)").
+    async function populateEngineQuickCityButtons() {
         const container = document.getElementById('engine-quick-city-buttons');
         if (!container) return;
-        const cities = new Set();
-        allEnginesData.forEach(eng => {
-            const loc = (eng.location || '').trim();
-            if (loc && loc !== '-') cities.add(loc);
-        });
-        const sortedCities = Array.from(cities).sort((a, b) => a.localeCompare(b));
+
+        let locations = window.globalLocations;
+        if (!locations || !locations.length) {
+            try {
+                const res = await fetch('/api/locations');
+                locations = await res.json();
+                window.globalLocations = locations;
+            } catch (e) {
+                console.error('Failed to load locations for quick city filter:', e);
+                locations = [];
+            }
+        }
+
+        const sortedCities = locations.map(l => l.name).sort((a, b) => a.localeCompare(b));
         const activeVal = (document.getElementById('engine-location-filter')?.value || '');
         container.innerHTML = sortedCities.map(city => {
             const isActive = city.toLowerCase() === activeVal.toLowerCase() && activeVal !== '';
