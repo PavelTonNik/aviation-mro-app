@@ -208,6 +208,8 @@ class WorkOrder(Base):
     closed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     doc_url = Column(String, nullable=True)             # Ссылка на сгенерированный Word-документ (бланк WO)
+    issued_signature_url = Column(String, nullable=True)  # Подпись "Issued by" (PNG)
+    closed_signature_url = Column(String, nullable=True)  # Подпись "Closed by" (PNG)
 
     engine = relationship("Engine")
 

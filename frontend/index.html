@@ -221,6 +221,7 @@
         .wo-engine-pick-row.selected { background:#fff8e6; }
         .wo-engine-pick-row .wo-eng-name { font-weight:700; min-width:110px; }
         .wo-engine-pick-row .wo-eng-meta { color:#6c757d; font-size:.8rem; }
+        .wo-signature-canvas { display:block; width:100%; max-width:400px; height:140px; border:1px dashed #adb5bd; border-radius:8px; background:#fff; cursor:crosshair; touch-action:none; }
 
         /* Light Background Mode - minimal changes */
         body.light-bg {
@@ -8295,14 +8296,52 @@
                         </div>
                     </div>
 
-                    <div class="mb-1">
+                    <div class="mb-3">
                         <label class="small fw-bold">Scope of Work *</label>
                         <textarea class="form-control" id="wo-scope-of-work" rows="3"></textarea>
+                    </div>
+
+                    <div class="mb-1">
+                        <label class="small fw-bold d-flex justify-content-between align-items-center">
+                            <span>Issued by (signature)</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSignaturePad('wo-issued-sig-canvas')"><i class="bi bi-eraser"></i> Clear</button>
+                        </label>
+                        <canvas class="wo-signature-canvas" id="wo-issued-sig-canvas" width="400" height="140"></canvas>
                     </div>
                   </div>
                   <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button class="btn btn-warning px-4" id="wo-issue-submit-btn" onclick="submitIssueWo()"><i class="bi bi-magic"></i> Generate & Issue WO</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CLOSE WORK ORDER MODAL -->
+            <div class="modal fade" id="closeWoModal" tabindex="-1">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-lock-fill"></i> Close Work Order <span id="close-wo-number-label"></span></h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body">
+                    <input type="hidden" id="close-wo-id">
+                    <div class="mb-3">
+                        <label class="small fw-bold">Closed by</label>
+                        <input type="text" class="form-control" id="close-wo-closed-by" placeholder="e.g. A. Ivanov" value="User">
+                    </div>
+                    <div class="mb-1">
+                        <label class="small fw-bold d-flex justify-content-between align-items-center">
+                            <span>Closed by (signature)</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSignaturePad('wo-closed-sig-canvas')"><i class="bi bi-eraser"></i> Clear</button>
+                        </label>
+                        <canvas class="wo-signature-canvas" id="wo-closed-sig-canvas" width="400" height="140"></canvas>
+                    </div>
+                  </div>
+                  <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-success px-4" id="wo-close-submit-btn" onclick="submitCloseWo()"><i class="bi bi-lock-fill"></i> Close Work Order</button>
                   </div>
                 </div>
               </div>
@@ -20181,7 +20220,7 @@ function shipmentLocationDisplay(loc) {
                 <td class="fw-bold">${w.wo_number}</td><td>${w.type_of_work}</td><td>${w.engine_tail}</td><td>${w.assignee}</td>
                 <td>${w.issue_date || '-'}</td><td>${w.due_date || '-'}</td>
                 <td>
-                    <button class="btn btn-sm btn-success" onclick="closeWorkOrder(${w.id}, '${w.wo_number}')"><i class="bi bi-lock-fill"></i> Close</button>
+                    <button class="btn btn-sm btn-success" onclick="openCloseWoModal(${w.id}, '${w.wo_number}')"><i class="bi bi-lock-fill"></i> Close</button>
                     ${w.doc_url ? `<a class="btn btn-sm btn-outline-secondary ms-1" href="${w.doc_url}" target="_blank" title="Download WO document"><i class="bi bi-file-earmark-word"></i></a>` : ''}
                 </td>
             </tr>`).join('');
@@ -20211,21 +20250,103 @@ function shipmentLocationDisplay(loc) {
         alert('Открытие полной карточки Work Order (Folder view) будет добавлено на следующем этапе.');
     }
 
+    // --- Signature pad (canvas, mouse + touch) ---
+    const _sigPadState = {};
+    function _getSigCtx(canvasId) {
+        let st = _sigPadState[canvasId];
+        if (st) return st;
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = '#212529';
+        st = { canvas, ctx, drawing: false, hasInk: false };
+        const getPos = (evt) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const point = evt.touches && evt.touches.length ? evt.touches[0] : evt;
+            return { x: (point.clientX - rect.left) * scaleX, y: (point.clientY - rect.top) * scaleY };
+        };
+        const start = (evt) => {
+            evt.preventDefault();
+            st.drawing = true;
+            const { x, y } = getPos(evt);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        };
+        const move = (evt) => {
+            if (!st.drawing) return;
+            evt.preventDefault();
+            const { x, y } = getPos(evt);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            st.hasInk = true;
+        };
+        const end = (evt) => {
+            if (!st.drawing) return;
+            evt.preventDefault();
+            st.drawing = false;
+        };
+        canvas.addEventListener('mousedown', start);
+        canvas.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', end);
+        canvas.addEventListener('touchstart', start, { passive: false });
+        canvas.addEventListener('touchmove', move, { passive: false });
+        canvas.addEventListener('touchend', end, { passive: false });
+        _sigPadState[canvasId] = st;
+        return st;
+    }
+
+    function initSignaturePad(canvasId) {
+        const st = _getSigCtx(canvasId);
+        st.ctx.clearRect(0, 0, st.canvas.width, st.canvas.height);
+        st.hasInk = false;
+    }
+
+    function clearSignaturePad(canvasId) {
+        const st = _getSigCtx(canvasId);
+        st.ctx.clearRect(0, 0, st.canvas.width, st.canvas.height);
+        st.hasInk = false;
+    }
+
+    function getSignatureDataUrl(canvasId) {
+        const st = _getSigCtx(canvasId);
+        if (!st.hasInk) return null;
+        return st.canvas.toDataURL('image/png');
+    }
+
     let _woClosing = false;
-    async function closeWorkOrder(id, woNumber) {
+    function openCloseWoModal(id, woNumber) {
+        document.getElementById('close-wo-id').value = id;
+        document.getElementById('close-wo-number-label').textContent = woNumber || '';
+        document.getElementById('close-wo-closed-by').value = 'User';
+        const modalEl = document.getElementById('closeWoModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        modalEl.addEventListener('shown.bs.modal', () => initSignaturePad('wo-closed-sig-canvas'), { once: true });
+    }
+
+    async function submitCloseWo() {
         if (_woClosing) return;
-        if (!confirm(`Закрыть Work Order ${woNumber}?`)) return;
+        const id = document.getElementById('close-wo-id').value;
+        const closedBy = document.getElementById('close-wo-closed-by').value.trim() || 'User';
         _woClosing = true;
+        const btn = document.getElementById('wo-close-submit-btn');
+        if (btn) { btn.disabled = true; btn.dataset._orig = btn.innerHTML; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Closing...'; }
         try {
-            const res = await fetch(`/api/work-orders/${id}/close?closed_by=User`, { method: 'POST' });
+            const payload = { closed_by: closedBy, closed_signature: getSignatureDataUrl('wo-closed-sig-canvas') };
+            const res = await fetch(`/api/work-orders/${id}/close`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const result = await handleApiResponse(res, 'Work Order');
             if (!result) return;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('closeWoModal')).hide();
             await loadWorkOrdersInProgress();
             await refreshWoBadges();
         } catch (e) {
             alert('❌ Error: ' + e.message);
         } finally {
             _woClosing = false;
+            if (btn) { btn.disabled = false; btn.innerHTML = btn.dataset._orig || 'Close Work Order'; }
         }
     }
 
@@ -20247,6 +20368,7 @@ function shipmentLocationDisplay(loc) {
         const modalEl = document.getElementById('issueWoModal');
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
+        modalEl.addEventListener('shown.bs.modal', () => initSignaturePad('wo-issued-sig-canvas'), { once: true });
     }
 
     function renderWoEnginePicker(list) {
@@ -20305,7 +20427,8 @@ function shipmentLocationDisplay(loc) {
             assignee: document.getElementById('wo-assignee').value,
             type_of_work: document.getElementById('wo-type-of-work').value,
             scope_of_work: scope,
-            created_by: 'User'
+            created_by: 'User',
+            issued_signature: getSignatureDataUrl('wo-issued-sig-canvas')
         };
 
         try {

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone, date as DateType
 import asyncio
+import base64
 import concurrent.futures
 import csv
 import html
@@ -634,12 +635,18 @@ def startup_event():
                         ) THEN
                             ALTER TABLE work_orders ADD COLUMN doc_url VARCHAR;
                         END IF;
-
                         IF NOT EXISTS (
-                            SELECT 1 FROM information_schema.columns
-                            WHERE table_name='engines' AND column_name='lprt3'
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='work_orders' AND column_name='issued_signature_url'
                         ) THEN
-                            ALTER TABLE engines ADD COLUMN lprt3 VARCHAR;
+                            ALTER TABLE work_orders ADD COLUMN issued_signature_url VARCHAR;
+                        END IF;
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name='work_orders' AND column_name='closed_signature_url'
+                        ) THEN
+                            ALTER TABLE work_orders ADD COLUMN closed_signature_url VARCHAR;
+                        END IF;
                         END IF;
 
                         IF NOT EXISTS (
@@ -717,6 +724,8 @@ def startup_event():
     ensure_sqlite_column("engines", "cost_per_hour FLOAT")
     ensure_sqlite_column("engines", "cost_per_cycle FLOAT")
     ensure_sqlite_column("engines", "supplier TEXT")
+    ensure_sqlite_column("work_orders", "issued_signature_url TEXT")
+    ensure_sqlite_column("work_orders", "closed_signature_url TEXT")
     ensure_sqlite_column("action_logs", "condition_1_at_removal TEXT")
     ensure_sqlite_column("action_logs", "block_time_str TEXT")
     ensure_sqlite_column("action_logs", "flight_time_str TEXT")
@@ -6379,6 +6388,12 @@ class WorkOrderCreateSchema(BaseModel):
     type_of_work: Optional[str] = None
     scope_of_work: str
     created_by: Optional[str] = "User"
+    issued_signature: Optional[str] = None  # base64 PNG data URL с canvas (подпись "Issued by")
+
+
+class WorkOrderCloseSchema(BaseModel):
+    closed_by: Optional[str] = "User"
+    closed_signature: Optional[str] = None  # base64 PNG data URL с canvas (подпись "Closed by")
 
 
 def _parse_wo_date(value: Optional[str]):
@@ -6421,6 +6436,8 @@ def _wo_to_dict(wo: "models.WorkOrder") -> dict:
         "closed_by": wo.closed_by,
         "closed_at": wo.closed_at.strftime("%Y-%m-%d") if wo.closed_at else None,
         "doc_url": wo.doc_url,
+        "issued_signature_url": wo.issued_signature_url,
+        "closed_signature_url": wo.closed_signature_url,
     }
 
 
@@ -6446,11 +6463,61 @@ def _load_wo_template():
     return None
 
 
+def _save_wo_signature(data_url: Optional[str], wo_number: str, kind: str) -> Optional[str]:
+    """Сохраняет подпись (base64 PNG data URL, полученную с canvas) как файл
+    (R2 в проде, локально в dev) и возвращает публичный URL. kind: 'issued'|'closed'."""
+    if not data_url or not isinstance(data_url, str) or "," not in data_url:
+        return None
+    try:
+        header, b64data = data_url.split(",", 1)
+        if "image" not in header:
+            return None
+        file_bytes = base64.b64decode(b64data)
+    except Exception as e:
+        print(f"❌ Ошибка декодирования подписи WO: {e}")
+        return None
+
+    final_name = f"{wo_number}_{kind}_signature.png"
+    try:
+        if _is_production():
+            return r2_storage.upload_asset_to_r2(
+                file_bytes=file_bytes,
+                folder="work_orders/signatures",
+                filename=final_name,
+                content_type=r2_storage.ext_to_mime(".png"),
+            )
+        else:
+            target_dir = UPLOADS_ROOT_DIR / "work_orders" / "signatures"
+            target_dir.mkdir(parents=True, exist_ok=True)
+            with open(target_dir / final_name, "wb") as fp:
+                fp.write(file_bytes)
+            return f"/uploads/work_orders/signatures/{final_name}"
+    except Exception as e:
+        print(f"❌ Ошибка сохранения подписи WO: {e}")
+        return None
+
+
+def _load_wo_signature_bytes(wo_number: str, kind: str) -> Optional[bytes]:
+    """Читает байты ранее сохранённой подписи (issued/closed) для вставки в документ."""
+    final_name = f"{wo_number}_{kind}_signature.png"
+    if _is_production():
+        try:
+            return r2_storage.get_file(f"work_orders/signatures/{final_name}")
+        except Exception as e:
+            print(f"⚠️ Не удалось загрузить подпись WO из R2: {e}")
+            return None
+    local_path = UPLOADS_ROOT_DIR / "work_orders" / "signatures" / final_name
+    if local_path.exists():
+        return local_path.read_bytes()
+    return None
+
+
 def _generate_wo_document(wo: "models.WorkOrder") -> Optional[str]:
     """Генерирует Word-документ (бланк Work Order) из шаблона и сохраняет его (R2 в проде, локально в dev).
     Возвращает публичный URL документа или None при ошибке (не прерывает создание WO)."""
     try:
-        from docxtpl import DocxTemplate
+        from docxtpl import DocxTemplate, InlineImage
+        from docx.shared import Mm
     except Exception as e:
         print(f"⚠️ docxtpl не установлен, документ WO не сгенерирован: {e}")
         return None
@@ -6478,6 +6545,10 @@ def _generate_wo_document(wo: "models.WorkOrder") -> Optional[str]:
 
     try:
         tpl = DocxTemplate(template_src)
+        issued_sig_bytes = _load_wo_signature_bytes(wo.wo_number, "issued") if wo.issued_signature_url else None
+        closed_sig_bytes = _load_wo_signature_bytes(wo.wo_number, "closed") if wo.closed_signature_url else None
+        context["issued_signature"] = InlineImage(tpl, BytesIO(issued_sig_bytes), width=Mm(35)) if issued_sig_bytes else ""
+        context["closed_signature"] = InlineImage(tpl, BytesIO(closed_sig_bytes), width=Mm(35)) if closed_sig_bytes else ""
         tpl.render(context)
         buf = BytesIO()
         tpl.save(buf)
@@ -6604,6 +6675,13 @@ def create_work_order(data: WorkOrderCreateSchema, db: Session = Depends(get_db)
     db.commit()
     db.refresh(wo)
 
+    if data.issued_signature:
+        sig_url = _save_wo_signature(data.issued_signature, wo.wo_number, "issued")
+        if sig_url:
+            wo.issued_signature_url = sig_url
+            db.commit()
+            db.refresh(wo)
+
     doc_url = _generate_wo_document(wo)
     if doc_url:
         wo.doc_url = doc_url
@@ -6627,17 +6705,31 @@ def create_work_order(data: WorkOrderCreateSchema, db: Session = Depends(get_db)
 
 
 @app.post("/api/work-orders/{wo_id}/close")
-def close_work_order(wo_id: int, closed_by: str = Query("User"), db: Session = Depends(get_db)):
+def close_work_order(wo_id: int, data: WorkOrderCloseSchema, db: Session = Depends(get_db)):
     wo = db.query(models.WorkOrder).filter(models.WorkOrder.id == wo_id).first()
     if not wo:
         raise HTTPException(404, "Work Order not found")
     if wo.status == "CLOSED":
         return {"status": "warning", "message": "Work Order уже закрыт"}
 
+    closed_by = data.closed_by or "User"
     wo.status = "CLOSED"
     wo.closed_by = closed_by
     wo.closed_at = datetime.now()
+
+    if data.closed_signature:
+        sig_url = _save_wo_signature(data.closed_signature, wo.wo_number, "closed")
+        if sig_url:
+            wo.closed_signature_url = sig_url
+
     db.commit()
+    db.refresh(wo)
+
+    # Перегенерируем документ, чтобы в нём появилась подпись закрытия и актуальный статус
+    doc_url = _generate_wo_document(wo)
+    if doc_url:
+        wo.doc_url = doc_url
+        db.commit()
 
     create_notification(
         db,
