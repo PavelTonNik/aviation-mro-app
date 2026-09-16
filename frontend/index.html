@@ -3438,7 +3438,6 @@
         .engine-list-modal tbody tr.engine-list-row:hover td:first-child {
             border-top-left-radius: 8px;
             border-bottom-left-radius: 8px;
-            box-shadow: inset 3px 0 0 #667eea;
         }
         .engine-list-modal tbody tr.engine-list-row:hover td:last-child {
             border-top-right-radius: 8px;
@@ -6694,6 +6693,19 @@
                                         </div>
 
                                         <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold">Current SN</label>
+                                                <input type="text" class="form-control" id="rem-current-sn" readonly style="background-color: #e9ecef; cursor: default;">
+                                                <small class="text-muted">Автоматически определяется по двигателю</small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small fw-bold">Original SN</label>
+                                                <input type="text" class="form-control" id="rem-original-sn" readonly style="background-color: #e9ecef; cursor: default;">
+                                                <small class="text-muted">Автоматически определяется по двигателю</small>
+                                            </div>
+                                        </div>
+
+                                        <div class="row mb-3">
                                             <div class="col-md-12">
                                                 <label class="form-label small fw-bold">Current Position</label>
                                                 <input type="text" class="form-control" id="rem-loc-from">
@@ -9886,7 +9898,7 @@
 
 <!-- MODERN ENGINE LIST MODAL (dashboard summary cards: cities, SV/US/Installed/Removed, condition2 breakdown) -->
 <div class="modal fade engine-list-modal" id="engineListModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="true" data-bs-keyboard="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-scrollable" style="max-width: 1400px;">
         <div class="modal-content">
             <div class="modal-header text-white" id="engineListModalHeader" style="background: linear-gradient(135deg, #667eea, #764ba2);">
                 <h5 class="modal-title">
@@ -12162,6 +12174,7 @@ function hideInstallTooltip() {
         // Fetch specific engines
         const res = await fetch(`/api/engines?status=${status}`);
         const engines = await res.json();
+        await loadBorescopeLatestMap();
 
         // SV — показываем две вкладки: On Wing / Off Wing
         if (status === 'SV') {
@@ -12204,6 +12217,7 @@ function hideInstallTooltip() {
         
         const res = await fetch(url);
         const engines = await res.json();
+        await loadBorescopeLatestMap();
 
         const cfg = condition2ModalConfig[cond2] || { icon: 'bi-table', color: 'linear-gradient(135deg, #667eea, #764ba2)' };
 
@@ -12276,6 +12290,7 @@ function hideInstallTooltip() {
         // Загружаем все двигатели и фильтруем по локации
         const res = await fetch(`/api/engines`);
         const allEngines = await res.json();
+        await loadBorescopeLatestMap();
         
         // Фильтруем по location_id (источник истины) и только off-wing
         const filtered = allEngines.filter(e => {
@@ -13510,6 +13525,7 @@ function hideInstallTooltip() {
         const cols = [
             { label: 'Model', render: e => e.model || '-' },
             { label: 'GSS ID', render: e => e.gss_sn || '-' },
+            { label: 'BI', render: e => renderBiIcon(e.gss_sn) },
             { label: 'Current SN', render: e => `<strong>${e.current_sn || '-'}</strong>` },
             { label: 'Orig SN', render: e => e.original_sn || '-' }
         ];
@@ -13903,6 +13919,8 @@ let engineInputHandler = function() {
             gssField.value = selectedEngine.gss_sn;
         }
         document.getElementById('in-engine-id').value = selectedEngine.id;
+        // Подтягиваем Supplier из главной таблицы (источник истины — Engine.supplier)
+        document.getElementById('in-supplier').value = selectedEngine.supplier || '';
         // Current SN не заполняем автоматически - только ручной ввод!
     }
 };
@@ -17210,6 +17228,8 @@ function shipmentLocationDisplay(loc) {
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
                 document.getElementById('rem-gss-id').value = '';
+                document.getElementById('rem-current-sn').value = '';
+                document.getElementById('rem-original-sn').value = '';
                 document.getElementById('rem-aircraft').value = '';
                 document.getElementById('rem-position').value = '';
                 document.getElementById('rem-ttsn-ac').value = '';
@@ -17228,6 +17248,8 @@ function shipmentLocationDisplay(loc) {
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
                 document.getElementById('rem-gss-id').value = '';
+                document.getElementById('rem-current-sn').value = '';
+                document.getElementById('rem-original-sn').value = '';
                 document.getElementById('rem-aircraft').value = '';
                 document.getElementById('rem-position').value = '';
                 return;
@@ -17241,6 +17263,8 @@ function shipmentLocationDisplay(loc) {
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
                 document.getElementById('rem-gss-id').value = '';
+                document.getElementById('rem-current-sn').value = '';
+                document.getElementById('rem-original-sn').value = '';
                 document.getElementById('rem-aircraft').value = '';
                 document.getElementById('rem-position').value = '';
                 return;
@@ -17254,6 +17278,8 @@ function shipmentLocationDisplay(loc) {
                 document.getElementById('rem-engine-id').value = '';
                 document.getElementById('rem-loc-from').value = '';
                 document.getElementById('rem-gss-id').value = '';
+                document.getElementById('rem-current-sn').value = '';
+                document.getElementById('rem-original-sn').value = '';
                 document.getElementById('rem-aircraft').value = '';
                 document.getElementById('rem-position').value = '';
                 return;
@@ -17264,6 +17290,8 @@ function shipmentLocationDisplay(loc) {
             document.getElementById('rem-engine-id').value = found.id;
             document.getElementById('rem-loc-from').value = found.location;
             document.getElementById('rem-gss-id').value = found.gss_sn || '-';
+            document.getElementById('rem-current-sn').value = found.current_sn || '-';
+            document.getElementById('rem-original-sn').value = found.original_sn || '-';
             document.getElementById('rem-ttsn-ac').value = found.ac_ttsn !== null && found.ac_ttsn !== undefined ? formatWholeHours(found.ac_ttsn) : '';
             document.getElementById('rem-tcsn-ac').value = found.ac_tcsn !== null && found.ac_tcsn !== undefined ? found.ac_tcsn : '';
             
@@ -17930,7 +17958,7 @@ function shipmentLocationDisplay(loc) {
             const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank"><i class="bi bi-image"></i></a>` : '-';
             const model = eng.model || '-';
             const location = eng.location || '-';
-            const movedFrom = eng.from_location || '-';
+            const supplierVal = eng.supplier || '-';
             const remarks = eng.remarks || '-';
             const removedFrom = eng.removed_from || '-';
             const installDate = eng.install_date || '-';
@@ -17964,7 +17992,7 @@ function shipmentLocationDisplay(loc) {
                     data-tc="${tc}"
                     data-price="${price}"
                     data-location="${location}"
-                    data-moved-from="${movedFrom}"
+                    data-supplier="${eng.supplier || ''}"
                     data-remarks="${remarks}"
                     data-removed-from="${removedFrom}"
                     data-photo="${eng.photo_url || ''}"
@@ -18007,7 +18035,7 @@ function shipmentLocationDisplay(loc) {
                     <td data-key="tt">${formatLiftValue(tt)}</td>
                     <td data-key="tc">${formatCyclesValue(tc)}</td>
                     <td data-key="location" data-location-id="${eng.location_id || ''}">${location}</td>
-                    <td data-key="moved">${movedFrom}</td>
+                    <td data-key="supplier">${supplierVal}</td>
                     <td data-key="removed">${removedFrom}</td>
                     <td data-key="rem">${remarks}</td>
                     <td data-key="photo">${photo}</td>
@@ -18060,7 +18088,7 @@ function shipmentLocationDisplay(loc) {
                 tc: tr.getAttribute('data-tc') || '0',
                 price: tr.getAttribute('data-price') || '0',
                 location: tr.getAttribute('data-location') || 'SHJ',
-                movedFrom: tr.getAttribute('data-moved-from') || '',
+                supplier: tr.getAttribute('data-supplier') || '',
                 remarks: tr.getAttribute('data-remarks') || '',
                 removedFrom: tr.getAttribute('data-removed-from') || '',
                 photo: tr.getAttribute('data-photo') || ''
@@ -18122,8 +18150,8 @@ function shipmentLocationDisplay(loc) {
                 } else if (key === 'location') {
                     const locationId = td.getAttribute('data-location-id') || '';
                     inputHTML = `<select class="editing-input location-select" data-location-id="${locationId}"></select>`;
-                } else if (key === 'moved') {
-                    const value = rowData.movedFrom || tr.getAttribute('data-moved-from') || '';
+                } else if (key === 'supplier') {
+                    const value = rowData.supplier || tr.getAttribute('data-supplier') || '';
                     inputHTML = `<input type="text" class="editing-input" value="${value}">`;
                 } else if (key === 'removed') {
                     inputHTML = `<input type="text" class="editing-input" value="${rowData.removedFrom}">`;
@@ -18190,7 +18218,7 @@ function shipmentLocationDisplay(loc) {
             <td data-key="tt"><input type="number" class="editing-input" value="0"></td>
             <td data-key="tc"><input type="number" class="editing-input" value="0"></td>
             <td data-key="location"><select class="editing-input location-select"></select></td>
-            <td data-key="moved"><input type="text" class="editing-input"></td>
+            <td data-key="supplier"><input type="text" class="editing-input"></td>
             <td data-key="removed"><input type="text" class="editing-input"></td>
             <td data-key="rem"><input type="text" class="editing-input"></td>
             <td data-key="photo"><input type="text" class="editing-input"></td>
@@ -18225,7 +18253,7 @@ function shipmentLocationDisplay(loc) {
             const ttInput = tr.querySelector('td[data-key="tt"] .editing-input');
             const tcInput = tr.querySelector('td[data-key="tc"] .editing-input');
             const locationInput = tr.querySelector('td[data-key="location"] .editing-input');
-            const movedInput = tr.querySelector('td[data-key="moved"] .editing-input');
+            const supplierInput = tr.querySelector('td[data-key="supplier"] .editing-input');
             const removedInput = tr.querySelector('td[data-key="removed"] .editing-input');
             const remarksInput = tr.querySelector('td[data-key="rem"] .editing-input');
             const photoInput = tr.querySelector('td[data-key="photo"] .editing-input');
@@ -18249,7 +18277,7 @@ function shipmentLocationDisplay(loc) {
                 total_time: ttInput ? parseFloat(ttInput.value) || 0 : 0,
                 total_cycles: tcInput ? parseInt(tcInput.value) || 0 : 0,
                 location_id: locationInput ? parseInt(locationInput.value) || null : null,
-                from_location: movedInput ? movedInput.value || null : null,
+                supplier: supplierInput ? supplierInput.value || null : null,
                 removed_from: removedInput ? removedInput.value || null : null,
                 remarks: remarksInput ? remarksInput.value : '',
                 photo_url: photoInput ? photoInput.value : ''
@@ -30907,6 +30935,9 @@ async function displayBoroscopeReminders() {
                 gssTooltip = null;
             }
         }
+        // Закрываем тултип при любом клике (переключение вкладок/разделов в этом приложении всегда идёт через клик,
+        // а mouseleave не срабатывает, если ячейка просто скрывается под курсором)
+        document.addEventListener('click', hideGSSTooltip);
 
         // Load statuses on page load
         document.addEventListener('DOMContentLoaded', () => {

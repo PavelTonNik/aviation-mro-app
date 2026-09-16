@@ -641,6 +641,13 @@ def startup_event():
                         ) THEN
                             ALTER TABLE engines ADD COLUMN lprt3 VARCHAR;
                         END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name='engines' AND column_name='supplier'
+                        ) THEN
+                            ALTER TABLE engines ADD COLUMN supplier VARCHAR;
+                        END IF;
                         
                     END $$;
                 """))
@@ -709,6 +716,7 @@ def startup_event():
     ensure_sqlite_column("engines", "installed_plate_sn VARCHAR(50)")
     ensure_sqlite_column("engines", "cost_per_hour FLOAT")
     ensure_sqlite_column("engines", "cost_per_cycle FLOAT")
+    ensure_sqlite_column("engines", "supplier TEXT")
     ensure_sqlite_column("action_logs", "condition_1_at_removal TEXT")
     ensure_sqlite_column("action_logs", "block_time_str TEXT")
     ensure_sqlite_column("action_logs", "flight_time_str TEXT")
@@ -4796,7 +4804,7 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
                 "condition_1": eng.condition_1 or "SV",
                 "condition_2": eng.condition_2 or "-",
                 "lprt3": eng.lprt3 or "",
-                "supplier": getattr(last_install, "supplier", None) if last_install else None,
+                "supplier": eng.supplier or (getattr(last_install, "supplier", None) if last_install else None),
             })
 
         if costs_updated:
@@ -4855,6 +4863,7 @@ class EngineCreateSchema(BaseModel):
     from_location: Optional[str] = None
     removed_from: Optional[str] = None
     lprt3: Optional[str] = None
+    supplier: Optional[str] = None
 
 @app.post("/api/engines")
 def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., alias="user_id"), db: Session = Depends(get_db)):
@@ -4899,6 +4908,7 @@ def create_engine(data: EngineCreateSchema, current_user_id: int = Query(..., al
             from_location=data.from_location,
             removed_from=data.removed_from,
             lprt3=data.lprt3 if data.lprt3 in ("Yes", "No") else None,
+            supplier=data.supplier,
             install_date=install_date
         )
 
@@ -5030,9 +5040,14 @@ def update_engine(engine_id: int, data: EngineCreateSchema, db: Session = Depend
         engine.price = data.price
         engine.photo_url = data.photo_url
         engine.remarks = data.remarks
-        engine.from_location = data.from_location
+        # from_location больше не редактируется через Master Engine List (эта ячейка
+        # теперь отдана под Supplier) - обновляем только если явно передано значение,
+        # чтобы не затирать исторические данные
+        if data.from_location is not None:
+            engine.from_location = data.from_location
         engine.removed_from = data.removed_from
         engine.lprt3 = data.lprt3 if data.lprt3 in ("Yes", "No") else None
+        engine.supplier = data.supplier
         engine.install_date = install_date
 
         if engine.aircraft_id is not None and engine.position is not None:
@@ -5092,7 +5107,8 @@ def get_engine_by_id(engine_id: int, db: Session = Depends(get_db)):
         "install_date": engine.install_date.strftime('%Y-%m-%d') if engine.install_date else None,
         "condition_1": engine.condition_1 or "SV",
         "condition_2": engine.condition_2 or "-",
-        "price": engine.price or 0
+        "price": engine.price or 0,
+        "supplier": engine.supplier or ""
     }
 
 # ПОЛУЧЕНИЕ ПОЛНОЙ ИСТОРИИ ДВИГАТЕЛЯ
@@ -5869,6 +5885,10 @@ def install_engine(data: InstallSchema, db: Session = Depends(get_db)):
     # Обновляем Current SN если передан при установке
     if data.current_sn and data.current_sn.strip():
         eng.current_sn = data.current_sn.strip()
+
+    # Обновляем Supplier на самом двигателе, чтобы он отражался в Master Engine List
+    if data.supplier and data.supplier.strip():
+        eng.supplier = data.supplier.strip()
 
     # НЕ обновляем aircraft.total_time/cycles здесь - только через Utilization Parameters
     
