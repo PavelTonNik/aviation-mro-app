@@ -75,6 +75,7 @@ class Engine(Base):
     condition_1 = Column(String, default="SV")  # Техсостояние: SV/US/Scrap
     condition_2 = Column(String, default="-")  # Физсостояние: -/Overhauled/Repaired/Inspected tested/AS
     lprt3 = Column(String, nullable=True)  # LPRT3: Yes/No, пусто если не выбрано
+    supplier = Column(String, nullable=True)  # Поставщик двигателя (source of truth на самом Engine)
     
     # Наработка
     total_time = Column(Float, default=0.0)   # TT
