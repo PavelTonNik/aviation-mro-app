@@ -3773,7 +3773,9 @@ def get_aircraft_dashboard_details(db: Session = Depends(get_db)):
                 
                 last_update = util_found_date or "N/A"
                 
-                supplier = last_install.supplier if last_install and last_install.supplier else None
+                # Источник истины — Engine.supplier (Master Engine List / Installation форма его же и пишут).
+                # Если на самом двигателе поле не заполнено (старые записи) — берём из лога установки как fallback.
+                supplier = eng.supplier or (last_install.supplier if last_install and last_install.supplier else None)
 
                 previous_install_info = None
                 previous_install_for_pos = db.query(models.ActionLog).filter(
