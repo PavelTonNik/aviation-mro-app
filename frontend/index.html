@@ -13960,9 +13960,42 @@ let engineInputHandler = function() {
         document.getElementById('in-engine-id').value = selectedEngine.id;
         // Подтягиваем Supplier из главной таблицы (источник истины — Engine.supplier)
         document.getElementById('in-supplier').value = selectedEngine.supplier || '';
+        // Автозаполняем TTSN/TCSN (Engine) текущей наработкой двигателя из Master Engine List
+        // (Engine.total_time/total_cycles — источник истины на момент установки; можно скорректировать вручную)
+        if (selectedEngine.tt !== null && selectedEngine.tt !== undefined) {
+            document.getElementById('in-tt').value = formatFlightTime(selectedEngine.tt);
+        }
+        if (selectedEngine.tc !== null && selectedEngine.tc !== undefined) {
+            document.getElementById('in-tc').value = selectedEngine.tc;
+        }
         // Current SN не заполняем автоматически - только ручной ввод!
     }
 };
+
+// Автоподстановка TTSN/TCSN (Aircraft) из Utilization Parameters по выбранному самолету и дате установки.
+// Если точной записи на эту дату нет - бэкенд сам берет ближайшую предыдущую запись.
+async function acUtilizationLookupHandler() {
+    const acSelect = document.getElementById('in-ac');
+    const dateInput = document.getElementById('in-date');
+    if (!acSelect || !dateInput || !acSelect.value || !dateInput.value) return;
+
+    const tailNumber = acSelect.options[acSelect.selectedIndex] ? acSelect.options[acSelect.selectedIndex].text : null;
+    if (!tailNumber) return;
+
+    try {
+        const url = `/api/utilization/lookup?aircraft=${encodeURIComponent(tailNumber)}&date=${encodeURIComponent(dateInput.value)}` + window.noCache();
+        const res = await safeFetch(url);
+        const data = res && res.ok ? await res.json() : null;
+        if (data && data.ttsn !== null && data.ttsn !== undefined) {
+            document.getElementById('in-ac-ttsn').value = formatFlightTime(data.ttsn);
+        }
+        if (data && data.tcsn !== null && data.tcsn !== undefined) {
+            document.getElementById('in-ac-tcsn').value = data.tcsn;
+        }
+    } catch (e) {
+        console.warn('Utilization lookup failed:', e);
+    }
+}
 
 // ШАГ 2: Заполнить datalist с GSS ID
 function loadGSSDatalist(engines) {
@@ -14074,6 +14107,16 @@ function onGssInputChange(engines) {
         const engineInput = document.getElementById('in-engine-input');
         engineInput.removeEventListener('change', engineInputHandler);
         engineInput.addEventListener('change', engineInputHandler);
+
+        // ШАГ 6: Подвешиваем обработчик автоподстановки TTSN/TCSN (Aircraft) из Utilization Parameters
+        const acSelect = document.getElementById('in-ac');
+        const dateInput = document.getElementById('in-date');
+        acSelect.removeEventListener('change', acUtilizationLookupHandler);
+        acSelect.addEventListener('change', acUtilizationLookupHandler);
+        dateInput.removeEventListener('change', acUtilizationLookupHandler);
+        dateInput.addEventListener('change', acUtilizationLookupHandler);
+        // Если дата и самолет уже выставлены по умолчанию - сразу подтягиваем данные
+        acUtilizationLookupHandler();
     }
     // Guard flag to prevent double-submit
     let _installSubmitting = false;

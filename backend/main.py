@@ -8621,6 +8621,38 @@ def get_history(action_type: str, db: Session = Depends(get_db)):
 
 # --- UTILIZATION PARAMETERS ENDPOINTS ---
 
+@app.get("/api/utilization/lookup")
+def lookup_utilization(aircraft: str, date: str, db: Session = Depends(get_db)):
+    """
+    Возвращает наработку самолёта (TTSN/TCSN) на указанную дату из Utilization Parameters.
+    Если точной записи на эту дату нет — берётся ближайшая ПРЕДЫДУЩАЯ запись (period == False).
+    Используется для автоподстановки TTSN/TCSN (Aircraft) в форме Installation.
+    """
+    target_date = parse_input_date(date)
+    if not target_date:
+        return {"ttsn": None, "tcsn": None, "found_date": None}
+
+    tail = normalize_aircraft_tail(aircraft) or aircraft
+
+    record = db.query(models.UtilizationParameter).filter(
+        models.UtilizationParameter.aircraft == tail,
+        models.UtilizationParameter.period == False,
+        models.UtilizationParameter.date <= target_date
+    ).order_by(
+        models.UtilizationParameter.date.desc(),
+        models.UtilizationParameter.id.desc()
+    ).first()
+
+    if not record:
+        return {"ttsn": None, "tcsn": None, "found_date": None}
+
+    return {
+        "ttsn": record.ttsn,
+        "tcsn": record.tcsn,
+        "found_date": record.date.strftime("%Y-%m-%d") if record.date else None
+    }
+
+
 @app.get("/api/utilization-parameters")
 def get_utilization_parameters(db: Session = Depends(get_db)):
     """Get all utilization parameters from database"""
