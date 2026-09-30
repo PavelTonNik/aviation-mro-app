@@ -4783,7 +4783,100 @@
         .inspection-photo-remove:hover {
             background: #bb2d3b;
         }
-        
+
+        /* === Borescope Report Modal v2 (redesign) === */
+        .bore-report-v2 { display: flex; gap: 20px; flex-wrap: wrap; }
+        .bore-report-v2 .bore-info-col { flex: 0 0 300px; max-width: 300px; }
+        .bore-report-v2 .bore-viewer-col { flex: 1; min-width: 280px; }
+
+        .bore-info-card {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+            border: 1px solid rgba(71,85,105,0.4);
+            margin-bottom: 16px;
+        }
+        .bore-eyebrow { color: #94a3b8; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+        .bore-sn-big { color: #f8fafc; font-size: 1.6rem; font-weight: 800; margin-bottom: 16px; word-break: break-word; }
+        .bore-tiles { display: flex; gap: 10px; }
+        .bore-tile { flex: 1; background: rgba(15,23,42,0.5); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 10px 12px; }
+        .bore-tile-val { color: #e2e8f0; font-weight: 700; font-size: 1.05rem; }
+
+        .bore-summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed rgba(148,163,184,.2); gap: 10px; }
+        .bore-summary-row:last-child { border-bottom: none; }
+        .bore-summary-row .lbl { color: #94a3b8; font-size: .85rem; }
+        .bore-summary-row .val { color: #f1f5f9; font-weight: 600; font-size: .9rem; text-align: right; }
+        .bore-summary-row .val.accent { color: #38bdf8; }
+
+        .bore-chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+        .bore-chip {
+            display: flex; align-items: center; gap: 6px; background: rgba(59,130,246,.12);
+            border: 1px solid rgba(59,130,246,.3); color: #93c5fd; border-radius: 20px;
+            padding: 5px 12px; font-size: .78rem; font-weight: 600;
+        }
+        .bore-chip-badge {
+            background: #3b82f6; color: #fff; border-radius: 6px; min-width: 20px; height: 20px; padding: 0 4px;
+            display: flex; align-items: center; justify-content: center; font-size: .65rem; font-weight: 800;
+        }
+
+        .bore-extra-card {
+            background: rgba(15,23,42,.5); border: 1px solid rgba(148,163,184,.2);
+            border-radius: 12px; padding: 16px; color: #cbd5e1; font-size: .88rem; margin-bottom: 16px;
+        }
+        .bore-extra-card strong { color: #f1f5f9; }
+        .bore-extra-card a { color: #60a5fa; }
+
+        .bore-viewer {
+            background: #0b0f19; border-radius: 16px; overflow: hidden;
+            border: 1px solid rgba(71,85,105,.4); display: flex; flex-direction: column;
+            box-shadow: 0 8px 28px rgba(0,0,0,.35);
+        }
+        .bore-viewer-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; color: #cbd5e1; font-size: .85rem; font-weight: 600;
+            border-bottom: 1px solid rgba(71,85,105,.3);
+        }
+        .bore-viewer-nav { display: flex; align-items: center; gap: 8px; }
+        .bore-viewer-nav button {
+            background: rgba(148,163,184,.12); border: 1px solid rgba(148,163,184,.25);
+            color: #e2e8f0; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: background .15s ease;
+        }
+        .bore-viewer-nav button:hover:not(:disabled) { background: rgba(148,163,184,.25); }
+        .bore-viewer-nav button:disabled { opacity: .35; cursor: default; }
+
+        .bore-viewer-stage {
+            position: relative; background: #05070c; min-height: 340px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .bore-viewer-stage img {
+            max-width: 100%; max-height: 480px; object-fit: contain; cursor: zoom-in;
+        }
+        .bore-viewer-stage .bore-badge {
+            position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 6px;
+            font-size: .72rem; font-weight: 700; letter-spacing: .03em;
+            background: rgba(59,130,246,.85); color: #fff; border: 1px solid rgba(59,130,246,.9);
+        }
+        .bore-empty { color: #64748b; text-align: center; padding: 60px 20px; }
+        .bore-empty i { font-size: 2.4rem; display: block; margin-bottom: 10px; }
+
+        .bore-thumbs {
+            display: flex; gap: 8px; padding: 12px; overflow-x: auto; background: rgba(15,23,42,.5);
+        }
+        .bore-thumb {
+            flex: 0 0 72px; width: 72px; height: 54px; border-radius: 8px; overflow: hidden;
+            border: 2px solid transparent; cursor: pointer; opacity: .65; transition: all .15s ease;
+            background: #111827;
+        }
+        .bore-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .bore-thumb.active { border-color: #3b82f6; opacity: 1; }
+        .bore-thumb:hover { opacity: 1; }
+
+        @media (max-width: 767px) {
+            .bore-report-v2 .bore-info-col { flex: 1 1 auto; max-width: none; }
+        }
+
         /* ФИКСАЦИЯ ВЕРХНЕЙ ПАНЕЛИ (navbar) */
         .navbar {
             position: sticky !important;
@@ -13958,19 +14051,25 @@ let engineInputHandler = function() {
             gssField.value = selectedEngine.gss_sn;
         }
         document.getElementById('in-engine-id').value = selectedEngine.id;
-        // Подтягиваем Supplier из главной таблицы (источник истины — Engine.supplier)
-        document.getElementById('in-supplier').value = selectedEngine.supplier || '';
-        // Автозаполняем TTSN/TCSN (Engine) текущей наработкой двигателя из Master Engine List
-        // (Engine.total_time/total_cycles — источник истины на момент установки; можно скорректировать вручную)
-        if (selectedEngine.tt !== null && selectedEngine.tt !== undefined) {
-            document.getElementById('in-tt').value = formatFlightTime(selectedEngine.tt);
-        }
-        if (selectedEngine.tc !== null && selectedEngine.tc !== undefined) {
-            document.getElementById('in-tc').value = selectedEngine.tc;
-        }
+        applyEngineAutofillFields(selectedEngine);
         // Current SN не заполняем автоматически - только ручной ввод!
     }
 };
+
+// Общий хелпер автозаполнения Supplier/TTSN(Engine)/TCSN(Engine) по выбранному двигателю.
+// Используется и при ручном выборе из datalist (engineInputHandler), и при автовыборе по единственному совпадению GSS ID (onGssInputChange).
+function applyEngineAutofillFields(selectedEngine) {
+    // Подтягиваем Supplier из главной таблицы (источник истины — Engine.supplier)
+    document.getElementById('in-supplier').value = selectedEngine.supplier || '';
+    // Автозаполняем TTSN/TCSN (Engine) текущей наработкой двигателя из Master Engine List
+    // (Engine.total_time/total_cycles — источник истины на момент установки; можно скорректировать вручную)
+    if (selectedEngine.tt !== null && selectedEngine.tt !== undefined) {
+        document.getElementById('in-tt').value = formatFlightTime(selectedEngine.tt);
+    }
+    if (selectedEngine.tc !== null && selectedEngine.tc !== undefined) {
+        document.getElementById('in-tc').value = selectedEngine.tc;
+    }
+}
 
 // Автоподстановка TTSN/TCSN (Aircraft) из Utilization Parameters по выбранному самолету и дате установки.
 // Если точной записи на эту дату нет - бэкенд сам берет ближайшую предыдущую запись.
@@ -13983,7 +14082,11 @@ async function acUtilizationLookupHandler() {
     if (!tailNumber) return;
 
     try {
-        const url = `/api/utilization/lookup?aircraft=${encodeURIComponent(tailNumber)}&date=${encodeURIComponent(dateInput.value)}` + window.noCache();
+        // ВАЖНО: не используем window.noCache() здесь - он всегда добавляет '?t=...',
+        // а у этого URL уже есть свой query string (?aircraft=...&date=...), из-за чего
+        // получался невалидный двойной '?' и дата не парсилась на бэкенде.
+        const params = new URLSearchParams({ aircraft: tailNumber, date: dateInput.value, t: Date.now() });
+        const url = `/api/utilization/lookup?${params.toString()}`;
         const res = await safeFetch(url);
         const data = res && res.ok ? await res.json() : null;
         if (data && data.ttsn !== null && data.ttsn !== undefined) {
@@ -14061,6 +14164,10 @@ function onGssInputChange(engines) {
         const singleEngine = matchingEngines[0];
         document.getElementById('in-engine-input').value = singleEngine.original_sn;
         document.getElementById('in-engine-id').value = singleEngine.id;
+        // Автозаполняем Supplier/TTSN(Engine)/TCSN(Engine) - раньше это происходило
+        // только через 'change' на in-engine-input, который здесь не срабатывает,
+        // т.к. значение проставляется программно (без реального выбора из списка).
+        applyEngineAutofillFields(singleEngine);
     } else {
         // Если несколько - показываем отфильтрованные
         loadEngineDatalist(engines, gssValue);
@@ -15263,6 +15370,43 @@ function onGssInputChange(engines) {
     }
 
     // Показать полный report при клике на строку
+    // Обновляет активное фото во viewer'е модалки Borescope Report (редизайн)
+    function boreRenderPhoto(rowId, idx) {
+        const gallery = window.__boreGalleries && window.__boreGalleries[rowId];
+        if (!gallery || !gallery.length) return;
+        const clamped = Math.max(0, Math.min(idx, gallery.length - 1));
+        window.__boreGalleryIndex[rowId] = clamped;
+        const photo = gallery[clamped];
+
+        const img = document.getElementById(`bore-viewer-img-${rowId}`);
+        const labelBadge = document.getElementById(`bore-viewer-label-${rowId}`);
+        const counter = document.getElementById(`bore-viewer-counter-${rowId}`);
+        const prevBtn = document.getElementById(`bore-viewer-prev-${rowId}`);
+        const nextBtn = document.getElementById(`bore-viewer-next-${rowId}`);
+
+        if (img) img.src = photo.url;
+        if (labelBadge) labelBadge.textContent = `${photo.label} · Photo ${photo.slot}`;
+        if (counter) counter.textContent = `${clamped + 1} / ${gallery.length}`;
+        if (prevBtn) prevBtn.disabled = clamped === 0;
+        if (nextBtn) nextBtn.disabled = clamped === gallery.length - 1;
+
+        const thumbsContainer = document.getElementById(`bore-thumbs-${rowId}`);
+        if (thumbsContainer) {
+            thumbsContainer.querySelectorAll('.bore-thumb').forEach((el, i) => {
+                el.classList.toggle('active', i === clamped);
+            });
+        }
+    }
+
+    window.boreGoToPhoto = function (rowId, idx) {
+        boreRenderPhoto(rowId, idx);
+    };
+
+    window.boreStepPhoto = function (rowId, step) {
+        const current = (window.__boreGalleryIndex && window.__boreGalleryIndex[rowId]) || 0;
+        boreRenderPhoto(rowId, current + step);
+    };
+
     async function showBoroscopeInspectionDetails(rowId) {
         // Загружаем данные инспекции с сервера
         const res = await safeFetch(`/api/history/BORESCOPE${window.noCache()}`);
@@ -15363,139 +15507,112 @@ function onGssInputChange(engines) {
             console.error('Error loading engine data:', err);
         }
         
-        // Формируем HTML используя ТУ ЖЕ СТРУКТУРУ что на форме
-        reportHtml = `
-            <div class="border rounded p-3 bg-light mb-4">
-                <h5 class="mb-3">Boroscope Report Summary</h5>
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Date:</strong> <span>${inspection.date || '—'}</span></p>
-                        <p><strong>Orig S/N:</strong> <span>${inspection.serial_number || '—'}</span></p>
-                        <p><strong>GSS ID:</strong> <span>${inspection.gss_id || '—'}</span></p>
-                        <p><strong>Aircraft:</strong> <span style="font-weight: bold; color: #0066cc;">${inspection.aircraft || '—'}</span></p>
-                        <p><strong>Position:</strong> <span>${inspection.position || '—'}</span></p>
-                        ${inspection.location ? `<p><strong>Location:</strong> <span>${inspection.location}</span></p>` : ''}
-                    </div>
-                    <div class="col-md-6">
-        `;
-        
+        // Собираем плоский список фото из строк (label + photo1/photo2) для галереи
+        const galleryPhotos = [];
+        if (inspection.inspection_report && Array.isArray(inspection.inspection_report.photos)) {
+            inspection.inspection_report.photos.forEach((photoRow) => {
+                const label = photoRow.label || 'Photo';
+                if (photoRow.photo1) galleryPhotos.push({ url: photoRow.photo1, label, slot: 1 });
+                if (photoRow.photo2) galleryPhotos.push({ url: photoRow.photo2, label, slot: 2 });
+            });
+        }
+
+        const sectionCounts = {};
+        galleryPhotos.forEach(p => { sectionCounts[p.label] = (sectionCounts[p.label] || 0) + 1; });
+        const sectionChips = Object.keys(sectionCounts).map(label => `
+            <div class="bore-chip"><span class="bore-chip-badge">${label.substring(0, 2).toUpperCase()}</span>${label} · ${sectionCounts[label]} photo${sectionCounts[label] > 1 ? 's' : ''}</div>
+        `).join('');
+
+        // Левая карточка (Summary) — новый дизайн
+        let installBlock = '';
         if (engineData && engineData.installation) {
             const inst = engineData.installation;
             const eng = engineData.engine;
-            
-            // Вычисляем TSN/CSN на самолете ИСПОЛЬЗУЯ ТУ ЖЕ ЛОГИКУ
-            const tsnAtInstall = inst.snapshot_tt || 0;
-            const csnAtInstall = inst.snapshot_tc || 0;
-            const totalTsn = eng.total_tsn || 0;
-            const totalCsn = eng.total_csn || 0;
-            
-            const tsnOnAC = totalTsn - tsnAtInstall;
-            const csnOnAC = totalCsn - csnAtInstall;
-            
-            reportHtml += `
-                        <p><strong>Installation Date:</strong> <span style="color: #d9534f;">${fmtDMY(inst.date)}</span></p>
-                        <p><strong>Supplier:</strong> <span>${inst.supplier || eng.supplier || '—'}</span></p>
+            installBlock = `
+                <div class="bore-summary-row"><span class="lbl">Installation date</span><span class="val accent">${fmtDMY(inst.date)}</span></div>
+                <div class="bore-summary-row"><span class="lbl">Supplier</span><span class="val">${inst.supplier || eng.supplier || '—'}</span></div>
             `;
         } else {
-            reportHtml += `
-                        <p class="text-muted">Engine not currently installed on aircraft</p>
-                        <p class="text-muted">Only Serial Number and GSS ID available</p>
+            installBlock = `
+                <div class="bore-summary-row"><span class="lbl">Installation</span><span class="val">Not currently installed</span></div>
             `;
         }
-        
-        reportHtml += `
-                    </div>
+
+        reportHtml = `
+            <div class="bore-info-card">
+                <div class="bore-eyebrow">Orig S/N</div>
+                <div class="bore-sn-big">${inspection.serial_number || '—'}</div>
+                <div class="bore-tiles">
+                    <div class="bore-tile"><div class="bore-eyebrow">GSS ID</div><div class="bore-tile-val">${inspection.gss_id || '—'}</div></div>
+                    <div class="bore-tile"><div class="bore-eyebrow">Position</div><div class="bore-tile-val">#${inspection.position || '—'}</div></div>
                 </div>
             </div>
+            <div class="bore-info-card">
+                <div class="bore-eyebrow mb-2">Summary</div>
+                <div class="bore-summary-row"><span class="lbl">Inspection date</span><span class="val">${fmtDMY(inspection.date)}</span></div>
+                <div class="bore-summary-row"><span class="lbl">Aircraft</span><span class="val accent">${inspection.aircraft || '—'}</span></div>
+                ${inspection.location ? `<div class="bore-summary-row"><span class="lbl">Location</span><span class="val">${inspection.location}</span></div>` : ''}
+                ${installBlock}
+            </div>
+            ${sectionChips ? `
+            <div class="bore-info-card">
+                <div class="bore-eyebrow mb-2">Sections Inspected</div>
+                <div class="bore-chip-list">${sectionChips}</div>
+            </div>` : ''}
         `;
         
         // Добавляем Comment и Link если есть
         if (inspection.comment || inspection.link) {
             reportHtml += `
-                <div class="border rounded p-3 bg-white mb-3">
-                    <h6 class="mb-2">Additional Information</h6>
+                <div class="bore-extra-card">
+                    ${inspection.comment ? `<div class="mb-2"><strong>Comment:</strong> ${inspection.comment}</div>` : ''}
+                    ${inspection.link ? `<div><strong>Link:</strong> <a href="${inspection.link}" target="_blank">${inspection.link}</a></div>` : ''}
+                </div>
             `;
-            if (inspection.comment) {
-                reportHtml += `<p><strong>Comment:</strong> ${inspection.comment}</p>`;
-            }
-            if (inspection.link) {
-                reportHtml += `<p><strong>Link:</strong> <a href="${inspection.link}" target="_blank">${inspection.link}</a></p>`;
-            }
-            reportHtml += `</div>`;
         }
         
-        // Добавляем фото если есть
+        // Формируем правую колонку — просмотрщик фото (viewer + thumbnails)
         let photosHtml = '';
         
-        console.log('\n🖼️ BUILDING PHOTOS HTML:');
-        console.log('  inspection_report exists?', !!inspection.inspection_report);
-        console.log('  photos is array?', Array.isArray(inspection.inspection_report?.photos));
-        console.log('  photos length:', inspection.inspection_report?.photos?.length || 0);
-        
-        if (inspection.inspection_report && Array.isArray(inspection.inspection_report.photos) && inspection.inspection_report.photos.length > 0) {
-            console.log('  ✅ Building photos section...');
+        if (galleryPhotos.length > 0) {
+            const first = galleryPhotos[0];
+            const thumbs = galleryPhotos.map((p, i) => `
+                <div class="bore-thumb${i === 0 ? ' active' : ''}" onclick="boreGoToPhoto(${rowId}, ${i})">
+                    <img src="${p.url}" alt="${p.label}">
+                </div>
+            `).join('');
+
             photosHtml = `
-                <div class="border rounded p-3 bg-white">
-                    <h5 class="mb-3">Inspection Photos</h5>
+                <div class="bore-viewer">
+                    <div class="bore-viewer-head">
+                        <span>Inspection photos</span>
+                        <div class="bore-viewer-nav">
+                            <button id="bore-viewer-prev-${rowId}" onclick="boreStepPhoto(${rowId}, -1)" ${galleryPhotos.length <= 1 ? 'disabled' : ''}><i class="bi bi-chevron-left"></i></button>
+                            <span id="bore-viewer-counter-${rowId}">1 / ${galleryPhotos.length}</span>
+                            <button id="bore-viewer-next-${rowId}" onclick="boreStepPhoto(${rowId}, 1)" ${galleryPhotos.length <= 1 ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>
+                        </div>
+                    </div>
+                    <div class="bore-viewer-stage">
+                        <span id="bore-viewer-label-${rowId}" class="bore-badge">${first.label} · Photo ${first.slot}</span>
+                        <img id="bore-viewer-img-${rowId}" src="${first.url}" onclick="openBorescopePhoto(this.src)" title="Click to view full size">
+                    </div>
+                    <div class="bore-thumbs" id="bore-thumbs-${rowId}">${thumbs}</div>
+                </div>
             `;
-            
-            inspection.inspection_report.photos.forEach((photoRow, idx) => {
-                console.log(`    Processing photo row ${idx}:`, {
-                    label: photoRow.label,
-                    has_photo1: !!photoRow.photo1,
-                    has_photo2: !!photoRow.photo2
-                });
-                
-                if (!photoRow.label && !photoRow.photo1 && !photoRow.photo2) {
-                    console.log(`    Skipping empty photo row ${idx}`);
-                    return;
-                }
-                
-                photosHtml += `
-                    <div class="mb-4">
-                        <h6 class="text-primary">${photoRow.label || `Photo Set ${idx + 1}`}</h6>
-                        <div class="row">
-                `;
-                
-                if (photoRow.photo1) {
-                    photosHtml += `
-                        <div class="col-md-6 mb-2">
-                            <div class="border rounded p-2">
-                                <img src="${photoRow.photo1}" class="img-fluid rounded" style="max-height: 300px; width: 100%; object-fit: contain; cursor: pointer;" 
-                                     onclick="openBorescopePhoto(this.src)" title="Click to view full size">
-                                <p class="text-center text-muted small mt-1">Photo 1</p>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                if (photoRow.photo2) {
-                    photosHtml += `
-                        <div class="col-md-6 mb-2">
-                            <div class="border rounded p-2">
-                                <img src="${photoRow.photo2}" class="img-fluid rounded" style="max-height: 300px; width: 100%; object-fit: contain; cursor: pointer;" 
-                                     onclick="openBorescopePhoto(this.src)" title="Click to view full size">
-                                <p class="text-center text-muted small mt-1">Photo 2</p>
-                            </div>
-                        </div>
-                    `;
-                }
-                
-                photosHtml += '</div></div>';
-            });
-            
-            photosHtml += '</div>';
-            console.log('  ✅ Photos HTML built successfully');
         } else {
-            console.log('  ❌ No photos to display');
-            if (!inspection.inspection_report) {
-                console.log('     Reason: inspection_report is null/undefined');
-            } else if (!Array.isArray(inspection.inspection_report.photos)) {
-                console.log('     Reason: photos is not an array');
-            } else {
-                console.log('     Reason: photos array is empty');
-            }
+            photosHtml = `
+                <div class="bore-viewer">
+                    <div class="bore-viewer-stage">
+                        <div class="bore-empty"><i class="bi bi-camera"></i>No photos available</div>
+                    </div>
+                </div>
+            `;
         }
+
+        window.__boreGalleries = window.__boreGalleries || {};
+        window.__boreGalleryIndex = window.__boreGalleryIndex || {};
+        window.__boreGalleries[rowId] = galleryPhotos;
+        window.__boreGalleryIndex[rowId] = 0;
         
         // Создаем модальное окно
         const modal = document.createElement('div');
@@ -15509,9 +15626,11 @@ function onGssInputChange(engines) {
                         <h5 class="modal-title">Boroscope Inspection Report - ID: ${rowId}</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                    <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
-                        ${reportHtml}
-                        ${photosHtml}
+                    <div class="modal-body" style="max-height: 80vh; overflow-y: auto; background: #0b0f19;">
+                        <div class="bore-report-v2">
+                            <div class="bore-info-col">${reportHtml}</div>
+                            <div class="bore-viewer-col">${photosHtml}</div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -15523,8 +15642,12 @@ function onGssInputChange(engines) {
         const bsModal = new bootstrap.Modal(modal);
         bsModal.show();
         
-        // Очищаем модальное окно когда оно закрывается
-        modal.addEventListener('hidden.bs.modal', () => modal.remove());
+        // Очищаем модальное окно и состояние галереи когда оно закрывается
+        modal.addEventListener('hidden.bs.modal', () => {
+            modal.remove();
+            delete window.__boreGalleries[rowId];
+            delete window.__boreGalleryIndex[rowId];
+        });
     }
 
     window.openBorescopePhoto = function (src) {
