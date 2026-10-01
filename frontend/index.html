@@ -4801,65 +4801,105 @@
         .bore-report-v2 .bore-info-col { flex: 0 0 300px; max-width: 300px; }
         .bore-report-v2 .bore-viewer-col { flex: 1; min-width: 280px; }
 
-        .bore-info-card {
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 8px 28px rgba(0,0,0,0.35);
-            border: 1px solid rgba(71,85,105,0.4);
-            margin-bottom: 16px;
-        }
-        .bore-eyebrow { color: #94a3b8; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
-        .bore-sn-big { color: #f8fafc; font-size: 1.6rem; font-weight: 800; margin-bottom: 16px; word-break: break-word; }
-        .bore-tiles { display: flex; gap: 10px; }
-        .bore-tile { flex: 1; background: rgba(15,23,42,0.5); border: 1px solid rgba(148,163,184,0.2); border-radius: 10px; padding: 10px 12px; }
-        .bore-tile-val { color: #e2e8f0; font-weight: 700; font-size: 1.05rem; }
+        .bore-modal-content { border: 0; border-radius: 22px; background: #ffffff; box-shadow: 0 24px 70px rgba(15,23,42,.25); overflow: hidden; }
+        .bore-modal-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 22px 28px 14px; background: #ffffff; }
+        .bore-modal-title { font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 10px; }
+        .bore-id-pill { background: #eff6ff; color: #2563eb; font-size: .75rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+        .bore-modal-actions { display: flex; align-items: center; gap: 8px; }
+        .bore-btn { border: 1px solid #e2e8f0; background: #ffffff; color: #0f172a; border-radius: 10px; padding: 7px 14px; font-size: .85rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .15s ease; }
+        .bore-btn:hover:not(:disabled) { background: #f1f5f9; }
+        .bore-btn:disabled { opacity: .5; cursor: default; }
+        .bore-btn.edit { background: #fff7ed; border-color: #fed7aa; color: #c2410c; }
+        .bore-btn.edit:hover:not(:disabled) { background: #ffedd5; }
+        .bore-btn.save { background: #16a34a; border-color: #16a34a; color: #ffffff; }
+        .bore-btn.save:hover:not(:disabled) { background: #15803d; }
+        .bore-close { width: 36px; height: 36px; border-radius: 50%; border: none; background: #f1f5f9; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .bore-close:hover { background: #e2e8f0; }
+        .bore-modal-body { padding: 4px 28px 28px; max-height: calc(100vh - 130px); overflow-y: auto; background: #ffffff; }
+        /* Цвета текста зафиксированы, чтобы глобальные стили темы (dark / light-bg) их не перекрывали */
+        html body .modal .bore-modal-content .bore-modal-title { color: #0f172a !important; }
+        html body .modal .bore-modal-content .bore-id-pill { color: #2563eb !important; }
+        html body .modal .bore-modal-content .bore-viewer-head > span { color: #334155 !important; }
+        html body .modal .bore-modal-content .bore-edit-head > span { color: #b45309 !important; }
+        html body .modal .bore-modal-content .bore-extra-card div { color: #475569 !important; }
+        html body .modal .bore-modal-content .bore-extra-card strong { color: #0f172a !important; }
+        html body .modal .bore-modal-content .bore-extra-card a { color: #2563eb !important; }
+        html body .modal .bore-modal-content .bore-eyebrow { color: #64748b !important; }
+        html body .modal .bore-modal-content .bore-sn-big,
+        html body .modal .bore-modal-content .bore-tile-val { color: #0f172a !important; }
+        html body .modal .bore-modal-content .bore-summary-row .lbl { color: #64748b !important; }
+        html body .modal .bore-modal-content .bore-summary-row .val { color: #0f172a !important; }
+        html body .modal .bore-modal-content .bore-summary-row .val.accent { color: #2563eb !important; }
+        html body .modal .bore-modal-content .bore-chip { color: #334155 !important; }
+        html body .modal .bore-modal-content .bore-chip-badge { color: #3730a3 !important; }
+        html body .modal .bore-modal-content .bore-chip.active,
+        html body .modal .bore-modal-content .bore-chip.active .bore-chip-badge { color: #ffffff !important; }
+        html body .modal .bore-modal-content .bore-viewer-stage .bore-badge { color: #ffffff !important; }
+        html body .modal .bore-modal-content .bore-viewer-nav > span { color: #334155 !important; }
+        html body .modal .bore-modal-content .bore-empty { color: #94a3b8 !important; }
+        html body .modal .bore-modal-content .bore-edit-new { color: #ffffff !important; }
 
-        .bore-summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed rgba(148,163,184,.2); gap: 10px; }
+        .bore-info-card {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 18px 20px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 14px;
+        }
+        .bore-eyebrow { color: #64748b; font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+        .bore-sn-big { color: #0f172a; font-size: 1.6rem; font-weight: 800; margin-bottom: 14px; word-break: break-word; }
+        .bore-tiles { display: flex; gap: 10px; }
+        .bore-tile { flex: 1; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
+        .bore-tile-val { color: #0f172a; font-weight: 700; font-size: 1.05rem; }
+
+        .bore-summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #e2e8f0; gap: 10px; }
         .bore-summary-row:last-child { border-bottom: none; }
-        .bore-summary-row .lbl { color: #94a3b8; font-size: .85rem; }
-        .bore-summary-row .val { color: #f1f5f9; font-weight: 600; font-size: .9rem; text-align: right; }
-        .bore-summary-row .val.accent { color: #38bdf8; }
+        .bore-summary-row .lbl { color: #64748b; font-size: .85rem; }
+        .bore-summary-row .val { color: #0f172a; font-weight: 600; font-size: .9rem; text-align: right; }
+        .bore-summary-row .val.accent { color: #2563eb; }
 
         .bore-chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
         .bore-chip {
-            display: flex; align-items: center; gap: 6px; background: rgba(59,130,246,.12);
-            border: 1px solid rgba(59,130,246,.3); color: #93c5fd; border-radius: 20px;
-            padding: 5px 12px; font-size: .78rem; font-weight: 600;
+            display: flex; align-items: center; gap: 6px; background: #ffffff;
+            border: 1px solid #e2e8f0; color: #334155; border-radius: 20px;
+            padding: 5px 12px 5px 6px; font-size: .78rem; font-weight: 600;
+            cursor: pointer; user-select: none; transition: all .15s ease;
         }
+        .bore-chip:hover { border-color: #93c5fd; background: #eff6ff; }
+        .bore-chip.active { background: #2563eb; border-color: #2563eb; color: #ffffff; }
         .bore-chip-badge {
-            background: #3b82f6; color: #fff; border-radius: 6px; min-width: 20px; height: 20px; padding: 0 4px;
+            background: #e0e7ff; color: #3730a3; border-radius: 12px; min-width: 22px; height: 22px; padding: 0 5px;
             display: flex; align-items: center; justify-content: center; font-size: .65rem; font-weight: 800;
         }
+        .bore-chip.active .bore-chip-badge { background: rgba(255,255,255,.25); color: #ffffff; }
 
         .bore-extra-card {
-            background: rgba(15,23,42,.5); border: 1px solid rgba(148,163,184,.2);
-            border-radius: 12px; padding: 16px; color: #cbd5e1; font-size: .88rem; margin-bottom: 16px;
+            background: #f8fafc; border: 1px solid #e2e8f0;
+            border-radius: 12px; padding: 16px; color: #475569; font-size: .88rem; margin-bottom: 14px;
         }
-        .bore-extra-card strong { color: #f1f5f9; }
-        .bore-extra-card a { color: #60a5fa; }
+        .bore-extra-card strong { color: #0f172a; }
+        .bore-extra-card a { color: #2563eb; }
 
         .bore-viewer {
-            background: #0b0f19; border-radius: 16px; overflow: hidden;
-            border: 1px solid rgba(71,85,105,.4); display: flex; flex-direction: column;
-            box-shadow: 0 8px 28px rgba(0,0,0,.35);
+            background: #ffffff; border-radius: 16px; overflow: hidden;
+            border: 1px solid #e2e8f0; display: flex; flex-direction: column;
         }
         .bore-viewer-head {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 12px 16px; color: #cbd5e1; font-size: .85rem; font-weight: 600;
-            border-bottom: 1px solid rgba(71,85,105,.3);
+            padding: 12px 16px; color: #334155; font-size: .85rem; font-weight: 600;
+            border-bottom: 1px solid #eef2f7;
         }
         .bore-viewer-nav { display: flex; align-items: center; gap: 8px; }
         .bore-viewer-nav button {
-            background: rgba(148,163,184,.12); border: 1px solid rgba(148,163,184,.25);
-            color: #e2e8f0; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+            background: #f1f5f9; border: 1px solid #e2e8f0;
+            color: #334155; width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
             display: flex; align-items: center; justify-content: center; transition: background .15s ease;
         }
-        .bore-viewer-nav button:hover:not(:disabled) { background: rgba(148,163,184,.25); }
-        .bore-viewer-nav button:disabled { opacity: .35; cursor: default; }
+        .bore-viewer-nav button:hover:not(:disabled) { background: #e2e8f0; }
+        .bore-viewer-nav button:disabled { opacity: .4; cursor: default; }
 
         .bore-viewer-stage {
-            position: relative; background: #05070c; min-height: 340px;
+            position: relative; background: #f1f5f9; min-height: 340px;
             display: flex; align-items: center; justify-content: center;
         }
         .bore-viewer-stage img {
@@ -4868,36 +4908,36 @@
         .bore-viewer-stage .bore-badge {
             position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 6px;
             font-size: .72rem; font-weight: 700; letter-spacing: .03em;
-            background: rgba(59,130,246,.85); color: #fff; border: 1px solid rgba(59,130,246,.9);
+            background: #2563eb; color: #fff; border: 1px solid #2563eb;
         }
-        .bore-empty { color: #64748b; text-align: center; padding: 60px 20px; }
+        .bore-empty { color: #94a3b8; text-align: center; padding: 60px 20px; }
         .bore-empty i { font-size: 2.4rem; display: block; margin-bottom: 10px; }
 
         .bore-thumbs {
-            display: flex; gap: 8px; padding: 12px; overflow-x: auto; background: rgba(15,23,42,.5);
+            display: flex; gap: 8px; padding: 12px; overflow-x: auto; background: #f8fafc;
         }
         .bore-thumb {
             flex: 0 0 72px; width: 72px; height: 54px; border-radius: 8px; overflow: hidden;
-            border: 2px solid transparent; cursor: pointer; opacity: .65; transition: all .15s ease;
-            background: #111827;
+            border: 2px solid transparent; cursor: pointer; opacity: .7; transition: all .15s ease;
+            background: #e2e8f0;
         }
         .bore-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .bore-thumb.active { border-color: #3b82f6; opacity: 1; }
+        .bore-thumb.active { border-color: #2563eb; opacity: 1; }
         .bore-thumb:hover { opacity: 1; }
 
         /* Edit photos & labels (Borescope report modal) */
-        .bore-edit-panel { background: #0b0f19; border: 1px solid rgba(245,158,11,.5); border-radius: 16px; padding: 16px; box-shadow: 0 8px 28px rgba(0,0,0,.35); }
-        .bore-edit-head { display: flex; align-items: center; justify-content: space-between; color: #fbbf24; font-weight: 700; font-size: .85rem; margin-bottom: 12px; }
-        .bore-edit-row { background: rgba(15,23,42,.6); border: 1px solid rgba(148,163,184,.2); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+        .bore-edit-panel { background: #ffffff; border: 1px solid #fcd34d; border-radius: 16px; padding: 16px; }
+        .bore-edit-head { display: flex; align-items: center; justify-content: space-between; color: #b45309; font-weight: 700; font-size: .85rem; margin-bottom: 12px; }
+        .bore-edit-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
         .bore-edit-row-top { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
-        .bore-edit-row-top input { flex: 1; background: #111827; border: 1px solid rgba(148,163,184,.3); color: #f1f5f9; border-radius: 8px; padding: 6px 10px; font-size: .9rem; }
+        .bore-edit-row-top input { flex: 1; background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; border-radius: 8px; padding: 6px 10px; font-size: .9rem; }
         .bore-edit-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-        .bore-edit-item { position: relative; width: 104px; height: 78px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(148,163,184,.3); background: #111827; }
+        .bore-edit-item { position: relative; width: 104px; height: 78px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; background: #f1f5f9; }
         .bore-edit-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .bore-edit-item .bore-edit-del { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: none; background: rgba(220,38,38,.9); color: #fff; font-size: .8rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .bore-edit-item .bore-edit-new { position: absolute; left: 3px; bottom: 3px; background: #16a34a; color: #fff; font-size: .6rem; font-weight: 700; padding: 1px 5px; border-radius: 4px; }
-        .bore-edit-add { width: 104px; height: 78px; border-radius: 8px; border: 2px dashed rgba(148,163,184,.4); color: #94a3b8; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-size: .7rem; text-align: center; }
-        .bore-edit-add:hover { border-color: #38bdf8; color: #38bdf8; }
+        .bore-edit-add { width: 104px; height: 78px; border-radius: 8px; border: 2px dashed #cbd5e1; color: #64748b; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-size: .7rem; text-align: center; }
+        .bore-edit-add:hover { border-color: #2563eb; color: #2563eb; }
 
         @media (max-width: 767px) {
             .bore-report-v2 .bore-info-col { flex: 1 1 auto; max-width: none; }
@@ -15439,6 +15479,31 @@ function onGssInputChange(engines) {
         boreRenderPhoto(rowId, current + step);
     };
 
+    function boreThumbsHtml(rowId, list) {
+        return list.map((p, i) => `
+                <div class="bore-thumb${i === 0 ? ' active' : ''}" onclick="boreGoToPhoto(${rowId}, ${i})">
+                    <img src="${p.url}" alt="${boreEsc(p.label)}">
+                </div>
+            `).join('');
+    }
+
+    // Выбор секции: -1 = все секции, иначе индекс секции. Меняет только просмотр, данные не трогает.
+    window.boreSelectSection = function (rowId, secIdx) {
+        if (window.__boreEdit && window.__boreEdit[rowId]) return; // в режиме Edit фильтр не нужен
+        const all = window.__boreAllPhotos && window.__boreAllPhotos[rowId];
+        if (!all) return;
+        const labels = (window.__boreSections && window.__boreSections[rowId]) || [];
+        const list = secIdx < 0 ? all : all.filter(p => p.label === labels[secIdx]);
+        if (!list.length) return;
+        window.__boreGalleries[rowId] = list;
+        const thumbs = document.getElementById(`bore-thumbs-${rowId}`);
+        if (thumbs) thumbs.innerHTML = boreThumbsHtml(rowId, list);
+        document.querySelectorAll(`#inspection-details-modal-${rowId} .bore-chip`).forEach(ch => {
+            ch.classList.toggle('active', Number(ch.dataset.sec) === secIdx);
+        });
+        boreRenderPhoto(rowId, 0);
+    };
+
     // ===== Edit photos & labels in the Borescope report modal (остальные данные правятся только в таблице) =====
     window.__boreEdit = window.__boreEdit || {};
 
@@ -15717,8 +15782,11 @@ function onGssInputChange(engines) {
 
         const sectionCounts = {};
         galleryPhotos.forEach(p => { sectionCounts[p.label] = (sectionCounts[p.label] || 0) + 1; });
-        const sectionChips = Object.keys(sectionCounts).map(label => `
-            <div class="bore-chip"><span class="bore-chip-badge">${label.substring(0, 2).toUpperCase()}</span>${label} · ${sectionCounts[label]} photo${sectionCounts[label] > 1 ? 's' : ''}</div>
+        const sectionLabels = Object.keys(sectionCounts);
+        const sectionChips = galleryPhotos.length === 0 ? '' : `
+            <div class="bore-chip active" data-sec="-1" onclick="boreSelectSection(${rowId}, -1)"><span class="bore-chip-badge"><i class="bi bi-collection"></i></span>All sections · ${galleryPhotos.length} photo${galleryPhotos.length > 1 ? 's' : ''}</div>
+        ` + sectionLabels.map((label, i) => `
+            <div class="bore-chip" data-sec="${i}" onclick="boreSelectSection(${rowId}, ${i})"><span class="bore-chip-badge">${boreEsc(label.substring(0, 2).toUpperCase())}</span>${boreEsc(label)} · ${sectionCounts[label]} photo${sectionCounts[label] > 1 ? 's' : ''}</div>
         `).join('');
 
         // Левая карточка (Summary) — новый дизайн
@@ -15774,11 +15842,7 @@ function onGssInputChange(engines) {
         
         if (galleryPhotos.length > 0) {
             const first = galleryPhotos[0];
-            const thumbs = galleryPhotos.map((p, i) => `
-                <div class="bore-thumb${i === 0 ? ' active' : ''}" onclick="boreGoToPhoto(${rowId}, ${i})">
-                    <img src="${p.url}" alt="${p.label}">
-                </div>
-            `).join('');
+            const thumbs = boreThumbsHtml(rowId, galleryPhotos);
 
             photosHtml = `
                 <div class="bore-viewer">
@@ -15811,6 +15875,11 @@ function onGssInputChange(engines) {
         window.__boreGalleryIndex = window.__boreGalleryIndex || {};
         window.__boreGalleries[rowId] = galleryPhotos;
         window.__boreGalleryIndex[rowId] = 0;
+        // Фильтр по секциям: __boreGalleries = текущий вид, __boreAllPhotos = все фото
+        window.__boreAllPhotos = window.__boreAllPhotos || {};
+        window.__boreSections = window.__boreSections || {};
+        window.__boreAllPhotos[rowId] = galleryPhotos;
+        window.__boreSections[rowId] = sectionLabels;
         // Для режима Edit (только подписи и фото): исходные строки отчёта
         window.__boreEditSource = window.__boreEditSource || {};
         window.__boreEditSource[rowId] = (inspection.inspection_report && Array.isArray(inspection.inspection_report.photos))
@@ -15823,23 +15892,22 @@ function onGssInputChange(engines) {
         modal.id = `inspection-details-modal-${rowId}`;
         modal.tabIndex = '-1';
         modal.innerHTML = `
-            <div class="modal-dialog modal-xl">
-                <div class="modal-content">
-                    <div class="modal-header bg-info text-white">
-                        <h5 class="modal-title">Boroscope Inspection Report - ID: ${rowId}</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <div class="modal-dialog modal-xl modal-dialog-centered">
+                <div class="modal-content bore-modal-content">
+                    <div class="bore-modal-bar">
+                        <h5 class="bore-modal-title">Boroscope Inspection Report <span class="bore-id-pill">ID ${rowId}</span></h5>
+                        <div class="bore-modal-actions">
+                            <button type="button" class="bore-btn edit" id="bore-edit-btn-${rowId}" onclick="boreEditStart(${rowId})"><i class="bi bi-pencil-square"></i> Edit photos</button>
+                            <button type="button" class="bore-btn save d-none" id="bore-edit-save-${rowId}" onclick="boreEditSave(${rowId})"><i class="bi bi-check-lg"></i> Save</button>
+                            <button type="button" class="bore-btn d-none" id="bore-edit-cancel-${rowId}" onclick="boreEditCancel(${rowId})"><i class="bi bi-x-lg"></i> Cancel</button>
+                            <button type="button" class="bore-close" title="Close" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i></button>
+                        </div>
                     </div>
-                    <div class="modal-body" style="max-height: 80vh; overflow-y: auto; background: #0b0f19;">
+                    <div class="bore-modal-body">
                         <div class="bore-report-v2">
                             <div class="bore-info-col">${reportHtml}</div>
                             <div class="bore-viewer-col" id="bore-viewer-col-${rowId}">${photosHtml}</div>
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-warning me-auto" id="bore-edit-btn-${rowId}" onclick="boreEditStart(${rowId})"><i class="bi bi-pencil-square"></i> Edit photos</button>
-                        <button type="button" class="btn btn-success d-none" id="bore-edit-save-${rowId}" onclick="boreEditSave(${rowId})"><i class="bi bi-check-lg"></i> Save</button>
-                        <button type="button" class="btn btn-outline-secondary d-none" id="bore-edit-cancel-${rowId}" onclick="boreEditCancel(${rowId})"><i class="bi bi-x-lg"></i> Cancel</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     </div>
                 </div>
             </div>
@@ -15858,6 +15926,8 @@ function onGssInputChange(engines) {
                 delete window.__boreEdit[rowId];
             }
             if (window.__boreEditSource) delete window.__boreEditSource[rowId];
+            if (window.__boreAllPhotos) delete window.__boreAllPhotos[rowId];
+            if (window.__boreSections) delete window.__boreSections[rowId];
         });
     }
 
