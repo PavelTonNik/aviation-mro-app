@@ -4885,6 +4885,20 @@
         .bore-thumb.active { border-color: #3b82f6; opacity: 1; }
         .bore-thumb:hover { opacity: 1; }
 
+        /* Edit photos & labels (Borescope report modal) */
+        .bore-edit-panel { background: #0b0f19; border: 1px solid rgba(245,158,11,.5); border-radius: 16px; padding: 16px; box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+        .bore-edit-head { display: flex; align-items: center; justify-content: space-between; color: #fbbf24; font-weight: 700; font-size: .85rem; margin-bottom: 12px; }
+        .bore-edit-row { background: rgba(15,23,42,.6); border: 1px solid rgba(148,163,184,.2); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+        .bore-edit-row-top { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+        .bore-edit-row-top input { flex: 1; background: #111827; border: 1px solid rgba(148,163,184,.3); color: #f1f5f9; border-radius: 8px; padding: 6px 10px; font-size: .9rem; }
+        .bore-edit-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+        .bore-edit-item { position: relative; width: 104px; height: 78px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(148,163,184,.3); background: #111827; }
+        .bore-edit-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .bore-edit-item .bore-edit-del { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: none; background: rgba(220,38,38,.9); color: #fff; font-size: .8rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .bore-edit-item .bore-edit-new { position: absolute; left: 3px; bottom: 3px; background: #16a34a; color: #fff; font-size: .6rem; font-weight: 700; padding: 1px 5px; border-radius: 4px; }
+        .bore-edit-add { width: 104px; height: 78px; border-radius: 8px; border: 2px dashed rgba(148,163,184,.4); color: #94a3b8; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-size: .7rem; text-align: center; }
+        .bore-edit-add:hover { border-color: #38bdf8; color: #38bdf8; }
+
         @media (max-width: 767px) {
             .bore-report-v2 .bore-info-col { flex: 1 1 auto; max-width: none; }
         }
@@ -15425,6 +15439,169 @@ function onGssInputChange(engines) {
         boreRenderPhoto(rowId, current + step);
     };
 
+    // ===== Edit photos & labels in the Borescope report modal (остальные данные правятся только в таблице) =====
+    window.__boreEdit = window.__boreEdit || {};
+
+    function boreEsc(v) {
+        return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function boreEditToggleButtons(rowId, editing) {
+        const edit = document.getElementById(`bore-edit-btn-${rowId}`);
+        const save = document.getElementById(`bore-edit-save-${rowId}`);
+        const cancel = document.getElementById(`bore-edit-cancel-${rowId}`);
+        if (edit) edit.classList.toggle('d-none', editing);
+        if (save) { save.classList.toggle('d-none', !editing); save.disabled = false; }
+        if (cancel) { cancel.classList.toggle('d-none', !editing); cancel.disabled = false; }
+    }
+
+    function boreEditRender(rowId) {
+        const st = window.__boreEdit[rowId];
+        const col = document.getElementById(`bore-viewer-col-${rowId}`);
+        if (!st || !col) return;
+        const rowsHtml = st.rows.map((r, ri) => {
+            const items = r.items.map((it, ii) => `
+                <div class="bore-edit-item">
+                    <img src="${boreEsc(it.preview || it.url)}" alt="">
+                    ${it.file ? '<span class="bore-edit-new">NEW</span>' : ''}
+                    <button type="button" class="bore-edit-del" title="Delete photo" onclick="boreEditRemovePhoto(${rowId}, ${ri}, ${ii})">&times;</button>
+                </div>`).join('');
+            return `
+                <div class="bore-edit-row">
+                    <div class="bore-edit-row-top">
+                        <input type="text" value="${boreEsc(r.label)}" placeholder="Photo label" maxlength="100" oninput="boreEditSetLabel(${rowId}, ${ri}, this.value)">
+                        <button type="button" class="btn btn-sm btn-outline-danger" title="Remove this label with all its photos" onclick="boreEditRemoveRow(${rowId}, ${ri})"><i class="bi bi-trash"></i></button>
+                    </div>
+                    <div class="bore-edit-grid">
+                        ${items}
+                        <label class="bore-edit-add"><i class="bi bi-plus-lg"></i>Add photos
+                            <input type="file" accept="image/*" multiple hidden onchange="boreEditAddFiles(${rowId}, ${ri}, this)">
+                        </label>
+                    </div>
+                </div>`;
+        }).join('');
+        col.innerHTML = `
+            <div class="bore-edit-panel">
+                <div class="bore-edit-head"><span><i class="bi bi-pencil-square"></i> Edit photos and labels</span></div>
+                ${rowsHtml || '<div class="bore-empty" style="padding:30px 10px;">No photos yet</div>'}
+                <button type="button" class="btn btn-sm btn-outline-info" onclick="boreEditAddRow(${rowId})"><i class="bi bi-plus-lg"></i> Add label</button>
+            </div>`;
+    }
+
+    window.boreEditStart = function (rowId) {
+        const col = document.getElementById(`bore-viewer-col-${rowId}`);
+        if (!col) return;
+        const source = (window.__boreEditSource && window.__boreEditSource[rowId]) || [];
+        window.__boreEdit[rowId] = {
+            origHtml: col.innerHTML,
+            rows: source.map(r => ({ label: r.label, items: r.urls.map(url => ({ url })) }))
+        };
+        boreEditToggleButtons(rowId, true);
+        boreEditRender(rowId);
+    };
+
+    function boreEditRevokePreviews(st) {
+        if (!st) return;
+        st.rows.forEach(r => r.items.forEach(it => { if (it.preview) URL.revokeObjectURL(it.preview); }));
+    }
+
+    window.boreEditCancel = function (rowId) {
+        const st = window.__boreEdit[rowId];
+        const col = document.getElementById(`bore-viewer-col-${rowId}`);
+        if (st && col) col.innerHTML = st.origHtml;
+        boreEditRevokePreviews(st);
+        delete window.__boreEdit[rowId];
+        boreEditToggleButtons(rowId, false);
+    };
+
+    window.boreEditSetLabel = function (rowId, ri, value) {
+        const st = window.__boreEdit[rowId];
+        if (st && st.rows[ri]) st.rows[ri].label = value;
+    };
+
+    window.boreEditRemovePhoto = function (rowId, ri, ii) {
+        const st = window.__boreEdit[rowId];
+        if (!st || !st.rows[ri]) return;
+        const removed = st.rows[ri].items.splice(ii, 1)[0];
+        if (removed && removed.preview) URL.revokeObjectURL(removed.preview);
+        boreEditRender(rowId);
+    };
+
+    window.boreEditRemoveRow = function (rowId, ri) {
+        const st = window.__boreEdit[rowId];
+        if (!st || !st.rows[ri]) return;
+        boreEditRevokePreviews({ rows: [st.rows[ri]] });
+        st.rows.splice(ri, 1);
+        boreEditRender(rowId);
+    };
+
+    window.boreEditAddRow = function (rowId) {
+        const st = window.__boreEdit[rowId];
+        if (!st) return;
+        st.rows.push({ label: '', items: [] });
+        boreEditRender(rowId);
+    };
+
+    window.boreEditAddFiles = function (rowId, ri, input) {
+        const st = window.__boreEdit[rowId];
+        if (!st || !st.rows[ri]) return;
+        Array.from(input.files || []).forEach(file => {
+            if (!file.type.startsWith('image/')) {
+                showErrorNotification('Please select an image file');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                showErrorNotification('Image size must be less than 5MB');
+                return;
+            }
+            st.rows[ri].items.push({ file, preview: URL.createObjectURL(file) });
+        });
+        boreEditRender(rowId);
+    };
+
+    window.boreEditSave = async function (rowId) {
+        const st = window.__boreEdit[rowId];
+        if (!st) return;
+        const saveBtn = document.getElementById(`bore-edit-save-${rowId}`);
+        const cancelBtn = document.getElementById(`bore-edit-cancel-${rowId}`);
+        if (saveBtn) saveBtn.disabled = true;
+        if (cancelBtn) cancelBtn.disabled = true;
+
+        const formData = new FormData();
+        const rowsPayload = [];
+        const fileRows = [];
+        st.rows.forEach((r, ri) => {
+            rowsPayload.push({ label: (r.label || '').trim(), keep: r.items.filter(it => !it.file).map(it => it.url) });
+            r.items.filter(it => it.file).forEach(it => {
+                formData.append('photos', it.file);
+                fileRows.push(ri);
+            });
+        });
+        formData.append('rows', JSON.stringify(rowsPayload));
+        formData.append('new_photo_rows', JSON.stringify(fileRows));
+
+        try {
+            const res = await fetch(`/api/history/BORESCOPE/${rowId}/photos`, { method: 'PUT', body: formData });
+            if (!res.ok) {
+                let detail = `HTTP ${res.status}`;
+                try { const err = await res.json(); if (err && err.detail) detail = err.detail; } catch (e) { }
+                throw new Error(detail);
+            }
+            showSuccessNotification('Photos updated');
+            if (typeof loadBoroscopeHistory === 'function') loadBoroscopeHistory();
+            // Перезагружаем окно отчёта уже с новыми данными
+            const modalEl = document.getElementById(`inspection-details-modal-${rowId}`);
+            if (modalEl) {
+                modalEl.addEventListener('hidden.bs.modal', () => showBoroscopeInspectionDetails(rowId), { once: true });
+                bootstrap.Modal.getInstance(modalEl).hide();
+            }
+        } catch (e) {
+            showErrorNotification('Failed to save photos: ' + e.message);
+            if (saveBtn) saveBtn.disabled = false;
+            if (cancelBtn) cancelBtn.disabled = false;
+        }
+    };
+
     async function showBoroscopeInspectionDetails(rowId) {
         // Загружаем данные инспекции с сервера
         const res = await safeFetch(`/api/history/BORESCOPE${window.noCache()}`);
@@ -15634,6 +15811,11 @@ function onGssInputChange(engines) {
         window.__boreGalleryIndex = window.__boreGalleryIndex || {};
         window.__boreGalleries[rowId] = galleryPhotos;
         window.__boreGalleryIndex[rowId] = 0;
+        // Для режима Edit (только подписи и фото): исходные строки отчёта
+        window.__boreEditSource = window.__boreEditSource || {};
+        window.__boreEditSource[rowId] = (inspection.inspection_report && Array.isArray(inspection.inspection_report.photos))
+            ? inspection.inspection_report.photos.map(r => ({ label: r.label || '', urls: boreRowPhotoUrls(r) }))
+            : [];
         
         // Создаем модальное окно
         const modal = document.createElement('div');
@@ -15650,10 +15832,13 @@ function onGssInputChange(engines) {
                     <div class="modal-body" style="max-height: 80vh; overflow-y: auto; background: #0b0f19;">
                         <div class="bore-report-v2">
                             <div class="bore-info-col">${reportHtml}</div>
-                            <div class="bore-viewer-col">${photosHtml}</div>
+                            <div class="bore-viewer-col" id="bore-viewer-col-${rowId}">${photosHtml}</div>
                         </div>
                     </div>
                     <div class="modal-footer">
+                        <button type="button" class="btn btn-warning me-auto" id="bore-edit-btn-${rowId}" onclick="boreEditStart(${rowId})"><i class="bi bi-pencil-square"></i> Edit photos</button>
+                        <button type="button" class="btn btn-success d-none" id="bore-edit-save-${rowId}" onclick="boreEditSave(${rowId})"><i class="bi bi-check-lg"></i> Save</button>
+                        <button type="button" class="btn btn-outline-secondary d-none" id="bore-edit-cancel-${rowId}" onclick="boreEditCancel(${rowId})"><i class="bi bi-x-lg"></i> Cancel</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     </div>
                 </div>
@@ -15668,6 +15853,11 @@ function onGssInputChange(engines) {
             modal.remove();
             delete window.__boreGalleries[rowId];
             delete window.__boreGalleryIndex[rowId];
+            if (window.__boreEdit) {
+                (window.__boreEdit[rowId] || { rows: [] }).rows.forEach(r => r.items.forEach(it => { if (it.preview) URL.revokeObjectURL(it.preview); }));
+                delete window.__boreEdit[rowId];
+            }
+            if (window.__boreEditSource) delete window.__boreEditSource[rowId];
         });
     }
 

@@ -7861,6 +7861,131 @@ async def create_borescope_inspection(
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=500, content={"detail": f"Failed to create inspection: {str(e)}"})
 
+@app.put("/api/history/BORESCOPE/{inspection_id}/photos")
+async def update_borescope_photos(
+    inspection_id: int,
+    rows: str = Form("[]"),  # JSON: [{"label": str, "keep": [existing photo urls]}] in desired order
+    new_photo_rows: str = Form("[]"),  # JSON: row index for each uploaded file (same order as `photos`)
+    photos: Optional[List[UploadFile]] = File(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Edit ONLY photo labels and photos of a borescope inspection.
+    Other inspection fields are not touched. Removed photos are deleted from R2 after the DB is updated.
+    """
+    import json
+    inspection = db.query(models.BoroscopeInspection).filter(models.BoroscopeInspection.id == inspection_id).first()
+    if not inspection:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+
+    try:
+        req_rows = json.loads(rows) if rows else []
+        file_rows = json.loads(new_photo_rows) if new_photo_rows else []
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid rows payload")
+    if not isinstance(req_rows, list) or not isinstance(file_rows, list):
+        raise HTTPException(status_code=400, detail="Invalid rows payload")
+    files = [f for f in (photos or []) if f and f.filename]
+    if len(file_rows) != len(files):
+        raise HTTPException(status_code=400, detail="Uploaded files do not match row indexes")
+
+    # Current report and all photo urls currently stored for this inspection
+    report = inspection.inspection_report
+    if isinstance(report, str):
+        try:
+            report = json.loads(report)
+        except Exception:
+            report = None
+    report = dict(report) if isinstance(report, dict) else {}
+    old_urls = []
+    for old_row in (report.get("photos") or []):
+        if not isinstance(old_row, dict):
+            continue
+        extra = old_row.get("photos")
+        for u in ((extra if isinstance(extra, list) else []) + [old_row.get("photo1"), old_row.get("photo2")]):
+            if isinstance(u, str) and u and u not in old_urls:
+                old_urls.append(u)
+
+    # Keep only urls that really belong to this inspection (no arbitrary urls, no duplicates)
+    used = set()
+    new_rows = []
+    for r in req_rows:
+        if not isinstance(r, dict):
+            raise HTTPException(status_code=400, detail="Invalid row")
+        keep = []
+        for u in (r.get("keep") or []):
+            if isinstance(u, str) and u in old_urls and u not in used:
+                used.add(u)
+                keep.append(u)
+        new_rows.append({"label": str(r.get("label") or "").strip(), "photos": keep})
+
+    # Upload new photos first: if anything fails, the DB stays untouched
+    uploaded = []
+    try:
+        for idx, f in enumerate(files):
+            if not (f.content_type or "").startswith("image/"):
+                raise HTTPException(status_code=400, detail=f"File is not an image: {f.filename}")
+            try:
+                row_idx = int(file_rows[idx])
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid row index")
+            if not 0 <= row_idx < len(new_rows):
+                raise HTTPException(status_code=400, detail="Invalid row index")
+            data = await f.read()
+            url = r2_storage.upload_photo_to_r2(data, inspection_id, row_idx, len(new_rows[row_idx]["photos"]) + 1)
+            uploaded.append(url)
+            new_rows[row_idx]["photos"].append(url)
+    except HTTPException:
+        for u in uploaded:
+            try:
+                r2_storage.delete_photo_from_r2(u)
+            except Exception:
+                pass
+        raise
+    except Exception as e:
+        for u in uploaded:
+            try:
+                r2_storage.delete_photo_from_r2(u)
+            except Exception:
+                pass
+        raise HTTPException(status_code=502, detail=f"Failed to upload photo: {e}")
+
+    photo_data = []
+    for i, r in enumerate(new_rows):
+        if not r["photos"]:
+            continue
+        photo_data.append({
+            "label": r["label"] or f"Photo {i + 1}",
+            "photos": r["photos"],
+            "photo1": r["photos"][0],
+            "photo2": r["photos"][1] if len(r["photos"]) > 1 else None,
+        })
+
+    report["photos"] = photo_data
+    try:
+        inspection.inspection_report = report
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        for u in uploaded:
+            try:
+                r2_storage.delete_photo_from_r2(u)
+            except Exception:
+                pass
+        raise HTTPException(status_code=500, detail=f"Failed to save photos: {e}")
+
+    # DB is saved - now remove photos that were deleted by the user from R2
+    removed = 0
+    for u in old_urls:
+        if u not in used and u.startswith("http"):
+            try:
+                if r2_storage.delete_photo_from_r2(u):
+                    removed += 1
+            except Exception as e:
+                print(f"⚠️ Could not delete {u} from R2: {e}")
+
+    return {"message": "Photos updated", "photos": photo_data, "removed_from_r2": removed}
+
 @app.delete("/api/history/BORESCOPE/{inspection_id}")
 def delete_borescope_inspection(inspection_id: int, db: Session = Depends(get_db)):
     """
