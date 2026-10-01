@@ -4784,6 +4784,18 @@
             background: #bb2d3b;
         }
 
+        .inspection-photo-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: stretch;
+        }
+
+        .inspection-photo-list .inspection-photo-cell {
+            flex: 0 0 150px;
+            width: 150px;
+        }
+
         /* === Borescope Report Modal v2 (redesign) === */
         .bore-report-v2 { display: flex; gap: 20px; flex-wrap: wrap; }
         .bore-report-v2 .bore-info-col { flex: 0 0 300px; max-width: 300px; }
@@ -7079,9 +7091,8 @@
                                             <table class="table table-bordered" id="inspection-photos-table">
                                                 <thead>
                                                     <tr>
-                                                        <th style="width: 30%;">Label (HPT/LPT/etc)</th>
-                                                        <th style="width: 30%;">Photo 1</th>
-                                                        <th style="width: 30%;">Photo 2</th>
+                                                        <th style="width: 25%;">Label (HPT/LPT/etc)</th>
+                                                        <th style="width: 65%;">Photos (any number)</th>
                                                         <th style="width: 10%;">Action</th>
                                                     </tr>
                                                 </thead>
@@ -12989,8 +13000,7 @@ function hideInstallTooltip() {
                     <div class="borescope-mini-photo">
                         <div class="borescope-mini-label">${photo.label || 'Photo'}</div>
                         <div class="borescope-mini-imgs">
-                            ${photo.photo1 ? `<img src="${photo.photo1}" onclick="openBorescopePhoto('${photo.photo1}');" />` : ''}
-                            ${photo.photo2 ? `<img src="${photo.photo2}" onclick="openBorescopePhoto('${photo.photo2}');" />` : ''}
+                            ${boreRowPhotoUrls(photo).map(u => `<img src="${u}" onclick="openBorescopePhoto('${u}');" />`).join('')}
                         </div>
                     </div>
                 `;
@@ -14281,8 +14291,9 @@ function onGssInputChange(engines) {
     function formatFlightTime(decimalHours) {
         if (decimalHours === null || decimalHours === undefined) return '';
         
-        const hours = Math.floor(decimalHours);
-        const minutes = Math.round((decimalHours - hours) * 60);
+        let hours = Math.floor(decimalHours);
+        let minutes = Math.round((decimalHours - hours) * 60);
+        if (minutes >= 60) { hours += 1; minutes = 0; }
         
         return `${hours}:${String(minutes).padStart(2, '0')}`;
     }
@@ -15345,7 +15356,7 @@ function onGssInputChange(engines) {
             
             // Проверяем есть ли фото
             const hasPhotos = row.inspection_report && Array.isArray(row.inspection_report.photos) && row.inspection_report.photos.length > 0;
-            const photoIcon = hasPhotos ? `<i class="bi bi-image text-info" title="${row.inspection_report.photos.length} photo(s)"></i>` : '';
+            const photoIcon = hasPhotos ? `<i class="bi bi-image text-info" title="${row.inspection_report.photos.reduce((n, r) => n + boreRowPhotoUrls(r).length, 0)} photo(s)"></i>` : '';
             
             tbody.innerHTML += `
                 <tr data-log-id="${row.id || 0}" data-user="${row.user || row.created_by || row.inspector || ''}" data-link="${row.link || ''}" style="cursor: pointer;" onclick="highlightRow(this)" title="Click to view details">
@@ -15367,6 +15378,13 @@ function onGssInputChange(engines) {
                 </tr>
             `;
         });
+    }
+
+    // Список URL фото одной строки отчёта: новый формат photos[], иначе старый photo1/photo2
+    function boreRowPhotoUrls(row) {
+        if (!row) return [];
+        if (Array.isArray(row.photos) && row.photos.length > 0) return row.photos.filter(Boolean);
+        return [row.photo1, row.photo2].filter(Boolean);
     }
 
     // Показать полный report при клике на строку
@@ -15510,10 +15528,13 @@ function onGssInputChange(engines) {
         // Собираем плоский список фото из строк (label + photo1/photo2) для галереи
         const galleryPhotos = [];
         if (inspection.inspection_report && Array.isArray(inspection.inspection_report.photos)) {
-            inspection.inspection_report.photos.forEach((photoRow) => {
-                const label = photoRow.label || 'Photo';
-                if (photoRow.photo1) galleryPhotos.push({ url: photoRow.photo1, label, slot: 1 });
-                if (photoRow.photo2) galleryPhotos.push({ url: photoRow.photo2, label, slot: 2 });
+            const labelSlots = {};
+            inspection.inspection_report.photos.forEach((photoRow, rowIdx) => {
+                const label = photoRow.label || `Photo ${rowIdx + 1}`;
+                boreRowPhotoUrls(photoRow).forEach(url => {
+                    labelSlots[label] = (labelSlots[label] || 0) + 1;
+                    galleryPhotos.push({ url, label, slot: labelSlots[label] });
+                });
             });
         }
 
@@ -15876,6 +15897,7 @@ function onGssInputChange(engines) {
         // Собираем фото и лейблы из таблицы
         const photoRows = document.querySelectorAll('#inspection-photos-tbody tr');
         const labels = [];
+        const fileRows = []; // индекс строки для каждого файла (в порядке добавления в FormData)
         let photoCount = 0;
         
         console.log('📸 PHOTO COLLECTION:');
@@ -15888,30 +15910,25 @@ function onGssInputChange(engines) {
             
             labels.push(label);
             
-            // Находим файлы для этой строки в inspectionPhotosData
-            const photo1Data = inspectionPhotosData.find(p => p.rowId === rowId && p.photoNum === 1);
-            const photo2Data = inspectionPhotosData.find(p => p.rowId === rowId && p.photoNum === 2);
+            // Находим файлы для этой строки в inspectionPhotosData (в порядке добавления)
+            const rowPhotos = inspectionPhotosData.filter(p => p.rowId === rowId && p.file);
             
             console.log(`  Row ${rowIdx} (rowId=${rowId}):`);
             console.log(`    Label: "${label}"`);
-            console.log(`    photo1: ${photo1Data ? 'exists' : 'null'}`);
-            console.log(`    photo2: ${photo2Data ? 'exists' : 'null'}`);
+            console.log(`    photos: ${rowPhotos.length}`);
             
             // Добавляем файлы в FormData
-            if (photo1Data && photo1Data.file) {
-                formData.append('photos', photo1Data.file, photo1Data.file.name);
+            rowPhotos.forEach(p => {
+                formData.append('photos', p.file, p.file.name);
+                fileRows.push(rowIdx);
                 photoCount++;
-                console.log(`      → Added photo1: ${photo1Data.file.name}`);
-            }
-            if (photo2Data && photo2Data.file) {
-                formData.append('photos', photo2Data.file, photo2Data.file.name);
-                photoCount++;
-                console.log(`      → Added photo2: ${photo2Data.file.name}`);
-            }
+                console.log(`      → Added photo: ${p.file.name}`);
+            });
         });
         
         // Добавляем лейблы как JSON строку
         formData.append('photo_labels', JSON.stringify(labels));
+        formData.append('photo_rows', JSON.stringify(fileRows));
         
         console.log(`\n📤 Total photos to upload: ${photoCount}`);
         console.log('='.repeat(60));
@@ -16180,6 +16197,7 @@ function onGssInputChange(engines) {
     // === INSPECTION PHOTOS TABLE FUNCTIONS ===
     
     let inspectionPhotosData = []; // Массив для хранения фото
+    let inspectionPhotoSeq = 0; // Уникальный номер фото (для порядка и удаления)
 
     // Добавить строку в таблицу
     function addInspectionPhotoRow() {
@@ -16195,22 +16213,15 @@ function onGssInputChange(engines) {
                 <input type="text" class="form-control form-control-sm" placeholder="HPT, LPT, etc" data-row-id="${rowId}" data-type="label">
             </td>
             <td>
-                <div class="inspection-photo-cell" onclick="selectPhoto(${rowId}, 1)">
-                    <div class="inspection-photo-placeholder">
-                        <i class="bi bi-image" style="font-size: 2rem;"></i><br>
-                        Click or drag photo
+                <div class="inspection-photo-list" id="photo-list-${rowId}">
+                    <div class="inspection-photo-cell" id="photo-add-${rowId}" onclick="selectPhoto(${rowId})">
+                        <div class="inspection-photo-placeholder">
+                            <i class="bi bi-plus-lg" style="font-size: 2rem;"></i><br>
+                            Add photos<br>(click or drag)
+                        </div>
                     </div>
                 </div>
-                <input type="file" id="photo-input-${rowId}-1" accept="image/*" style="display: none;" onchange="handlePhotoSelect(${rowId}, 1, event)">
-            </td>
-            <td>
-                <div class="inspection-photo-cell" onclick="selectPhoto(${rowId}, 2)">
-                    <div class="inspection-photo-placeholder">
-                        <i class="bi bi-image" style="font-size: 2rem;"></i><br>
-                        Click or drag photo
-                    </div>
-                </div>
-                <input type="file" id="photo-input-${rowId}-2" accept="image/*" style="display: none;" onchange="handlePhotoSelect(${rowId}, 2, event)">
+                <input type="file" id="photo-input-${rowId}" accept="image/*" multiple style="display: none;" onchange="handlePhotoSelect(${rowId}, event)">
             </td>
             <td>
                 <button type="button" class="btn btn-sm btn-danger" onclick="removeInspectionPhotoRow(${rowId})">
@@ -16227,51 +16238,43 @@ function onGssInputChange(engines) {
 
     // Настройка drag-and-drop для ячеек фото
     function setupDragAndDrop(rowId) {
-        [1, 2].forEach(photoNum => {
-            const cell = document.querySelector(`tr[data-row-id="${rowId}"] td:nth-child(${photoNum + 1}) .inspection-photo-cell`);
+        [`photo-list-${rowId}`].forEach(listId => {
+            const cell = document.getElementById(listId);
             if (!cell) return;
             
             cell.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                cell.style.borderColor = '#0d6efd';
                 cell.style.background = '#e7f1ff';
             });
             
             cell.addEventListener('dragleave', (e) => {
                 e.preventDefault();
-                cell.style.borderColor = '#ccc';
-                cell.style.background = '#f8f9fa';
+                cell.style.background = '';
             });
             
             cell.addEventListener('drop', (e) => {
                 e.preventDefault();
-                cell.style.borderColor = '#ccc';
-                cell.style.background = '#f8f9fa';
+                cell.style.background = '';
                 
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    handlePhotoFile(rowId, photoNum, files[0]);
-                }
+                Array.from(e.dataTransfer.files).forEach(f => handlePhotoFile(rowId, f));
             });
         });
     }
 
     // Открыть диалог выбора файла
-    function selectPhoto(rowId, photoNum) {
-        const input = document.getElementById(`photo-input-${rowId}-${photoNum}`);
+    function selectPhoto(rowId) {
+        const input = document.getElementById(`photo-input-${rowId}`);
         if (input) input.click();
     }
 
     // Обработка выбора фото
-    function handlePhotoSelect(rowId, photoNum, event) {
-        const file = event.target.files[0];
-        if (file) {
-            handlePhotoFile(rowId, photoNum, file);
-        }
+    function handlePhotoSelect(rowId, event) {
+        Array.from(event.target.files).forEach(f => handlePhotoFile(rowId, f));
+        event.target.value = ''; // позволяет снова выбрать тот же файл
     }
 
     // Обработка файла фото (сохранение File объекта + preview)
-    function handlePhotoFile(rowId, photoNum, file) {
+    function handlePhotoFile(rowId, file) {
         if (!file.type.startsWith('image/')) {
             showErrorNotification('Please select an image file');
             return;
@@ -16283,13 +16286,9 @@ function onGssInputChange(engines) {
             return;
         }
         
-        // Сохраняем File объект напрямую (не конвертируем в base64)
-        const existingIndex = inspectionPhotosData.findIndex(p => p.rowId === rowId && p.photoNum === photoNum);
-        if (existingIndex >= 0) {
-            inspectionPhotosData[existingIndex].file = file;
-        } else {
-            inspectionPhotosData.push({ rowId, photoNum, file });
-        }
+        // Сохраняем File объект напрямую (не конвертируем в base64). В одной строке может быть несколько фото.
+        const photoNum = ++inspectionPhotoSeq;
+        inspectionPhotosData.push({ rowId, photoNum, file });
         
         // Создаем превью через URL.createObjectURL
         const previewUrl = URL.createObjectURL(file);
@@ -16300,8 +16299,12 @@ function onGssInputChange(engines) {
 
     // Обновление превью фото
     function updatePhotoPreview(rowId, photoNum, previewUrl) {
-        const cell = document.querySelector(`tr[data-row-id="${rowId}"] td:nth-child(${photoNum + 1}) .inspection-photo-cell`);
-        if (!cell) return;
+        const addCell = document.getElementById(`photo-add-${rowId}`);
+        if (!addCell) return;
+        const cell = document.createElement('div');
+        cell.className = 'inspection-photo-cell';
+        cell.id = `photo-cell-${rowId}-${photoNum}`;
+        addCell.parentNode.insertBefore(cell, addCell);
         
         cell.classList.add('has-photo');
         cell.innerHTML = `
@@ -16320,17 +16323,10 @@ function onGssInputChange(engines) {
             inspectionPhotosData.splice(index, 1);
         }
         
-        // Восстанавливаем placeholder
-        const cell = document.querySelector(`tr[data-row-id="${rowId}"] td:nth-child(${photoNum + 1}) .inspection-photo-cell`);
-        if (!cell) return;
+        // Убираем ячейку этого фото (ячейка «+» остаётся)
+        const cell = document.getElementById(`photo-cell-${rowId}-${photoNum}`);
+        if (cell) cell.remove();
         
-        cell.classList.remove('has-photo');
-        cell.innerHTML = `
-            <div class="inspection-photo-placeholder">
-                <i class="bi bi-image" style="font-size: 2rem;"></i><br>
-                Click or drag photo
-            </div>
-        `;
     }
 
     // Удалить всю строку
@@ -18942,7 +18938,7 @@ function shipmentLocationDisplay(loc) {
         },
         'remove': {
             bodyId: 'remove-history-body',
-            columns: ['date', 'original_sn', 'current_sn', 'gss_id', 'to_aircraft', 'to', 'ttsn', 'tcsn', 'ttsn_ac', 'tcsn_ac', 'condition_1_at_removal', 'installed_plate_sn', 'comments', 'remarks_removal'],
+            columns: ['date', 'original_sn', 'current_sn', 'gss_id', 'to_aircraft', 'engine_position', 'to', 'ttsn', 'tcsn', 'ttsn_ac', 'tcsn_ac', 'condition_1_at_removal', 'installed_plate_sn', 'comments', 'remarks_removal'],
             columnTypes: {
                 date: 'date',
                 ttsn: 'number',
@@ -19378,6 +19374,9 @@ function shipmentLocationDisplay(loc) {
                 
                 dataColumnIndex++;
             });
+
+            // Запоминаем исходные значения полей, чтобы при сохранении отправлять только реально изменённые
+            row.querySelectorAll('.editing-input').forEach(inp => { inp.dataset.orig = inp.value; });
         });
     }
 
@@ -19469,10 +19468,14 @@ function shipmentLocationDisplay(loc) {
             
             const logId = row.getAttribute('data-log-id');
             const rowData = {};
+            const changedCols = new Set();
             
             inputs.forEach((input, index) => {
                 const columnName = config.columns[index];
                 rowData[columnName] = input.value;
+                if (input.dataset.orig !== undefined && input.value !== input.dataset.orig) {
+                    changedCols.add(columnName);
+                }
             });
             
             console.log('=== Processing row ===');
@@ -19645,20 +19648,28 @@ function shipmentLocationDisplay(loc) {
                     file_url: rowData.link || null
                 };
             } else if (tableName === 'remove') {
-                // Специальный маппинг для Remove history
+                // Специальный маппинг для Remove history: отправляем только реально изменённые поля
+                if (changedCols.size === 0) continue;
+                const chg = (col) => changedCols.has(col);
+                const numOrNull = (col, parser) => {
+                    if (!chg(col) || rowData[col] === '' || rowData[col] == null) return null;
+                    const parsed = parser(rowData[col]);
+                    return Number.isNaN(parsed) ? null : parsed;
+                };
                 apiData = {
-                    date: rowData.date || null,
-                    current_sn: rowData.current_sn || null,
-                    to_aircraft: rowData.to_aircraft || null,
-                    to_location: rowData.to || null,
-                    ttsn: rowData.ttsn !== '' && rowData.ttsn != null ? parseFloat(rowData.ttsn) : null,
-                    tcsn: rowData.tcsn !== '' && rowData.tcsn != null ? parseInt(rowData.tcsn) : null,
-                    ttsn_ac: rowData.ttsn_ac !== '' && rowData.ttsn_ac != null ? parseFloat(rowData.ttsn_ac) : null,
-                    tcsn_ac: rowData.tcsn_ac !== '' && rowData.tcsn_ac != null ? parseInt(rowData.tcsn_ac) : null,
-                    condition_1_at_removal: rowData.condition_1_at_removal || null,
-                    installed_plate_sn: rowData.installed_plate_sn || null,
-                    comments: rowData.comments || null,
-                    remarks_removal: rowData.remarks_removal || null
+                    date: chg('date') ? (rowData.date || null) : null,
+                    current_sn: chg('current_sn') ? (rowData.current_sn || null) : null,
+                    to_aircraft: chg('to_aircraft') ? (rowData.to_aircraft || null) : null,
+                    position: numOrNull('engine_position', v => parseInt(v, 10)),
+                    to_location: chg('to') ? (rowData.to || null) : null,
+                    ttsn: numOrNull('ttsn', parseFloat),
+                    tcsn: numOrNull('tcsn', v => parseInt(v, 10)),
+                    ttsn_ac: numOrNull('ttsn_ac', parseFloat),
+                    tcsn_ac: numOrNull('tcsn_ac', v => parseInt(v, 10)),
+                    condition_1_at_removal: chg('condition_1_at_removal') ? (rowData.condition_1_at_removal || null) : null,
+                    installed_plate_sn: chg('installed_plate_sn') ? rowData.installed_plate_sn : null,
+                    comments: chg('comments') ? rowData.comments : null,
+                    remarks_removal: chg('remarks_removal') ? rowData.remarks_removal : null
                 };
             } else {
                 // Универсальный маппинг для остальных таблиц
@@ -22332,7 +22343,7 @@ function shipmentLocationDisplay(loc) {
                 }
             }
 
-            // Display photos in table format (Label | Photo 1 | Photo 2)
+            // Display photos in table format (Label | all photos of the row)
             if (inspectionReport && typeof inspectionReport === 'object') {
                 const photos = inspectionReport.photos || [];
                 if (photos.length > 0) {
@@ -22341,11 +22352,8 @@ function shipmentLocationDisplay(loc) {
                         html += `
                             <tr style="border: 1px solid #ddd;">
                                 <td style="width: 10%; padding: 5px 6px; border-right: 1px solid #ddd; text-align: center; font-weight: bold; color: #000; font-size: 12px;">${photo.label || 'Photo'}</td>
-                                <td style="width: 45%; padding: 5px 6px; border-right: 1px solid #ddd; text-align: center;">
-                                    ${photo.photo1 ? `<img src="${photo.photo1}" style="max-width: 100%; max-height: 120px; cursor: pointer;" onclick="openBorescopePhoto(this.src);">` : ''}
-                                </td>
-                                <td style="width: 45%; padding: 5px 6px; text-align: center;">
-                                    ${photo.photo2 ? `<img src="${photo.photo2}" style="max-width: 100%; max-height: 120px; cursor: pointer;" onclick="openBorescopePhoto(this.src);">` : ''}
+                                <td style="width: 90%; padding: 5px 6px; text-align: center;">
+                                    ${boreRowPhotoUrls(photo).map(u => `<img src="${u}" style="max-width: 48%; max-height: 120px; margin: 2px; cursor: pointer;" onclick="openBorescopePhoto(this.src);">`).join('')}
                                 </td>
                             </tr>
                         `;

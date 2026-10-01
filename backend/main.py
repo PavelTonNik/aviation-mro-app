@@ -287,6 +287,62 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def sync_missing_columns_from_models():
+    """Добавляет в БД (PostgreSQL на Render и локальный SQLite) все колонки из models.py,
+    которых нет в фактической таблице. Данные не трогает, каждая колонка добавляется в своей транзакции."""
+    from sqlalchemy import inspect as sa_inspect, text
+    added = []
+    dialect = database.engine.dialect
+    try:
+        insp = sa_inspect(database.engine)
+        existing_tables = set(insp.get_table_names())
+    except Exception as e:
+        print(f"ℹ️  Column sync skipped (cannot inspect DB): {e}")
+        return added
+
+    for table in models.Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        try:
+            existing_cols = {c["name"] for c in insp.get_columns(table.name)}
+        except Exception as e:
+            print(f"ℹ️  Column sync: cannot read columns of {table.name}: {e}")
+            continue
+
+        for col in table.columns:
+            if col.name in existing_cols or col.primary_key:
+                continue
+            try:
+                ddl = f"ALTER TABLE {dialect.identifier_preparer.quote(table.name)} ADD COLUMN "
+                if not database.IS_SQLITE:
+                    ddl += "IF NOT EXISTS "
+                ddl += f"{dialect.identifier_preparer.quote(col.name)} {col.type.compile(dialect=dialect)}"
+
+                default_sql = None
+                if col.default is not None and getattr(col.default, "is_scalar", False):
+                    val = col.default.arg
+                    if isinstance(val, bool):
+                        default_sql = ("1" if val else "0") if database.IS_SQLITE else ("TRUE" if val else "FALSE")
+                    elif isinstance(val, (int, float)):
+                        default_sql = str(val)
+                    elif isinstance(val, str):
+                        default_sql = "'" + val.replace("'", "''") + "'"
+                elif col.server_default is not None and not database.IS_SQLITE:
+                    arg = col.server_default.arg
+                    default_sql = arg if isinstance(arg, str) else str(arg.compile(dialect=dialect))
+                if default_sql is not None:
+                    ddl += f" DEFAULT {default_sql}"
+
+                with database.engine.begin() as conn:
+                    conn.execute(text(ddl))
+                added.append(f"{table.name}.{col.name}")
+                print(f"✅ Added missing column {table.name}.{col.name}")
+            except Exception as e:
+                print(f"⚠️ Could not add column {table.name}.{col.name}: {e}")
+    if not added:
+        print("✅ All model columns exist in DB")
+    return added
+
 @app.on_event("startup")
 def startup_event():
     # Ensure all tables exist first (from models.py)
@@ -647,7 +703,6 @@ def startup_event():
                         ) THEN
                             ALTER TABLE work_orders ADD COLUMN closed_signature_url VARCHAR;
                         END IF;
-                        END IF;
 
                         IF NOT EXISTS (
                             SELECT 1 FROM information_schema.columns
@@ -773,6 +828,12 @@ def startup_event():
     ensure_sqlite_column("aircraft_utilization_history", "eng3_oil FLOAT")
     ensure_sqlite_column("aircraft_utilization_history", "eng4_oil FLOAT")
     ensure_sqlite_column("aircraft_utilization_sources", "notification_emails TEXT")
+
+    # Финальная страховка: добавляем ВСЕ колонки из models.py, которых ещё нет в БД (Render PostgreSQL и SQLite)
+    try:
+        sync_missing_columns_from_models()
+    except Exception as e:
+        print(f"⚠️ Model column sync failed: {e}")
 
     # Открываем сессию базы данных
     db = database.SessionLocal()
@@ -5518,6 +5579,8 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
                 log.date = parsed
         if data.to_aircraft is not None:
             log.to_aircraft = data.to_aircraft
+        if data.position is not None:
+            log.position = data.position
         if data.to_location is not None:
             log.to_location = data.to_location
         if data.current_sn is not None:
@@ -7661,6 +7724,7 @@ async def create_borescope_inspection(
     comment: str = Form(""),
     link: str = Form(""),
     photo_labels: str = Form("[]"),  # JSON string with labels
+    photo_rows: str = Form("[]"),  # JSON list: row index for each uploaded file (same order as `photos`)
     location: str = Form(""),
     photos: Optional[List[UploadFile]] = File(None),  # Uploaded photo files (can be None)
     db: Session = Depends(get_db)
@@ -7704,56 +7768,72 @@ async def create_borescope_inspection(
             print(f"⚠️ Failed to parse photo_labels: {e}")
             labels = []
         
+        # Parse row index for each uploaded file (new multi-photo format).
+        # If missing/invalid - fall back to legacy mapping: 2 files per row.
+        try:
+            file_rows = json.loads(photo_rows) if photo_rows else []
+            if not isinstance(file_rows, list):
+                file_rows = []
+        except Exception as e:
+            print(f"⚠️ Failed to parse photo_rows: {e}")
+            file_rows = []
+        use_row_map = bool(photos) and len(file_rows) == len(photos)
+
         # Upload photos to R2 and build inspection_report
-        photo_data = []
-        
+        rows_by_idx = {}
+        first_upload_error = None
+
         if photos and len(photos) > 0:
             # Upload each photo (attempt upload without pre-test)
-            first_upload_error = None
             for idx, file in enumerate(photos):
                 try:
                     if file and file.filename:
                         # Read file bytes
                         file_bytes = await file.read()
-                        
-                        # Determine photo row and position
-                        photo_row_idx = idx // 2  # 0, 0, 1, 1, 2, 2...
-                        photo_num = (idx % 2) + 1  # 1, 2, 1, 2, 1, 2...
-                        
+
+                        # Determine photo row
+                        if use_row_map:
+                            photo_row_idx = int(file_rows[idx])
+                        else:
+                            photo_row_idx = idx // 2  # legacy: 0, 0, 1, 1, 2, 2...
+
+                        row = rows_by_idx.setdefault(photo_row_idx, {"label": "", "photos": []})
+                        photo_num = len(row["photos"]) + 1
+
                         # Get label for this row
-                        label = labels[photo_row_idx] if photo_row_idx < len(labels) else f"Photo {photo_row_idx + 1}"
-                        
+                        label = labels[photo_row_idx] if 0 <= photo_row_idx < len(labels) else ""
+                        row["label"] = label or f"Photo {photo_row_idx + 1}"
+
                         # Upload to R2
                         photo_url = r2_storage.upload_photo_to_r2(file_bytes, inspection_id, photo_row_idx, photo_num)
-                        
-                        # Add to photo_data
-                        # Ensure row exists
-                        while len(photo_data) <= photo_row_idx:
-                            photo_data.append({"label": "", "photo1": None, "photo2": None})
-                        
-                        photo_data[photo_row_idx]["label"] = label
-                        if photo_num == 1:
-                            photo_data[photo_row_idx]["photo1"] = photo_url
-                        else:
-                            photo_data[photo_row_idx]["photo2"] = photo_url
-                        
+                        row["photos"].append(photo_url)
+
                 except Exception as e:
                     if first_upload_error is None:
                         first_upload_error = str(e)
                     # Continue with other photos even if one fails
-        
+
+        # Rows with at least one saved photo, in form order.
+        # photo1/photo2 = first two photos (kept for backward compatibility with older readers).
+        photo_data = []
+        for row_idx in sorted(rows_by_idx.keys()):
+            row = rows_by_idx[row_idx]
+            if not row["photos"]:
+                continue
+            photo_data.append({
+                "label": row["label"],
+                "photos": row["photos"],
+                "photo1": row["photos"][0],
+                "photo2": row["photos"][1] if len(row["photos"]) > 1 else None,
+            })
+
         # Update inspection_report with photo URLs
         inspection_report = {"photos": photo_data}
         new_inspection.inspection_report = inspection_report
         db.commit()
         db.refresh(new_inspection)
-        
-        saved_photos = 0
-        for row in photo_data:
-            if row.get("photo1"):
-                saved_photos += 1
-            if row.get("photo2"):
-                saved_photos += 1
+
+        saved_photos = sum(len(row["photos"]) for row in photo_data)
 
         warning = ""
         if photos and saved_photos == 0:
@@ -7801,9 +7881,18 @@ def delete_borescope_inspection(inspection_id: int, db: Session = Depends(get_db
             if isinstance(photos, list):
                 for photo_row in photos:
                     if isinstance(photo_row, dict):
-                        for key in ['photo1', 'photo2']:
-                            photo_url = photo_row.get(key)
-                            if photo_url and photo_url.startswith('http'):
+                        # Все фото строки: новый формат (photos[]) + старый (photo1/photo2), без дублей
+                        row_urls = []
+                        extra = photo_row.get('photos')
+                        if isinstance(extra, list):
+                            row_urls.extend(extra)
+                        row_urls.extend([photo_row.get('photo1'), photo_row.get('photo2')])
+                        seen_urls = set()
+                        for photo_url in row_urls:
+                            if not photo_url or not isinstance(photo_url, str) or photo_url in seen_urls:
+                                continue
+                            seen_urls.add(photo_url)
+                            if photo_url.startswith('http'):
                                 if r2_storage.delete_photo_from_r2(photo_url):
                                     deleted_photos += 1
         
@@ -8625,7 +8714,8 @@ def get_history(action_type: str, db: Session = Depends(get_db)):
 def lookup_utilization(aircraft: str, date: str, db: Session = Depends(get_db)):
     """
     Возвращает наработку самолёта (TTSN/TCSN) на указанную дату из Utilization Parameters.
-    Если точной записи на эту дату нет — берётся ближайшая ПРЕДЫДУЩАЯ запись (period == False).
+    Приоритет: запись на эту дату -> ближайшая предыдущая -> ближайшая следующая.
+    Флаг period не учитывается. Если на одну дату несколько записей, берётся с наибольшим TTSN.
     Используется для автоподстановки TTSN/TCSN (Aircraft) в форме Installation.
     """
     target_date = parse_input_date(date)
@@ -8633,15 +8723,33 @@ def lookup_utilization(aircraft: str, date: str, db: Session = Depends(get_db)):
         return {"ttsn": None, "tcsn": None, "found_date": None}
 
     tail = normalize_aircraft_tail(aircraft) or aircraft
+    UP = models.UtilizationParameter
 
-    record = db.query(models.UtilizationParameter).filter(
-        models.UtilizationParameter.aircraft == tail,
-        models.UtilizationParameter.period == False,
-        models.UtilizationParameter.date <= target_date
-    ).order_by(
-        models.UtilizationParameter.date.desc(),
-        models.UtilizationParameter.id.desc()
-    ).first()
+    # Границы календарного дня (даты в БД могут содержать время / таймзону)
+    day_start = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = day_start + timedelta(days=1)
+
+    base = db.query(UP).filter(UP.aircraft == tail)
+
+    record = base.filter(
+        UP.date >= day_start, UP.date < day_end
+    ).order_by(UP.ttsn.desc(), UP.id.desc()).first()
+
+    if not record:
+        prev_rec = base.filter(UP.date < day_start).order_by(UP.date.desc()).first()
+        if prev_rec and prev_rec.date is not None:
+            prev_day = prev_rec.date.replace(hour=0, minute=0, second=0, microsecond=0)
+            record = base.filter(
+                UP.date >= prev_day, UP.date < prev_day + timedelta(days=1)
+            ).order_by(UP.ttsn.desc(), UP.id.desc()).first()
+
+    if not record:
+        next_rec = base.filter(UP.date >= day_end).order_by(UP.date.asc()).first()
+        if next_rec and next_rec.date is not None:
+            next_day = next_rec.date.replace(hour=0, minute=0, second=0, microsecond=0)
+            record = base.filter(
+                UP.date >= next_day, UP.date < next_day + timedelta(days=1)
+            ).order_by(UP.ttsn.desc(), UP.id.desc()).first()
 
     if not record:
         return {"ttsn": None, "tcsn": None, "found_date": None}
