@@ -5587,8 +5587,10 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
             log.current_sn = data.current_sn
         if data.ttsn is not None:
             log.ttsn = data.ttsn
+            log.snapshot_tt = data.ttsn  # TTSN Eng = налет двигателя после снятия
         if data.tcsn is not None:
             log.tcsn = data.tcsn
+            log.snapshot_tc = data.tcsn
         if data.ttsn_ac is not None:
             log.ttsn_ac = data.ttsn_ac
         if data.tcsn_ac is not None:
@@ -5601,6 +5603,7 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
             log.remarks_removal = data.remarks_removal
 
         # Синхронизируем данные двигателя если он все еще снят (REMOVED)
+        # Налет (TT/TC) в главной таблице при редактировании истории НЕ меняется
         engine = log.engine
         if engine and engine.status == "REMOVED":
             # Обновляем техсостояние
@@ -5612,6 +5615,9 @@ def update_history_record(action_type: str, log_id: int, data: ActionLogUpdateSc
             # Обновляем шильдик
             if data.installed_plate_sn is not None:
                 engine.installed_plate_sn = data.installed_plate_sn
+                # В Master Engine List шильдик становится Current SN (в истории снятий Current SN не меняется)
+                if data.current_sn is None and data.installed_plate_sn.strip():
+                    engine.current_sn = data.installed_plate_sn.strip()
             # Обновляем локацию: ищем Location по названию
             if data.to_location is not None:
                 new_loc = db.query(models.Location).filter(
@@ -6182,6 +6188,29 @@ def get_remove_history(db: Session = Depends(get_db)):
             
             to_aircraft = to_aircraft or "-"
             engine_position = str(engine_position) if engine_position else "-"
+
+            # Налет двигателя после снятия (TTSN/TCSN Eng): снимок, зафиксированный при снятии
+            # (редактируется только в истории снятий, главная таблица не затрагивается)
+            out_ttsn, out_tcsn = l.snapshot_tt, l.snapshot_tc
+            if out_ttsn is None:
+                out_ttsn = l.ttsn
+            if out_tcsn is None:
+                out_tcsn = l.tcsn
+
+            # Налет самолета на дату снятия (TTSN/TCSN AC). Часы и циклы не могут совпадать -
+            # такие (или пустые) значения берем из Utilization Parameters на дату снятия
+            out_ttsn_ac, out_tcsn_ac = l.ttsn_ac, l.tcsn_ac
+            ac_suspicious = (
+                out_ttsn_ac is None or out_tcsn_ac is None
+                or int(round(out_ttsn_ac)) == int(out_tcsn_ac)
+            )
+            if ac_suspicious and to_aircraft not in ("-", "Unknown") and l.date:
+                try:
+                    util = lookup_utilization(to_aircraft, l.date.strftime("%Y-%m-%d"), db)
+                    if util.get("ttsn") is not None and util.get("tcsn") is not None:
+                        out_ttsn_ac, out_tcsn_ac = util["ttsn"], util["tcsn"]
+                except Exception:
+                    pass
             
             res.append({
                 "id": l.id,
@@ -6198,10 +6227,10 @@ def get_remove_history(db: Session = Depends(get_db)):
                 "comments": l.comments,  # для reason в details
                 "condition_1_at_removal": l.condition_1_at_removal or "-",
                 "installed_plate_sn": installed_plate,
-                "ttsn": l.ttsn,
-                "tcsn": l.tcsn,
-                "ttsn_ac": l.ttsn_ac,
-                "tcsn_ac": l.tcsn_ac,
+                "ttsn": out_ttsn,
+                "tcsn": out_tcsn,
+                "ttsn_ac": out_ttsn_ac,
+                "tcsn_ac": out_tcsn_ac,
                 "remarks_removal": l.remarks_removal,
                 "user": l.performed_by or "-",
                 "created_by": l.performed_by or "-"
@@ -6296,6 +6325,10 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
     new_engine_total_time = engine_ttsn_at_install + (_safe_float(calculated_ttsn, 0.0) if calculated_ttsn is not None else 0.0)
     new_engine_total_cycles = engine_tcsn_at_install + (_safe_int(calculated_tcsn, 0) if calculated_tcsn is not None else 0)
 
+    # Current SN для истории снятий: как был при снятии (до замены шильдиком)
+    history_current_sn = (data.current_sn.strip() if data.current_sn and data.current_sn.strip()
+                          else (eng.current_sn or eng.original_sn))
+
     # Обновляем Current SN если передан Installed Plate
     if data.current_sn and data.current_sn.strip():
         eng.current_sn = data.current_sn.strip()
@@ -6325,7 +6358,7 @@ def remove_engine(data: RemoveSchema, db: Session = Depends(get_db)):
         to_aircraft=to_aircraft_tail,  # Сохраняем tail_number самолета откуда был снят
         position=engine_pos,  # Сохраняем позицию двигателя на самолете
         to_location=dest_loc.name,
-        current_sn=eng.current_sn or eng.original_sn,  # Сохраняем новый Current SN (Installed Plate)
+        current_sn=history_current_sn,  # Current SN на момент снятия (шильдик меняет Current SN только в Master Engine List)
         condition_1_at_removal=data.condition_1,
         comments=data.reason,
         date=datetime.now(),

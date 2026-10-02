@@ -4943,6 +4943,57 @@
             .bore-report-v2 .bore-info-col { flex: 1 1 auto; max-width: none; }
         }
 
+        /* === Wide adaptive modals: engine list (locations / Removed from AC / SV / US ...) and Borescope report === */
+        .modal-dialog.engine-list-dialog {
+            width: 98vw;
+            max-width: min(98vw, 2200px);
+            margin: 1.5vh auto;
+            height: calc(100% - 3vh);
+        }
+        .engine-list-modal .modal-dialog .modal-body { max-height: none; }
+        .engine-list-modal .modal-dialog .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+        .modal-dialog.bore-modal-dialog {
+            width: 96vw;
+            max-width: min(96vw, 1800px);
+        }
+        .bore-modal-body { max-height: calc(100vh - 130px); max-height: calc(100dvh - 130px); }
+        .bore-report-v2 .bore-info-col { flex: 0 0 clamp(300px, 24vw, 400px); max-width: clamp(300px, 24vw, 400px); }
+        .bore-report-v2 .bore-viewer-col { min-width: 0; }
+        .bore-viewer-stage { min-height: clamp(240px, 45vh, 700px); }
+        .bore-viewer-stage img { max-height: min(70vh, 900px); }
+
+        @media (max-width: 991px) {
+            .bore-report-v2 .bore-info-col { flex: 1 1 100%; max-width: none; }
+            .bore-report-v2 .bore-viewer-col { flex: 1 1 100%; }
+            .bore-tiles { flex-wrap: wrap; }
+        }
+        @media (max-width: 575px) {
+            .modal-dialog.engine-list-dialog {
+                width: calc(100vw - 1rem);
+                max-width: calc(100vw - 1rem);
+                margin: .5rem auto;
+                height: calc(100% - 1rem);
+            }
+            .engine-list-modal .modal-header { padding: .75rem 1rem; }
+            .engine-list-modal .modal-header .modal-title { font-size: 1rem; flex-wrap: wrap; gap: 6px; }
+            .engine-list-modal .modal-footer { flex-wrap: wrap; }
+            .modal-dialog.bore-modal-dialog {
+                width: calc(100vw - 1rem);
+                max-width: calc(100vw - 1rem);
+                margin: .5rem auto;
+            }
+            .bore-modal-content { border-radius: 14px; }
+            .bore-modal-bar { flex-wrap: wrap; padding: 14px 16px 10px; }
+            .bore-modal-title { font-size: 1.05rem; flex-wrap: wrap; }
+            .bore-modal-actions { flex-wrap: wrap; width: 100%; justify-content: flex-end; }
+            .bore-modal-body { padding: 4px 14px 16px; max-height: calc(100vh - 150px); max-height: calc(100dvh - 150px); }
+            .bore-viewer-stage { min-height: 220px; }
+            .bore-viewer-stage img { max-height: 55vh; }
+            .bore-sn-big { font-size: 1.3rem; }
+            .bore-edit-row-top { flex-wrap: wrap; }
+        }
+
         /* ФИКСАЦИЯ ВЕРХНЕЙ ПАНЕЛИ (navbar) */
         .navbar {
             position: sticky !important;
@@ -10095,7 +10146,7 @@
 
 <!-- MODERN ENGINE LIST MODAL (dashboard summary cards: cities, SV/US/Installed/Removed, condition2 breakdown) -->
 <div class="modal fade engine-list-modal" id="engineListModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="true" data-bs-keyboard="true">
-    <div class="modal-dialog modal-dialog-scrollable" style="max-width: 1400px;">
+    <div class="modal-dialog modal-dialog-scrollable engine-list-dialog">
         <div class="modal-content">
             <div class="modal-header text-white" id="engineListModalHeader" style="background: linear-gradient(135deg, #667eea, #764ba2);">
                 <h5 class="modal-title">
@@ -15892,7 +15943,7 @@ function onGssInputChange(engines) {
         modal.id = `inspection-details-modal-${rowId}`;
         modal.tabIndex = '-1';
         modal.innerHTML = `
-            <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-dialog modal-xl modal-dialog-centered bore-modal-dialog">
                 <div class="modal-content bore-modal-content">
                     <div class="bore-modal-bar">
                         <h5 class="bore-modal-title">Boroscope Inspection Report <span class="bore-id-pill">ID ${rowId}</span></h5>
@@ -17532,7 +17583,7 @@ function shipmentLocationDisplay(loc) {
             const gssIdText         = row.gss_id || '-';
             const installedPlateText = row.installed_plate_sn || '-';
             const reasonText        = row.comments || '-';
-            const remarksText       = row.remarks_removal || row.remarks || '-';
+            const remarksText       = row.remarks_removal || (row.isTest ? row.remarks : '') || '-';
             const aircraftText      = row.to_aircraft || '-';
             const positionText      = row.engine_position || '-';
             const origSnText        = row.original_sn || '-';
@@ -17543,21 +17594,21 @@ function shipmentLocationDisplay(loc) {
                     <td class="delete-col-remove" style="display: none;">
                         <button class="btn btn-sm btn-danger" onclick="deleteHistoryRecord('REMOVE', ${row.id || 0}, '${(row.current_sn || row.original_sn || '').replace(/'/g, '')}')" title="Delete"><i class="bi bi-trash"></i></button>
                     </td>
-                    <td style="white-space:nowrap;">${row.date || '-'}</td>
-                    <td style="white-space:nowrap;"><span class="font-monospace">${origSnText}</span></td>
-                    <td style="white-space:nowrap;"><strong>${currSnText}</strong></td>
-                    <td style="white-space:nowrap;">${gssIdText}</td>
-                    <td style="white-space:nowrap;">${aircraftText}</td>
-                    <td style="white-space:nowrap;">${positionText}</td>
-                    <td style="white-space:nowrap;">${row.to || '-'}</td>
-                    <td style="white-space:nowrap;" data-raw="${row.ttsn != null ? row.ttsn : ''}">${ttsnText}</td>
-                    <td style="white-space:nowrap;" data-raw="${row.tcsn != null ? row.tcsn : ''}">${tcsnText}</td>
-                    <td style="white-space:nowrap;" data-raw="${row.ttsn_ac != null ? row.ttsn_ac : ''}">${ttsnAcText}</td>
-                    <td style="white-space:nowrap;" data-raw="${row.tcsn_ac != null ? row.tcsn_ac : ''}">${tcsnAcText}</td>
-                    <td style="white-space:nowrap;">${conditionText}</td>
-                    <td style="white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${installedPlateText}">${installedPlateText}</td>
-                    <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${reasonText}">${reasonText}</td>
-                    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${remarksText}">${remarksText}</td>
+                    <td data-col="date" style="white-space:nowrap;">${row.date || '-'}</td>
+                    <td data-col="original_sn" style="white-space:nowrap;"><span class="font-monospace">${origSnText}</span></td>
+                    <td data-col="current_sn" style="white-space:nowrap;"><strong>${currSnText}</strong></td>
+                    <td data-col="gss_id" style="white-space:nowrap;">${gssIdText}</td>
+                    <td data-col="to_aircraft" style="white-space:nowrap;">${aircraftText}</td>
+                    <td data-col="engine_position" style="white-space:nowrap;">${positionText}</td>
+                    <td data-col="to" style="white-space:nowrap;">${row.to || '-'}</td>
+                    <td data-col="ttsn" style="white-space:nowrap;" data-raw="${row.ttsn != null ? row.ttsn : ''}">${ttsnText}</td>
+                    <td data-col="tcsn" style="white-space:nowrap;" data-raw="${row.tcsn != null ? row.tcsn : ''}">${tcsnText}</td>
+                    <td data-col="ttsn_ac" style="white-space:nowrap;" data-raw="${row.ttsn_ac != null ? row.ttsn_ac : ''}">${ttsnAcText}</td>
+                    <td data-col="tcsn_ac" style="white-space:nowrap;" data-raw="${row.tcsn_ac != null ? row.tcsn_ac : ''}">${tcsnAcText}</td>
+                    <td data-col="condition_1_at_removal" style="white-space:nowrap;">${conditionText}</td>
+                    <td data-col="installed_plate_sn" style="white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${installedPlateText}">${installedPlateText}</td>
+                    <td data-col="comments" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${reasonText}">${reasonText}</td>
+                    <td data-col="remarks_removal" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${remarksText}">${remarksText}</td>
                 </tr>`;
         });
     }
@@ -19579,7 +19630,7 @@ function shipmentLocationDisplay(loc) {
                 // Пропускаем пустую ячейку с кнопкой плюс (последнюю без границ)
                 if (cell.style.background === 'transparent' && cell.style.border === 'none') return;
                 
-                const columnName = config.columns[dataColumnIndex];
+                const columnName = cell.getAttribute('data-col') || config.columns[dataColumnIndex];
                 if (!columnName) return; // Если колонка не определена в конфиге
                 
                 const columnType = config.columnTypes[columnName] || 'text';
@@ -19629,8 +19680,12 @@ function shipmentLocationDisplay(loc) {
                     selectHtml += `</select>`;
                     cell.innerHTML = selectHtml;
                 } else {
-                    cell.innerHTML = `<input type="text" class="editing-input" value="${cleanValue}">`;
+                    cell.innerHTML = `<input type="text" class="editing-input" value="${escapeHtml(cleanValue)}">`;
                 }
+                
+                // Привязываем поле к имени колонки, а не к порядку в таблице
+                const createdInput = cell.querySelector('.editing-input');
+                if (createdInput && cell.hasAttribute('data-col')) createdInput.dataset.col = columnName;
                 
                 dataColumnIndex++;
             });
@@ -19731,7 +19786,7 @@ function shipmentLocationDisplay(loc) {
             const changedCols = new Set();
             
             inputs.forEach((input, index) => {
-                const columnName = config.columns[index];
+                const columnName = input.dataset.col || config.columns[index];
                 rowData[columnName] = input.value;
                 if (input.dataset.orig !== undefined && input.value !== input.dataset.orig) {
                     changedCols.add(columnName);
