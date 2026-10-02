@@ -4943,6 +4943,23 @@
             .bore-report-v2 .bore-info-col { flex: 1 1 auto; max-width: none; }
         }
 
+        /* Shipment form: engine autocomplete dropdown (Original SN / GSS ID) */
+        .ship-dd {
+            display: none; position: absolute; z-index: 1055; top: 100%; left: 0; margin-top: 2px;
+            width: max(100%, 460px); max-width: min(92vw, 640px); max-height: 340px; overflow-y: auto;
+            background: #ffffff; border: 1px solid #dee2e6; border-radius: 10px;
+            box-shadow: 0 10px 28px rgba(15,23,42,.18);
+        }
+        .ship-dd.open { display: block; }
+        .ship-dd .ship-dd-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f3f5; }
+        .ship-dd .ship-dd-item:last-child { border-bottom: none; }
+        .ship-dd .ship-dd-item:hover, .ship-dd .ship-dd-item.active { background: #eef2ff; }
+        .ship-dd .ship-dd-item b { display: block; color: #0f172a; font-size: .92rem; }
+        .ship-dd .ship-dd-item small { display: block; color: #64748b; font-size: .8rem; }
+        .ship-dd .ship-dd-item small .ship-dd-warn { color: #dc2626; font-weight: 600; }
+        .ship-dd .ship-dd-empty, .ship-dd .ship-dd-more { padding: 8px 12px; color: #94a3b8; font-size: .8rem; }
+        @media (max-width: 575px) { .ship-dd { width: min(86vw, 360px); max-width: 86vw; } }
+
         /* === Wide adaptive modals: engine list (locations / Removed from AC / SV / US ...) and Borescope report === */
         .modal-dialog.engine-list-dialog {
             width: 98vw;
@@ -6762,9 +6779,8 @@
                                                 <input type="date" class="form-control" id="ship-date" required>
                                             </div>
                                             <div class="col-md-3">
-                                                <label class="form-label small fw-bold">Engine <span class="text-danger">*</span></label>
-                                                <input class="form-control" list="engine-options-ship" id="ship-engine-input" placeholder="Search Engine..." required>
-                                                <datalist id="engine-options-ship"></datalist>
+                                                <label class="form-label small fw-bold">Original SN <span class="text-danger">*</span></label>
+                                                <input class="form-control" id="ship-engine-input" placeholder="Search Original SN..." autocomplete="off" required>
                                                 <input type="hidden" id="ship-engine-id">
                                             </div>
                                             <div class="col-md-3">
@@ -6773,7 +6789,7 @@
                                             </div>
                                             <div class="col-md-3">
                                                 <label class="form-label small fw-bold">GSS ID</label>
-                                                <input type="text" class="form-control" id="ship-gss-id" placeholder="e.g. GSS-12345">
+                                                <input type="text" class="form-control" id="ship-gss-id" placeholder="Search GSS ID..." autocomplete="off">
                                             </div>
                                         </div>
 
@@ -17356,55 +17372,165 @@ function shipmentLocationDisplay(loc) {
 }
 
 // Обновленная функция подготовки формы
+
+// --- Shipment: автодополнение двигателя (Original SN / GSS ID) ---
+function shipSetFromLocation(locText) {
+    const sel = document.getElementById('ship-loc-from');
+    if (!sel) return;
+    const txt = String(locText || '').trim();
+    if (!txt || txt === 'Не указано') { sel.value = ''; return; }
+    let opt = Array.from(sel.options).find(o => o.value.toUpperCase() === txt.toUpperCase());
+    if (!opt) { opt = new Option(txt, txt); sel.add(opt); }
+    sel.value = opt.value;
+}
+
+function shipClearSelectedEngine() {
+    ['ship-engine-id', 'ship-engine-model', 'ship-engine-input', 'ship-gss-id'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    shipSetFromLocation('');
+}
+
+function shipFillFromEngine(eng) {
+    // INSTALLED двигатели нельзя отправлять (они на крыльях)
+    if (eng.status === 'INSTALLED') {
+        showErrorNotification(`❌ Engine ${eng.original_sn} has status INSTALLED (On Wing). Cannot ship installed engines - remove from aircraft first.`);
+        shipClearSelectedEngine();
+        return false;
+    }
+    const gss = (eng.gss_sn && eng.gss_sn !== '-') ? eng.gss_sn : '';
+    document.getElementById('ship-engine-id').value = eng.id;
+    document.getElementById('ship-engine-input').value = eng.original_sn || '';
+    document.getElementById('ship-gss-id').value = gss;
+    document.getElementById('ship-engine-model').value = (eng.model && eng.model !== '-') ? eng.model : '';
+    shipSetFromLocation(eng.location);
+    return true;
+}
+
+function shipAttachEngineAutocomplete(input, mode) {
+    if (!input) return;
+    const parent = input.parentElement;
+    parent.style.position = 'relative';
+    let dd = parent.querySelector('.ship-dd');
+    if (!dd) {
+        dd = document.createElement('div');
+        dd.className = 'ship-dd';
+        parent.appendChild(dd);
+    }
+    let shown = [];
+    let active = -1;
+    const MAX_ITEMS = 60;
+
+    const keyOf = (e) => String(mode === 'gss' ? e.gss_sn : e.original_sn || '').trim().toLowerCase();
+
+    function compute() {
+        const engines = window.__shipEngines || [];
+        const q = input.value.trim().toLowerCase();
+        let list = engines.filter(e => !q || [e.original_sn, e.current_sn, e.gss_sn, e.model]
+            .some(v => String(v || '').toLowerCase().includes(q)));
+        if (q) {
+            const rank = (e) => {
+                const k = keyOf(e);
+                if (k === q) return 0;
+                if (k.startsWith(q)) return 1;
+                if (k.includes(q)) return 2;
+                return 3;
+            };
+            list = list.map(e => [rank(e), e]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+        }
+        return list;
+    }
+
+    function render() {
+        const all = compute();
+        shown = all.slice(0, MAX_ITEMS);
+        active = -1;
+        if (!shown.length) {
+            dd.innerHTML = '<div class="ship-dd-empty">No engines found</div>';
+        } else {
+            dd.innerHTML = shown.map((e, i) => {
+                const gss = (e.gss_sn && e.gss_sn !== '-') ? e.gss_sn : '-';
+                const cur = e.current_sn && e.current_sn !== '-' ? e.current_sn : '-';
+                const model = e.model && e.model !== '-' ? e.model : '-';
+                const warn = e.status === 'INSTALLED' ? ' <span class="ship-dd-warn">(on wing - cannot ship)</span>' : '';
+                return `<div class="ship-dd-item" data-idx="${i}">
+                    <b>${escapeHtml(e.original_sn || '-')}</b>
+                    <small>Current: ${escapeHtml(cur)} | GSS: ${escapeHtml(gss)} | ${escapeHtml(model)} | ${escapeHtml(e.location || '-')}${warn}</small>
+                </div>`;
+            }).join('') + (all.length > MAX_ITEMS ? `<div class="ship-dd-more">+${all.length - MAX_ITEMS} more - keep typing to narrow down</div>` : '');
+        }
+        dd.classList.add('open');
+    }
+
+    function close() { dd.classList.remove('open'); active = -1; }
+
+    function choose(idx) {
+        const eng = shown[idx];
+        if (!eng) return;
+        close();
+        shipFillFromEngine(eng);
+    }
+
+    function highlight() {
+        Array.from(dd.querySelectorAll('.ship-dd-item')).forEach((el, i) => el.classList.toggle('active', i === active));
+        const el = dd.querySelector('.ship-dd-item.active');
+        if (el) el.scrollIntoView({ block: 'nearest' });
+    }
+
+    input.oninput = function () {
+        if (mode === 'orig') this.value = this.value.replace(/[а-яА-ЯёЁ]/g, '');
+        // Текст изменили после выбора — старый выбор сбрасываем (чтобы не остаться с чужим id)
+        if (document.getElementById('ship-engine-id').value) {
+            const keep = this.value;
+            shipClearSelectedEngine();
+            this.value = keep;
+        }
+        render();
+    };
+    input.onfocus = render;
+    input.onclick = function () { if (!dd.classList.contains('open')) render(); };
+    input.onblur = function () { setTimeout(close, 150); };
+    input.onkeydown = function (ev) {
+        const open = dd.classList.contains('open');
+        if (ev.key === 'ArrowDown') {
+            ev.preventDefault();
+            if (!open) render();
+            active = Math.min(active + 1, shown.length - 1);
+            highlight();
+        } else if (ev.key === 'ArrowUp') {
+            ev.preventDefault();
+            active = Math.max(active - 1, 0);
+            highlight();
+        } else if (ev.key === 'Enter' && open) {
+            ev.preventDefault();
+            if (active >= 0) choose(active);
+            else if (shown.length === 1) choose(0);
+        } else if (ev.key === 'Escape') {
+            close();
+        }
+    };
+    // mousedown (до blur), чтобы выбор не терялся
+    dd.onmousedown = function (ev) {
+        const item = ev.target.closest('.ship-dd-item');
+        if (!item) return;
+        ev.preventDefault();
+        choose(parseInt(item.dataset.idx, 10));
+    };
+}
+
+// Обновленная функция подготовки формы
     async function prepareShipmentForm() {
         let engRes = await safeFetch('/api/engines' + noCache());
         if (!engRes || !engRes.ok) engRes = await safeFetch('/api/engines');
         
         let engines = [];
         try { engines = engRes && engRes.ok ? await engRes.json() : []; } catch { engines = []; }
-        
-        // ИСПРАВЛЕНО: Показываем Original SN, Current SN, GSS ID в списке
-        const datalist = document.getElementById('engine-options-ship');
-        if(datalist) {
-            datalist.innerHTML = ''; 
-            engines.forEach(eng => {
-                const gssId = eng.gss_sn || '-';
-                const currentSn = eng.current_sn || eng.original_sn;
-                const origSn = eng.original_sn;
-                const location = eng.location || 'Unknown';
-                datalist.innerHTML += `<option value="${origSn}">${origSn} | Current: ${currentSn} | GSS: ${gssId} (${location})</option>`;
-            });
-        }
+        window.__shipEngines = engines;
 
-        // Логика при вводе двигателя
-        document.getElementById('ship-engine-input').oninput = function() {
-            // 1. Удаляем русские буквы на лету
-            this.value = this.value.replace(/[а-яА-ЯёЁ]/g, '');
-            
-            const val = this.value;
-            const found = engines.find(e => e.original_sn === val);
-            
-            if (found) {
-                // Проверяем статус - INSTALLED двигатели нельзя отправлять (они на крыльях)
-                if(found.status === 'INSTALLED') {
-                    showErrorNotification(`❌ Engine ${found.original_sn} has status INSTALLED (On Wing). Cannot ship installed engines - remove from aircraft first.`);
-                    this.value = '';
-                    document.getElementById('ship-engine-id').value = '';
-                    document.getElementById('ship-loc-from').value = '';
-                    return;
-                }
-                
-                // Если нашли в базе — ставим реальные данные
-                document.getElementById('ship-engine-id').value = found.id;
-                // ИСПРАВЛЕНО: Устанавливаем location как текст (город/название)
-                const locationText = found.location || '';
-                document.getElementById('ship-loc-from').value = locationText;
-            } else {
-                // Если не нашли — очищаем ID, но текст оставляем (для теста)
-                document.getElementById('ship-engine-id').value = '';
-                // Поле "Откуда" можно заполнить вручную
-            }
-        };
+        // Выпадающие списки для Original SN и GSS ID: выбор всегда по конкретному двигателю (id), а не по тексту
+        shipAttachEngineAutocomplete(document.getElementById('ship-engine-input'), 'orig');
+        shipAttachEngineAutocomplete(document.getElementById('ship-gss-id'), 'gss');
 
         // Загружаем список локаций
         let locRes = await safeFetch('/api/locations' + noCache());
@@ -17454,7 +17580,7 @@ function shipmentLocationDisplay(loc) {
     async function submitShipmentForm() {
         const date = document.getElementById('ship-date').value;
         const engInputVal = document.getElementById('ship-engine-input').value;
-        const engId = document.getElementById('ship-engine-id').value || 0;
+        let engId = parseInt(document.getElementById('ship-engine-id').value) || 0;
         const engineModel = document.getElementById('ship-engine-model').value;
         const gssId = document.getElementById('ship-gss-id').value;
         
@@ -17462,9 +17588,26 @@ function shipmentLocationDisplay(loc) {
         const destValue = document.getElementById('ship-dest').value;
         const fromLocation = document.getElementById('ship-loc-from').value;
 
-        if(!date || !engInputVal || !destValue) {
+        if(!date || (!engInputVal && !gssId) || !destValue) {
             alert("Пожалуйста, заполните поля: Дата, Двигатель и Назначение.");
             return;
+        }
+
+        // Двигатель не выбран из списка: пробуем однозначно найти по GSS ID / Original SN, иначе просим выбрать
+        if (!engId) {
+            const pool = window.__shipEngines || [];
+            const g = String(gssId || '').trim().toLowerCase();
+            const s = String(engInputVal || '').trim().toLowerCase();
+            const cand = g
+                ? pool.filter(e => String(e.gss_sn || '').trim().toLowerCase() === g)
+                : pool.filter(e => String(e.original_sn || '').trim().toLowerCase() === s);
+            if (cand.length === 1) {
+                if (!shipFillFromEngine(cand[0])) return;
+                engId = cand[0].id;
+            } else {
+                alert("Выберите двигатель из выпадающего списка (Original SN или GSS ID) — точного совпадения не найдено или их несколько.");
+                return;
+            }
         }
 
         // Пытаемся найти location по city/name/нормализованному отображению для получения ID
@@ -17483,7 +17626,7 @@ function shipmentLocationDisplay(loc) {
 
         const payload = {
             date: date,
-            engine_id: parseInt(engId),
+            engine_id: engId,
             engine_model: engineModel,
             gss_id: gssId,
             to_location_id: destLocationId,  // Может быть null если не найдена в списке
