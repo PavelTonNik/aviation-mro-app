@@ -97,6 +97,7 @@ class Engine(Base):
     cost_per_hour = Column(Float, nullable=True)  # Стоимость 1 часа работы двигателя
     cost_per_cycle = Column(Float, nullable=True)  # Стоимость 1 цикла работы двигателя
     photo_url = Column(String, nullable=True) # Ссылка на фото
+    attachments = Column(Text, nullable=True) # JSON-список загруженных файлов (фото/PDF/Word...) [{url,name,type,size}]
     remarks = Column(String, nullable=True) # Примечания/комментарии
     removed_from = Column(String, nullable=True) # Место откуда снят двигатель
     installed_plate_sn = Column(String, nullable=True) # Шильдик, установленный на снятый двигатель

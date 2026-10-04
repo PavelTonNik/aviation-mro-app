@@ -4925,6 +4925,163 @@
         .bore-thumb.active { border-color: #2563eb; opacity: 1; }
         .bore-thumb:hover { opacity: 1; }
 
+        /* Photo annotations (разметка поверх фото) */
+        .bore-viewer-head-right { display: flex; align-items: center; gap: 12px; }
+        .bore-ann-btn {
+            display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px;
+            border-radius: 8px; border: 1px solid #2563eb; background: #eff6ff; color: #1d4ed8;
+            font-size: .8rem; font-weight: 600; cursor: pointer; transition: background .15s ease;
+        }
+        .bore-ann-btn:hover:not(:disabled) { background: #dbeafe; }
+        .bore-ann-btn:disabled { opacity: .45; cursor: not-allowed; }
+        .bore-photo-wrap { position: relative; display: block; max-width: 100%; }
+        .bore-photo-wrap img { display: block; }
+        .bore-photo-wrap .bore-ann-svg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+        .bore-thumb { position: relative; }
+        .bore-thumb-ann {
+            position: absolute; right: 3px; bottom: 3px; display: inline-flex; align-items: center; gap: 2px;
+            padding: 1px 5px; border-radius: 999px; background: #2563eb; color: #fff;
+            font-size: .6rem; font-weight: 700; line-height: 1.3;
+        }
+
+        /* Photo annotation editor (fullscreen layer inside the report modal) */
+        .bore-ann-ed {
+            position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; gap: 12px;
+            padding: 16px 20px 20px; box-sizing: border-box; outline: none; text-align: left;
+            background-color: #F4F5F7; background-image: radial-gradient(#D5D9DF 1px, transparent 1px); background-size: 24px 24px;
+            color: #0E1116; font-family: inherit; font-size: 14px; line-height: 1.3;
+        }
+        .bore-ann-ed *, .bore-ann-ed *::before, .bore-ann-ed *::after { box-sizing: border-box; }
+        .bore-ann-ed :where(span, div, p) { color: inherit; } /* перебивает глобальное "p, span, div { color }" тёмной темы */
+        .bore-ann-ed button { font-family: inherit; cursor: pointer; }
+        .bore-ann-ed button:disabled { cursor: default; }
+        .bore-ann-ed-top, .bore-ann-ed-dock, .bore-ann-ed-layers {
+            background: rgba(255,255,255,.96); border: 1px solid #E4E7EB;
+        }
+        .bore-ann-ed-top { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px; border-radius: 20px; }
+        .bore-ann-ed-top .grp { display: flex; align-items: center; gap: 14px; }
+        .bore-ann-ed-top .grp.r { gap: 8px; }
+        .bore-ann-ed-back { width: 44px; height: 44px; border-radius: 14px; border: 0; background: #F1F3F6; color: #3A424D; display: flex; align-items: center; justify-content: center; }
+        .bore-ann-ed-eyebrow { font-size: 11px; letter-spacing: .14em; color: #5B6470; text-transform: uppercase; }
+        .bore-ann-ed-title { display: flex; align-items: center; gap: 10px; margin-top: 3px; }
+        .bore-ann-ed-title h1 { margin: 0; padding: 0; font-size: 18px; font-weight: 600; letter-spacing: -.02em; color: #0E1116; }
+        .bore-ann-ed-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }
+        .bore-ann-ed-pill.draw { background: #FFF1E6; color: #A34A12; }
+        .bore-ann-ed-pill.draw i { width: 6px; height: 6px; border-radius: 999px; background: #FF8A3D; }
+        .bore-ann-ed-pill.saved { background: #E7F6EC; color: #1B6B3A; }
+        .bore-ann-ed-btn { height: 44px; padding: 0 16px; border-radius: 14px; border: 1px solid transparent; background: #F1F3F6; color: #0E1116; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; }
+        .bore-ann-ed-btn.ghost { background: transparent; border-color: #E4E7EB; }
+        .bore-ann-ed-btn.primary { background: #2551E8; color: #fff; font-weight: 600; padding: 0 18px; border: 0; }
+        .bore-ann-ed-btn.danger { background: #B42318; color: #fff; font-weight: 600; border: 0; }
+        .bore-ann-ed-btn:disabled { opacity: .6; }
+        .bore-ann-ed-main { flex: 1 1 auto; min-height: 0; display: flex; gap: 16px; }
+        .bore-ann-ed-work { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+        .bore-ann-ed-area { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+        .bore-ann-ed-stage {
+            position: relative; flex: 0 0 auto; width: 640px; height: 400px; max-width: 100%; max-height: 100%;
+            background: #121418; border: 1px solid #D5DAE1; border-radius: 20px; overflow: hidden;
+            touch-action: none; user-select: none; -webkit-user-select: none;
+        }
+        .bore-ann-ed-stage img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
+        .bore-ann-ed-stage svg.ann { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+        .bore-ann-ed-msg { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; color: #8A93A0; font-size: 14px; pointer-events: none; }
+        .bore-ann-ed-chips { position: absolute; left: 16px; top: 16px; display: flex; gap: 8px; pointer-events: none; }
+        .bore-ann-ed-chips span { font-size: 11px; padding: 5px 10px; border-radius: 999px; background: #fff; color: #0E1116; font-weight: 600; }
+        .bore-ann-ed-chips span.orig { background: #FFD60A; }
+        .bore-ann-ed-hint { position: absolute; left: 16px; bottom: 14px; max-width: calc(100% - 32px); padding: 6px 12px; border-radius: 999px; background: rgba(10,11,13,.8); font-size: 12px; color: #E1E5EA; pointer-events: none; }
+        .bore-ann-ed-textin {
+            position: absolute; margin: 0; padding: 0; border: 0; outline: 1px dashed rgba(255,255,255,.9); border-radius: 2px;
+            background: rgba(0,0,0,.35); font-family: inherit; font-weight: 600; line-height: 1.1; text-shadow: 0 0 3px rgba(0,0,0,.8);
+        }
+        .bore-ann-ed-dock { flex: 0 0 auto; align-self: center; max-width: 100%; display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 10px; border-radius: 22px; }
+        .bore-ann-ed-dock .sep { width: 1px; height: 28px; background: #E4E7EB; margin: 0 8px; }
+        .bore-ann-ed-dock button { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 14px; background: transparent; color: #3A424D; display: flex; align-items: center; justify-content: center; }
+        .bore-ann-ed-dock button:disabled { opacity: .35; }
+        .bore-ann-ed-dock button[data-tool].on { background: #2551E8; color: #fff; }
+        .bore-ann-ed-dock button[data-width].on { background: #EEF2FF; }
+        .bore-ann-ed-dock .sw { display: block; width: 22px; height: 22px; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.2); }
+        .bore-ann-ed-dock button[data-color].on .sw { width: 26px; height: 26px; box-shadow: 0 0 0 3px #fff, 0 0 0 5px #0E1116; }
+        .bore-ann-ed-dock .dot { display: block; border-radius: 999px; background: #5B6470; }
+        .bore-ann-ed-dock button[data-width].on .dot { background: #2551E8; }
+        .bore-ann-ed-layers { flex: 0 0 300px; width: 300px; display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 22px; min-height: 0; }
+        .bore-ann-ed-layers .head { display: flex; justify-content: space-between; align-items: baseline; }
+        .bore-ann-ed-layers h2 { margin: 0; padding: 0; font-size: 15px; font-weight: 600; color: #0E1116; }
+        .bore-ann-ed-layers .cnt { font-size: 12px; color: #5B6470; }
+        .bore-ann-ed-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 6px; overflow: auto; }
+        .bore-ann-ed-layer { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 4px 0 12px; border-radius: 14px; background: #F4F5F7; }
+        .bore-ann-ed-layer .sw { flex: 0 0 12px; width: 12px; height: 12px; border-radius: 999px; }
+        .bore-ann-ed-layer .nm { flex: 1 1 auto; min-width: 0; font-size: 13px; color: #0E1116; }
+        .bore-ann-ed-layer .nm small { display: block; color: #5B6470; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bore-ann-ed-layer button { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; border: 0; background: transparent; color: #5B6470; }
+        .bore-ann-ed-layer button .bi { color: #5B6470; }
+        .bore-ann-ed-layer button:hover { background: #E4E7EB; }
+        .bore-ann-ed-empty { padding: 24px 8px; text-align: center; font-size: 13px; color: #5B6470; }
+        .bore-ann-ed-clear { height: 44px; border-radius: 14px; border: 1px solid #F1C9C9; background: transparent; color: #B42318; font-size: 13px; font-weight: 500; }
+        .bore-ann-ed-clear:disabled { opacity: .5; }
+        .bore-ann-ed-note { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 14px; background: #F1FAF4; border: 1px solid #D6EFE0; font-size: 12px; line-height: 1.45; color: #3A424D; }
+        .bore-ann-ed-note i { color: #1B6B3A; margin-top: 1px; }
+        .bore-ann-ed-confirm { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,.45); }
+        .bore-ann-ed-confirm .box { width: min(92vw, 380px); padding: 22px; border-radius: 18px; background: #fff; box-shadow: 0 20px 50px rgba(15,23,42,.3); }
+        .bore-ann-ed-confirm .t { font-size: 16px; font-weight: 600; color: #0E1116; }
+        .bore-ann-ed-confirm .s { margin-top: 6px; font-size: 13px; color: #5B6470; }
+        .bore-ann-ed-confirm .b { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+        @media (max-width: 900px) {
+            .bore-ann-ed-main { flex-direction: column; }
+            .bore-ann-ed-layers { flex: 0 0 auto; width: 100%; max-height: 200px; padding: 12px; }
+        }
+
+        /* Режим сравнения отчётов (полноэкранный слой внутри модалки отчёта) */
+        body.bore-cmp-open #engine-btn-wrapper, body:has(.bore-ann-ed) #engine-btn-wrapper { visibility: hidden; }
+        .bore-cmp {
+            position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; gap: 12px;
+            padding: 16px 20px 20px; box-sizing: border-box; outline: none; text-align: left;
+            background: #F4F5F7; color: #0E1116; font-family: inherit; font-size: 14px; line-height: 1.3;
+        }
+        .bore-cmp *, .bore-cmp *::before, .bore-cmp *::after { box-sizing: border-box; }
+        .bore-cmp :where(span, div, p) { color: inherit; } /* перебивает глобальное "p, span, div { color }" тёмной темы */
+        .bore-cmp button { font-family: inherit; cursor: pointer; }
+        .bore-cmp button:disabled { cursor: default; }
+        .bore-cmp-top { flex: 0 0 auto; display: flex; align-items: center; gap: 14px; padding: 10px; border-radius: 20px; background: #fff; border: 1px solid #E4E7EB; }
+        .bore-cmp-back { width: 44px; height: 44px; border-radius: 14px; border: 0; background: #F1F3F6; color: #3A424D; display: flex; align-items: center; justify-content: center; }
+        .bore-cmp-eyebrow { font-size: 11px; letter-spacing: .14em; color: #5B6470; text-transform: uppercase; }
+        .bore-cmp-title { margin: 3px 0 0; padding: 0; font-size: 18px; font-weight: 600; letter-spacing: -.02em; color: #0E1116; }
+        .bore-cmp-cols { flex: 1 1 auto; min-height: 0; display: flex; gap: 16px; }
+        .bore-cmp-pane { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 22px; background: #fff; border: 1px solid #E4E7EB; }
+        .bore-cmp-pane.slide { animation: boreCmpSlide .35s ease both; }
+        @keyframes boreCmpSlide { from { opacity: 0; transform: translateX(70px); } to { opacity: 1; transform: none; } }
+        .bore-cmp-phead { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+        .bore-cmp-role { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #5B6470; }
+        .bore-cmp-info { margin-top: 3px; font-size: 14px; font-weight: 600; color: #0E1116; word-break: break-word; }
+        .bore-cmp-info small { font-size: 12px; font-weight: 500; color: #5B6470; }
+        .bore-cmp-select { height: 38px; max-width: 100%; padding: 0 10px; border-radius: 10px; border: 1px solid #CBD5E1; background: #fff; color: #0E1116; font-size: 13px; font-family: inherit; }
+        .bore-cmp-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #2563eb; background: #eff6ff; color: #1d4ed8; font-size: 13px; font-weight: 600; }
+        .bore-cmp-btn:hover:not(:disabled) { background: #dbeafe; }
+        .bore-cmp-btn:disabled { opacity: .45; }
+        .bore-cmp-tabs { flex: 0 0 auto; display: flex; gap: 6px; flex-wrap: wrap; }
+        .bore-cmp-tab { border: 1px solid #E2E8F0; background: #F8FAFC; color: #334155; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; }
+        .bore-cmp-tab.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .bore-cmp-stage { position: relative; flex: 1 1 auto; min-height: 180px; border-radius: 16px; overflow: hidden; background: #121418; }
+        .bore-cmp-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+        .bore-cmp-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+        .bore-cmp-badge { position: absolute; left: 12px; top: 12px; padding: 5px 10px; border-radius: 999px; background: rgba(15,23,42,.8); color: #fff; font-size: 12px; font-weight: 600; pointer-events: none; }
+        .bore-cmp-msg { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; color: #94A3B8; font-size: 14px; pointer-events: none; }
+        .bore-cmp-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255,255,255,.9); color: #0f172a; display: flex; align-items: center; justify-content: center; }
+        .bore-cmp-nav:disabled { opacity: .35; }
+        .bore-cmp-nav.prev { left: 10px; }
+        .bore-cmp-nav.next { right: 10px; }
+        .bore-cmp-thumbs { flex: 0 0 auto; display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; min-height: 58px; }
+        .bore-cmp-th { position: relative; flex: 0 0 72px; width: 72px; height: 54px; padding: 0; border-radius: 8px; overflow: hidden; border: 2px solid transparent; background: #e2e8f0; opacity: .7; }
+        .bore-cmp-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .bore-cmp-th.on { border-color: #2563eb; opacity: 1; }
+        .bore-cmp-th:hover { opacity: 1; }
+        .bore-cmp-empty { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; color: #94A3B8; font-size: 14px; }
+        @media (max-width: 900px) {
+            .bore-cmp { overflow-y: auto; }
+            .bore-cmp-cols { flex-direction: column; flex: 0 0 auto; }
+            .bore-cmp-pane { flex: 0 0 auto; }
+            .bore-cmp-stage { flex: 0 0 auto; height: 52vw; min-height: 200px; }
+        }
+
         /* Edit photos & labels (Borescope report modal) */
         .bore-edit-panel { background: #ffffff; border: 1px solid #fcd34d; border-radius: 16px; padding: 16px; }
         .bore-edit-head { display: flex; align-items: center; justify-content: space-between; color: #b45309; font-weight: 700; font-size: .85rem; margin-bottom: 12px; }
@@ -9962,6 +10119,7 @@
                                 </div>
                                 <div class="row mb-3">
                                     <div class="col-md-3"><label class="small fw-bold">Photo (Link)</label><input type="text" class="form-control" id="m-photo" placeholder="http://..."></div>
+                                    <div class="col-md-6"><label class="small fw-bold">Files (photos, PDF, Word...)</label><input type="file" class="form-control" id="m-files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"></div>
                                 </div>
                                 <div class="row mb-3">
                                     <div class="col-md-6"><label class="small fw-bold">Supplier</label><input type="text" class="form-control" id="m-moved"></div>
@@ -13115,8 +13273,13 @@ function hideInstallTooltip() {
 
         let photosHtml = '<div class="borescope-mini-photos">';
         const photos = inspectionReport && Array.isArray(inspectionReport.photos) ? inspectionReport.photos : [];
+        window.__boreReportAnn = window.__boreReportAnn || {};
         if (photos.length > 0) {
             photos.forEach(photo => {
+                boreRowPhotoUrls(photo).forEach(u => {
+                    const a = inspectionReport.annotations && inspectionReport.annotations[u];
+                    if (a && Array.isArray(a.shapes) && a.shapes.length) window.__boreReportAnn[u] = a.shapes;
+                });
                 photosHtml += `
                     <div class="borescope-mini-photo">
                         <div class="borescope-mini-label">${photo.label || 'Photo'}</div>
@@ -13142,6 +13305,7 @@ function hideInstallTooltip() {
         `;
 
         modal.style.display = 'flex';
+        boreAnnBurnInImgs(content);
     }
 
     function closeLatestBorescopeReport() {
@@ -15508,6 +15672,1051 @@ function onGssInputChange(engines) {
         return [row.photo1, row.photo2].filter(Boolean);
     }
 
+    // ===== Разметка фото: отрисовка сохранённых фигур поверх фото =====
+    // Данные: inspection_report.annotations[url] = { shapes: [...] }, координаты 0..1 от размеров фото.
+    // SVG рисуется в системе координат шириной 1000 единиц (как в редакторе): толщина линий не зависит от размера на экране.
+    window.__boreAnn = window.__boreAnn || {};
+
+    function boreAnnGet(rowId, url) {
+        const map = window.__boreAnn[rowId];
+        const entry = map && map[url];
+        return (entry && Array.isArray(entry.shapes)) ? entry.shapes : [];
+    }
+
+    function boreAnnFontSize(width) { return 10 + width * 4; }
+
+    function boreAnnShapeMarkup(s, W, H) {
+        const r = n => Math.round(n * 100) / 100;
+        const col = /^#[0-9A-Fa-f]{6}$/.test(s.color) ? s.color : '#FF3B30';
+        const w = Number(s.width) || 4;
+        const stroke = `fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"`;
+        if (s.type === 'pen' && Array.isArray(s.points)) {
+            const d = s.points.map((p, i) => `${i ? 'L' : 'M'}${r(p[0] * W)} ${r(p[1] * H)}`).join('');
+            return `<path d="${d}" ${stroke}/>`;
+        }
+        if (s.type === 'text') {
+            const fs = boreAnnFontSize(w);
+            return `<text x="${r(s.x * W)}" y="${r(s.y * H + fs * 0.85)}" font-size="${fs}" font-weight="600" fill="${col}" stroke="rgba(0,0,0,.65)" stroke-width="${r(fs * 0.18)}" stroke-linejoin="round" style="paint-order:stroke;font-family:inherit">${boreEsc(s.text)}</text>`;
+        }
+        const x1 = s.x1 * W, y1 = s.y1 * H, x2 = s.x2 * W, y2 = s.y2 * H;
+        if (s.type === 'rect') {
+            return `<rect x="${r(Math.min(x1, x2))}" y="${r(Math.min(y1, y2))}" width="${r(Math.abs(x2 - x1))}" height="${r(Math.abs(y2 - y1))}" ${stroke}/>`;
+        }
+        if (s.type === 'ellipse') {
+            return `<ellipse cx="${r((x1 + x2) / 2)}" cy="${r((y1 + y2) / 2)}" rx="${r(Math.abs(x2 - x1) / 2)}" ry="${r(Math.abs(y2 - y1) / 2)}" ${stroke}/>`;
+        }
+        if (s.type === 'arrow') {
+            const len = Math.hypot(x2 - x1, y2 - y1);
+            const ang = Math.atan2(y2 - y1, x2 - x1);
+            const hl = Math.min(10 + w * 4, len * 0.6);
+            const ax = x2 - hl * Math.cos(ang - 0.5), ay = y2 - hl * Math.sin(ang - 0.5);
+            const bx = x2 - hl * Math.cos(ang + 0.5), by = y2 - hl * Math.sin(ang + 0.5);
+            return `<path d="M${r(x1)} ${r(y1)}L${r(x2)} ${r(y2)}M${r(ax)} ${r(ay)}L${r(x2)} ${r(y2)}L${r(bx)} ${r(by)}" ${stroke}/>`;
+        }
+        return '';
+    }
+
+    function boreAnnShapesMarkup(shapes, W, H) {
+        return shapes.map(s => boreAnnShapeMarkup(s, W, H)).join('');
+    }
+
+    // ===== Разметка в экспорте (Word/PDF): фигуры вшиваются в само фото через canvas =====
+    function boreAnnLoadImage(src) {
+        return new Promise((resolve, reject) => {
+            const im = new Image();
+            im.onload = () => resolve(im);
+            im.onerror = () => reject(new Error('image load failed'));
+            im.src = src;
+        });
+    }
+
+    // src - data URL фото (тот же origin, canvas не "грязнится"). Без фигур или при любой ошибке возвращает фото как есть.
+    async function boreAnnBurnIn(src, shapes) {
+        if (!Array.isArray(shapes) || !shapes.length) return src;
+        try {
+            const img = await boreAnnLoadImage(src);
+            if (!img.naturalWidth) return src;
+            const scale = Math.min(1, 1600 / img.naturalWidth);
+            const cw = Math.round(img.naturalWidth * scale), ch = Math.round(img.naturalHeight * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = cw; canvas.height = ch;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, cw, ch);
+            ctx.drawImage(img, 0, 0, cw, ch);
+            const W = 1000, H = 1000 * ch / cw;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${cw}" height="${ch}" viewBox="0 0 ${W} ${H}">${boreAnnShapesMarkup(shapes, W, H).replace(/font-family:inherit/g, 'font-family:Arial,Helvetica,sans-serif')}</svg>`;
+            const overlay = await boreAnnLoadImage('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg));
+            ctx.drawImage(overlay, 0, 0, cw, ch);
+            return canvas.toDataURL('image/jpeg', 0.92);
+        } catch (e) {
+            console.warn('Annotation burn-in failed:', e);
+            return src;
+        }
+    }
+
+    // Фигуры по URL фото для отчёта по самолёту (заполняется в generatePositionHTML)
+    window.__boreReportAnn = window.__boreReportAnn || {};
+    function boreReportShapes(src) {
+        const map = window.__boreReportAnn || {};
+        const str = String(src || '');
+        const rel = str.startsWith(location.origin) ? str.slice(location.origin.length) : str;
+        const s = map[src] || map[str.replace(/&amp;/g, '&')] || map[rel];
+        return Array.isArray(s) ? s : [];
+    }
+
+    // Предпросмотр отчётов: фото с сохранённой разметкой заменяются на копию с вшитой разметкой (после этого экспорт их не трогает)
+    async function boreAnnBurnInImgs(container) {
+        if (!container) return;
+        await Promise.all(Array.from(container.querySelectorAll('img')).map(async img => {
+            const raw = img.getAttribute('src');
+            if (!raw || raw.startsWith('data:')) return;
+            const shapes = boreReportShapes(raw);
+            if (!shapes.length) return;
+            try {
+                const fetchUrl = /^https?:\/\/[^/]*r2\.dev\//.test(raw) ? `/api/borescope-photo-proxy/${encodeURIComponent(raw)}` : raw;
+                const resp = await fetch(fetchUrl, { credentials: 'include' });
+                if (!resp.ok) return;
+                const blob = await resp.blob();
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const fr = new FileReader();
+                    fr.onload = () => resolve(fr.result);
+                    fr.onerror = reject;
+                    fr.readAsDataURL(blob);
+                });
+                if (!container.contains(img)) return;
+                img.src = await boreAnnBurnIn(dataUrl, shapes);
+            } catch (e) {
+                console.warn('Annotation preview failed:', e);
+            }
+        }));
+    }
+
+    // Разметка поверх фото в полноэкранном просмотре (SVG позиционируется по реальным размерам фото)
+    function boreAnnPlaceFull() {
+        const img = document.getElementById('borescope-photo-img');
+        const svg = document.getElementById('borescope-photo-ann');
+        if (!img || !svg) return;
+        svg.innerHTML = '';
+        svg.style.display = 'none';
+        const shapes = window.__boreFullShapes || [];
+        if (!shapes.length || !img.naturalWidth) return;
+        const r = img.getBoundingClientRect();
+        const W = 1000, H = 1000 * img.naturalHeight / img.naturalWidth;
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.style.left = r.left + 'px';
+        svg.style.top = r.top + 'px';
+        svg.style.width = r.width + 'px';
+        svg.style.height = r.height + 'px';
+        svg.innerHTML = boreAnnShapesMarkup(shapes, W, H);
+        svg.style.display = 'block';
+    }
+    window.addEventListener('resize', () => {
+        const ov = document.getElementById('borescope-photo-overlay');
+        if (ov && ov.style.display !== 'none') boreAnnPlaceFull();
+    });
+
+    // Перерисовывает разметку поверх большого фото. Если фото ещё грузится - отрисуется по событию load.
+    function boreAnnApply(rowId) {
+        const img = document.getElementById(`bore-viewer-img-${rowId}`);
+        const svg = document.getElementById(`bore-viewer-ann-${rowId}`);
+        const gallery = window.__boreGalleries && window.__boreGalleries[rowId];
+        if (!img || !svg || !gallery) return;
+        svg.innerHTML = '';
+        const photo = gallery[(window.__boreGalleryIndex && window.__boreGalleryIndex[rowId]) || 0];
+        if (!photo || !img.complete || !img.naturalWidth) return;
+        const shapes = boreAnnGet(rowId, photo.url);
+        if (!shapes.length) return;
+        const W = 1000, H = 1000 * img.naturalHeight / img.naturalWidth;
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.innerHTML = boreAnnShapesMarkup(shapes, W, H);
+    }
+    window.boreAnnApply = boreAnnApply;
+
+    // Пересобирает миниатюры (значки разметки) и разметку на большом фото после сохранения
+    function boreAnnRefreshViewer(rowId) {
+        const gallery = window.__boreGalleries && window.__boreGalleries[rowId];
+        const thumbs = document.getElementById(`bore-thumbs-${rowId}`);
+        if (!gallery || !thumbs) return;
+        thumbs.innerHTML = boreThumbsHtml(rowId, gallery);
+        boreRenderPhoto(rowId, (window.__boreGalleryIndex && window.__boreGalleryIndex[rowId]) || 0);
+    }
+
+    // ===== Редактор разметки: полноэкранный слой внутри модалки отчёта =====
+    // Слой добавляется внутрь самой модалки (не в body): иначе фокус-ловушка Bootstrap отбирает фокус у поля ввода текста.
+    const BORE_ANN_COLORS = [['Красный', '#FF3B30'], ['Жёлтый', '#FFD60A'], ['Зелёный', '#30D158'], ['Голубой', '#22D3EE'], ['Синий', '#2551E8'], ['Белый', '#FFFFFF']];
+    const BORE_ANN_WIDTHS = [[2, 'тонкая'], [4, 'средняя'], [8, 'толстая']];
+    const BORE_ANN_NAMES = { pen: 'Кисть', arrow: 'Стрелка', ellipse: 'Овал', rect: 'Прямоугольник', text: 'Текст' };
+    const BORE_ANN_TOOL_TITLES = { pen: 'Кисть', arrow: 'Стрелка', ellipse: 'Овал', rect: 'Прямоугольник', text: 'Текст', eraser: 'Ластик' };
+    const BORE_ANN_HINTS = {
+        pen: 'Кисть — зажмите и ведите по фото',
+        arrow: 'Стрелка — потяните от начала к концу',
+        ellipse: 'Овал — потяните, чтобы обвести зону',
+        rect: 'Прямоугольник — потяните по диагонали',
+        text: 'Текст — кликните по фото и введите подпись (Enter — готово)',
+        eraser: 'Ластик — кликните по фигуре или тексту, чтобы удалить'
+    };
+    const BORE_ANN_MAX_SHAPES = 500;
+    const BORE_ANN_MAX_PEN_POINTS = 2000;
+    const BORE_ANN_ICONS = {
+        pen: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 5-2 5-4s-2-2-2-4 2-3 4-3"></path><path d="M14 4l6 6-8 8-6-6z"></path></svg>',
+        arrow: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5M10 5h9v9"></path></svg>',
+        ellipse: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="12" rx="9" ry="6.5"></ellipse></svg>',
+        rect: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="6" width="16" height="12" rx="1.5"></rect></svg>',
+        text: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7V5h14v2M12 5v14M9 19h6"></path></svg>',
+        eraser: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H9L3.5 14.5a2 2 0 010-2.8l8.7-8.7a2 2 0 012.8 0l5 5a2 2 0 010 2.8L12 18.8"></path><path d="M7 10l7 7"></path></svg>'
+    };
+    let boreAnnEd = null;
+
+    function boreAnnSegDist(px, py, x1, y1, x2, y2) {
+        const dx = x2 - x1, dy = y2 - y1;
+        const l2 = dx * dx + dy * dy;
+        let t = l2 ? ((px - x1) * dx + (py - y1) * dy) / l2 : 0;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    }
+
+    // Попадание курсора (px,py в единицах viewBox) в фигуру; tol - допуск в тех же единицах
+    function boreAnnHit(s, px, py, W, H, tol) {
+        const w = Number(s.width) || 4;
+        const lim = tol + w / 2;
+        const polyHit = pts => {
+            for (let i = 0; i < pts.length - 1; i++) {
+                if (boreAnnSegDist(px, py, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1]) <= lim) return true;
+            }
+            return false;
+        };
+        if (s.type === 'pen') return polyHit(s.points.map(p => [p[0] * W, p[1] * H]));
+        if (s.type === 'text') {
+            const fs = boreAnnFontSize(w), x = s.x * W, y = s.y * H;
+            return px >= x - tol && px <= x + s.text.length * fs * 0.6 + tol && py >= y - tol && py <= y + fs * 1.1 + tol;
+        }
+        const x1 = s.x1 * W, y1 = s.y1 * H, x2 = s.x2 * W, y2 = s.y2 * H;
+        if (s.type === 'arrow') return polyHit([[x1, y1], [x2, y2]]);
+        if (s.type === 'rect') return polyHit([[x1, y1], [x2, y1], [x2, y2], [x1, y2], [x1, y1]]);
+        if (s.type === 'ellipse') {
+            const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, rx = Math.abs(x2 - x1) / 2, ry = Math.abs(y2 - y1) / 2;
+            const pts = [];
+            for (let i = 0; i <= 48; i++) pts.push([cx + rx * Math.cos(i / 48 * 2 * Math.PI), cy + ry * Math.sin(i / 48 * 2 * Math.PI)]);
+            return polyHit(pts);
+        }
+        return false;
+    }
+
+    function boreAnnRenderSvg() {
+        const ed = boreAnnEd;
+        if (!ed) return;
+        const svg = ed.el.querySelector('svg.ann');
+        const all = ed.draft ? ed.shapes.concat([ed.draft]) : ed.shapes;
+        svg.style.display = ed.showMarks ? '' : 'none';
+        svg.innerHTML = boreAnnShapesMarkup(all, ed.W, ed.H);
+    }
+
+    function boreAnnRenderUi() {
+        const ed = boreAnnEd;
+        if (!ed) return;
+        const el = ed.el;
+        el.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === ed.tool));
+        el.querySelectorAll('[data-color]').forEach(b => b.classList.toggle('on', b.dataset.color === ed.color));
+        el.querySelectorAll('[data-width]').forEach(b => b.classList.toggle('on', Number(b.dataset.width) === ed.width));
+        el.querySelector('[data-act="undo"]').disabled = !ed.undo.length || ed.saving;
+        el.querySelector('[data-act="redo"]').disabled = !ed.redo.length || ed.saving;
+        el.querySelector('[data-act="clear"]').disabled = !ed.shapes.length || ed.saving;
+        el.querySelector('[data-ref="origLabel"]').textContent = ed.showMarks ? 'Оригинал' : 'Разметка';
+        el.querySelector('[data-ref="origChip"]').classList.toggle('d-none', ed.showMarks);
+        el.querySelector('[data-ref="hint"]').textContent = ed.showMarks ? BORE_ANN_HINTS[ed.tool] : 'Показан оригинал фото — разметка скрыта';
+        const n = ed.shapes.length, m10 = n % 10, m100 = n % 100;
+        el.querySelector('[data-ref="count"]').textContent = `${n} ${m10 === 1 && m100 !== 11 ? 'объект' : (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? 'объекта' : 'объектов')}`;
+        const stage = el.querySelector('[data-ref="stage"]');
+        stage.style.cursor = !ed.showMarks || ed.tool === 'eraser' ? 'default' : (ed.tool === 'text' ? 'text' : 'crosshair');
+        const list = el.querySelector('[data-ref="list"]');
+        list.innerHTML = ed.shapes.length ? ed.shapes.map((s, i) => `
+            <div class="bore-ann-ed-layer">
+                <span class="sw" style="background:${s.color};box-shadow:inset 0 0 0 1px rgba(0,0,0,.2), 0 0 0 3px ${s.color}33"></span>
+                <span class="nm">${BORE_ANN_NAMES[s.type]} ${i + 1}${s.type === 'text' ? `<small>«${boreEsc(s.text)}»</small>` : ''}</span>
+                <button type="button" data-del="${i}" title="Удалить слой" aria-label="Удалить слой"><i class="bi bi-trash"></i></button>
+            </div>`).join('')
+            : '<div class="bore-ann-ed-empty">Нарисуйте на фото — каждая фигура появится здесь отдельным слоем.</div>';
+    }
+
+    function boreAnnRender() {
+        boreAnnRenderSvg();
+        boreAnnRenderUi();
+    }
+
+    function boreAnnPushHistory(shapes) {
+        const ed = boreAnnEd;
+        ed.undo.push(ed.shapes);
+        if (ed.undo.length > 100) ed.undo.shift();
+        ed.shapes = shapes;
+        ed.redo = [];
+    }
+
+    function boreAnnUndo() {
+        const ed = boreAnnEd;
+        if (!ed || ed.draft || ed.saving) return;
+        boreAnnFinishText(true);
+        if (!ed.undo.length) return;
+        ed.redo.push(ed.shapes);
+        ed.shapes = ed.undo.pop();
+        boreAnnRender();
+    }
+
+    function boreAnnRedo() {
+        const ed = boreAnnEd;
+        if (!ed || ed.draft || ed.saving) return;
+        boreAnnFinishText(true);
+        if (!ed.redo.length) return;
+        ed.undo.push(ed.shapes);
+        ed.shapes = ed.redo.pop();
+        boreAnnRender();
+    }
+
+    function boreAnnFit() {
+        const ed = boreAnnEd;
+        if (!ed || !ed.loaded) return;
+        const area = ed.el.querySelector('[data-ref="area"]');
+        const aw = area.clientWidth, ah = area.clientHeight;
+        if (!aw || !ah) return;
+        if (ed.textInput) boreAnnFinishText(true);
+        const s = Math.min(aw / ed.natW, ah / ed.natH);
+        const stage = ed.el.querySelector('[data-ref="stage"]');
+        stage.style.width = Math.floor(ed.natW * s) + 'px';
+        stage.style.height = Math.floor(ed.natH * s) + 'px';
+    }
+
+    function boreAnnStartText(p) {
+        const ed = boreAnnEd;
+        if (!ed || ed.textInput) return;
+        const stage = ed.el.querySelector('[data-ref="stage"]');
+        const rect = stage.getBoundingClientRect();
+        const x = Math.min(p.x, 0.85), y = Math.min(p.y, 0.95);
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.maxLength = 200;
+        inp.placeholder = 'Текст…';
+        inp.className = 'bore-ann-ed-textin';
+        inp.style.left = (x * 100) + '%';
+        inp.style.top = (y * 100) + '%';
+        inp.style.width = ((1 - x) * 100) + '%';
+        inp.style.fontSize = (boreAnnFontSize(ed.width) * rect.width / ed.W) + 'px';
+        inp.style.color = ed.color;
+        inp.addEventListener('keydown', e => {
+            e.stopPropagation(); // Enter/Esc/Ctrl+Z относятся только к полю ввода и не должны закрывать модалку
+            if (e.key === 'Enter') { e.preventDefault(); boreAnnFinishText(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); boreAnnFinishText(false); }
+        });
+        inp.addEventListener('blur', () => {
+            if (boreAnnEd && boreAnnEd.textInput && boreAnnEd.textInput.el === inp) boreAnnFinishText(true);
+        });
+        stage.appendChild(inp);
+        ed.textInput = { el: inp, x, y, color: ed.color, width: ed.width };
+        inp.focus();
+    }
+
+    function boreAnnFinishText(commit) {
+        const ed = boreAnnEd;
+        const t = ed && ed.textInput;
+        if (!t) return;
+        ed.textInput = null;
+        const value = commit ? t.el.value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 200) : '';
+        t.el.remove();
+        if (value && ed.shapes.length < BORE_ANN_MAX_SHAPES) {
+            const r4 = v => Math.round(v * 10000) / 10000;
+            boreAnnPushHistory(ed.shapes.concat([{ type: 'text', color: t.color, width: t.width, x: r4(t.x), y: r4(t.y), text: value }]));
+        }
+        boreAnnRender();
+    }
+
+    function boreAnnClose() {
+        const ed = boreAnnEd;
+        if (!ed) return;
+        document.removeEventListener('keydown', boreAnnOnKey, true);
+        if (ed.resizeObs) ed.resizeObs.disconnect();
+        ed.el.remove();
+        boreAnnEd = null;
+    }
+
+    // Выход: если есть несохранённые изменения - спрашиваем подтверждение
+    function boreAnnRequestClose() {
+        const ed = boreAnnEd;
+        if (!ed || ed.saving) return;
+        boreAnnFinishText(true);
+        if (JSON.stringify(ed.shapes) !== ed.baseline) ed.el.querySelector('[data-ref="confirm"]').classList.remove('d-none');
+        else boreAnnClose();
+    }
+
+    function boreAnnOnKey(e) {
+        const ed = boreAnnEd;
+        if (!ed) return;
+        if (e.target && e.target.classList && e.target.classList.contains('bore-ann-ed-textin')) return; // у поля ввода свой обработчик
+        const confirmEl = ed.el.querySelector('[data-ref="confirm"]');
+        if (e.key === 'Escape') {
+            e.preventDefault(); e.stopPropagation(); // не закрываем модалку отчёта под редактором
+            if (!confirmEl.classList.contains('d-none')) confirmEl.classList.add('d-none');
+            else boreAnnRequestClose();
+        } else if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') {
+            e.preventDefault(); e.stopPropagation();
+            if (e.shiftKey) boreAnnRedo(); else boreAnnUndo();
+        } else if ((e.ctrlKey || e.metaKey) && e.code === 'KeyY') {
+            e.preventDefault(); e.stopPropagation();
+            boreAnnRedo();
+        }
+    }
+
+    async function boreAnnSave() {
+        const ed = boreAnnEd;
+        if (!ed || ed.saving) return;
+        boreAnnFinishText(true);
+        if (JSON.stringify(ed.shapes) === ed.baseline) { boreAnnClose(); return; }
+        ed.saving = true;
+        const saveBtn = ed.el.querySelector('[data-act="save"]');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Сохранение…';
+        boreAnnRenderUi();
+        try {
+            const res = await fetch(`/api/history/BORESCOPE/${ed.id}/annotations?user_id=${currentUser.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: ed.url, annotations: ed.shapes })
+            });
+            if (!res.ok) {
+                let detail = `HTTP ${res.status}`;
+                try { const err = await res.json(); if (err && err.detail) detail = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail); } catch (e) { }
+                throw new Error(detail);
+            }
+            const data = await res.json();
+            window.__boreAnn[ed.id] = window.__boreAnn[ed.id] || {};
+            if (data.annotations && data.annotations.length) {
+                window.__boreAnn[ed.id][ed.url] = { shapes: data.annotations, updated_at: data.updated_at, updated_by: data.updated_by };
+            } else {
+                delete window.__boreAnn[ed.id][ed.url];
+            }
+            ed.baseline = JSON.stringify(ed.shapes);
+            saveBtn.innerHTML = '<i class="bi bi-check-lg"></i> Сохранено';
+            ed.el.querySelector('[data-ref="saved"]').classList.remove('d-none');
+            if (typeof ed.onSaved === 'function') ed.onSaved();
+            setTimeout(() => { if (boreAnnEd === ed) boreAnnClose(); }, 700);
+        } catch (e) {
+            // Ошибка: рисунок остаётся в редакторе, можно повторить
+            showErrorNotification('Не удалось сохранить разметку: ' + e.message);
+            ed.saving = false;
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="bi bi-check-lg"></i> Сохранить';
+            boreAnnRenderUi();
+        }
+    }
+
+    function boreAnnOpenEditor(opts) {
+        if (boreAnnEd) return;
+        const ed = boreAnnEd = {
+            id: opts.inspectionId, url: opts.url, onSaved: opts.onSaved,
+            shapes: JSON.parse(JSON.stringify(boreAnnGet(opts.inspectionId, opts.url))),
+            undo: [], redo: [], tool: 'pen', color: '#FF3B30', width: 4,
+            draft: null, pendingText: null, textInput: null, showMarks: true, saving: false,
+            loaded: false, natW: 1, natH: 1, W: 1000, H: 625
+        };
+        ed.baseline = JSON.stringify(ed.shapes);
+
+        const toolsHtml = ['pen', 'arrow', 'ellipse', 'rect', 'text', 'eraser'].map(t =>
+            `<button type="button" data-tool="${t}" title="${BORE_ANN_TOOL_TITLES[t]}" aria-label="${BORE_ANN_TOOL_TITLES[t]}">${BORE_ANN_ICONS[t]}</button>`).join('');
+        const colorsHtml = BORE_ANN_COLORS.map(c =>
+            `<button type="button" data-color="${c[1]}" title="${c[0]}" aria-label="${c[0]}"><span class="sw" style="background:${c[1]}"></span></button>`).join('');
+        const widthsHtml = BORE_ANN_WIDTHS.map(w =>
+            `<button type="button" data-width="${w[0]}" title="Толщина: ${w[1]}" aria-label="Толщина: ${w[1]}"><span class="dot" style="width:${w[0] * 2 + 4}px;height:${w[0] * 2 + 4}px"></span></button>`).join('');
+
+        const el = document.createElement('div');
+        el.className = 'bore-ann-ed';
+        el.tabIndex = -1;
+        el.innerHTML = `
+            <header class="bore-ann-ed-top">
+                <div class="grp">
+                    <button type="button" class="bore-ann-ed-back" data-act="cancel" title="Назад к отчёту" aria-label="Назад к отчёту"><i class="bi bi-chevron-left"></i></button>
+                    <div>
+                        <div class="bore-ann-ed-eyebrow">Report ${boreEsc(ed.id)} · ${boreEsc(opts.label)} · Photo ${opts.pos} / ${opts.total}</div>
+                        <div class="bore-ann-ed-title">
+                            <h1>Разметка дефектов</h1>
+                            <span class="bore-ann-ed-pill draw"><i></i>DRAW</span>
+                            <span class="bore-ann-ed-pill saved d-none" data-ref="saved">Сохранено</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="grp r">
+                    <button type="button" class="bore-ann-ed-btn ghost" data-act="orig"><i class="bi bi-eye"></i><span data-ref="origLabel">Оригинал</span></button>
+                    <button type="button" class="bore-ann-ed-btn" data-act="cancel">Отмена</button>
+                    <button type="button" class="bore-ann-ed-btn primary" data-act="save"><i class="bi bi-check-lg"></i> Сохранить</button>
+                </div>
+            </header>
+            <div class="bore-ann-ed-main">
+                <div class="bore-ann-ed-work">
+                    <div class="bore-ann-ed-area" data-ref="area">
+                        <div class="bore-ann-ed-stage" data-ref="stage">
+                            <img alt="" draggable="false">
+                            <svg class="ann" viewBox="0 0 1000 625" preserveAspectRatio="xMidYMid meet"></svg>
+                            <div class="bore-ann-ed-msg" data-ref="msg">Загрузка фото…</div>
+                            <div class="bore-ann-ed-chips"><span>${boreEsc(opts.label)} · ${boreEsc(opts.slot)}</span><span class="orig d-none" data-ref="origChip">ОРИГИНАЛ</span></div>
+                            <div class="bore-ann-ed-hint" data-ref="hint"></div>
+                        </div>
+                    </div>
+                    <nav class="bore-ann-ed-dock" aria-label="Инструменты рисования">
+                        ${toolsHtml}<span class="sep"></span>${colorsHtml}<span class="sep"></span>${widthsHtml}<span class="sep"></span>
+                        <button type="button" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"></path><path d="M4 9h10a6 6 0 010 12h-3"></path></svg></button>
+                        <button type="button" data-act="redo" title="Повторить (Ctrl+Shift+Z)" aria-label="Повторить"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"></path><path d="M20 9H10a6 6 0 000 12h3"></path></svg></button>
+                    </nav>
+                </div>
+                <aside class="bore-ann-ed-layers">
+                    <div class="head"><h2>Слои</h2><span class="cnt" data-ref="count"></span></div>
+                    <div class="bore-ann-ed-list" data-ref="list"></div>
+                    <button type="button" class="bore-ann-ed-clear" data-act="clear">Очистить всё</button>
+                    <div class="bore-ann-ed-note"><i class="bi bi-lock"></i><span>Оригинал фото защищён. Разметка хранится отдельным слоем и редактируется в любой момент.</span></div>
+                </aside>
+            </div>
+            <div class="bore-ann-ed-confirm d-none" data-ref="confirm">
+                <div class="box">
+                    <div class="t">Выйти без сохранения?</div>
+                    <div class="s">Несохранённая разметка будет потеряна.</div>
+                    <div class="b">
+                        <button type="button" class="bore-ann-ed-btn" data-act="stay">Остаться</button>
+                        <button type="button" class="bore-ann-ed-btn danger" data-act="leave">Выйти</button>
+                    </div>
+                </div>
+            </div>`;
+        ed.el = el;
+        (opts.modalEl || document.body).appendChild(el);
+
+        const stage = el.querySelector('[data-ref="stage"]');
+        const img = el.querySelector('img');
+        const msg = el.querySelector('[data-ref="msg"]');
+        const svg = el.querySelector('svg.ann');
+        img.addEventListener('load', () => {
+            if (boreAnnEd !== ed) return;
+            ed.natW = img.naturalWidth || 1;
+            ed.natH = img.naturalHeight || 1;
+            ed.H = 1000 * ed.natH / ed.natW;
+            svg.setAttribute('viewBox', `0 0 ${ed.W} ${ed.H}`);
+            ed.loaded = true;
+            msg.classList.add('d-none');
+            boreAnnFit();
+            boreAnnRenderSvg();
+        });
+        img.addEventListener('error', () => { msg.textContent = 'Не удалось загрузить фото'; });
+        img.src = ed.url;
+
+        if (window.ResizeObserver) {
+            ed.resizeObs = new ResizeObserver(() => boreAnnFit());
+            ed.resizeObs.observe(el.querySelector('[data-ref="area"]'));
+        }
+
+        // Координаты курсора относительно фото, 0..1
+        const clamp01 = v => Math.max(0, Math.min(1, v));
+        const pt = e => {
+            const r = stage.getBoundingClientRect();
+            return { x: clamp01((e.clientX - r.left) / r.width), y: clamp01((e.clientY - r.top) / r.height) };
+        };
+        const r4 = v => Math.round(v * 10000) / 10000;
+
+        stage.addEventListener('pointerdown', e => {
+            if (!ed.loaded || ed.saving || e.button !== 0 || !ed.showMarks) return;
+            if (e.target.classList && e.target.classList.contains('bore-ann-ed-textin')) return;
+            const p = pt(e);
+            if (ed.tool === 'eraser') {
+                const rect = stage.getBoundingClientRect();
+                const tol = 10 * ed.W / rect.width;
+                for (let i = ed.shapes.length - 1; i >= 0; i--) {
+                    if (boreAnnHit(ed.shapes[i], p.x * ed.W, p.y * ed.H, ed.W, ed.H, tol)) {
+                        boreAnnPushHistory(ed.shapes.filter((_, j) => j !== i));
+                        boreAnnRender();
+                        break;
+                    }
+                }
+                return;
+            }
+            if (ed.shapes.length >= BORE_ANN_MAX_SHAPES) {
+                showErrorNotification(`Достигнут лимит: ${BORE_ANN_MAX_SHAPES} объектов на фото`);
+                return;
+            }
+            if (stage.setPointerCapture) stage.setPointerCapture(e.pointerId);
+            if (ed.tool === 'text') { ed.pendingText = p; return; }
+            ed.draft = ed.tool === 'pen'
+                ? { type: 'pen', color: ed.color, width: ed.width, points: [[p.x, p.y]] }
+                : { type: ed.tool, color: ed.color, width: ed.width, x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+            boreAnnRenderSvg();
+        });
+        stage.addEventListener('pointermove', e => {
+            const d = ed.draft;
+            if (!d) return;
+            const p = pt(e);
+            if (d.type === 'pen') {
+                const last = d.points[d.points.length - 1];
+                if (d.points.length < BORE_ANN_MAX_PEN_POINTS && Math.hypot((p.x - last[0]) * ed.W, (p.y - last[1]) * ed.H) >= 2) d.points.push([p.x, p.y]);
+            } else {
+                d.x2 = p.x; d.y2 = p.y;
+            }
+            boreAnnRenderSvg();
+        });
+        const finishDraw = cancelled => {
+            if (ed.pendingText) {
+                const p = ed.pendingText;
+                ed.pendingText = null;
+                if (!cancelled) boreAnnStartText(p);
+                return;
+            }
+            const d = ed.draft;
+            if (!d) return;
+            ed.draft = null;
+            const rect = stage.getBoundingClientRect();
+            const ok = d.type === 'pen'
+                ? d.points.length >= 2
+                : (Math.abs(d.x2 - d.x1) * rect.width + Math.abs(d.y2 - d.y1) * rect.height) >= 8;
+            if (!cancelled && ok) {
+                const clean = { type: d.type, color: d.color, width: d.width };
+                if (d.type === 'pen') clean.points = d.points.map(q => [r4(q[0]), r4(q[1])]);
+                else { clean.x1 = r4(d.x1); clean.y1 = r4(d.y1); clean.x2 = r4(d.x2); clean.y2 = r4(d.y2); }
+                boreAnnPushHistory(ed.shapes.concat([clean]));
+                boreAnnRender();
+            } else {
+                boreAnnRenderSvg();
+            }
+        };
+        stage.addEventListener('pointerup', () => finishDraw(false));
+        stage.addEventListener('pointercancel', () => finishDraw(true));
+
+        el.addEventListener('click', e => {
+            const t = e.target.closest('[data-act],[data-tool],[data-color],[data-width],[data-del]');
+            if (!t || !el.contains(t) || ed.saving) return;
+            if (t.dataset.tool) { boreAnnFinishText(true); ed.tool = t.dataset.tool; boreAnnRenderUi(); return; }
+            if (t.dataset.color) {
+                boreAnnFinishText(true);
+                ed.color = t.dataset.color;
+                if (ed.tool === 'eraser') ed.tool = 'pen';
+                boreAnnRenderUi();
+                return;
+            }
+            if (t.dataset.width) { boreAnnFinishText(true); ed.width = Number(t.dataset.width); boreAnnRenderUi(); return; }
+            if (t.dataset.del !== undefined) {
+                boreAnnFinishText(true);
+                boreAnnPushHistory(ed.shapes.filter((_, j) => j !== Number(t.dataset.del)));
+                boreAnnRender();
+                return;
+            }
+            switch (t.dataset.act) {
+                case 'cancel': boreAnnRequestClose(); break;
+                case 'save': boreAnnSave(); break;
+                case 'undo': boreAnnUndo(); break;
+                case 'redo': boreAnnRedo(); break;
+                case 'orig': boreAnnFinishText(true); ed.showMarks = !ed.showMarks; boreAnnRender(); break;
+                case 'clear':
+                    boreAnnFinishText(true);
+                    if (ed.shapes.length) { boreAnnPushHistory([]); boreAnnRender(); }
+                    break;
+                case 'stay': el.querySelector('[data-ref="confirm"]').classList.add('d-none'); break;
+                case 'leave': boreAnnClose(); break;
+            }
+        });
+
+        document.addEventListener('keydown', boreAnnOnKey, true);
+        boreAnnRender();
+        el.focus();
+    }
+
+    // Открыть редактор для текущего фото в просмотрщике отчёта
+    window.boreAnnOpen = function (rowId) {
+        if (typeof isViewer === 'function' && isViewer()) return;
+        const gallery = window.__boreGalleries && window.__boreGalleries[rowId];
+        const idx = (window.__boreGalleryIndex && window.__boreGalleryIndex[rowId]) || 0;
+        const photo = gallery && gallery[idx];
+        if (!photo) return;
+        boreAnnOpenEditor({
+            inspectionId: rowId, url: photo.url, label: photo.label, slot: photo.slot,
+            pos: idx + 1, total: gallery.length,
+            modalEl: document.getElementById(`inspection-details-modal-${rowId}`),
+            onSaved: () => boreAnnRefreshViewer(rowId)
+        });
+    };
+
+    // ===== Режим сравнения отчётов: два отчёта одного двигателя рядом =====
+    // Данные берутся из списка инспекций, загруженного при открытии модалки (window.__boreInspList), новых запросов нет.
+    // Слева всегда текущий отчёт, справа выбранный другой (по умолчанию ближайший предыдущий). Фото и секции у сторон независимы.
+    let boreCmp = null;
+
+    function boreCmpParseReport(insp) {
+        let rep = insp && insp.inspection_report;
+        if (typeof rep === 'string') {
+            try { rep = JSON.parse(rep); } catch (e) { rep = null; }
+        }
+        return (rep && typeof rep === 'object') ? rep : null;
+    }
+
+    function boreCmpPhotoCount(insp) {
+        const rep = boreCmpParseReport(insp);
+        if (!rep || !Array.isArray(rep.photos)) return 0;
+        return rep.photos.reduce((n, row) => n + boreRowPhotoUrls(row).length, 0);
+    }
+
+    // Другие отчёты того же S/N, по дате (старые первыми)
+    function boreCmpCandidates(rowId) {
+        const list = window.__boreInspList || [];
+        const cur = list.find(i => i.id === rowId);
+        if (!cur || !cur.serial_number) return [];
+        const t = i => Number(new Date(i.date)) || 0;
+        return list.filter(i => i.id !== rowId && i.serial_number === cur.serial_number)
+            .sort((a, b) => (t(a) - t(b)) || (a.id - b.id));
+    }
+
+    // Ближайший предыдущий отчёт; если более ранних нет - самый ранний из остальных
+    function boreCmpDefault(cur, others) {
+        const t = i => Number(new Date(i.date)) || 0;
+        const earlier = others.filter(o => t(o) < t(cur) || (t(o) === t(cur) && o.id < cur.id));
+        return earlier.length ? earlier[earlier.length - 1] : others[0];
+    }
+
+    function boreCmpBuildSide(insp, isHost) {
+        const rep = boreCmpParseReport(insp);
+        const all = [];
+        if (rep && Array.isArray(rep.photos)) {
+            const slots = {};
+            rep.photos.forEach((row, ri) => {
+                const label = row.label || `Photo ${ri + 1}`;
+                boreRowPhotoUrls(row).forEach(url => {
+                    slots[label] = (slots[label] || 0) + 1;
+                    all.push({ url, label, slot: slots[label] });
+                });
+            });
+        }
+        const counts = {};
+        all.forEach(p => { counts[p.label] = (counts[p.label] || 0) + 1; });
+        if (!window.__boreAnn[insp.id]) {
+            window.__boreAnn[insp.id] = (rep && rep.annotations && typeof rep.annotations === 'object') ? rep.annotations : {};
+            if (!isHost) boreCmp.ownIds.add(insp.id);
+        }
+        return { id: insp.id, insp, all, labels: Object.keys(counts), counts, sel: -1, list: all, idx: 0, el: null };
+    }
+
+    function boreCmpPaneHtml(side, isRight) {
+        const insp = side.insp;
+        const viewer = typeof isViewer === 'function' && isViewer();
+        const info = `S/N ${boreEsc(insp.serial_number || '—')} · ${boreEsc(insp.aircraft || '—')} · POS ${boreEsc(insp.position || '—')}`;
+        const opts = isRight ? boreCmp.others.slice().reverse().map(o =>
+            `<option value="${o.id}"${o.id === side.id ? ' selected' : ''}>${boreEsc(fmtDMY(o.date))} · ${boreEsc(o.aircraft || '—')} · POS ${boreEsc(o.position || '—')} · ID ${o.id} · ${boreCmpPhotoCount(o)} фото</option>`).join('') : '';
+        const annAttr = viewer ? 'disabled title="Только просмотр: разметка недоступна"' : (side.all.length ? 'title="Нарисовать поверх фото"' : 'disabled');
+        const head = `
+            <div class="bore-cmp-phead">
+                <div>
+                    <div class="bore-cmp-role">${isRight ? 'Другой отчёт' : 'Текущий отчёт'}</div>
+                    <div class="bore-cmp-info">${info}<br><small>${boreEsc(fmtDMY(insp.date))} · ID ${insp.id}</small></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    ${isRight ? `<select class="bore-cmp-select" data-cmp="sel" aria-label="Другой отчёт">${opts}</select>` : ''}
+                    <button type="button" class="bore-cmp-btn" data-cmp="ann" ${annAttr}><i class="bi bi-pencil"></i> Разметить фото</button>
+                </div>
+            </div>`;
+        if (!side.all.length) return head + '<div class="bore-cmp-empty">В этом отчёте нет фото</div>';
+        const tabs = `<button type="button" class="bore-cmp-tab${side.sel < 0 ? ' on' : ''}" data-cmp="tab" data-i="-1">Все секции · ${side.all.length}</button>` +
+            side.labels.map((l, i) => `<button type="button" class="bore-cmp-tab${side.sel === i ? ' on' : ''}" data-cmp="tab" data-i="${i}">${boreEsc(l)} · ${side.counts[l]}</button>`).join('');
+        return head + `
+            <div class="bore-cmp-tabs">${tabs}</div>
+            <div class="bore-cmp-stage">
+                <img data-ref="img" alt="">
+                <svg data-ref="svg" viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid meet"></svg>
+                <span class="bore-cmp-badge" data-ref="badge"></span>
+                <div class="bore-cmp-msg d-none" data-ref="msg">Не удалось загрузить фото</div>
+                <button type="button" class="bore-cmp-nav prev" data-cmp="prev" aria-label="Предыдущее фото"><i class="bi bi-chevron-left"></i></button>
+                <button type="button" class="bore-cmp-nav next" data-cmp="next" aria-label="Следующее фото"><i class="bi bi-chevron-right"></i></button>
+            </div>
+            <div class="bore-cmp-thumbs" data-ref="thumbs"></div>`;
+    }
+
+    function boreCmpThumbsHtml(side) {
+        return side.list.map((p, i) => {
+            const n = boreAnnGet(side.id, p.url).length;
+            return `<button type="button" class="bore-cmp-th${i === side.idx ? ' on' : ''}" data-cmp="thumb" data-i="${i}" title="${boreEsc(p.label)} · ${p.slot}">
+                <img src="${boreEsc(p.url)}" alt="">${n ? `<span class="bore-thumb-ann" title="Разметка: ${n}"><i class="bi bi-pencil-fill"></i>${n}</span>` : ''}</button>`;
+        }).join('');
+    }
+
+    function boreCmpApplyAnn(side) {
+        if (!side.el) return;
+        const img = side.el.querySelector('[data-ref="img"]');
+        const svg = side.el.querySelector('[data-ref="svg"]');
+        const p = side.list[side.idx];
+        if (!img || !svg || !p) return;
+        svg.innerHTML = '';
+        if (!img.complete || !img.naturalWidth) return;
+        const W = 1000, H = 1000 * img.naturalHeight / img.naturalWidth;
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.innerHTML = boreAnnShapesMarkup(boreAnnGet(side.id, p.url), W, H);
+    }
+
+    // Обновляет только большое фото, подпись, стрелки и подсветку миниатюры
+    function boreCmpRenderPhoto(side) {
+        const el = side.el;
+        const img = el && el.querySelector('[data-ref="img"]');
+        if (!img || !side.list.length) return;
+        side.idx = Math.max(0, Math.min(side.idx, side.list.length - 1));
+        const p = side.list[side.idx];
+        const msg = el.querySelector('[data-ref="msg"]');
+        msg.classList.add('d-none');
+        img.onload = () => { msg.classList.add('d-none'); boreCmpApplyAnn(side); };
+        img.onerror = () => { msg.classList.remove('d-none'); };
+        if (img.getAttribute('src') !== p.url) img.src = p.url;
+        boreCmpApplyAnn(side);
+        el.querySelector('[data-ref="badge"]').textContent = `${p.label} · ${side.idx + 1}/${side.list.length}`;
+        el.querySelector('[data-cmp="prev"]').disabled = side.idx === 0;
+        el.querySelector('[data-cmp="next"]').disabled = side.idx === side.list.length - 1;
+        el.querySelectorAll('.bore-cmp-th').forEach((b, i) => b.classList.toggle('on', i === side.idx));
+    }
+
+    function boreCmpRenderPane(side, isRight) {
+        side.el.innerHTML = boreCmpPaneHtml(side, isRight);
+        if (!side.all.length) return;
+        side.el.querySelector('[data-ref="thumbs"]').innerHTML = boreCmpThumbsHtml(side);
+        boreCmpRenderPhoto(side);
+    }
+
+    function boreCmpClose() {
+        const c = boreCmp;
+        if (!c) return;
+        document.removeEventListener('keydown', boreCmpOnKey, true);
+        c.ownIds.forEach(id => {
+            // Возвращаем актуальную разметку в загруженный список, чтобы повторное открытие сравнения показало её без перезагрузки
+            const insp = (window.__boreInspList || []).find(i => i.id === id);
+            const rep = insp && boreCmpParseReport(insp);
+            const cache = window.__boreAnn[id];
+            if (rep && cache) {
+                if (Object.keys(cache).length) rep.annotations = cache; else delete rep.annotations;
+                insp.inspection_report = rep;
+            }
+            delete window.__boreAnn[id];
+        });
+        c.el.remove();
+        document.body.classList.remove('bore-cmp-open');
+        boreCmp = null;
+    }
+
+    function boreCmpOnKey(e) {
+        const c = boreCmp;
+        if (!c) return;
+        if (!document.body.contains(c.el)) { boreCmpClose(); return; }
+        if (boreAnnEd) return; // редактор разметки открыт: Esc/Ctrl+Z обрабатывает он
+        if (e.key === 'Escape') {
+            e.preventDefault(); e.stopPropagation(); // не закрываем модалку отчёта под сравнением
+            boreCmpClose();
+        }
+    }
+
+    // ===== Экспорт PDF одного отчёта или сравнения (разметка вшита в фото) =====
+    let boreExpBusy = false;
+
+    async function boreExpImage(url, shapes) {
+        const src = /r2\.dev\//.test(url) ? `/api/borescope-photo-proxy/${encodeURIComponent(url)}` : url;
+        const resp = await fetch(src, { credentials: 'include' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const blob = await resp.blob();
+        const data = await new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result);
+            fr.onerror = () => reject(fr.error);
+            fr.readAsDataURL(blob);
+        });
+        return boreAnnBurnIn(data, shapes);
+    }
+
+    function boreExpInfoHtml(insp) {
+        const rows = [['Date', fmtDMY(insp.date)], ['Aircraft', insp.aircraft], ['S/N', insp.serial_number], ['Position', insp.position],
+            ['Work type', insp.work_type], ['Inspector', insp.inspector], ['Location', insp.location], ['Comment', insp.comment]].filter(r => r[1]);
+        return `<table style="width:100%;border-collapse:collapse;font-size:11px;margin:0 0 8px;">${rows.map(r =>
+            `<tr><td style="border:1px solid #bbb;padding:3px 6px;width:30%;background:#f3f4f6;font-weight:bold;color:#000;">${r[0]}</td><td style="border:1px solid #bbb;padding:3px 6px;color:#000;">${boreEsc(r[1])}</td></tr>`).join('')}</table>`;
+    }
+
+    async function boreExpPhotoHtml(p, ann) {
+        if (!p) return '';
+        let src = '';
+        try { src = await boreExpImage(p.url, ann && ann[p.url] && ann[p.url].shapes); } catch (e) { console.warn('PDF photo failed:', e); }
+        return `<div style="color:#000;font-size:10px;font-weight:bold;margin:0 0 2px;">${boreEsc(p.label)} · ${p.slot}</div>` +
+            (src ? `<img src="${src}" style="width:100%;display:block;border:1px solid #999;">`
+                 : '<div style="border:1px solid #999;padding:30px 6px;text-align:center;color:#666;font-size:10px;">Фото не загрузилось</div>');
+    }
+
+    function boreExpRow(cells) {
+        return `<table class="bore-exp-row" style="width:100%;table-layout:fixed;border-collapse:collapse;margin:0 0 6px;page-break-inside:avoid;break-inside:avoid;"><tr>${cells.map(c =>
+            `<td style="width:50%;vertical-align:top;padding:0 3px;">${c}</td>`).join('')}</tr></table>`;
+    }
+
+    // items: [{ insp, photos: [{url,label,slot}], ann: {url: {shapes}} }] - один отчёт или два (сравнение)
+    async function boreExportPdf(items) {
+        if (boreExpBusy || !items || !items.length) return;
+        if (typeof html2pdf === 'undefined') { showErrorNotification('Библиотека PDF не загружена'); return; }
+        boreExpBusy = true;
+        const loading = document.createElement('div');
+        loading.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#333;color:#fff;padding:20px 40px;border-radius:8px;z-index:20000;font-weight:bold;font-size:16px;';
+        loading.textContent = 'Подготовка PDF...';
+        document.body.appendChild(loading);
+        let wrapper = null;
+        try {
+            let body = '';
+            if (items.length === 1) {
+                const it = items[0];
+                body += boreExpInfoHtml(it.insp);
+                const groups = [];
+                it.photos.forEach(p => {
+                    let g = groups.find(x => x.label === p.label);
+                    if (!g) groups.push(g = { label: p.label, list: [] });
+                    g.list.push(p);
+                });
+                for (const g of groups) {
+                    body += `<h3 style="margin:8px 0 4px;padding:3px 8px;background:#f3f4f6;border-left:3px solid #000;font-size:12px;color:#000;">${boreEsc(g.label)}</h3>`;
+                    for (let i = 0; i < g.list.length; i += 2) {
+                        loading.textContent = `Фото ${Math.min(i + 2, g.list.length)} / ${g.list.length} · ${g.label}`;
+                        const cells = [await boreExpPhotoHtml(g.list[i], it.ann)];
+                        cells.push(await boreExpPhotoHtml(g.list[i + 1], it.ann));
+                        body += boreExpRow(cells);
+                    }
+                }
+                if (!it.photos.length) body += '<p style="color:#666;font-size:11px;">No photos available</p>';
+            } else {
+                const [a, b] = items;
+                body += boreExpRow([`<div style="color:#000;font-size:10px;font-weight:bold;margin-bottom:3px;">CURRENT REPORT · ID ${a.insp.id}</div>${boreExpInfoHtml(a.insp)}`,
+                    `<div style="color:#000;font-size:10px;font-weight:bold;margin-bottom:3px;">COMPARED REPORT · ID ${b.insp.id}</div>${boreExpInfoHtml(b.insp)}`]);
+                const n = Math.max(a.photos.length, b.photos.length);
+                for (let i = 0; i < n; i++) {
+                    loading.textContent = `Пара фото ${i + 1} / ${n}`;
+                    body += boreExpRow([await boreExpPhotoHtml(a.photos[i], a.ann), await boreExpPhotoHtml(b.photos[i], b.ann)]);
+                }
+                if (!n) body += '<p style="color:#666;font-size:11px;">No photos available</p>';
+            }
+            const title = items.length === 1 ? 'Boroscope Inspection Report' : 'Boroscope Reports Comparison';
+            wrapper = document.createElement('div');
+            wrapper.style.cssText = 'width:718px;background:#fff;color:#000;font-family:Arial,sans-serif;padding:4px;';
+            wrapper.innerHTML = `<h1 style="font-size:20px;margin:0 0 8px;text-align:center;color:#000;">${title}</h1>${body}`;
+            document.body.appendChild(wrapper);
+            loading.textContent = 'Создание PDF...';
+            const first = items[0].insp;
+            const opt = {
+                margin: [8, 8, 8, 8],
+                filename: `Borescope_${String(first.serial_number || 'report').replace(/[^\w.-]+/g, '_')}_${items.length > 1 ? 'compare_' : ''}${first.id}.pdf`,
+                image: { type: 'jpeg', quality: 0.95 },
+                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4', compress: true },
+                pagebreak: { mode: ['css'], avoid: '.bore-exp-row' }
+            };
+            await html2pdf().set(opt).from(wrapper).save();
+        } catch (e) {
+            console.error('PDF export error:', e);
+            showErrorNotification('Не удалось создать PDF: ' + (e && e.message ? e.message : e));
+        } finally {
+            if (wrapper && wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
+            if (loading.parentNode) loading.parentNode.removeChild(loading);
+            boreExpBusy = false;
+        }
+    }
+
+    function boreExpItem(insp, photos) {
+        return { insp, photos, ann: window.__boreAnn[insp.id] || {} };
+    }
+
+    window.boreExportPdfOpen = function (rowId) {
+        const insp = (window.__boreInspList || []).find(i => i.id === rowId);
+        if (!insp) return;
+        boreExportPdf([boreExpItem(insp, boreCmpBuildSide(insp, true).all)]);
+    };
+
+    window.boreCmpOpen = function (rowId) {
+        if (boreCmp) return;
+        if (window.__boreEdit && window.__boreEdit[rowId]) return;
+        const modalEl = document.getElementById(`inspection-details-modal-${rowId}`);
+        const cur = (window.__boreInspList || []).find(i => i.id === rowId);
+        const others = boreCmpCandidates(rowId);
+        if (!modalEl || !cur || !others.length) return;
+        const c = boreCmp = { rowId, modalEl, others, ownIds: new Set(), left: null, right: null, el: null };
+        c.left = boreCmpBuildSide(cur, true);
+        c.right = boreCmpBuildSide(boreCmpDefault(cur, others), false);
+
+        const el = document.createElement('div');
+        el.className = 'bore-cmp';
+        el.tabIndex = -1;
+        el.innerHTML = `
+            <header class="bore-cmp-top">
+                <button type="button" class="bore-cmp-back" data-cmp="close" title="Назад к отчёту" aria-label="Назад к отчёту"><i class="bi bi-chevron-left"></i></button>
+                <div>
+                    <div class="bore-cmp-eyebrow">Report ${rowId} · S/N ${boreEsc(cur.serial_number)}</div>
+                    <h1 class="bore-cmp-title">Сравнение отчётов</h1>
+                </div>
+                <button type="button" class="bore-cmp-btn" data-cmp="pdf" style="margin-left:auto;" title="Скачать PDF: выбранные секции обоих отчётов рядом"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
+            </header>
+            <div class="bore-cmp-cols">
+                <section class="bore-cmp-pane" data-side="L"></section>
+                <section class="bore-cmp-pane slide" data-side="R"></section>
+            </div>`;
+        c.el = el;
+        c.left.el = el.querySelector('[data-side="L"]');
+        c.right.el = el.querySelector('[data-side="R"]');
+        modalEl.appendChild(el);
+        document.body.classList.add('bore-cmp-open');
+        boreCmpRenderPane(c.left, false);
+        boreCmpRenderPane(c.right, true);
+
+        const sideOf = node => {
+            const pane = node.closest('[data-side]');
+            return pane ? (pane.dataset.side === 'L' ? c.left : c.right) : null;
+        };
+        el.addEventListener('click', e => {
+            const t = e.target.closest('[data-cmp]');
+            if (!t || !el.contains(t) || t.disabled) return;
+            const act = t.dataset.cmp;
+            if (act === 'close') { boreCmpClose(); return; }
+            if (act === 'pdf') {
+                boreExportPdf([boreExpItem(c.left.insp, c.left.list), boreExpItem(c.right.insp, c.right.list)]);
+                return;
+            }
+            const side = sideOf(t);
+            if (!side) return;
+            const isRight = side === c.right;
+            if (act === 'tab') {
+                const i = Number(t.dataset.i);
+                side.sel = i;
+                side.list = i < 0 ? side.all : side.all.filter(p => p.label === side.labels[i]);
+                side.idx = 0;
+                boreCmpRenderPane(side, isRight);
+            } else if (act === 'thumb') {
+                side.idx = Number(t.dataset.i);
+                boreCmpRenderPhoto(side);
+            } else if (act === 'prev' || act === 'next') {
+                side.idx += act === 'next' ? 1 : -1;
+                boreCmpRenderPhoto(side);
+            } else if (act === 'ann') {
+                if (typeof isViewer === 'function' && isViewer()) return;
+                const p = side.list[side.idx];
+                if (!p) return;
+                boreAnnOpenEditor({
+                    inspectionId: side.id, url: p.url, label: p.label, slot: p.slot,
+                    pos: side.idx + 1, total: side.list.length, modalEl,
+                    onSaved: () => {
+                        if (boreCmp !== c) return;
+                        const thumbs = side.el.querySelector('[data-ref="thumbs"]');
+                        if (thumbs) thumbs.innerHTML = boreCmpThumbsHtml(side);
+                        boreCmpApplyAnn(side);
+                        if (side.id === rowId) boreAnnRefreshViewer(rowId); // обновляем и основной просмотрщик под слоем сравнения
+                    }
+                });
+            }
+        });
+        el.addEventListener('change', e => {
+            const sel = e.target.closest('[data-cmp="sel"]');
+            if (!sel) return;
+            const other = c.others.find(o => o.id === Number(sel.value));
+            if (!other) return;
+            const paneEl = c.right.el;
+            c.right = boreCmpBuildSide(other, false);
+            c.right.el = paneEl;
+            boreCmpRenderPane(c.right, true);
+            paneEl.classList.remove('slide'); // перезапуск анимации выезда справа
+            void paneEl.offsetWidth;
+            paneEl.classList.add('slide');
+        });
+        document.addEventListener('keydown', boreCmpOnKey, true);
+        el.focus();
+    };
+
     // Показать полный report при клике на строку
     // Обновляет активное фото во viewer'е модалки Borescope Report (редизайн)
     function boreRenderPhoto(rowId, idx) {
@@ -15524,6 +16733,7 @@ function onGssInputChange(engines) {
         const nextBtn = document.getElementById(`bore-viewer-next-${rowId}`);
 
         if (img) img.src = photo.url;
+        boreAnnApply(rowId);
         if (labelBadge) labelBadge.textContent = `${photo.label} · Photo ${photo.slot}`;
         if (counter) counter.textContent = `${clamped + 1} / ${gallery.length}`;
         if (prevBtn) prevBtn.disabled = clamped === 0;
@@ -15547,11 +16757,15 @@ function onGssInputChange(engines) {
     };
 
     function boreThumbsHtml(rowId, list) {
-        return list.map((p, i) => `
+        return list.map((p, i) => {
+            const annCount = boreAnnGet(rowId, p.url).length;
+            return `
                 <div class="bore-thumb${i === 0 ? ' active' : ''}" onclick="boreGoToPhoto(${rowId}, ${i})">
                     <img src="${p.url}" alt="${boreEsc(p.label)}">
+                    ${annCount ? `<span class="bore-thumb-ann" title="Разметка: ${annCount}"><i class="bi bi-pencil-fill"></i>${annCount}</span>` : ''}
                 </div>
-            `).join('');
+            `;
+        }).join('');
     }
 
     // Выбор секции: -1 = все секции, иначе индекс секции. Меняет только просмотр, данные не трогает.
@@ -15582,6 +16796,10 @@ function onGssInputChange(engines) {
         const edit = document.getElementById(`bore-edit-btn-${rowId}`);
         const save = document.getElementById(`bore-edit-save-${rowId}`);
         const cancel = document.getElementById(`bore-edit-cancel-${rowId}`);
+        const cmpBtn = document.getElementById(`bore-cmp-btn-${rowId}`);
+        if (cmpBtn) cmpBtn.classList.toggle('d-none', editing);
+        const pdfBtn = document.getElementById(`bore-pdf-btn-${rowId}`);
+        if (pdfBtn) pdfBtn.classList.toggle('d-none', editing);
         if (edit) edit.classList.toggle('d-none', editing);
         if (save) { save.classList.toggle('d-none', !editing); save.disabled = false; }
         if (cancel) { cancel.classList.toggle('d-none', !editing); cancel.disabled = false; }
@@ -15749,6 +16967,9 @@ function onGssInputChange(engines) {
             showErrorNotification('Inspection not found');
             return;
         }
+        // Список нужен режиму сравнения (другие отчёты того же S/N)
+        window.__boreInspList = inspections;
+        const boreCmpHasOthers = boreCmpCandidates(rowId).length > 0;
         
         // Парсим inspection_report если это строка JSON
         if (inspection.inspection_report && typeof inspection.inspection_report === 'string') {
@@ -15904,6 +17125,11 @@ function onGssInputChange(engines) {
             `;
         }
         
+        // Разметка фото (по URL): inspection_report.annotations
+        window.__boreAnn = window.__boreAnn || {};
+        window.__boreAnn[rowId] = (inspection.inspection_report && inspection.inspection_report.annotations && typeof inspection.inspection_report.annotations === 'object')
+            ? inspection.inspection_report.annotations : {};
+
         // Формируем правую колонку — просмотрщик фото (viewer + thumbnails)
         let photosHtml = '';
         
@@ -15915,15 +17141,21 @@ function onGssInputChange(engines) {
                 <div class="bore-viewer">
                     <div class="bore-viewer-head">
                         <span>Inspection photos</span>
-                        <div class="bore-viewer-nav">
-                            <button id="bore-viewer-prev-${rowId}" onclick="boreStepPhoto(${rowId}, -1)" ${galleryPhotos.length <= 1 ? 'disabled' : ''}><i class="bi bi-chevron-left"></i></button>
-                            <span id="bore-viewer-counter-${rowId}">1 / ${galleryPhotos.length}</span>
-                            <button id="bore-viewer-next-${rowId}" onclick="boreStepPhoto(${rowId}, 1)" ${galleryPhotos.length <= 1 ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>
+                        <div class="bore-viewer-head-right">
+                            <button type="button" class="bore-ann-btn" id="bore-ann-btn-${rowId}" ${(typeof isViewer === 'function' && isViewer()) ? 'disabled title="Только просмотр: разметка недоступна"' : 'title="Нарисовать поверх фото"'} onclick="window.boreAnnOpen && boreAnnOpen(${rowId})"><i class="bi bi-pencil"></i> Разметить фото</button>
+                            <div class="bore-viewer-nav">
+                                <button id="bore-viewer-prev-${rowId}" onclick="boreStepPhoto(${rowId}, -1)" ${galleryPhotos.length <= 1 ? 'disabled' : ''}><i class="bi bi-chevron-left"></i></button>
+                                <span id="bore-viewer-counter-${rowId}">1 / ${galleryPhotos.length}</span>
+                                <button id="bore-viewer-next-${rowId}" onclick="boreStepPhoto(${rowId}, 1)" ${galleryPhotos.length <= 1 ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>
+                            </div>
                         </div>
                     </div>
                     <div class="bore-viewer-stage">
                         <span id="bore-viewer-label-${rowId}" class="bore-badge">${first.label} · Photo ${first.slot}</span>
-                        <img id="bore-viewer-img-${rowId}" src="${first.url}" onclick="openBorescopePhoto(this.src)" title="Click to view full size">
+                        <div class="bore-photo-wrap">
+                            <img id="bore-viewer-img-${rowId}" src="${first.url}" onload="window.boreAnnApply && boreAnnApply(${rowId})" onclick="openBorescopePhoto(this.src, ${rowId})" title="Click to view full size">
+                            <svg id="bore-viewer-ann-${rowId}" class="bore-ann-svg" viewBox="0 0 1000 750" preserveAspectRatio="xMidYMid meet"></svg>
+                        </div>
                     </div>
                     <div class="bore-thumbs" id="bore-thumbs-${rowId}">${thumbs}</div>
                 </div>
@@ -15964,6 +17196,8 @@ function onGssInputChange(engines) {
                     <div class="bore-modal-bar">
                         <h5 class="bore-modal-title">Boroscope Inspection Report <span class="bore-id-pill">ID ${rowId}</span></h5>
                         <div class="bore-modal-actions">
+                            <button type="button" class="bore-btn" id="bore-cmp-btn-${rowId}" ${boreCmpHasOthers ? 'title="Сравнить с другим отчётом по этому двигателю"' : 'disabled title="Нет других отчётов по этому S/N"'} onclick="boreCmpOpen(${rowId})"><i class="bi bi-layout-split"></i> Сравнить с предыдущим</button>
+                            <button type="button" class="bore-btn" id="bore-pdf-btn-${rowId}" title="Скачать PDF с разметкой фото" onclick="boreExportPdfOpen(${rowId})"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
                             <button type="button" class="bore-btn edit" id="bore-edit-btn-${rowId}" onclick="boreEditStart(${rowId})"><i class="bi bi-pencil-square"></i> Edit photos</button>
                             <button type="button" class="bore-btn save d-none" id="bore-edit-save-${rowId}" onclick="boreEditSave(${rowId})"><i class="bi bi-check-lg"></i> Save</button>
                             <button type="button" class="bore-btn d-none" id="bore-edit-cancel-${rowId}" onclick="boreEditCancel(${rowId})"><i class="bi bi-x-lg"></i> Cancel</button>
@@ -15985,6 +17219,7 @@ function onGssInputChange(engines) {
         
         // Очищаем модальное окно и состояние галереи когда оно закрывается
         modal.addEventListener('hidden.bs.modal', () => {
+            if (boreCmp && boreCmp.rowId === rowId) boreCmpClose();
             modal.remove();
             delete window.__boreGalleries[rowId];
             delete window.__boreGalleryIndex[rowId];
@@ -15995,16 +17230,30 @@ function onGssInputChange(engines) {
             if (window.__boreEditSource) delete window.__boreEditSource[rowId];
             if (window.__boreAllPhotos) delete window.__boreAllPhotos[rowId];
             if (window.__boreSections) delete window.__boreSections[rowId];
+            if (window.__boreAnn) delete window.__boreAnn[rowId];
         });
     }
 
-    window.openBorescopePhoto = function (src) {
+    window.openBorescopePhoto = function (src, rowId) {
         const overlay = document.getElementById('borescope-photo-overlay');
         const img = document.getElementById('borescope-photo-img');
         if (overlay && img) {
+            let shapes = [];
+            const gallery = rowId != null && window.__boreGalleries && window.__boreGalleries[rowId];
+            if (gallery) {
+                const p = gallery[(window.__boreGalleryIndex && window.__boreGalleryIndex[rowId]) || 0];
+                if (p) shapes = boreAnnGet(rowId, p.url);
+            } else {
+                shapes = boreReportShapes(src);
+            }
+            window.__boreFullShapes = shapes;
+            const svg = document.getElementById('borescope-photo-ann');
+            if (svg) { svg.innerHTML = ''; svg.style.display = 'none'; }
+            img.onload = boreAnnPlaceFull;
             img.src = src;
             overlay.style.display = 'flex';
             document.body.style.overflow = 'hidden';
+            if (img.complete && img.naturalWidth) boreAnnPlaceFull();
         }
     }
 
@@ -16013,6 +17262,9 @@ function onGssInputChange(engines) {
         if (!overlay) return;
         overlay.style.display = 'none';
         document.body.style.overflow = '';
+        window.__boreFullShapes = [];
+        const svg = document.getElementById('borescope-photo-ann');
+        if (svg) { svg.innerHTML = ''; svg.style.display = 'none'; }
     }
 
     // Выделить строку при клике
@@ -18407,7 +19659,7 @@ function shipAttachEngineAutocomplete(input, mode) {
             filtered = filtered.filter(eng => (typeof eng.tc === 'number' ? eng.tc : parseFloat(eng.tc) || 0) <= tcMax);
         }
         if(hasPhoto) {
-            filtered = filtered.filter(eng => !!eng.photo_url);
+            filtered = filtered.filter(eng => !!eng.photo_url || (Array.isArray(eng.attachments) && eng.attachments.length > 0));
         }
         
         if(remarksVal) {
@@ -18610,7 +19862,10 @@ function shipAttachEngineAutocomplete(input, mode) {
             if(eng.status === 'REMOVED') badge = 'bg-warning';
             if(!eng.status || eng.status === '') { badge = 'bg-light'; statusText = '-'; }
 
-            const photo = eng.photo_url ? `<a href="${eng.photo_url}" target="_blank"><i class="bi bi-image"></i></a>` : '-';
+            const attCount = Array.isArray(eng.attachments) ? eng.attachments.length : 0;
+            const photo = attCount
+                ? `<a href="#" onclick="openEngineFilesModal(${eng.id}); return false;" title="Files"><i class="bi bi-images"></i> ${attCount}</a>`
+                : (eng.photo_url ? `<a href="${eng.photo_url}" target="_blank"><i class="bi bi-image"></i></a>` : '-');
             const model = eng.model || '-';
             const location = eng.location || '-';
             const supplierVal = eng.supplier || '-';
@@ -18813,7 +20068,11 @@ function shipAttachEngineAutocomplete(input, mode) {
                 } else if (key === 'rem') {
                     inputHTML = `<input type="text" class="editing-input" value="${rowData.remarks}">`;
                 } else if (key === 'photo') {
-                    inputHTML = `<input type="text" class="editing-input" value="${rowData.photo}" placeholder="Link">`;
+                    const _engIdForFiles = parseInt(tr.getAttribute('data-engine-id'), 10);
+                    const _filesBtn = _engIdForFiles > 0
+                        ? ` <button type="button" class="btn btn-sm btn-outline-secondary px-1 py-0" title="Files" onclick="openEngineFilesModal(${_engIdForFiles})"><i class="bi bi-paperclip"></i></button>`
+                        : '';
+                    inputHTML = `<input type="text" class="editing-input" value="${rowData.photo}" placeholder="Link">${_filesBtn}`;
                 } else {
                     const oldVal = td.innerText;
                     inputHTML = `<input type="text" class="editing-input" value="${oldVal}">`;
@@ -20586,6 +21845,167 @@ function shipAttachEngineAutocomplete(input, mode) {
 
 
 
+    // ===== Файлы двигателя (фото / PDF / Word ...) =====
+    async function uploadEngineFiles(engineId, fileList) {
+        const fd = new FormData();
+        Array.from(fileList).forEach(f => fd.append('files', f));
+        const res = await fetch(`/api/engines/${engineId}/files`, { method: 'POST', body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+        return data;
+    }
+
+    let _engFilesModalId = null;
+    let _engFilesChanged = false;
+
+    function _engFileIcon(ext) {
+        ext = (ext || '').toLowerCase();
+        if (ext === 'pdf') return ['bi-file-earmark-pdf', '#dc3545'];
+        if (ext === 'doc' || ext === 'docx') return ['bi-file-earmark-word', '#0d6efd'];
+        if (ext === 'xls' || ext === 'xlsx' || ext === 'csv') return ['bi-file-earmark-excel', '#198754'];
+        if (ext === 'ppt' || ext === 'pptx') return ['bi-file-earmark-ppt', '#fd7e14'];
+        if (ext === 'txt') return ['bi-file-earmark-text', '#6c757d'];
+        return ['bi-file-earmark', '#6c757d'];
+    }
+
+    function _engFileSize(n) {
+        if (!n) return '';
+        return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+    }
+
+    function _ensureEngineFilesModal() {
+        let el = document.getElementById('engine-files-modal');
+        if (el) return el;
+        el = document.createElement('div');
+        el.className = 'modal fade';
+        el.id = 'engine-files-modal';
+        el.tabIndex = -1;
+        el.innerHTML = `
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="engine-files-title">Files</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="engine-files-body"></div>
+                    <div class="modal-footer justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="file" class="form-control form-control-sm" id="engine-files-input" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv">
+                            <button type="button" class="btn btn-sm btn-success text-nowrap" id="engine-files-upload-btn"><i class="bi bi-upload"></i> Upload</button>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>`;
+        document.body.appendChild(el);
+        el.querySelector('#engine-files-upload-btn').addEventListener('click', async () => {
+            const input = el.querySelector('#engine-files-input');
+            if (!input.files.length || !_engFilesModalId) return;
+            const btn = el.querySelector('#engine-files-upload-btn');
+            btn.disabled = true;
+            try {
+                const data = await uploadEngineFiles(_engFilesModalId, input.files);
+                if (data.errors && data.errors.length) {
+                    alert('Не загружены:\n' + data.errors.map(e => `${e.name}: ${e.error}`).join('\n'));
+                }
+                input.value = '';
+                _engFilesChanged = true;
+                await _renderEngineFilesModal();
+            } catch (e) {
+                alert('Ошибка загрузки: ' + e.message);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+        el.addEventListener('hidden.bs.modal', () => {
+            if (_engFilesChanged && !document.querySelector('#main-engine-body tr.editing-row')) {
+                try { loadMainTable(); } catch (e) { console.warn(e); }
+            }
+            _engFilesChanged = false;
+        });
+        return el;
+    }
+
+    async function _renderEngineFilesModal() {
+        const body = document.getElementById('engine-files-body');
+        let eng = null;
+        try {
+            const res = await fetch(`/api/engines/${_engFilesModalId}`);
+            if (res.ok) eng = await res.json();
+        } catch (e) { console.warn(e); }
+        if (!eng) { body.innerHTML = '<div class="text-danger">Failed to load</div>'; return; }
+
+        document.getElementById('engine-files-title').textContent = 'Files - ' + (eng.original_sn || '');
+        const list = Array.isArray(eng.attachments) ? eng.attachments : [];
+        let html = '';
+
+        if (eng.photo_url) {
+            html += `<div class="mb-3"><span class="fw-bold small">Link:</span> <a href="${escapeHtml(eng.photo_url)}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> ${escapeHtml(eng.photo_url)}</a></div>`;
+        }
+
+        if (!list.length) {
+            html += '<div class="text-muted">No uploaded files</div>';
+        } else {
+            html += '<div class="row g-3">';
+            list.forEach(f => {
+                const url = escapeHtml(f.url);
+                const name = escapeHtml(f.name || 'file');
+                const ext = (f.type || '').toLowerCase();
+                const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+                let preview;
+                if (isImg) {
+                    preview = `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${name}" style="width:100%;height:130px;object-fit:cover;border-radius:4px;"></a>`;
+                } else {
+                    const [ic, color] = _engFileIcon(ext);
+                    preview = `<a href="${url}" target="_blank" rel="noopener" class="d-flex align-items-center justify-content-center text-decoration-none" style="height:130px;"><i class="bi ${ic}" style="font-size:3.5rem;color:${color};"></i></a>`;
+                }
+                html += `
+                    <div class="col-6 col-md-4">
+                        <div class="border rounded p-2 h-100 d-flex flex-column">
+                            ${preview}
+                            <div class="small mt-2 text-truncate" title="${name}">${name}</div>
+                            <div class="d-flex justify-content-between align-items-center mt-auto pt-1">
+                                <span class="text-muted small">${_engFileSize(f.size)}</span>
+                                <span>
+                                    <a href="${url}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary py-0 px-1" title="Open"><i class="bi bi-box-arrow-up-right"></i></a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" title="Delete" data-url="${url}"><i class="bi bi-trash"></i></button>
+                                </span>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+            html += '</div>';
+        }
+        body.innerHTML = html;
+
+        body.querySelectorAll('button[data-url]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Удалить файл?')) return;
+                try {
+                    const res = await fetch(`/api/engines/${_engFilesModalId}/files?url=${encodeURIComponent(btn.getAttribute('data-url'))}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                        const d = await res.json().catch(() => ({}));
+                        throw new Error(d.detail || `HTTP ${res.status}`);
+                    }
+                    _engFilesChanged = true;
+                    await _renderEngineFilesModal();
+                } catch (e) {
+                    alert('Ошибка удаления: ' + e.message);
+                }
+            });
+        });
+    }
+
+    async function openEngineFilesModal(engineId) {
+        _engFilesModalId = engineId;
+        _engFilesChanged = false;
+        const el = _ensureEngineFilesModal();
+        el.querySelector('#engine-files-input').value = '';
+        document.getElementById('engine-files-body').innerHTML = '<div class="text-muted">Loading...</div>';
+        bootstrap.Modal.getOrCreateInstance(el).show();
+        await _renderEngineFilesModal();
+    }
+
     let _mainEngineSubmitting = false;
     async function submitMainEngine() {
         if (_mainEngineSubmitting) { return; }
@@ -20691,7 +22111,17 @@ function shipAttachEngineAutocomplete(input, mode) {
                 }
             }
             
-            alert("Двигатель успешно добавлен!");
+            let fileWarn = '';
+            const pickedFiles = document.getElementById('m-files')?.files;
+            if (responseData.id && pickedFiles && pickedFiles.length) {
+                try {
+                    await uploadEngineFiles(responseData.id, pickedFiles);
+                } catch (fe) {
+                    fileWarn = '\n\nФайлы не загружены: ' + fe.message + '\nМожно добавить их позже в режиме редактирования (скрепка в колонке Photo).';
+                }
+            }
+            
+            alert("Двигатель успешно добавлен!" + fileWarn);
             
             // 4. Очищаем форму
             document.getElementById('form-main-add').reset();
@@ -22653,6 +24083,7 @@ function shipAttachEngineAutocomplete(input, mode) {
 
         title.textContent = reportData.aircraft;
         
+        window.__boreReportAnn = {};
         let html = '';
         for (let i = 0; i < reportData.positions.length; i++) {
             html += generatePositionHTML(reportData.positions[i], i > 0);
@@ -22662,6 +24093,7 @@ function shipAttachEngineAutocomplete(input, mode) {
         modal.style.display = 'block';
         window.currentReportData = reportData;
         window.boroscopeReportOpen = true;
+        boreAnnBurnInImgs(container);
     }
 
     function generatePositionHTML(posData, addPageBreak = false) {
@@ -22807,6 +24239,11 @@ function shipAttachEngineAutocomplete(input, mode) {
                 if (photos.length > 0) {
                     html += '<table style="width: 100%; border-collapse: collapse; margin-top: 6px;">';
                     for (const photo of photos) {
+                        // Разметка фото: запоминаем фигуры по URL, в Word/PDF они вшиваются в изображение
+                        boreRowPhotoUrls(photo).forEach(u => {
+                            const a = inspectionReport.annotations && inspectionReport.annotations[u];
+                            if (a && Array.isArray(a.shapes) && a.shapes.length) window.__boreReportAnn[u] = a.shapes;
+                        });
                         html += `
                             <tr style="border: 1px solid #ddd;">
                                 <td style="width: 10%; padding: 5px 6px; border-right: 1px solid #ddd; text-align: center; font-weight: bold; color: #000; font-size: 12px;">${photo.label || 'Photo'}</td>
@@ -22989,6 +24426,7 @@ function shipAttachEngineAutocomplete(input, mode) {
         for (const [originalUrl, proxyUrl] of r2ToProxyMap.entries()) {
             html = html.replace(`src="${originalUrl}"`, `src="${proxyUrl}"`);
         }
+        const proxyToOriginal = new Map(Array.from(r2ToProxyMap.entries()).map(([o, p]) => [p, o]));
         
         // Загружаем все изображения и конвертируем в base64
         const allImgRegex = /<img[^>]*src="([^"]*)"[^>]*>/g;
@@ -23014,9 +24452,9 @@ function shipAttachEngineAutocomplete(input, mode) {
                     const reader = new FileReader();
                     
                     await new Promise((resolve) => {
-                        reader.onloadend = () => {
-                            const base64 = reader.result;
-                            html = html.replace(`src="${url}"`, `src="${base64}"`);
+                        reader.onloadend = async () => {
+                            const base64 = await boreAnnBurnIn(reader.result, boreReportShapes(proxyToOriginal.get(url) || url));
+                            html = html.replace(`src="${url}"`, () => `src="${base64}"`);
                             resolve();
                         };
                         reader.onerror = () => resolve();
@@ -23150,6 +24588,7 @@ function shipAttachEngineAutocomplete(input, mode) {
             const imagePromises = Array.from(images).map(async (img) => {
                 try {
                     let imgUrl = img.src;
+                    const rawSrc = img.getAttribute('src');
                     console.log('Processing image:', imgUrl);
                     
                     // If it's an R2 URL, extract the path correctly
@@ -23170,8 +24609,8 @@ function shipAttachEngineAutocomplete(input, mode) {
                         const blob = await response.blob();
                         const reader = new FileReader();
                         return new Promise((resolve) => {
-                            reader.onload = () => {
-                                img.src = reader.result;
+                            reader.onload = async () => {
+                                img.src = await boreAnnBurnIn(reader.result, boreReportShapes(rawSrc));
                                 console.log('Image converted to base64');
                                 resolve();
                             };
@@ -32106,6 +33545,7 @@ thead:has(+ #gss-history-tbody) {
 <!-- Fullscreen Photo Viewer -->
 <div id="borescope-photo-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 10200; align-items: center; justify-content: center;">
     <img id="borescope-photo-img" style="max-width: 90%; max-height: 90%; object-fit: contain;" onclick="event.stopPropagation();">
+    <svg id="borescope-photo-ann" preserveAspectRatio="none" style="position: absolute; display: none; pointer-events: none;"></svg>
     <button onclick="closeBorescopePhoto()" style="position: absolute; top: 20px; right: 20px; background: none; border: none; color: white; font-size: 36px; cursor: pointer;">×</button>
 </div>
 

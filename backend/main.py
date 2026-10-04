@@ -779,6 +779,7 @@ def startup_event():
     ensure_sqlite_column("engines", "cost_per_hour FLOAT")
     ensure_sqlite_column("engines", "cost_per_cycle FLOAT")
     ensure_sqlite_column("engines", "supplier TEXT")
+    ensure_sqlite_column("engines", "attachments TEXT")
     ensure_sqlite_column("work_orders", "issued_signature_url TEXT")
     ensure_sqlite_column("work_orders", "closed_signature_url TEXT")
     ensure_sqlite_column("action_logs", "condition_1_at_removal TEXT")
@@ -4862,6 +4863,7 @@ def get_all_engines(status: str = None, condition2: str = None, db: Session = De
                 "aircraft": eng.aircraft.tail_number if eng.aircraft else None,
                 "position": eng.position,
                 "photo_url": eng.photo_url,
+                "attachments": _engine_attachments_list(eng),
                 "remarks": eng.remarks or "",
                 # Separate: current location vs moved-from vs removed-from
                 "from_location": eng.from_location or "",
@@ -5173,6 +5175,7 @@ def get_engine_by_id(engine_id: int, db: Session = Depends(get_db)):
         "aircraft": engine.aircraft.tail_number if engine.aircraft else None,
         "position": engine.position,
         "photo_url": engine.photo_url,
+        "attachments": _engine_attachments_list(engine),
         "remarks": engine.remarks or "",
         "from_location": engine.from_location or "",
         "removed_from": engine.removed_from or "",
@@ -7995,6 +7998,13 @@ async def update_borescope_photos(
         })
 
     report["photos"] = photo_data
+    # Разметка хранится по URL фото: оставляем только для фото, которые остались в отчёте
+    if isinstance(report.get("annotations"), dict):
+        kept_annotations = {u: a for u, a in report["annotations"].items() if u in used}
+        if kept_annotations:
+            report["annotations"] = kept_annotations
+        else:
+            report.pop("annotations", None)
     try:
         inspection.inspection_report = report
         db.commit()
@@ -8018,6 +8028,146 @@ async def update_borescope_photos(
                 print(f"⚠️ Could not delete {u} from R2: {e}")
 
     return {"message": "Photos updated", "photos": photo_data, "removed_from_r2": removed}
+
+
+# ===== Borescope photo annotations (разметка дефектов поверх фото) =====
+# Хранится в inspection_report["annotations"] = { <photo url>: {shapes, updated_at, updated_by} }.
+# Координаты нормализованы 0..1 от ширины/высоты фото. Оригинал файла никогда не меняется.
+BORE_ANN_TYPES = ("pen", "arrow", "ellipse", "rect", "text")
+BORE_ANN_MAX_SHAPES = 500
+BORE_ANN_MAX_PEN_POINTS = 2000
+BORE_ANN_MAX_TEXT = 200
+BORE_ANN_MAX_BODY = 1024 * 1024
+_BORE_ANN_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+
+def _bore_ann_num(value, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not (0 <= value <= 1):
+        raise ValueError(f"{label} must be a number between 0 and 1")
+    return float(value)
+
+
+def _bore_ann_clean_shape(idx: int, shape) -> dict:
+    where = f"annotations[{idx}]"
+    if not isinstance(shape, dict):
+        raise ValueError(f"{where} must be an object")
+    stype = shape.get("type")
+    if stype not in BORE_ANN_TYPES:
+        raise ValueError(f"{where}.type must be one of: {', '.join(BORE_ANN_TYPES)}")
+    color = shape.get("color")
+    if not isinstance(color, str) or not _BORE_ANN_COLOR_RE.match(color):
+        raise ValueError(f"{where}.color must be like #RRGGBB")
+    width = shape.get("width")
+    if isinstance(width, bool) or not isinstance(width, int) or not (1 <= width <= 20):
+        raise ValueError(f"{where}.width must be an integer between 1 and 20")
+    clean = {"type": stype, "color": color.upper(), "width": width}
+
+    if stype == "pen":
+        points = shape.get("points")
+        if not isinstance(points, list) or not (2 <= len(points) <= BORE_ANN_MAX_PEN_POINTS):
+            raise ValueError(f"{where}.points must contain 2..{BORE_ANN_MAX_PEN_POINTS} points")
+        clean_points = []
+        for p in points:
+            if not isinstance(p, (list, tuple)) or len(p) != 2:
+                raise ValueError(f"{where}.points must be [x, y] pairs")
+            clean_points.append([_bore_ann_num(p[0], f"{where}.points x"), _bore_ann_num(p[1], f"{where}.points y")])
+        clean["points"] = clean_points
+    elif stype == "text":
+        for k in ("x", "y"):
+            clean[k] = _bore_ann_num(shape.get(k), f"{where}.{k}")
+        text = shape.get("text")
+        if not isinstance(text, str):
+            raise ValueError(f"{where}.text must be a string")
+        text = "".join(ch for ch in text if ch >= " " and ch != "\x7f").strip()
+        if not text or len(text) > BORE_ANN_MAX_TEXT:
+            raise ValueError(f"{where}.text must be 1..{BORE_ANN_MAX_TEXT} characters")
+        clean["text"] = text
+    else:
+        for k in ("x1", "y1", "x2", "y2"):
+            clean[k] = _bore_ann_num(shape.get(k), f"{where}.{k}")
+    return clean
+
+
+@app.put("/api/history/BORESCOPE/{inspection_id}/annotations")
+async def update_borescope_annotations(
+    inspection_id: int,
+    request: Request,
+    user_id: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Save the annotation layer of ONE photo of a borescope inspection. [] removes the annotations."""
+    import json
+    # Разметку могут менять только admin и user (viewer — только просмотр)
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user or not user.is_active or user.role not in ("admin", "user"):
+        raise HTTPException(status_code=403, detail="Annotations can be edited by admin or user only")
+
+    raw = await request.body()
+    if len(raw) > BORE_ANN_MAX_BODY:
+        raise HTTPException(status_code=400, detail="Annotations payload is too large (max 1 MB)")
+    try:
+        payload = json.loads(raw or b"{}")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Body must be a JSON object")
+    url = payload.get("url")
+    shapes = payload.get("annotations")
+    if not isinstance(url, str) or not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    if not isinstance(shapes, list):
+        raise HTTPException(status_code=400, detail="annotations must be an array")
+    if len(shapes) > BORE_ANN_MAX_SHAPES:
+        raise HTTPException(status_code=400, detail=f"Too many shapes (max {BORE_ANN_MAX_SHAPES})")
+
+    inspection = db.query(models.BoroscopeInspection).filter(models.BoroscopeInspection.id == inspection_id).first()
+    if not inspection:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    report = inspection.inspection_report
+    if isinstance(report, str):
+        try:
+            report = json.loads(report)
+        except Exception:
+            report = None
+    report = dict(report) if isinstance(report, dict) else {}
+
+    # Фото должно принадлежать этой инспекции
+    report_urls = set()
+    for row in (report.get("photos") or []):
+        if not isinstance(row, dict):
+            continue
+        extra = row.get("photos")
+        for u in ((extra if isinstance(extra, list) else []) + [row.get("photo1"), row.get("photo2")]):
+            if isinstance(u, str) and u:
+                report_urls.add(u)
+    if url not in report_urls:
+        raise HTTPException(status_code=404, detail="Photo not found in this inspection")
+
+    try:
+        clean = [_bore_ann_clean_shape(i, s) for i, s in enumerate(shapes)]
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    actor = user.username
+    ann_map = dict(report.get("annotations") or {}) if isinstance(report.get("annotations"), dict) else {}
+    if clean:
+        ann_map[url] = {"shapes": clean, "updated_at": now_iso, "updated_by": actor}
+    else:
+        ann_map.pop(url, None)
+    if ann_map:
+        report["annotations"] = ann_map
+    else:
+        report.pop("annotations", None)
+
+    try:
+        inspection.inspection_report = report
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to save annotations: {e}")
+
+    return {"annotations": clean, "updated_at": now_iso if clean else None, "updated_by": actor if clean else None}
 
 @app.delete("/api/history/BORESCOPE/{inspection_id}")
 def delete_borescope_inspection(inspection_id: int, db: Session = Depends(get_db)):
@@ -12030,6 +12180,121 @@ async def upload_staff_asset(
             "asset_type": asset_type,
             "storage": "local",
         }
+
+
+# ── Engine attachments (photos / PDF / Word ...) ─────────────────────────────
+ENGINE_FILE_ALLOWED_EXT = {
+    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".pdf",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv",
+}
+ENGINE_FILE_MAX_BYTES = 25 * 1024 * 1024
+ENGINE_FILE_MAX_COUNT = 50
+
+
+def _engine_attachments_list(engine) -> list:
+    raw = getattr(engine, "attachments", None)
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [a for a in data if isinstance(a, dict) and a.get("url")]
+
+
+@app.post("/api/engines/{engine_id}/files")
+async def upload_engine_files(
+    engine_id: int,
+    files: List[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+):
+    engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
+    if not engine:
+        raise HTTPException(404, "Engine not found")
+
+    attachments = _engine_attachments_list(engine)
+    errors = []
+    added = 0
+
+    for upload in files:
+        original_name = upload.filename or "file"
+        try:
+            if len(attachments) >= ENGINE_FILE_MAX_COUNT:
+                raise ValueError(f"Max {ENGINE_FILE_MAX_COUNT} files per engine")
+            ext = Path(original_name).suffix.lower()
+            if ext not in ENGINE_FILE_ALLOWED_EXT:
+                raise ValueError("Unsupported file type")
+            content = await upload.read()
+            if not content:
+                raise ValueError("Empty file")
+            if len(content) > ENGINE_FILE_MAX_BYTES:
+                raise ValueError("File too large (max 25 MB)")
+
+            safe_stem = re.sub(r"[^a-zA-Z0-9._-]", "_", Path(original_name).stem)[:80] or "file"
+            final_name = f"{int(time.time())}_{secrets.token_hex(4)}_{safe_stem}{ext}"
+
+            if _is_production():
+                public_url = r2_storage.upload_asset_to_r2(
+                    file_bytes=content,
+                    folder=f"engines/{engine_id}",
+                    filename=final_name,
+                    content_type=r2_storage.ext_to_mime(ext),
+                )
+            else:
+                target_dir = UPLOADS_ROOT_DIR / "engines" / str(engine_id)
+                target_dir.mkdir(parents=True, exist_ok=True)
+                with open(target_dir / final_name, "wb") as fp:
+                    fp.write(content)
+                public_url = f"/uploads/engines/{engine_id}/{final_name}"
+
+            attachments.append({
+                "url": public_url,
+                "name": original_name,
+                "type": ext.lstrip("."),
+                "size": len(content),
+            })
+            added += 1
+        except Exception as exc:
+            print(f"❌ Engine file upload error ({original_name}): {exc}")
+            errors.append({"name": original_name, "error": str(exc)})
+
+    if added:
+        engine.attachments = json.dumps(attachments, ensure_ascii=False)
+        db.commit()
+    elif errors:
+        raise HTTPException(400, "; ".join(f"{e['name']}: {e['error']}" for e in errors))
+
+    return {"attachments": attachments, "added": added, "errors": errors}
+
+
+@app.delete("/api/engines/{engine_id}/files")
+def delete_engine_file(engine_id: int, url: str = Query(...), db: Session = Depends(get_db)):
+    engine = db.query(models.Engine).filter(models.Engine.id == engine_id).first()
+    if not engine:
+        raise HTTPException(404, "Engine not found")
+
+    attachments = _engine_attachments_list(engine)
+    remaining = [a for a in attachments if a.get("url") != url]
+    if len(remaining) == len(attachments):
+        raise HTTPException(404, "File not found")
+
+    engine.attachments = json.dumps(remaining, ensure_ascii=False) if remaining else None
+    db.commit()
+
+    try:
+        if url.startswith("/uploads/engines/"):
+            base = (UPLOADS_ROOT_DIR / "engines").resolve()
+            local_path = (UPLOADS_ROOT_DIR / url[len("/uploads/"):]).resolve()
+            if base in local_path.parents and local_path.is_file():
+                local_path.unlink()
+        elif url.startswith("http"):
+            r2_storage.delete_asset_from_r2(url)
+    except Exception as exc:
+        print(f"⚠ Could not delete engine file from storage: {exc}")
+
+    return {"attachments": remaining}
 
 
 # SPA catch-all: keep it at the very end so it does not intercept API routes.
