@@ -5053,10 +5053,20 @@
         .bore-cmp-role { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #5B6470; }
         .bore-cmp-info { margin-top: 3px; font-size: 14px; font-weight: 600; color: #0E1116; word-break: break-word; }
         .bore-cmp-info small { font-size: 12px; font-weight: 500; color: #5B6470; }
+        .bore-cmp-select optgroup { font-weight: 700; color: #475569; background: #F1F5F9; font-style: normal; }
+        .bore-cmp-select option { font-weight: 400; color: #0E1116; background: #fff; }
         .bore-cmp-select { height: 38px; max-width: 100%; padding: 0 10px; border-radius: 10px; border: 1px solid #CBD5E1; background: #fff; color: #0E1116; font-size: 13px; font-family: inherit; }
         .bore-cmp-btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #2563eb; background: #eff6ff; color: #1d4ed8; font-size: 13px; font-weight: 600; }
         .bore-cmp-btn:hover:not(:disabled) { background: #dbeafe; }
         .bore-cmp-btn:disabled { opacity: .45; }
+        .bore-cmp-diff { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700; vertical-align: middle; }
+        .bore-cmp-warn { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,.55); }
+        .bore-cmp-warn-card { width: min(460px, calc(100% - 32px)); padding: 22px 24px; border-radius: 18px; background: #fff; border: 2px solid #F59E0B; box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+        .bore-cmp-warn-card p { margin: 0 0 10px; font-size: 14px; color: #0E1116; }
+        .bore-cmp-warn-title { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 18px; font-weight: 700; color: #B45309; }
+        .bore-cmp-warn-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+        .bore-cmp-btn-warn { border-color: #D97706; background: #FEF3C7; color: #92400E; }
+        .bore-cmp-btn-warn:hover:not(:disabled) { background: #FDE68A; }
         .bore-cmp-tabs { flex: 0 0 auto; display: flex; gap: 6px; flex-wrap: wrap; }
         .bore-cmp-tab { border: 1px solid #E2E8F0; background: #F8FAFC; color: #334155; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; }
         .bore-cmp-tab.on { background: #2563eb; border-color: #2563eb; color: #fff; }
@@ -16353,14 +16363,71 @@ function onGssInputChange(engines) {
         return rep.photos.reduce((n, row) => n + boreRowPhotoUrls(row).length, 0);
     }
 
-    // Другие отчёты того же S/N, по дате (старые первыми)
+    // Двигатель определяется в первую очередь по GSS ID, если его нет - по S/N.
+    // Позиция и самолёт не участвуют: двигатель мог быть снят и переставлен, а в отчёте осталась старая позиция.
+    function boreGssOf(i) {
+        const g = String(i && i.gss_id != null ? i.gss_id : '').trim();
+        return /^\d+$/.test(g) ? g : '';
+    }
+    function boreGssLabel(i) {
+        const g = String(i && i.gss_id != null ? i.gss_id : '').trim();
+        return (g && g !== '-') ? g : '—';
+    }
+    function boreSnKey(i) {
+        return String((i && i.serial_number) || '').trim().replace(/\s+/g, ' ').toUpperCase();
+    }
+    function boreSameEngine(a, b) {
+        const ga = boreGssOf(a), gb = boreGssOf(b);
+        if (ga && gb) return ga === gb;
+        const sa = boreSnKey(a);
+        return !!sa && sa === boreSnKey(b);
+    }
+
+    // Другие отчёты того же двигателя, по дате (старые первыми)
     function boreCmpCandidates(rowId) {
         const list = window.__boreInspList || [];
         const cur = list.find(i => i.id === rowId);
-        if (!cur || !cur.serial_number) return [];
+        if (!cur) return [];
         const t = i => Number(new Date(i.date)) || 0;
-        return list.filter(i => i.id !== rowId && i.serial_number === cur.serial_number)
+        return list.filter(i => i.id !== rowId && boreSameEngine(cur, i))
             .sort((a, b) => (t(a) - t(b)) || (a.id - b.id));
+    }
+
+    // Отчёты других двигателей с фото (для осознанного сравнения разных двигателей), новые первыми
+    function boreCmpDiffCandidates(rowId) {
+        const list = window.__boreInspList || [];
+        const cur = list.find(i => i.id === rowId);
+        if (!cur) return [];
+        const t = i => Number(new Date(i.date)) || 0;
+        return list.filter(i => i.id !== rowId && !boreSameEngine(cur, i) && boreCmpPhotoCount(i) > 0)
+            .sort((a, b) => (t(b) - t(a)) || (b.id - a.id));
+    }
+
+    // Предупреждение при сравнении разных двигателей (внутри слоя сравнения)
+    function boreCmpWarn(c, a, b, onOk, onCancel) {
+        const old = c.el.querySelector('.bore-cmp-warn');
+        if (old) old.remove();
+        const w = document.createElement('div');
+        w.className = 'bore-cmp-warn';
+        w.innerHTML = `
+            <div class="bore-cmp-warn-card" role="alertdialog" aria-modal="true">
+                <div class="bore-cmp-warn-title"><i class="bi bi-exclamation-triangle-fill"></i> Будьте внимательны!</div>
+                <p>Вы сравниваете <b>разные двигатели</b>:</p>
+                <p>Слева: GSS ID <b>${boreEsc(boreGssLabel(a))}</b> · S/N <b>${boreEsc(a.serial_number || '—')}</b><br>Справа: GSS ID <b>${boreEsc(boreGssLabel(b))}</b> · S/N <b>${boreEsc(b.serial_number || '—')}</b></p>
+                <div class="bore-cmp-warn-actions">
+                    <button type="button" class="bore-cmp-btn" data-w="cancel">Отмена</button>
+                    <button type="button" class="bore-cmp-btn bore-cmp-btn-warn" data-w="ok">Всё равно сравнить</button>
+                </div>
+            </div>`;
+        w.addEventListener('click', e => {
+            const t = e.target.closest('[data-w]');
+            if (!t) return;
+            w.remove();
+            if (t.dataset.w === 'ok') onOk(); else onCancel();
+        });
+        c.el.appendChild(w);
+        const okBtn = w.querySelector('[data-w="cancel"]');
+        if (okBtn) okBtn.focus();
     }
 
     // Ближайший предыдущий отчёт; если более ранних нет - самый ранний из остальных
@@ -16395,15 +16462,21 @@ function onGssInputChange(engines) {
     function boreCmpPaneHtml(side, isRight) {
         const insp = side.insp;
         const viewer = typeof isViewer === 'function' && isViewer();
-        const info = `S/N ${boreEsc(insp.serial_number || '—')} · ${boreEsc(insp.aircraft || '—')} · POS ${boreEsc(insp.position || '—')}`;
-        const opts = isRight ? boreCmp.others.slice().reverse().map(o =>
-            `<option value="${o.id}"${o.id === side.id ? ' selected' : ''}>${boreEsc(fmtDMY(o.date))} · ${boreEsc(o.aircraft || '—')} · POS ${boreEsc(o.position || '—')} · ID ${o.id} · ${boreCmpPhotoCount(o)} фото</option>`).join('') : '';
+        const info = `GSS ID ${boreEsc(boreGssLabel(insp))} · S/N ${boreEsc(insp.serial_number || '—')}`;
+        const optHtml = o => `<option value="${o.id}"${o.id === side.id ? ' selected' : ''}>${boreEsc(fmtDMY(o.date))} · GSS ${boreEsc(boreGssLabel(o))} · S/N ${boreEsc(o.serial_number || '—')} · ${boreEsc(o.aircraft || '—')} POS ${boreEsc(o.position || '—')} · ${boreCmpPhotoCount(o)} фото</option>`;
+        let opts = '';
+        if (isRight) {
+            const same = boreCmp.others.slice().reverse().map(optHtml).join('');
+            const diff = boreCmp.diff.map(optHtml).join('');
+            opts = diff ? ((same ? `<optgroup label="Бороскопы этого двигателя">${same}</optgroup>` : '') + `<optgroup label="──── Остальные бороскопы (другие двигатели, будьте внимательны) ────">${diff}</optgroup>`) : same;
+        }
+        const diffBadge = (isRight && !boreSameEngine(boreCmp.left.insp, insp)) ? ' <span class="bore-cmp-diff">Другой двигатель</span>' : '';
         const annAttr = viewer ? 'disabled title="Только просмотр: разметка недоступна"' : (side.all.length ? 'title="Нарисовать поверх фото"' : 'disabled');
         const head = `
             <div class="bore-cmp-phead">
                 <div>
                     <div class="bore-cmp-role">${isRight ? 'Другой отчёт' : 'Текущий отчёт'}</div>
-                    <div class="bore-cmp-info">${info}<br><small>${boreEsc(fmtDMY(insp.date))} · ID ${insp.id}</small></div>
+                    <div class="bore-cmp-info">${info}${diffBadge}<br><small>${boreEsc(insp.aircraft || '—')} · POS ${boreEsc(insp.position || '—')} · ${boreEsc(fmtDMY(insp.date))}</small></div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     ${isRight ? `<select class="bore-cmp-select" data-cmp="sel" aria-label="Другой отчёт">${opts}</select>` : ''}
@@ -16498,6 +16571,15 @@ function onGssInputChange(engines) {
         if (!c) return;
         if (!document.body.contains(c.el)) { boreCmpClose(); return; }
         if (boreAnnEd) return; // редактор разметки открыт: Esc/Ctrl+Z обрабатывает он
+        const warn = c.el.querySelector('.bore-cmp-warn');
+        if (warn) {
+            if (e.key === 'Escape') {
+                e.preventDefault(); e.stopPropagation();
+                const cancel = warn.querySelector('[data-w="cancel"]');
+                if (cancel) cancel.click();
+            }
+            return;
+        }
         if (e.key === 'Escape') {
             e.preventDefault(); e.stopPropagation(); // не закрываем модалку отчёта под сравнением
             boreCmpClose();
@@ -16522,7 +16604,7 @@ function onGssInputChange(engines) {
     }
 
     function boreExpInfoHtml(insp) {
-        const rows = [['Date', fmtDMY(insp.date)], ['Aircraft', insp.aircraft], ['S/N', insp.serial_number], ['Position', insp.position],
+        const rows = [['GSS ID', boreGssLabel(insp) === '—' ? '' : boreGssLabel(insp)], ['Date', fmtDMY(insp.date)], ['Aircraft', insp.aircraft], ['S/N', insp.serial_number], ['Position', insp.position],
             ['Work type', insp.work_type], ['Inspector', insp.inspector], ['Location', insp.location], ['Comment', insp.comment]].filter(r => r[1]);
         return `<table style="width:100%;border-collapse:collapse;font-size:11px;margin:0 0 8px;">${rows.map(r =>
             `<tr><td style="border:1px solid #bbb;padding:3px 6px;width:30%;background:#f3f4f6;font-weight:bold;color:#000;">${r[0]}</td><td style="border:1px solid #bbb;padding:3px 6px;color:#000;">${boreEsc(r[1])}</td></tr>`).join('')}</table>`;
@@ -16575,8 +16657,8 @@ function onGssInputChange(engines) {
                 if (!it.photos.length) body += '<p style="color:#666;font-size:11px;">No photos available</p>';
             } else {
                 const [a, b] = items;
-                body += boreExpRow([`<div style="color:#000;font-size:10px;font-weight:bold;margin-bottom:3px;">CURRENT REPORT · ID ${a.insp.id}</div>${boreExpInfoHtml(a.insp)}`,
-                    `<div style="color:#000;font-size:10px;font-weight:bold;margin-bottom:3px;">COMPARED REPORT · ID ${b.insp.id}</div>${boreExpInfoHtml(b.insp)}`]);
+                body += boreExpRow([`<div style="color:#000;font-size:10px;font-weight:bold;margin-bottom:3px;">CURRENT REPORT · GSS ID ${boreEsc(boreGssLabel(a.insp))}</div>${boreExpInfoHtml(a.insp)}`,
+                    `<div style="color:#000;font-size:10px;font-weight:bold;margin-bottom:3px;">COMPARED REPORT · GSS ID ${boreEsc(boreGssLabel(b.insp))}</div>${boreExpInfoHtml(b.insp)}`]);
                 const n = Math.max(a.photos.length, b.photos.length);
                 for (let i = 0; i < n; i++) {
                     loading.textContent = `Пара фото ${i + 1} / ${n}`;
@@ -16626,10 +16708,11 @@ function onGssInputChange(engines) {
         const modalEl = document.getElementById(`inspection-details-modal-${rowId}`);
         const cur = (window.__boreInspList || []).find(i => i.id === rowId);
         const others = boreCmpCandidates(rowId);
-        if (!modalEl || !cur || !others.length) return;
-        const c = boreCmp = { rowId, modalEl, others, ownIds: new Set(), left: null, right: null, el: null };
+        const diff = boreCmpDiffCandidates(rowId);
+        if (!modalEl || !cur || !(others.length || diff.length)) return;
+        const c = boreCmp = { rowId, modalEl, others, diff, ownIds: new Set(), left: null, right: null, el: null };
         c.left = boreCmpBuildSide(cur, true);
-        c.right = boreCmpBuildSide(boreCmpDefault(cur, others), false);
+        c.right = boreCmpBuildSide(others.length ? boreCmpDefault(cur, others) : diff[0], false);
 
         const el = document.createElement('div');
         el.className = 'bore-cmp';
@@ -16638,7 +16721,7 @@ function onGssInputChange(engines) {
             <header class="bore-cmp-top">
                 <button type="button" class="bore-cmp-back" data-cmp="close" title="Назад к отчёту" aria-label="Назад к отчёту"><i class="bi bi-chevron-left"></i></button>
                 <div>
-                    <div class="bore-cmp-eyebrow">Report ${rowId} · S/N ${boreEsc(cur.serial_number)}</div>
+                    <div class="bore-cmp-eyebrow">GSS ID ${boreEsc(boreGssLabel(cur))} · S/N ${boreEsc(cur.serial_number || '—')}</div>
                     <h1 class="bore-cmp-title">Сравнение отчётов</h1>
                 </div>
                 <button type="button" class="bore-cmp-btn" data-cmp="pdf" style="margin-left:auto;" title="Скачать PDF: выбранные секции обоих отчётов рядом"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
@@ -16654,6 +16737,10 @@ function onGssInputChange(engines) {
         document.body.classList.add('bore-cmp-open');
         boreCmpRenderPane(c.left, false);
         boreCmpRenderPane(c.right, true);
+        if (!boreSameEngine(c.left.insp, c.right.insp)) {
+            // Нет других отчётов этого двигателя: открыто сравнение с другим двигателем - предупреждаем
+            boreCmpWarn(c, c.left.insp, c.right.insp, () => {}, () => { if (boreCmp === c) boreCmpClose(); });
+        }
 
         const sideOf = node => {
             const pane = node.closest('[data-side]');
@@ -16703,15 +16790,21 @@ function onGssInputChange(engines) {
         el.addEventListener('change', e => {
             const sel = e.target.closest('[data-cmp="sel"]');
             if (!sel) return;
-            const other = c.others.find(o => o.id === Number(sel.value));
+            const val = Number(sel.value);
+            const other = c.others.find(o => o.id === val) || c.diff.find(o => o.id === val);
             if (!other) return;
-            const paneEl = c.right.el;
-            c.right = boreCmpBuildSide(other, false);
-            c.right.el = paneEl;
-            boreCmpRenderPane(c.right, true);
-            paneEl.classList.remove('slide'); // перезапуск анимации выезда справа
-            void paneEl.offsetWidth;
-            paneEl.classList.add('slide');
+            const apply = () => {
+                if (boreCmp !== c) return;
+                const paneEl = c.right.el;
+                c.right = boreCmpBuildSide(other, false);
+                c.right.el = paneEl;
+                boreCmpRenderPane(c.right, true);
+                paneEl.classList.remove('slide'); // перезапуск анимации выезда справа
+                void paneEl.offsetWidth;
+                paneEl.classList.add('slide');
+            };
+            if (boreSameEngine(c.left.insp, other)) { apply(); return; }
+            boreCmpWarn(c, c.left.insp, other, apply, () => { sel.value = String(c.right.id); });
         });
         document.addEventListener('keydown', boreCmpOnKey, true);
         el.focus();
@@ -16969,7 +17062,7 @@ function onGssInputChange(engines) {
         }
         // Список нужен режиму сравнения (другие отчёты того же S/N)
         window.__boreInspList = inspections;
-        const boreCmpHasOthers = boreCmpCandidates(rowId).length > 0;
+        const boreCmpHasOthers = boreCmpCandidates(rowId).length > 0 || boreCmpDiffCandidates(rowId).length > 0;
         
         // Парсим inspection_report если это строка JSON
         if (inspection.inspection_report && typeof inspection.inspection_report === 'string') {
@@ -17194,9 +17287,9 @@ function onGssInputChange(engines) {
             <div class="modal-dialog modal-xl modal-dialog-centered bore-modal-dialog">
                 <div class="modal-content bore-modal-content">
                     <div class="bore-modal-bar">
-                        <h5 class="bore-modal-title">Boroscope Inspection Report <span class="bore-id-pill">ID ${rowId}</span></h5>
+                        <h5 class="bore-modal-title">Boroscope Inspection Report <span class="bore-id-pill">GSS ID ${boreEsc(boreGssLabel(inspection))}</span></h5>
                         <div class="bore-modal-actions">
-                            <button type="button" class="bore-btn" id="bore-cmp-btn-${rowId}" ${boreCmpHasOthers ? 'title="Сравнить с другим отчётом по этому двигателю"' : 'disabled title="Нет других отчётов по этому S/N"'} onclick="boreCmpOpen(${rowId})"><i class="bi bi-layout-split"></i> Сравнить с предыдущим</button>
+                            <button type="button" class="bore-btn" id="bore-cmp-btn-${rowId}" ${boreCmpHasOthers ? 'title="Сравнить с другим отчётом по этому двигателю (GSS ID, иначе S/N)"' : 'disabled title="Нет других отчётов"'} onclick="boreCmpOpen(${rowId})"><i class="bi bi-layout-split"></i> Сравнить с предыдущим</button>
                             <button type="button" class="bore-btn" id="bore-pdf-btn-${rowId}" title="Скачать PDF с разметкой фото" onclick="boreExportPdfOpen(${rowId})"><i class="bi bi-file-earmark-pdf"></i> Export PDF</button>
                             <button type="button" class="bore-btn edit" id="bore-edit-btn-${rowId}" onclick="boreEditStart(${rowId})"><i class="bi bi-pencil-square"></i> Edit photos</button>
                             <button type="button" class="bore-btn save d-none" id="bore-edit-save-${rowId}" onclick="boreEditSave(${rowId})"><i class="bi bi-check-lg"></i> Save</button>
